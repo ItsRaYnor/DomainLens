@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('admin.users_title') }} · {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main" class="account-main">
+        {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
+        {% if message == 'user_created' %}<div class="login-info">{{ t('common.success') }}</div>
+        {% elif message == 'user_updated' %}<div class="login-info">{{ t('common.success') }}</div>
+        {% elif message == 'password_reset' %}<div class="login-info">{{ t('common.success') }}</div>
+        {% elif message == 'user_deleted' %}<div class="login-info">{{ t('common.success') }}</div>
+        {% elif message %}<div class="login-info">{{ message }}</div>{% endif %}
+
+        <section class="account-section">
+            <h2 data-i18n="admin.create_user">{{ t('admin.create_user') }}</h2>
+            <p class="login-hint">
+                Password min {{ password_policy.min_length }} chars
+                {% if password_policy.require_upper %}+ upper{% endif %}
+                {% if password_policy.require_lower %}+ lower{% endif %}
+                {% if password_policy.require_digit %}+ digit{% endif %}
+                {% if password_policy.require_special %}+ special{% endif %}.
+            </p>
+            <form class="login-form admin-create" method="post" action="{{ url_for('admin_users_create') }}">
+                <label>Email <input type="email" name="email" required></label>
+                <label>Name <input type="text" name="name"></label>
+                <label>Role
+                    <select name="role">
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                    </select>
+                </label>
+                <label>Temporary password <input type="password" name="password" required autocomplete="new-password"></label>
+                <button type="submit" class="btn-primary-lite" data-i18n="admin.create_user">{{ t('admin.create_user') }}</button>
+            </form>
+        </section>
+
+        <section class="account-section">
+            <h2 data-i18n="admin.existing_users">{{ t('admin.existing_users') }}</h2>
+            <div class="users-table-wrap">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>MFA</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>
+                                <strong>{{ u.email }}</strong>
+                                {% if u.name %}<div class="muted">{{ u.name }}</div>{% endif %}
+                            </td>
+                            <td>{{ u.role }}</td>
+                            <td>{{ 'enabled' if u.enabled else 'disabled' }}</td>
+                            <td>{{ 'on' if u.mfa_enabled else 'off' }}</td>
+                            <td class="user-actions">
+                                <form method="post" action="{{ url_for('admin_users_toggle', user_id=u.id) }}" style="display:inline">
+                                    <button type="submit" class="btn-ghost-sm">{{ 'Disable' if u.enabled else 'Enable' }}</button>
+                                </form>
+                                <form method="post" action="{{ url_for('admin_users_reset_password', user_id=u.id) }}" class="inline-reset">
+                                    <input type="password" name="password" placeholder="New password" required autocomplete="new-password">
+                                    <button type="submit" class="btn-ghost-sm">Reset</button>
+                                </form>
+                                <form method="post" action="{{ url_for('admin_users_delete', user_id=u.id) }}" style="display:inline" onsubmit="return confirm('Delete this user?');">
+                                    <button type="submit" class="btn-ghost-sm danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the strict CSP (script-src 'self')
+       blocks inline <script>, which is why i18n never initialised here. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/page_boot.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

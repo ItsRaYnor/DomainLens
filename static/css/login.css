@@ -1,0 +1,197 @@
+.login-body {
+    min-height: 100vh;
+    background:
+        radial-gradient(ellipse at top, var(--accent-glow), transparent 55%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-card) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.login-shell {
+    width: min(460px, 100%);
+}
+
+.login-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.login-copy {
+    margin: 1.1rem 0 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+}
+
+.login-btn {
+    display: inline-flex;
+    width: 100%;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.login-error {
+    margin-top: 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    background: var(--red-bg);
+    border: 1px solid var(--red-line);
+    color: var(--red);
+    font-size: 0.88rem;
+}
+
+.login-meta {
+    margin-top: 1.25rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.login-meta code {
+    color: var(--text);
+}
+
+.login-form {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+
+.login-form label {
+    display: grid;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.login-form input,
+.login-form select {
+    width: 100%;
+    padding: 0.7rem 0.8rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+}
+
+.login-form button {
+    margin-top: 0.25rem;
+}
+
+.login-hint {
+    margin-top: 0.85rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.login-info {
+    margin-top: 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    background: var(--accent-glow);
+    border: 1px solid var(--accent-line);
+    color: var(--text);
+    font-size: 0.88rem;
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.account-main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 3rem;
+}
+
+.account-section {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.account-section h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.15rem;
+}
+
+.otpauth-uri {
+    display: block;
+    word-break: break-all;
+    padding: 0.75rem;
+    margin: 0.75rem 0;
+    border-radius: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-size: 0.78rem;
+}
+
+.backup-codes ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.5rem;
+    padding: 0;
+    list-style: none;
+}
+
+.users-table-wrap {
+    overflow-x: auto;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.users-table th,
+.users-table td {
+    text-align: left;
+    padding: 0.65rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.user-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.user-actions form {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.user-actions input {
+    width: 140px;
+    padding: 0.35rem 0.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+}
+
+.muted {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}

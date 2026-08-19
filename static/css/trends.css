@@ -1,0 +1,335 @@
+.trends-main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+}
+
+.trends-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.range-group {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.range-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.55rem 0.9rem;
+    cursor: pointer;
+}
+
+.range-btn.active,
+.range-btn:hover {
+    background: var(--bg-card);
+    color: var(--text);
+}
+
+#domainFilter {
+    flex: 1;
+    min-width: 220px;
+    padding: 0.7rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text);
+}
+
+.sn-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.kpi {
+    background: linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg-card) 100%);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.95rem 1rem;
+}
+
+.kpi .label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.kpi .value {
+    font-size: 1.45rem;
+    font-weight: 700;
+}
+
+.trends-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.trend-card h3 {
+    margin-bottom: 0.85rem;
+}
+
+.chart-wrap {
+    width: 100%;
+    min-height: 180px;
+}
+
+.chart-wrap svg {
+    width: 100%;
+    height: 180px;
+    display: block;
+}
+
+.chart-empty {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    padding: 2rem 0;
+    text-align: center;
+}
+
+.domain-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+}
+
+.domain-row:last-child {
+    border-bottom: none;
+}
+
+.domain-row .muted {
+    color: var(--text-muted);
+}
+
+@media (max-width: 800px) {
+    .trends-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Chart chrome: scope label, per-card subtitle and multi-series legend. */
+.scope-label {
+    margin: 0 0 0.85rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.scope-label.scoped {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.chart-sub {
+    margin: -0.35rem 0 0.6rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.45rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.chart-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.chart-wrap svg {
+    height: 200px;
+    color: var(--text);
+}
+
+/* Read-only integrations table on the admin settings page. */
+.integrations-card {
+    margin-bottom: 1rem;
+}
+
+.integrations-table code {
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+/* Optional API key management on the admin settings page. */
+.key-protection {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    border-left: 3px solid var(--green);
+    padding: 0.45rem 0.7rem;
+    margin: 0.6rem 0 1rem;
+    background: var(--bg-hairline);
+}
+
+.key-protection.protection-weak {
+    border-left-color: var(--orange);
+}
+
+.api-key-row {
+    border-top: 1px solid var(--border);
+    padding: 0.85rem 0;
+}
+
+.api-key-row:first-child {
+    border-top: none;
+}
+
+.api-key-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.api-key-desc {
+    font-size: 0.8rem;
+    margin: 0.3rem 0 0.5rem;
+}
+
+.api-key-controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.api-key-input {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.cred-group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 1.1rem 0 0.2rem;
+}
+
+.cred-group-head:first-child {
+    margin-top: 0.2rem;
+}
+
+.cred-group {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.cred-group-head .group-test-btn {
+    font-size: 0.78rem;
+    padding: 0.25rem 0.65rem;
+}
+
+.api-key-test-result {
+    font-size: 0.82rem;
+    margin: 0.35rem 0 0.5rem;
+}
+
+.api-key-test-result:empty {
+    display: none;
+}
+
+.api-key-test-result.ok {
+    color: var(--green);
+}
+
+.api-key-test-result.fail {
+    color: var(--red);
+}
+
+.api-key-controls .api-key-test {
+    margin-left: auto;
+}
+
+/* Clickable KPI tiles + drill-down panel. */
+.kpi-clickable {
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.kpi-clickable:hover,
+.kpi-clickable:focus-visible {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.kpi-clickable::after {
+    content: "›";
+    float: right;
+    margin-top: -1.35rem;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.drilldown-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.drilldown-head h3 {
+    margin: 0;
+}
+
+.drilldown .muted {
+    font-size: 0.82rem;
+    margin: 0.35rem 0 0.75rem;
+}
+
+.table-scroll {
+    overflow-x: auto;
+}
+
+.drill-table {
+    width: 100%;
+    font-size: 0.85rem;
+}
+
+.drill-table th {
+    text-align: left;
+    white-space: nowrap;
+}
+
+.drill-table td {
+    white-space: nowrap;
+}
+
+.drill-table .btn-ghost {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.55rem;
+}

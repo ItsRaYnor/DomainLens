@@ -1,0 +1,23 @@
+<!-- Shared footer: version + optional update badge -->
+<footer class="app-footer">
+    <p>
+        {{ general.app_title or 'DomainLens' }}
+        <span class="version-chip" id="appVersionChip" title="Application version">v{{ app_version or '?' }}</span>
+        {% if app_version_info and app_version_info.git_revision %}
+        {# The version only moves on a release, so it cannot tell two builds
+           apart. The commit is what actually identifies what is running. #}
+        <a class="commit-chip"
+           href="https://github.com/{{ update_repo }}/commit/{{ app_version_info.git_revision }}"
+           target="_blank" rel="noopener noreferrer"
+           title="Running commit {{ app_version_info.git_revision }}">{{ app_version_info.git_revision[:7] }}</a>
+        {% endif %}
+        &mdash; {{ general.app_subtitle or 'Domain Intelligence Toolkit' }}
+    </p>
+    <p class="footer-links">
+        <a href="/trends" data-i18n="nav.trends">{{ t('nav.trends') }}</a>
+        <span class="dot">·</span>
+        <a href="/api/version" target="_blank" rel="noopener" data-i18n="footer.api_version">{{ t('footer.api_version') }}</a>
+        <span class="dot">·</span>
+        <span id="updateStatus" class="update-status muted" hidden></span>
+    </p>
+</footer>

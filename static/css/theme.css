@@ -1,0 +1,485 @@
+/* ===========================================================================
+   Design tokens and the base element layer.
+   ---------------------------------------------------------------------------
+   Loaded before every other stylesheet, on every page.
+
+   Two rules kept this interface from having a house style, and both were
+   absences rather than mistakes:
+
+     - Nothing styled `input`, `select` or `textarea`. Three containers styled
+       their own fields; every field outside them was painted by the browser —
+       a white box with black text on a dark page.
+     - Nothing styled `a`. Only `:hover`, and only inside particular blocks.
+
+   So the base layer below is written with element selectors. Anything added
+   to the app later inherits the house style without anyone having to
+   remember to reach for a class.
+
+   Themes are three states, not two. An explicit choice stamps
+   `data-theme="light"` or `data-theme="dark"` on <html>; with no choice at
+   all the attribute is absent and `prefers-color-scheme` decides. Every
+   literal colour therefore has a value in each of the three blocks, and no
+   colour is defined only inside a media query.
+   =========================================================================== */
+
+:root {
+    color-scheme: light;
+
+    /* --- The one thing a user picks. Hue and saturation are their choice;
+       lightness belongs to the theme, so only lightness changes below. Every
+       accent shade is derived from these three so a custom colour reaches
+       hovers, rings and glows instead of repainting one button. --- */
+    --accent-h: 220;
+    --accent-s: 85%;
+    --accent-l: 45%;
+
+    --accent: hsl(var(--accent-h) var(--accent-s) var(--accent-l));
+    --accent-hover: hsl(var(--accent-h) var(--accent-s) calc(var(--accent-l) - 9%));
+    --accent-deep: hsl(var(--accent-h) var(--accent-s) calc(var(--accent-l) - 16%));
+    --accent-soft: hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.09);
+    --accent-glow: hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.18);
+    --accent-line: hsl(var(--accent-h) var(--accent-s) var(--accent-l) / 0.38);
+    --link: var(--accent);
+    --link-hover: var(--accent-hover);
+
+    /* --- Surfaces --- */
+    --bg: #f4f6fa;
+    --bg-card: #ffffff;
+    --bg-card-hover: #eef2f8;
+    --bg-input: #ffffff;
+    --bg-subtle: #e9edf4;
+    --bg-hairline: rgba(16, 20, 27, 0.035);
+    --bg-overlay: rgba(16, 20, 27, 0.45);
+    --header-from: #ffffff;
+    --header-to: #eaeff7;
+
+    /* --- Ink. Muted is 6.2:1 on the page background, not the 4.0:1 the old
+       dark-only palette shipped: "subdued" and "hard to read" are different
+       things. --- */
+    --text: #10141b;
+    --text-muted: #566073;
+    --text-faint: #6f7a8d;
+    --text-on-accent: #ffffff;
+
+    /* --- Lines --- */
+    --border: #d6dce6;
+    --border-hover: #aeb9c9;
+
+    /* --- Status. The foreground of each pair clears 4.5:1 on --bg-card. --- */
+    --green: #0f7a4d;
+    --green-bg: rgba(15, 122, 77, 0.10);
+    --green-line: rgba(15, 122, 77, 0.30);
+    --red: #c02626;
+    --red-bg: rgba(192, 38, 38, 0.10);
+    --red-line: rgba(192, 38, 38, 0.30);
+    --orange: #98620a;
+    --orange-bg: rgba(152, 98, 10, 0.10);
+    --orange-line: rgba(152, 98, 10, 0.30);
+    --lime: #4d7c0f;
+    --purple: #6d43d4;
+
+    /* --- Severity. Text/line for chips and rules, a solid badge for the
+       pill. Badges stay saturated in both themes so white sits on them. --- */
+    --sev-critical: #8f1d1d;
+    --sev-high: #c02626;
+    --sev-medium: #98620a;
+    --sev-low: #8a6414;
+    --sev-info: var(--accent);
+    --sev-critical-badge: #7f1d1d;
+    --sev-high-badge: #b91c1c;
+    --sev-medium-badge: #c2410c;
+    --sev-low-badge: #b45309;
+    --sev-info-badge: var(--accent-deep);
+
+    /* --- Grades --- */
+    --grade-a: var(--green);
+    --grade-b: var(--lime);
+    --grade-c: var(--orange);
+    --grade-d: #c2410c;
+    --grade-f: var(--red);
+
+    /* Severity badges keep a saturated dark fill in both themes, so their
+       label is white in both. --text-on-accent inverts; this must not. */
+    --text-on-solid: #ffffff;
+
+    /* A QR code is read by a camera, not by a person, so its plate stays
+       white in both themes: inverted, half the scanners refuse it. */
+    --qr-plate: #ffffff;
+
+    /* --- Shape, depth, motion --- */
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+    --shadow: 0 1px 2px rgba(16, 20, 27, 0.06), 0 2px 8px rgba(16, 20, 27, 0.06);
+    --shadow-lg: 0 8px 32px rgba(16, 20, 27, 0.14);
+    --transition: 0.2s ease;
+
+    /* --- One control scale. The scan box is the only larger variant, and it
+       is larger because it is the page's primary action, not by accident. --- */
+    --control-h: 40px;
+    --control-h-lg: 48px;
+    --control-pad: 0.5rem 0.7rem;
+    --control-pad-lg: 0.8rem 1rem;
+    --control-radius: var(--radius-sm);
+    --focus-ring: 0 0 0 3px var(--accent-glow);
+
+    /* --- Type and rhythm --- */
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas,
+                 "Liberation Mono", monospace;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.5rem;
+    --space-6: 2rem;
+}
+
+/* Dark, as the system preference. Guarded so that a viewer who explicitly
+   chooses light on a dark OS actually gets light. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --accent-l: 66%;
+
+        --bg: #0b0d12;
+        --bg-card: #13151c;
+        --bg-card-hover: #181b24;
+        --bg-input: #181b24;
+        --bg-subtle: #1a1e28;
+        --bg-hairline: rgba(255, 255, 255, 0.02);
+        --bg-overlay: rgba(0, 0, 0, 0.55);
+        --header-from: #0e1018;
+        --header-to: #161a28;
+
+        --text: #e8eaf0;
+        --text-muted: #99a2b6;
+        --text-faint: #7f8899;
+        --text-on-accent: #07101f;
+
+        --border: #23272f;
+        --border-hover: #333842;
+
+        --green: #34d399;
+        --green-bg: rgba(52, 211, 153, 0.10);
+        --green-line: rgba(52, 211, 153, 0.30);
+        --red: #f87171;
+        --red-bg: rgba(248, 113, 113, 0.10);
+        --red-line: rgba(248, 113, 113, 0.30);
+        --orange: #fbbf24;
+        --orange-bg: rgba(251, 191, 36, 0.10);
+        --orange-line: rgba(251, 191, 36, 0.30);
+        --lime: #a3e635;
+        --purple: #a78bfa;
+
+        --sev-critical: #fca5a5;
+        --sev-high: #f87171;
+        --sev-medium: #fbbf24;
+        --sev-low: #fde68a;
+        --sev-critical-badge: #7f1d1d;
+        --sev-high-badge: #b91c1c;
+        --sev-medium-badge: #c2410c;
+        --sev-low-badge: #b45309;
+
+        --grade-d: #fb923c;
+
+        /* Deliberately unchanged: read by a camera / sits on a dark fill. */
+        --qr-plate: #ffffff;
+        --text-on-solid: #ffffff;
+
+        --shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+}
+
+/* Dark, chosen. Same values; this block wins over the media query above in
+   both directions, so the toggle works on a light OS as well as a dark one. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --accent-l: 66%;
+
+    --bg: #0b0d12;
+    --bg-card: #13151c;
+    --bg-card-hover: #181b24;
+    --bg-input: #181b24;
+    --bg-subtle: #1a1e28;
+    --bg-hairline: rgba(255, 255, 255, 0.02);
+    --bg-overlay: rgba(0, 0, 0, 0.55);
+    --header-from: #0e1018;
+    --header-to: #161a28;
+
+    --text: #e8eaf0;
+    --text-muted: #99a2b6;
+    --text-faint: #7f8899;
+    --text-on-accent: #07101f;
+
+    --border: #23272f;
+    --border-hover: #333842;
+
+    --green: #34d399;
+    --green-bg: rgba(52, 211, 153, 0.10);
+    --green-line: rgba(52, 211, 153, 0.30);
+    --red: #f87171;
+    --red-bg: rgba(248, 113, 113, 0.10);
+    --red-line: rgba(248, 113, 113, 0.30);
+    --orange: #fbbf24;
+    --orange-bg: rgba(251, 191, 36, 0.10);
+    --orange-line: rgba(251, 191, 36, 0.30);
+    --lime: #a3e635;
+    --purple: #a78bfa;
+
+    --sev-critical: #fca5a5;
+    --sev-high: #f87171;
+    --sev-medium: #fbbf24;
+    --sev-low: #fde68a;
+    --sev-critical-badge: #7f1d1d;
+    --sev-high-badge: #b91c1c;
+    --sev-medium-badge: #c2410c;
+    --sev-low-badge: #b45309;
+
+    --grade-d: #fb923c;
+
+    /* Deliberately unchanged: read by a camera / sits on a dark fill. */
+    --qr-plate: #ffffff;
+    --text-on-solid: #ffffff;
+
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* ===== Base layer ===== */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Links. The whole point of the base layer: an anchor built in JavaScript,
+   with no class on it, still looks like this app. */
+a {
+    color: var(--link);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-line);
+    text-underline-offset: 0.15em;
+    transition: color var(--transition), text-decoration-color var(--transition);
+}
+
+a:hover {
+    color: var(--link-hover);
+    text-decoration-color: currentColor;
+}
+
+/* Navigation, buttons and chips are anchors too, and an underline under each
+   one turns the chrome into a rash. They opt out; body copy does not. */
+a.nav-item,
+a.subnav-item,
+a.btn-ghost,
+a.btn-primary,
+a.btn-primary-lite,
+a.btn-icon,
+a.btn-icon-sm,
+a.btn-sub,
+a.logo-row,
+a.chip,
+a.skip-link {
+    text-decoration: none;
+}
+
+/* Form controls. One background, one text colour, one size. */
+input,
+select,
+textarea {
+    font: inherit;
+    font-family: var(--font-sans);
+    color: var(--text);
+    background-color: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--control-radius);
+    padding: var(--control-pad);
+    min-height: var(--control-h);
+    max-width: 100%;
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+textarea {
+    min-height: 7rem;
+    resize: vertical;
+    font-family: var(--font-mono);
+    line-height: 1.5;
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+    border-color: var(--border-hover);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: var(--focus-ring);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-faint);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Checkboxes and radios are not text fields and must not inherit the box. */
+input[type="checkbox"],
+input[type="radio"] {
+    min-height: 0;
+    padding: 0;
+    accent-color: var(--accent);
+}
+
+input[type="color"] {
+    padding: 2px;
+    min-width: 3rem;
+    cursor: pointer;
+}
+
+/* A button with no class used to fall back to the browser's grey chrome, and
+   several do have no class — the lookup and scan submits among them. Stripping
+   the element to nothing turned those into bare text, so the base is a real
+   secondary button instead. Anything that wants to be bare says so with a
+   class; that way the plain case is the styled one. */
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    font: inherit;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--text);
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--control-radius);
+    padding: var(--control-pad);
+    min-height: var(--control-h);
+    cursor: pointer;
+    transition: background-color var(--transition), border-color var(--transition),
+                color var(--transition);
+}
+
+button:hover:not(:disabled) {
+    border-color: var(--accent);
+    background-color: var(--bg-card-hover);
+}
+
+/* The unadorned kind: toolbar toggles, icon buttons, menu rows. */
+button.btn-bare,
+button.check-toggle,
+button.theme-option,
+button.tab,
+button.btn-icon,
+button.btn-icon-sm,
+button[role="menuitem"] {
+    background-color: transparent;
+    border-color: transparent;
+    min-height: 0;
+    font-weight: inherit;
+    font-size: inherit;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* One visible focus treatment for everything reachable by keyboard. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+code, pre, .mono {
+    font-family: var(--font-mono);
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border);
+}
+
+::selection {
+    background: var(--accent-glow);
+}
+
+/* ===== Icons ===== */
+
+.icon {
+    width: 1em;
+    height: 1em;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -0.125em;
+}
+
+.icon-lg { width: 1.25em; height: 1.25em; }
+
+/* The sprite itself is markup, not a picture. */
+.icon-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+/* Paper has no dark mode. Whatever the reader works in, a printed page is
+   light: a dark one wastes toner and reads badly. */
+@media print {
+    :root {
+        --bg: #ffffff;
+        --bg-card: #ffffff;
+        --bg-card-hover: #ffffff;
+        --bg-input: #ffffff;
+        --bg-subtle: #f3f4f6;
+        --bg-hairline: rgba(16, 20, 27, 0.04);
+        --text: #111827;
+        --text-muted: #4b5563;
+        --text-faint: #6b7280;
+        --border: #e5e7eb;
+        --border-hover: #d1d5db;
+        --shadow: none;
+        --shadow-lg: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

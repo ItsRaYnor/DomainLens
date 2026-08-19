@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DomainLens Login</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body class="login-body">
+    <main class="login-shell">
+        <section class="login-card">
+            <div class="logo-row">
+                <div class="logo-mark">DL</div>
+                <div>
+                    <h1>DomainLens</h1>
+                    <p class="subtitle">Sign in to continue</p>
+                </div>
+            </div>
+
+            {% if error %}
+            <div class="login-error">
+                {% if error == 'oauth_not_configured' %}
+                OAuth2 is enabled but not fully configured. Set client ID/secret and endpoints.
+                {% elif error == 'oauth_disabled' %}
+                OAuth2 login is currently disabled.
+                {% elif error == 'saml_disabled' %}
+                SAML login is currently disabled.
+                {% elif error == 'saml_not_configured' %}
+                SAML is enabled but IdP SSO URL is not configured.
+                {% elif error == 'saml_failed' %}
+                Sign-in failed. Try again, or use a local backup account.
+                {% elif error == 'access_denied' %}
+                Your account is not allowed to access DomainLens.
+                {% elif error == 'invalid_state' %}
+                Login state mismatch. Please try again.
+                {% elif error == 'token_exchange_failed' %}
+                Sign-in could not be completed. Use a local backup account if single sign-on is unavailable.
+                {% elif error == 'mfa_session_expired' %}
+                MFA session expired. Sign in again.
+                {% else %}
+                {{ error }}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if message %}
+            <div class="login-info">{{ message }}</div>
+            {% endif %}
+
+            {# Preferred: OAuth 2 / OpenID Connect (Azure App Registration) #}
+            {% if auth_cfg.oauth_configured %}
+            <p class="login-copy">
+                <strong>Preferred:</strong> sign in with
+                <strong>{{ auth_cfg.display_name or auth_cfg.provider }}</strong>
+                (OAuth 2 / OpenID Connect).
+            </p>
+            <a class="btn-primary-lite login-btn" href="{{ url_for('auth_login_start', next=next_url) }}">
+                Continue with {{ auth_cfg.display_name or (auth_cfg.provider|capitalize) }}
+            </a>
+            {% elif auth_cfg.oauth_enabled %}
+            <p class="login-copy">
+                OAuth2 is enabled, but provider settings are incomplete. Configure Azure App Registration and restart.
+            </p>
+            {% endif %}
+
+            {# Legacy: SAML #}
+            {% if auth_cfg.saml and auth_cfg.saml.configured %}
+            {% if auth_cfg.oauth_configured %}
+            <div class="login-divider"><span>or legacy SAML</span></div>
+            {% endif %}
+            <p class="login-copy">
+                SAML SSO is available as a <strong>legacy</strong> option. Prefer OAuth when possible.
+            </p>
+            <a class="btn-ghost login-btn" href="{{ url_for('auth_saml_login', next=next_url) }}">
+                {{ auth_cfg.saml.display_name or 'Continue with SAML' }}
+            </a>
+            {% endif %}
+
+            {# Backup: local accounts (Entra outage / app registration failure) #}
+            {% if auth_cfg.local_enabled %}
+            {% if auth_cfg.oauth_configured or (auth_cfg.saml and auth_cfg.saml.configured) %}
+            <div class="login-divider"><span>local backup</span></div>
+            <p class="login-copy">
+                Use a <strong>local backup account</strong> if single sign-on is unavailable.
+            </p>
+            {% endif %}
+            <form class="login-form" method="post" action="{{ url_for('auth_local_login') }}">
+                <input type="hidden" name="next" value="{{ next_url }}">
+                <label>
+                    Email
+                    <input type="email" name="email" autocomplete="username" required>
+                </label>
+                <label>
+                    Password
+                    <input type="password" name="password" autocomplete="current-password" required>
+                </label>
+                <button type="submit" class="btn-primary-lite login-btn">Sign in with local account</button>
+            </form>
+            {# The password policy used to be printed here. Someone signing in
+               already has a password; the only reader it helped was one
+               building a wordlist, who learned the exact minimum length and
+               character classes to generate. It lives on the change-password
+               form instead, where it is needed. Whether MFA is required is
+               likewise only useful to someone deciding if a stolen password
+               is enough on its own. #}
+            {% endif %}
+
+            {% if not auth_cfg.local_enabled and not auth_cfg.oauth_enabled and not (auth_cfg.saml and auth_cfg.saml.enabled) %}
+            <p class="login-copy">
+                Authentication is disabled. Set <code>AUTH_LOCAL_ENABLED=1</code> and/or <code>OAUTH_ENABLED=1</code> to require sign-in.
+            </p>
+            <a class="btn-ghost" href="/">Back to scanner</a>
+            {% endif %}
+
+            {# A diagnostics block used to sit here, listing the OAuth
+               provider, the Entra tenant ID, the SCIM endpoint with its auth
+               mode, and whether local accounts exist. All of it was served to
+               anonymous visitors. None of it helps anyone sign in: it maps
+               the authentication surface for whoever is deciding where to
+               push. The operator can read the same settings at
+               /admin/settings, behind the login. #}
+        </section>
+    </main>
+</body>
+</html>

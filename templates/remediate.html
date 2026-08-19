@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DomainLens — Remediate</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body class="login-body">
+    <main class="login-shell" style="max-width:42rem">
+        <section class="login-card">
+            <div class="logo-row">
+                <div class="logo-mark">DL</div>
+                <div>
+                    <h1>DomainLens</h1>
+                    <p class="subtitle">Remediation from ServiceNow</p>
+                </div>
+            </div>
+
+            <p class="login-hint">
+                Ownership and assignment stay in ServiceNow. Use this page for fix guidance and retest.
+            </p>
+
+            {% if finding %}
+            <h2 style="margin:1rem 0 0.35rem;font-size:1.15rem">{{ finding.title }}</h2>
+            <p class="login-meta">
+                <span>Severity: <code>{{ finding.severity }}</code></span>
+                {% if finding.cvss %} · CVSS <code>{{ finding.cvss }}</code>{% endif %}
+                {% if finding.hostname %} · Host <code>{{ finding.hostname }}</code>{% endif %}
+                {% if finding.domain %} · Domain <code>{{ finding.domain }}</code>{% endif %}
+            </p>
+
+            {% if advies %}
+            <div style="margin-top:1.25rem">
+                <h3 style="font-size:0.95rem;margin-bottom:0.35rem">Problem</h3>
+                <p class="login-copy">{{ advies.problem }}</p>
+                <h3 style="font-size:0.95rem;margin:1rem 0 0.35rem">Fix</h3>
+                <p class="login-copy">{{ advies.fix }}</p>
+                <h3 style="font-size:0.95rem;margin:1rem 0 0.35rem">Retest</h3>
+                <p class="login-copy">{{ advies.retest }}</p>
+            </div>
+            {% else %}
+            {% if finding.solution %}
+            <h3 style="font-size:0.95rem;margin:1rem 0 0.35rem">Solution</h3>
+            <p class="login-copy">{{ finding.solution }}</p>
+            {% endif %}
+            {% if finding.description %}
+            <h3 style="font-size:0.95rem;margin:1rem 0 0.35rem">Description</h3>
+            <p class="login-copy">{{ finding.description }}</p>
+            {% endif %}
+            {% endif %}
+
+            {% if finding.cves %}
+            <p class="login-meta" style="margin-top:1rem">
+                CVEs:
+                {% for cve in finding.cves %}
+                <code>{{ cve }}</code>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+            {% endif %}
+
+            {% include "partials/_remediate_actions.html" %}
+            {% elif domain %}
+            <h2 style="margin:1rem 0 0.35rem;font-size:1.15rem">Domain: {{ domain }}</h2>
+            <p class="login-copy">
+                Findings for this domain, with what to change and how to verify it afterwards.
+            </p>
+            {% include "partials/_remediate_actions.html" %}
+            {% else %}
+            <p class="login-error">Finding not found. It may have been removed from DomainLens.</p>
+            <a class="btn-ghost" href="/remediate">Back to Remediation</a>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>

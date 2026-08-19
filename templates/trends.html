@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DomainLens Trends</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/trends.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main class="trends-main">
+        <section class="trends-toolbar">
+            <div class="range-group" id="rangeGroup">
+                <button data-days="7" class="range-btn">7d</button>
+                <button data-days="30" class="range-btn active">30d</button>
+                <button data-days="90" class="range-btn">90d</button>
+            </div>
+            <input type="text" id="domainFilter" placeholder="Filter domain (optional)">
+            <button class="btn-ghost" id="clearFilterBtn" type="button">Clear</button>
+            <div id="snStatus" class="sn-status"></div>
+        </section>
+
+        <p class="scope-label" id="scopeLabel"></p>
+
+        <section class="kpi-grid" id="kpiGrid"></section>
+
+        <section class="card drilldown hidden" id="drilldown">
+            <div class="drilldown-head">
+                <h3 id="drilldownTitle"></h3>
+                <button type="button" class="btn-ghost" id="drilldownClose">Close</button>
+            </div>
+            <p class="muted" id="drilldownNote"></p>
+            <div id="drilldownBody"></div>
+        </section>
+
+        <section class="trends-grid">
+            <article class="card trend-card">
+                <h3>Issues over time</h3>
+                <p class="chart-sub">Average findings per scan, per day. Hover a day for exact values.</p>
+                <div class="chart-wrap" id="issuesChart"></div>
+            </article>
+            <article class="card trend-card">
+                <h3>TLS / header scores</h3>
+                <p class="chart-sub">Both scores on a fixed 0–100 scale, so the lines are directly comparable.</p>
+                <div class="chart-wrap" id="scoreChart"></div>
+            </article>
+            <article class="card trend-card">
+                <h3>Scan volume</h3>
+                <p class="chart-sub">Number of scans recorded per day.</p>
+                <div class="chart-wrap" id="volumeChart"></div>
+            </article>
+            <article class="card trend-card">
+                <h3>Event severity</h3>
+                <p class="chart-sub">Monitor events per day, stacked by severity.</p>
+                <div class="chart-wrap" id="eventsChart"></div>
+            </article>
+        </section>
+
+        <section class="card">
+            <h3>Noisiest domains</h3>
+            <div id="topDomains"></div>
+        </section>
+    </main>
+
+    <script src="/static/js/trends.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

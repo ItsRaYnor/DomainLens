@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ general.app_title or 'DomainLens' }} - {{ general.app_subtitle or 'Domain Intelligence Toolkit' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main">
+        <section class="search-section">
+            <div class="search-box">
+                <div class="input-wrap">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="domainInput" data-i18n="search.placeholder" data-i18n-attr="placeholder" placeholder="{{ t('search.placeholder') }}" autocomplete="off" spellcheck="false">
+
+                </div>
+                <button id="scanBtn" data-i18n="search.scan">{{ t('search.scan') }}</button>
+            </div>
+            <div class="check-panel" id="checkOptions">
+                <div class="check-panel-head">
+                    <label class="check-all">
+                        <input type="checkbox" value="all" checked>
+                        <span>Full scan &mdash; run all checks</span>
+                    </label>
+                    <button type="button" class="check-toggle" id="checkToggle" aria-expanded="false">
+                        <span>Pick specific checks</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                </div>
+
+                <div class="check-groups hidden" id="checkGroups">
+                    <div class="check-group" data-group="domain">
+                        <div class="check-group-head">
+                            <label class="check-group-toggle"><input type="checkbox" class="group-all" data-group="domain"> Domain &amp; DNS</label>
+                        </div>
+                        <div class="check-tiles">
+                            <label class="check-tile"><input type="checkbox" value="whois" class="check-item"><span class="ct-body"><span class="ct-name">WHOIS</span><span class="ct-desc">Registrar, owner &amp; expiry date</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="dns" class="check-item"><span class="ct-body"><span class="ct-name">DNS</span><span class="ct-desc">A, AAAA, MX, NS, TXT, CAA records</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="dnssec" class="check-item"><span class="ct-body"><span class="ct-name">DNSSEC</span><span class="ct-desc">DNS signature validation</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="ipv6" class="check-item"><span class="ct-body"><span class="ct-name">IPv6</span><span class="ct-desc">AAAA support for web, mail &amp; NS</span></span></label>
+                        </div>
+                    </div>
+
+                    <div class="check-group" data-group="email">
+                        <div class="check-group-head">
+                            <label class="check-group-toggle"><input type="checkbox" class="group-all" data-group="email"> Email Security</label>
+                        </div>
+                        <div class="check-tiles">
+                            <label class="check-tile"><input type="checkbox" value="spf" class="check-item"><span class="ct-body"><span class="ct-name">SPF</span><span class="ct-desc">Anti-spoofing sender policy</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="dmarc" class="check-item"><span class="ct-body"><span class="ct-name">DMARC</span><span class="ct-desc">Mail authentication policy</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="dkim" class="check-item"><span class="ct-body"><span class="ct-name">DKIM</span><span class="ct-desc">Mail signing keys (common selectors)</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="mta_sts" class="check-item"><span class="ct-body"><span class="ct-name">MTA-STS</span><span class="ct-desc">Enforced TLS for inbound mail</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="tlsrpt" class="check-item"><span class="ct-body"><span class="ct-name">TLS-RPT</span><span class="ct-desc">TLS failure reporting</span></span></label>
+                        </div>
+                        <div class="dkim-custom-selectors">
+                            <label for="customDkimSelectors">Custom DKIM selectors <span class="ct-desc">(comma-separated, e.g. <code>zmail,resend</code> — checked in addition to the built-in list, remembered on this device)</span></label>
+                            <input type="text" id="customDkimSelectors" placeholder="e.g. myselector, custom01">
+                        </div>
+                        <div class="dkim-custom-selectors">
+                            <label class="check-tile"><input type="checkbox" id="forceRefreshInput"><span class="ct-body"><span class="ct-name">Force fresh third-party lookups</span><span class="ct-desc">Certificate Transparency (crt.sh) and the OSINT feeds are reused for a day so repeat scans do not hammer them. Tick this to ask them again now.</span></span></label>
+                        </div>
+                    </div>
+
+                    <div class="check-group" data-group="ssl">
+                        <div class="check-group-head">
+                            <label class="check-group-toggle"><input type="checkbox" class="group-all" data-group="ssl"> SSL / TLS</label>
+                        </div>
+                        <div class="check-tiles">
+                            <label class="check-tile"><input type="checkbox" value="ssl" class="check-item"><span class="ct-body"><span class="ct-name">SSL/TLS</span><span class="ct-desc">Certificate details &amp; expiry</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="tls_deep" class="check-item"><span class="ct-body"><span class="ct-name">TLS Scan</span><span class="ct-desc">Qualys-style deep grade (A+ to F)</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="ncsc_tls" class="check-item"><span class="ct-body"><span class="ct-name">NCSC TLS</span><span class="ct-desc">Dutch NCSC TLS 2025 guideline check</span></span></label>
+                        </div>
+                    </div>
+
+                    <div class="check-group" data-group="web">
+                        <div class="check-group-head">
+                            <label class="check-group-toggle"><input type="checkbox" class="group-all" data-group="web"> Web &amp; HTTP</label>
+                        </div>
+                        <div class="check-tiles">
+                            <label class="check-tile"><input type="checkbox" value="http_headers" class="check-item"><span class="ct-body"><span class="ct-name">Headers</span><span class="ct-desc">Security headers (HSTS, CSP...)</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="https_redirect" class="check-item"><span class="ct-body"><span class="ct-name">HTTPS</span><span class="ct-desc">HTTP to HTTPS redirect check</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="http_deep" class="check-item"><span class="ct-body"><span class="ct-name">HTTP Analysis</span><span class="ct-desc">Hosting, CDN/WAF &amp; 4xx diagnosis</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="hubspot_cf" class="check-item"><span class="ct-body"><span class="ct-name">HubSpot / CF</span><span class="ct-desc">HubSpot behind Cloudflare checks</span></span></label>
+                        </div>
+                    </div>
+
+                    <div class="check-group" data-group="network">
+                        <div class="check-group-head">
+                            <label class="check-group-toggle"><input type="checkbox" class="group-all" data-group="network"> Network &amp; OSINT</label>
+                        </div>
+                        <div class="check-tiles">
+                            <label class="check-tile"><input type="checkbox" value="blacklist" class="check-item"><span class="ct-body"><span class="ct-name">Blacklist</span><span class="ct-desc">DNSBL / spam blacklist check</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="ports" class="check-item"><span class="ct-body"><span class="ct-name">Ports</span><span class="ct-desc">Scan of 17 common open ports</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="osint" class="check-item"><span class="ct-body"><span class="ct-name">OSINT</span><span class="ct-desc">CT logs, Wayback, IP/ASN, threat feeds</span></span></label>
+                        </div>
+                    </div>
+
+                    <div class="check-group check-group-wide" data-group="security">
+                        <div class="check-group-head">
+                            <label class="check-group-toggle"><input type="checkbox" class="group-all" data-group="security"> Security Audit <span class="group-tag">blindspots</span></label>
+                        </div>
+                        <div class="check-tiles">
+                            <label class="check-tile"><input type="checkbox" value="security" class="check-item"><span class="ct-body"><span class="ct-name">Security Audit</span><span class="ct-desc">Subdomain takeover, exposed files/.git/.env, CORS, HTTP methods, AXFR, CAA, SPF-lookups, tech fingerprint &mdash; slower, more requests</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="js_scan" class="check-item"><span class="ct-body"><span class="ct-name">JS Dependency &amp; Secrets</span><span class="ct-desc">Vulnerable JS libraries (CVEs), leaked API keys/secrets in client-side code, missing SRI &mdash; passive, safe on any domain</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="weak_auth" class="check-item"><span class="ct-body"><span class="ct-name">Weak Auth <span class="group-tag" style="color:var(--red)">active</span></span><span class="ct-desc">Tries default credentials against login forms. Off by default; only for systems you are authorized to test.</span></span></label>
+                            <label class="check-tile"><input type="checkbox" value="active_scan" class="check-item"><span class="ct-body"><span class="ct-name">Active Vuln Scan <span class="group-tag" style="color:var(--red)">active</span></span><span class="ct-desc">Live XSS, open-redirect &amp; SQL-injection probes. Off by default; only run against sites you own or are authorized to test.</span></span></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DNS lookup: check a record you just changed, without a terminal -->
+        <section class="card" id="dnsLookupCard">
+            <details id="dnsLookupDetails">
+                <summary><strong>DNS lookup</strong> <span class="ct-desc">&mdash; check a single record, like <code>dig</code></span></summary>
+                <div class="dns-lookup-form">
+                    <input type="text" id="dnsLookupName" placeholder="send.example.com" autocomplete="off">
+                    <select id="dnsLookupType"></select>
+                    <select id="dnsLookupResolver"></select>
+                    <button class="btn-primary-lite" id="dnsLookupBtn" type="button">Look up</button>
+                </div>
+                <p class="ct-desc">The resolver list is fixed on purpose: accepting an address would turn this into a way to probe port 53 on any host this server can reach. <code>authoritative</code> asks the zone's own nameservers, which skips every cache &mdash; use it to see whether a change has actually been published.</p>
+                <div id="dnsLookupResult"></div>
+            </details>
+        </section>
+
+        <!-- Error toast -->
+        <div id="errorToast" class="toast hidden"></div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p><span id="loadingText"></span><span id="loadingDomain" class="sr-only"></span></p>
+            <div class="scan-progress">
+                <div class="scan-progress-bar"><div id="scanProgressFill"></div></div>
+                <p class="scan-progress-meta">
+                    <span id="scanPercent">0%</span>
+                    <span id="scanStep" class="muted"></span>
+                </p>
+            </div>
+            <p class="loading-sub" data-i18n="loading.hint">{{ t('loading.hint') }}</p>
+        </div>
+
+        <div id="results" class="hidden fade-in">
+            <div class="results-header">
+                <h2><span id="resultsTitle"></span><span id="resultDomain" class="sr-only"></span></h2>
+                <div id="apexNote" class="apex-note hidden"></div>
+                <div class="results-actions">
+                    <button class="btn-icon" id="reportBtn" title="{{ t('results.report') }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                        <span data-i18n="results.report">{{ t('results.report') }}</span>
+                    </button>
+                    <div class="export-menu">
+                        <button class="btn-icon" id="exportBtn" title="{{ t('results.export') }}" type="button" aria-haspopup="true" aria-expanded="false">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span data-i18n="results.export">{{ t('results.export') }}</span>
+                        </button>
+                        <div class="export-dropdown hidden" id="exportDropdown" role="menu">
+                            <button type="button" data-export="json" role="menuitem">{{ t('results.export_json') }}</button>
+                            <button type="button" data-export="markdown" role="menuitem">{{ t('results.export_markdown') }}</button>
+                            <button type="button" data-export="csv" role="menuitem">{{ t('results.export_csv') }}</button>
+                            <button type="button" data-export="report" role="menuitem">{{ t('results.open_report') }}</button>
+                        </div>
+                    </div>
+                    <span id="resultTimestamp" class="timestamp"></span>
+                </div>
+            </div>
+
+            <!-- Score Overview -->
+            <section id="scoreOverview" class="card score-card hidden">
+                <h3 data-i18n="results.security_overview">{{ t('results.security_overview') }}</h3>
+                <div class="score-grid" id="scoreGrid"></div>
+            </section>
+
+            <!-- Tabs -->
+            {# Ten flat tabs implied ten equally important views. They are
+               grouped by the question they answer, with Findings first
+               because it is the one you almost always want. The Platform
+               group hides itself when nothing was detected — an always-empty
+               tab is worse than no tab. #}
+            <div class="tabs" id="tabs">
+                <div class="tab-group">
+                    <span class="tab-group-label" data-i18n="tabs.findings">{{ t('tabs.findings') }}</span>
+                    <button class="tab active" data-tab="recommendations"><span data-i18n="tabs.advies">{{ t('tabs.advies') }}</span> <span class="tab-badge" id="recBadge"></span></button>
+                    <button class="tab" data-tab="security">Security Audit <span class="tab-badge" id="secBadge"></span></button>
+                </div>
+                <div class="tab-group">
+                    <span class="tab-group-label" data-i18n="tabs.registration">{{ t('tabs.registration') }}</span>
+                    <button class="tab" data-tab="whois" data-i18n="tabs.whois">{{ t('tabs.whois') }}</button>
+                    <button class="tab" data-tab="dns" data-i18n="tabs.dns">{{ t('tabs.dns') }}</button>
+                </div>
+                <div class="tab-group">
+                    <span class="tab-group-label" data-i18n="tabs.email">{{ t('tabs.email') }}</span>
+                    <button class="tab" data-tab="email" data-i18n="tabs.email">{{ t('tabs.email') }}</button>
+                </div>
+                <div class="tab-group">
+                    <span class="tab-group-label" data-i18n="tabs.transport">{{ t('tabs.transport') }}</span>
+                    <button class="tab" data-tab="ssl" data-i18n="tabs.ssl">{{ t('tabs.ssl') }}</button>
+                    <button class="tab" data-tab="web" data-i18n="tabs.web">{{ t('tabs.web') }}</button>
+                    <button class="tab" data-tab="network" data-i18n="tabs.network">{{ t('tabs.network') }}</button>
+                </div>
+                <div class="tab-group hidden" id="tabGroupPlatform">
+                    <span class="tab-group-label" data-i18n="tabs.platform">{{ t('tabs.platform') }}</span>
+                    <button class="tab" data-tab="hubspot" data-i18n="tabs.hubspot">{{ t('tabs.hubspot') }}</button>
+                </div>
+                <div class="tab-group">
+                    <span class="tab-group-label" data-i18n="tabs.signals">{{ t('tabs.signals') }}</span>
+                    <button class="tab" data-tab="osint" data-i18n="tabs.osint">{{ t('tabs.osint') }}</button>
+                    <button class="tab" data-tab="rapid7" data-i18n="tabs.rapid7">{{ t('tabs.rapid7') }}</button>
+                </div>
+            </div>
+
+            <!-- Advies Tab -->
+            <div class="tab-content active" id="tab-recommendations">
+                <div class="card">
+                    <h3 data-i18n="advies.title">{{ t('advies.title') }}</h3>
+                    <p class="login-hint" style="margin-top:-0.25rem;margin-bottom:1rem" data-i18n="advies.intro">
+                        {{ t('advies.intro') }}
+                    </p>
+                    <div id="remediationPlan" class="remediation-plan"></div>
+                    <div id="recommendationsContent"></div>
+                </div>
+            </div>
+
+            <!-- WHOIS Tab -->
+            <div class="tab-content" id="tab-whois">
+                <div class="card">
+                    <h3>WHOIS Information</h3>
+                    <div id="whoisContent"></div>
+                </div>
+            </div>
+
+            <!-- DNS Tab -->
+            <div class="tab-content" id="tab-dns">
+                <div class="card">
+                    <h3>DNS Records</h3>
+                    <div id="dnsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>DNSSEC</h3>
+                    <div id="dnssecContent"></div>
+                </div>
+            </div>
+
+            <!-- Email Security Tab -->
+            <div class="tab-content" id="tab-email">
+                <div class="card">
+                    <h3>SPF (Sender Policy Framework)</h3>
+                    <div id="spfContent"></div>
+                </div>
+                <div class="card">
+                    <h3>DMARC (Domain-based Message Authentication)</h3>
+                    <div id="dmarcContent"></div>
+                </div>
+                <div class="card">
+                    <h3>DKIM (DomainKeys Identified Mail)</h3>
+                    <div id="dkimContent"></div>
+                </div>
+                <div class="card">
+                    <h3>MTA-STS (Mail Transfer Agent Strict Transport Security)</h3>
+                    <div id="mtaStsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>TLS-RPT (TLS Reporting)</h3>
+                    <div id="tlsrptContent"></div>
+                </div>
+            </div>
+
+            <!-- SSL / TLS Deep Scan Tab -->
+            <div class="tab-content" id="tab-ssl">
+                <div class="card" id="tlsGradeCard" style="display:none">
+                    <div class="tls-grade-section">
+                        <div class="tls-grade-circle" id="tlsGradeCircle">-</div>
+                        <div class="tls-grade-details">
+                            <h3>TLS Security Grade</h3>
+                            <div id="tlsWarnings"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" id="ncscTlsCard">
+                    <h3>NCSC TLS Guidelines 2025-05</h3>
+                    <div id="ncscTlsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Protocol Support</h3>
+                    <div id="tlsProtocolsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Cipher Suites</h3>
+                    <div id="tlsCipherSummary"></div>
+                    <div id="tlsCiphersContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Certificate Details</h3>
+                    <div id="sslContent"></div>
+                </div>
+                <div class="card">
+                    <h3>TLS Features</h3>
+                    <div id="tlsFeaturesContent"></div>
+                </div>
+            </div>
+
+            <!-- Web Security Tab -->
+            <div class="tab-content" id="tab-web">
+                <div class="card" id="httpDeepCard">
+                    <h3>HTTP Analysis &amp; Infrastructure</h3>
+                    <div id="httpDeepContent"></div>
+                </div>
+                <div class="card">
+                    <h3>HTTPS Redirect</h3>
+                    <div id="httpsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>HTTP Security Headers</h3>
+                    <div id="headersContent"></div>
+                </div>
+                <div class="card">
+                    <h3 data-i18n="weak_auth_ui.title">{{ t('weak_auth_ui.title') }}</h3>
+                    <p class="login-hint" data-i18n="weak_auth_ui.hint">{{ t('weak_auth_ui.hint') }}</p>
+                    <div id="weakAuthContent"></div>
+                </div>
+                <div class="card">
+                    <h3>JS Dependencies &amp; Secrets</h3>
+                    <p class="login-hint">Passive scan of client-side JavaScript for known-vulnerable libraries, leaked secrets, and missing Subresource Integrity.</p>
+                    <div id="jsScanContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Active Vulnerability Scan</h3>
+                    <p class="login-hint">Sends live XSS/open-redirect/SQL-injection probes. Off by default &mdash; only enable for domains you own or are authorized to test.</p>
+                    <div id="activeScanContent"></div>
+                </div>
+            </div>
+
+            <!-- Network Tab -->
+            <div class="tab-content" id="tab-network">
+                <div class="card">
+                    <h3>IPv6 Support</h3>
+                    <div id="ipv6Content"></div>
+                </div>
+                <div class="card">
+                    <h3>Blacklist Check (DNSBL)</h3>
+                    <div id="blacklistContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Open Ports</h3>
+                    <div id="portsContent"></div>
+                </div>
+            </div>
+
+            <!-- OSINT Tab -->
+            <div class="tab-content" id="tab-osint">
+                <div class="card">
+                    <h3>OSINT Summary</h3>
+                    <div id="osintSummary"></div>
+                </div>
+                <div class="card">
+                    <h3>Certificate Transparency (crt.sh)</h3>
+                    <div id="osintCt"></div>
+                </div>
+                <div class="card">
+                    <h3>IP / ASN Context</h3>
+                    <div id="osintIp"></div>
+                </div>
+                <div class="card">
+                    <h3>Wayback History</h3>
+                    <div id="osintWayback"></div>
+                </div>
+                <div class="card">
+                    <h3>Threat Intel Feeds</h3>
+                    <div id="osintThreats"></div>
+                </div>
+            </div>
+
+            <!-- Security Audit Tab -->
+            <div class="tab-content" id="tab-security">
+                <div class="card">
+                    <h3>Security Findings</h3>
+                    <div id="secFindingsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Subdomain Takeover &amp; Enumeration</h3>
+                    <div id="secSubdomainsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Web-app Exposures</h3>
+                    <div id="secWebContent"></div>
+                </div>
+                <div class="card">
+                    <h3>DNS &amp; Mail Gaps</h3>
+                    <div id="secDnsContent"></div>
+                </div>
+                <div class="card">
+                    <h3>Tech Fingerprint &amp; Info Disclosure</h3>
+                    <div id="secInfoContent"></div>
+                </div>
+            </div>
+
+            <!-- HubSpot Tab -->
+            <div class="tab-content" id="tab-hubspot">
+                <div class="card">
+                    <h3>HubSpot behind Cloudflare</h3>
+                    <div id="hubspotSummary"></div>
+                </div>
+                <div class="card">
+                    <h3>Findings &amp; remediation</h3>
+                    <div id="hubspotFindings"></div>
+                </div>
+            </div>
+
+            <!-- Rapid7 Tab -->
+            <div class="tab-content" id="tab-rapid7">
+                <div class="card">
+                    <h3 data-i18n="rapid7_ui.title">{{ t('rapid7_ui.title') }}</h3>
+                    <p class="login-hint" data-i18n="rapid7_ui.intro">{{ t('rapid7_ui.intro') }}</p>
+                    <div id="rapid7Summary"></div>
+                </div>
+                <div class="card">
+                    <h3 data-i18n="rapid7_ui.findings">{{ t('rapid7_ui.findings') }}</h3>
+                    <div id="rapid7Findings"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History drawer -->
+        <div id="drawerOverlay" class="drawer-overlay hidden"></div>
+    </main>
+
+    {% include 'partials/footer.html' %}
+
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the strict CSP (script-src 'self')
+       blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/system.js?v={{ asset_token }}"></script>
+    <script src="/static/js/app.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

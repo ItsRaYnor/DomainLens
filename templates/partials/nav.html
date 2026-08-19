@@ -1,0 +1,120 @@
+{# Shared navigation.
+
+   Monitoring and History used to be buttons that slid a drawer over the scan
+   page: no address to link to, no way back, and no indication of where you
+   were. Every section is a real URL now, so the back button, bookmarks and
+   sharing all work.
+
+   Flat rather than dropdowns: a menu that needs JavaScript to open is a menu
+   that fails when the JavaScript does, and sub-navigation lives inside the
+   section it belongs to.
+
+   `section` is set by each page; it drives the current-page marking. #}
+{% include "partials/_icons.html" %}
+<a class="skip-link" href="#main" data-i18n="nav.skip_to_content">{{ t('nav.skip_to_content') }}</a>
+<header class="app-header">
+    <div class="header-content">
+        {# The toggle is a checkbox, not a script. The menu is how you leave a
+           page that is misbehaving, so it must keep working when the
+           JavaScript does not. #}
+        <input type="checkbox" id="navToggle" class="nav-toggle-input">
+        <a class="logo-row" href="/">
+            <div class="logo-mark">DL</div>
+            <div>
+                <h1>{{ general.app_title or 'DomainLens' }}</h1>
+                <p class="subtitle">{{ general.app_subtitle or 'Domain Intelligence Toolkit' }}</p>
+            </div>
+        </a>
+
+        <label for="navToggle" class="nav-toggle" aria-label="Menu">
+            <svg class="icon icon-lg" aria-hidden="true"><use href="#i-menu"></use></svg>
+        </label>
+
+        <nav class="main-nav" aria-label="Sections">
+            <a href="/" class="nav-item{% if section == 'scan' %} current{% endif %}"
+               {% if section == 'scan' %}aria-current="page"{% endif %}
+               ><svg class="icon" aria-hidden="true"><use href="#i-scan"></use></svg><span data-i18n="nav.scan">{{ t('nav.scan') }}</span></a>
+            <a href="/lookup/ip" class="nav-item{% if section == 'lookup' %} current{% endif %}"
+               {% if section == 'lookup' %}aria-current="page"{% endif %}
+               ><svg class="icon" aria-hidden="true"><use href="#i-lookup"></use></svg><span data-i18n="nav.lookup">{{ t('nav.lookup') }}</span></a>
+            <a href="/monitoring" class="nav-item{% if section == 'monitoring' %} current{% endif %}"
+               {% if section == 'monitoring' %}aria-current="page"{% endif %}
+               ><svg class="icon" aria-hidden="true"><use href="#i-monitoring"></use></svg><span data-i18n="nav.monitoring">{{ t('nav.monitoring') }}</span></a>
+            <a href="/reports" class="nav-item{% if section == 'reports' %} current{% endif %}"
+               {% if section == 'reports' %}aria-current="page"{% endif %}
+               ><svg class="icon" aria-hidden="true"><use href="#i-reports"></use></svg><span data-i18n="nav.reports">{{ t('nav.reports') }}</span></a>
+            <a href="/remediate" class="nav-item{% if section == 'remediation' %} current{% endif %}"
+               {% if section == 'remediation' %}aria-current="page"{% endif %}
+               ><svg class="icon" aria-hidden="true"><use href="#i-remediation"></use></svg><span data-i18n="nav.remediation">{{ t('nav.remediation') }}</span></a>
+        </nav>
+
+        <div class="header-actions">
+            {# Theme picker. Three options rather than a two-way toggle: the
+               third, "system", is the only one that keeps following the
+               operating system after dark falls. A toggle silently drops it. #}
+            <div class="theme-picker" role="radiogroup" aria-label="{{ t('theme.label') }}">
+                <button type="button" class="theme-option" data-theme-option="auto"
+                        role="radio" aria-checked="false" title="{{ t('theme.auto') }}">
+                    <svg class="icon" aria-hidden="true"><use href="#i-theme-auto"></use></svg>
+                    <span class="sr-only">{{ t('theme.auto') }}</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-option="light"
+                        role="radio" aria-checked="false" title="{{ t('theme.light') }}">
+                    <svg class="icon" aria-hidden="true"><use href="#i-theme-light"></use></svg>
+                    <span class="sr-only">{{ t('theme.light') }}</span>
+                </button>
+                <button type="button" class="theme-option" data-theme-option="dark"
+                        role="radio" aria-checked="false" title="{{ t('theme.dark') }}">
+                    <svg class="icon" aria-hidden="true"><use href="#i-theme-dark"></use></svg>
+                    <span class="sr-only">{{ t('theme.dark') }}</span>
+                </button>
+            </div>
+
+            {% if auth_status and auth_status.enabled and current_user %}
+            <span class="user-chip" title="{{ current_user.email or current_user.name }}">{{ current_user.name or current_user.email }}</span>
+            {% if current_user.provider == 'local' %}
+            <a class="btn-ghost" href="/account" ><svg class="icon" aria-hidden="true"><use href="#i-account"></use></svg><span data-i18n="nav.account">{{ t('nav.account') }}</span></a>
+            {% endif %}
+            {% endif %}
+
+            {# Admin is a few times a year, so it sits apart from the work
+               rather than beside it. Shown when auth is off entirely —
+               require_admin() waves those requests through anyway, so hiding
+               the link made the page undiscoverable rather than protected —
+               and otherwise only to an admin. #}
+            {% set show_admin = (not (auth_status and auth_status.enabled))
+                                or (current_user and current_user.role == 'admin') %}
+            {% if show_admin %}
+            <a class="btn-ghost nav-admin{% if section == 'admin' %} current{% endif %}"
+               href="/admin/settings">
+                <svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>
+                <span data-i18n="nav.settings">{{ t('nav.settings') }}</span>
+            </a>
+            <a class="btn-ghost" href="/admin/users" ><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg><span data-i18n="nav.users">{{ t('nav.users') }}</span></a>
+            {% endif %}
+
+            {% if auth_status and auth_status.enabled %}
+                {% if current_user %}
+                <a class="btn-ghost" href="/logout" ><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg><span data-i18n="nav.logout">{{ t('nav.logout') }}</span></a>
+                {% else %}
+                <a class="btn-ghost" href="/login" ><svg class="icon" aria-hidden="true"><use href="#i-login"></use></svg><span data-i18n="nav.login">{{ t('nav.login') }}</span></a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    {% if subnav %}
+    {# Sub-navigation belongs to its section, not to the top bar: it keeps the
+       main menu to five stable entries no matter how many tools a section
+       grows. #}
+    <div class="subnav-wrap">
+        <nav class="subnav" aria-label="{{ section }}">
+            {% for item in subnav %}
+            <a href="{{ item.href }}" class="subnav-item{% if item.active %} current{% endif %}"
+               {% if item.active %}aria-current="page"{% endif %}
+               data-i18n="{{ item.key }}">{{ t(item.key) }}</a>
+            {% endfor %}
+        </nav>
+    </div>
+    {% endif %}
+</header>
