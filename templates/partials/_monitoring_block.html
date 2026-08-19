@@ -1,0 +1,91 @@
+        <aside id="monitorsDrawer" class="{{ 'page-panel' if as_page else 'drawer hidden' }}">
+            <div class="drawer-header">
+                <h3>Monitoring</h3>
+                <div class="drawer-actions">
+                    <button class="btn-icon-sm" id="runDueBtn" title="Run due scans now">Run due</button>
+                    <button class="btn-icon-sm" id="monitorsCloseBtn" title="Close">&times;</button>
+                </div>
+            </div>
+            <div class="drawer-stats" id="monitorStats"></div>
+            <div class="drawer-body">
+                <section class="monitor-section">
+                    <h4>Scheduler</h4>
+                    <div id="schedulerStatus" class="monitor-status-box"></div>
+                </section>
+                <section class="monitor-section">
+                    <h4>Add monitor</h4>
+                    <p class="login-hint">Monitors periodically re-scan one specific hostname/record and alert you when something changes.</p>
+                    <div class="stack-form">
+                        <input type="text" id="monitorDomainInput" placeholder="Domain / hostname (e.g. app.example.com)">
+                        <input type="text" id="monitorNameInput" placeholder="Label (optional)">
+                        <div class="inline-fields">
+                            <select id="monitorSchedulePreset">
+                                <option value="15">Every 15 minutes</option>
+                                <option value="30">Every 30 minutes</option>
+                                <option value="60">Hourly</option>
+                                <option value="360">Every 6 hours</option>
+                                <option value="720">Every 12 hours</option>
+                                <option value="1440" selected>Daily</option>
+                                <option value="10080">Weekly</option>
+                                <option value="custom">Custom&hellip;</option>
+                            </select>
+                            <select id="monitorTypeInput">
+                                <option value="A">A / website (IPv4)</option>
+                                <option value="AAAA">AAAA (IPv6)</option>
+                                <option value="CNAME">CNAME</option>
+                                <option value="MX">MX (mail)</option>
+                                <option value="NS">NS (nameserver)</option>
+                                <option value="TXT">TXT</option>
+                                <option value="SRV">SRV</option>
+                                <option value="CAA">CAA</option>
+                                <option value="PTR">PTR (reverse DNS)</option>
+                            </select>
+                        </div>
+                        <input type="number" id="monitorScheduleInput" min="1" value="1440" placeholder="Custom frequency (minutes)" class="hidden">
+                        <button class="btn-primary-lite" id="createMonitorBtn">Create monitor</button>
+                    </div>
+                </section>
+                <section class="monitor-section">
+                    <h4>Import DNS records</h4>
+                    <p class="login-hint">Paste a zone file (or connect your OVHcloud DNS account) to automatically create one monitor per matching DNS record — instead of adding hostnames one by one. Uses the same scan frequency as "Add monitor" above.</p>
+                    <div class="stack-form">
+                        <select id="importModeInput">
+                            <option value="zone_file">Zone file / exported records</option>
+                            <option value="ovhcloud">OVHcloud API</option>
+                        </select>
+                        <input type="text" id="importDomainInput" placeholder="Zone name (e.g. example.com)">
+                        <textarea id="zoneTextInput" rows="8" placeholder="$ORIGIN example.com.
+@ 3600 IN A 203.0.113.10
+www 3600 IN CNAME app.example.net.
+mail 3600 IN MX 10 mx1.mailhost.tld."></textarea>
+                        <div id="ovhFields" class="stack-form hidden">
+                            <input type="text" id="ovhEndpointInput" placeholder="OVH endpoint (default: https://eu.api.ovh.com/1.0)">
+                            <input type="text" id="ovhAppKeyInput" placeholder="OVH application key">
+                            <input type="password" id="ovhAppSecretInput" placeholder="OVH application secret">
+                            <input type="password" id="ovhConsumerKeyInput" placeholder="OVH consumer key">
+                        </div>
+                        <button class="btn-primary-lite" id="importMonitorsBtn">Import monitors</button>
+                    </div>
+                </section>
+                <section class="monitor-section">
+                    <h4 data-i18n="rapid7_ui.upload">{{ t('rapid7_ui.upload') }}</h4>
+                    <p class="login-hint" data-i18n="rapid7_ui.intro">{{ t('rapid7_ui.intro') }}</p>
+                    <div class="stack-form">
+                        <input type="file" id="rapid7FileInput" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+                        <button class="btn-primary-lite" id="rapid7UploadBtn" data-i18n="rapid7_ui.upload">{{ t('rapid7_ui.upload') }}</button>
+                        <button class="btn-ghost" id="rapid7SyncBtn" data-i18n="rapid7_ui.sync_api">{{ t('rapid7_ui.sync_api') }}</button>
+                    </div>
+                    <div id="rapid7ImportStatus" class="monitor-status-box" style="margin-top:0.75rem"></div>
+                    <h4 style="margin-top:1rem" data-i18n="rapid7_ui.imports">{{ t('rapid7_ui.imports') }}</h4>
+                    <div id="rapid7ImportList" class="event-list"></div>
+                </section>
+                <section class="monitor-section">
+                    <h4>Saved monitors</h4>
+                    <div id="monitorList" class="monitor-list"></div>
+                </section>
+                <section class="monitor-section">
+                    <h4>Recent monitor events</h4>
+                    <div id="monitorEventList" class="event-list"></div>
+                </section>
+            </div>
+        </aside>

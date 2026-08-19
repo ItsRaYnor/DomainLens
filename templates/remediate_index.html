@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.remediation') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.remediation">{{ t('nav.remediation') }}</h2>
+            <p class="ct-desc">Fix and retest guidance for one domain, gathered from its most recent scan. These pages are also the deep-link target from ServiceNow.</p>
+            <div class="lookup-form">
+                <input type="text" id="remediateDomain" placeholder="example.com" autocomplete="off" spellcheck="false">
+                <button class="btn-primary-lite" id="remediateBtn" type="button">Open guidance</button>
+            </div>
+        </section>
+        <section class="card">
+            <h3>Recently scanned</h3>
+            <div id="remediateRecent"><p class="history-empty">Loading…</p></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "log_level": "INFO"
+  },
+  "database": {
+    "path": "/data/domainlens.db"
+  },
+  "scheduler": {
+    "enabled": true,
+    "poll_seconds": 60,
+    "max_monitors_per_run": 200,
+    "concurrency": 2,
+    "failure_backoff_minutes": 15,
+    "max_consecutive_failures": 8,
+    "defaults": {
+      "schedule_minutes": 1440,
+      "checks": ["all"],
+      "enabled": true
+    }
+  },
+  "scan": {
+    "rate_limit": {
+      "requests": 10,
+      "window_seconds": 60
+    },
+    "thread_pool_workers": 14
+  },
+  "reporting": {
+    "retention_days": 365,
+    "digest_enabled": true,
+    "digest_interval_hours": 24
+  },
+  "weak_auth": {
+    "enabled": false,
+    "max_attempts_per_scan": 25,
+    "delay_seconds": 0.35,
+    "timeout_seconds": 8,
+    "include_http": true,
+    "paths": ["/", "/admin", "/login", "/wp-login.php", "/manager/html", "/api/login"],
+    "usernames": ["admin", "administrator", "root", "user", "test", "guest"],
+    "passwords": [
+      "admin", "password", "123456", "12345678", "root", "test",
+      "guest", "changeme", "welcome", "letmein", "P@ssw0rd", "qwerty"
+    ],
+    "credentials_file": "weak_auth_credentials.json",
+    "wordlist_file": null,
+    "usernames_file": null
+  },
+  "monitors": [
+    {
+      "name": "example.com website",
+      "domain": "example.com",
+      "target": "example.com",
+      "record_type": "A",
+      "schedule_minutes": 1440,
+      "checks": ["dns", "tls_deep", "ncsc_tls", "http_headers", "https_redirect"],
+      "enabled": false
+    }
+  ]
+}

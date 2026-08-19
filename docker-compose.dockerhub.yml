@@ -1,0 +1,94 @@
+# Portainer stack that pulls the pre-built image from Docker Hub instead of
+# building on the NAS. Use this once .github/workflows/docker-publish.yml has
+# pushed at least one image to Docker Hub (on every push to main).
+#
+# Deploy in Portainer:
+# 1. Create folder: /volume1/docker/domainlens
+# 2. Stacks → Add stack → Web editor (or Repository, either works — no build
+#    context is needed since we only pull an image here)
+# 3. Paste this file (or point Repository at this path)
+# 4. Deploy the stack
+# 5. Open http://<nas-ip>:5050
+#
+# To update later: Portainer → Stacks → domainlens → "Pull and redeploy"
+# (or re-deploy after `docker pull` via SSH).
+
+services:
+  domainlens:
+    image: itsraynor/domainlens:latest
+    container_name: domainlens
+    ports:
+      # Host 5050 avoids Synology DSM (HTTP 5000 / HTTPS 5001)
+      - "5050:5000"
+    environment:
+      # --- Encryption key for stored credentials (SET THIS) -------------
+      # Protects the integration credentials and API keys you save in the UI
+      # (Settings -> Optional API keys / Integration credentials). Because it
+      # lives here and not in the database, a copy of the database alone does
+      # not reveal them. Leave it unset and DomainLens falls back to a secret
+      # stored in that same database, which is obfuscation, not encryption --
+      # the settings page will say so.
+      # Also signs Flask session cookies; changing it logs everyone out AND
+      # makes previously stored credentials unreadable, so set it once and keep it.
+      # Generate: openssl rand -hex 32
+      DOMAINLENS_SECRET_KEY: "change-me-openssl-rand-hex-32"
+      DOMAINLENS_DB: /data/domainlens.db
+      DOMAINLENS_HOST: 0.0.0.0
+      DOMAINLENS_PORT: 5000
+      DOMAINLENS_MONITOR_AUTORUN: "1"
+      # How often the in-app scheduler looks for due monitors (seconds)
+      DOMAINLENS_MONITOR_POLL_SECONDS: "60"
+      DOMAINLENS_LOG_LEVEL: INFO
+      DOMAINLENS_IN_DOCKER: "1"
+      DOMAINLENS_IMAGE: itsraynor/domainlens
+      DOMAINLENS_IMAGE_TAG: latest
+      # Optional OVH defaults (can also be entered in the Monitoring UI)
+      # OVH_ENDPOINT: https://eu.api.ovh.com/1.0
+      # OVH_APP_KEY: ""
+      # OVH_APP_SECRET: ""
+      # OVH_CONSUMER_KEY: ""
+      # ServiceNow incident integration.
+      # Credentials can be set here OR in the UI under
+      # Settings -> Integration credentials. Set here, they win and lock the field.
+      SERVICENOW_ENABLED: "0"
+      # SERVICENOW_INSTANCE: https://example.service-now.com
+      # SERVICENOW_USER: ""
+      # SERVICENOW_PASSWORD: ""
+      # SERVICENOW_MIN_SEVERITY: high
+      # SERVICENOW_ASSIGNMENT_GROUP: ""
+      # SERVICENOW_CATEGORY: Network
+      # SERVICENOW_SUBCATEGORY: DNS
+      # Open-source OSINT optional keys.
+      # Can also be set in the UI under Settings -> Optional API keys.
+      # ABUSECH_AUTH_KEY: ""
+      # OTX_API_KEY: ""
+      # OAuth2 / OIDC login
+      OAUTH_ENABLED: "0"
+      OAUTH_REQUIRE_LOGIN: "1"
+      # OAUTH_PROVIDER: google   # google|github|microsoft|oidc
+      # OAUTH_CLIENT_ID: ""
+      # OAUTH_CLIENT_SECRET: ""
+      # OAUTH_REDIRECT_URI: https://domainlens.example.com/auth/callback
+      # OAUTH_ALLOWED_EMAILS: ""
+      # OAUTH_ALLOWED_DOMAINS: ""
+      # Local users + MFA
+      AUTH_LOCAL_ENABLED: "0"
+      AUTH_REQUIRE_LOGIN: "1"
+      # LOCAL_ADMIN_EMAIL: admin@example.com
+      # LOCAL_ADMIN_PASSWORD: "ChangeMe-Now-12!"
+      # AUTH_MFA_ENABLED: "1"
+      # AUTH_MFA_REQUIRED: "0"
+      # OAUTH_COOKIE_SECURE: "1"
+    volumes:
+      # Synology bind mount — easy backup via File Station / Hyper Backup
+      - /volume1/docker/domainlens:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+      domainlens.role: "monitoring"

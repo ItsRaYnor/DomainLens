@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account security · DomainLens</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main" class="account-main">
+        {% if error %}
+        <div class="login-error">{{ error }}</div>
+        {% endif %}
+        {% if message == 'password_updated' %}
+        <div class="login-info">Password updated.</div>
+        {% elif message == 'mfa_required' %}
+        <div class="login-info">This instance requires MFA. Enroll an authenticator below.</div>
+        {% elif message == 'mfa_scan' %}
+        <div class="login-info">Scan the otpauth URI with your authenticator app, then confirm with a code.</div>
+        {% elif message == 'mfa_enabled' %}
+        <div class="login-info">MFA is enabled. Store your backup codes securely — they are shown only once.</div>
+        {% elif message == 'mfa_disabled' %}
+        <div class="login-info">MFA has been disabled.</div>
+        {% elif message %}
+        <div class="login-info">{{ message }}</div>
+        {% endif %}
+
+        {% if not local_only %}
+        <section class="account-section">
+            <h2>Signed in with OAuth</h2>
+            <p>Password and MFA settings apply to local accounts only. Provider: <code>{{ user.provider }}</code></p>
+        </section>
+        {% else %}
+        <section class="account-section">
+            <h2>Change password</h2>
+            <p class="login-hint">
+                Min {{ password_policy.min_length }} characters
+                {% if password_policy.require_upper %}, uppercase{% endif %}
+                {% if password_policy.require_lower %}, lowercase{% endif %}
+                {% if password_policy.require_digit %}, digit{% endif %}
+                {% if password_policy.require_special %}, special{% endif %}.
+            </p>
+            <form class="login-form" method="post" action="{{ url_for('account_change_password') }}">
+                <label>Current password <input type="password" name="current_password" required autocomplete="current-password"></label>
+                <label>New password <input type="password" name="new_password" required autocomplete="new-password"></label>
+                <label>Confirm new password <input type="password" name="confirm_password" required autocomplete="new-password"></label>
+                <button type="submit" class="btn-primary-lite">Update password</button>
+            </form>
+        </section>
+
+        <section class="account-section">
+            <h2>Multi-factor authentication</h2>
+            {% if not local_cfg.mfa_available %}
+            <p>MFA is disabled for this instance.</p>
+            {% elif user.mfa_enabled %}
+            <p>MFA is <strong>enabled</strong> for your account.</p>
+            {% if not local_cfg.mfa_required %}
+            <form class="login-form" method="post" action="{{ url_for('account_mfa_disable') }}">
+                <label>Password <input type="password" name="password" required></label>
+                <label>Authenticator / backup code <input type="text" name="code" required></label>
+                <button type="submit" class="btn-ghost">Disable MFA</button>
+            </form>
+            {% else %}
+            <p class="login-hint">MFA is required by policy and cannot be disabled.</p>
+            {% endif %}
+            {% else %}
+            <p>MFA is not enabled{% if local_cfg.mfa_required %} (required){% endif %}.</p>
+            {% if not mfa_setup %}
+            <form method="post" action="{{ url_for('account_mfa_start') }}">
+                <button type="submit" class="btn-primary-lite">Set up authenticator</button>
+            </form>
+            {% else %}
+            <div class="mfa-setup">
+                <p>Scan this with your authenticator app:</p>
+                {% if mfa_setup.qr_svg %}
+                {# Inline SVG, not an <img src="data:">, so no CSP img-src
+                   exception is needed and the seed never leaves the server. #}
+                <div class="mfa-qr" role="img" aria-label="QR code for authenticator enrolment">{{ mfa_setup.qr_svg | safe }}</div>
+                {% endif %}
+                <details class="mfa-manual">
+                    <summary>Can't scan? Enter it by hand</summary>
+                    <p class="login-hint">Secret: <code>{{ mfa_setup.secret }}</code></p>
+                    <code class="otpauth-uri">{{ mfa_setup.uri }}</code>
+                </details>
+                <form class="login-form" method="post" action="{{ url_for('account_mfa_confirm') }}">
+                    <label>Confirm code from app <input type="text" name="code" inputmode="numeric" required autocomplete="one-time-code"></label>
+                    <button type="submit" class="btn-primary-lite">Enable MFA</button>
+                </form>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if backup_codes %}
+            <div class="backup-codes">
+                <h3>Backup codes (save now)</h3>
+                <ul>
+                    {% for code in backup_codes %}
+                    <li><code>{{ code }}</code></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+        <section class="account-section">
+            <h2 data-i18n="theme.label">{{ t('theme.label') }}</h2>
+            <p class="login-hint">
+                Light or dark is in the top bar. The accent colour below is
+                yours alone; only its hue and saturation are used, so one
+                choice reads correctly in both themes.
+            </p>
+            <div class="accent-row">
+                <label for="accentPicker" data-i18n="settings.appearance.accent">{{ t('settings.appearance.accent') }}</label>
+                <input type="color" id="accentPicker" value="{{ accent }}">
+                <button type="button" class="btn-ghost" id="accentReset">Reset</button>
+            </div>
+        </section>
+    </main>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

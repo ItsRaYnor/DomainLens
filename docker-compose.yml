@@ -1,0 +1,70 @@
+# Local / generic Docker Compose stack.
+# For Synology Portainer, prefer docker-compose.portainer.yml
+services:
+  domainlens:
+    build:
+      context: .
+      args:
+        DOMAINLENS_VERSION: ${DOMAINLENS_VERSION:-latest}
+        DOMAINLENS_GIT_SHA: ${DOMAINLENS_GIT_SHA:-}
+        DOMAINLENS_BUILD_DATE: ${DOMAINLENS_BUILD_DATE:-}
+    image: domainlens:${DOMAINLENS_VERSION:-latest}
+    container_name: domainlens
+    ports:
+      # Host 5050 avoids Synology DSM on port 5000
+      - "5050:5000"
+    environment:
+      # --- Encryption key for stored credentials (SET THIS) -------------
+      # Protects the integration credentials and API keys you save in the UI
+      # (Settings -> Optional API keys / Integration credentials). Because it
+      # lives here and not in the database, a copy of the database alone does
+      # not reveal them. Leave it unset and DomainLens falls back to a secret
+      # stored in that same database, which is obfuscation, not encryption --
+      # the settings page will say so.
+      # Also signs Flask session cookies; changing it logs everyone out AND
+      # makes previously stored credentials unreadable, so set it once and keep it.
+      # Generate: openssl rand -hex 32
+      DOMAINLENS_SECRET_KEY: "change-me-openssl-rand-hex-32"
+      DOMAINLENS_DB: /data/domainlens.db
+      DOMAINLENS_HOST: 0.0.0.0
+      DOMAINLENS_PORT: 5000
+      DOMAINLENS_MONITOR_AUTORUN: "1"
+      DOMAINLENS_MONITOR_POLL_SECONDS: "60"
+      DOMAINLENS_LOG_LEVEL: INFO
+      DOMAINLENS_IN_DOCKER: "1"
+      DOMAINLENS_IMAGE: domainlens
+      DOMAINLENS_IMAGE_TAG: ${DOMAINLENS_VERSION:-latest}
+      # DOMAINLENS_CONFIG: /config/domainlens.json
+      SERVICENOW_ENABLED: "0"
+      # SERVICENOW_INSTANCE: https://example.service-now.com
+      # SERVICENOW_USER: ""
+      # SERVICENOW_PASSWORD: ""
+      # SERVICENOW_MIN_SEVERITY: high
+      # ABUSECH_AUTH_KEY: ""
+      # OTX_API_KEY: ""
+      OAUTH_ENABLED: "0"
+      OAUTH_REQUIRE_LOGIN: "1"
+      # OAUTH_PROVIDER: google
+      # OAUTH_CLIENT_ID: ""
+      # OAUTH_CLIENT_SECRET: ""
+      AUTH_LOCAL_ENABLED: "0"
+      AUTH_REQUIRE_LOGIN: "1"
+      # LOCAL_ADMIN_EMAIL: admin@example.com
+      # LOCAL_ADMIN_PASSWORD: "ChangeMe-Now-12!"
+      # AUTH_MFA_ENABLED: "1"
+      # AUTH_MFA_REQUIRED: "0"
+    volumes:
+      - domainlens-data:/data
+    restart: unless-stopped
+    labels:
+      domainlens.role: "monitoring"
+      domainlens.version: "${DOMAINLENS_VERSION:-latest}"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  domainlens-data:

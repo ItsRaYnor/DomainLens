@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.lookup_dns') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.lookup_dns">{{ t('nav.lookup_dns') }}</h2>
+            <p class="ct-desc">Check a single record, like <code>dig</code>.</p>
+            <div class="dns-lookup-form">
+                <input type="text" id="dnsLookupName" placeholder="send.example.com" autocomplete="off" spellcheck="false">
+                <select id="dnsLookupType"></select>
+                <select id="dnsLookupResolver"></select>
+                <button class="btn-primary-lite" id="dnsLookupBtn" type="button">Look up</button>
+            </div>
+            <p class="ct-desc">The resolver list is fixed on purpose: accepting an address would turn this into a way to probe port 53 on any host this server can reach. <code>authoritative</code> asks the zone's own nameservers, which skips every cache — use it to see whether a change has actually been published.</p>
+            <div id="dnsLookupResult"></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

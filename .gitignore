@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+
+# Virtual environments
+venv/
+env/
+.env/
+# The compose files read a .env file by default, and it is the natural place
+# to put real secrets. Only the directory pattern was ignored, so an actual
+# .env file would have been committable.
+.env
+.env.*
+!.env.example
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+
+# Distribution
+*.tar.gz
+*.zip
+
+# Runtime data. Matched by extension rather than by filename: the database is
+# named by DOMAINLENS_DB and an operator may point it anywhere. A list of
+# specific filenames silently stops covering the file it was written for the
+# moment that name changes, and an unignored database is one `git add -A`
+# away from being published.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Local settings overlay (config/domainlens.example.json is the template)
+config/domainlens.json

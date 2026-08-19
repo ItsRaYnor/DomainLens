@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <title>DomainLens {{ t('report.title') }} - {{ scan.domain }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/report.css?v={{ asset_token }}">
+</head>
+<body>
+    <header class="report-header">
+        <div class="brand">
+            <div class="logo-mark">DL</div>
+            <div>
+                <h1>DomainLens {{ t('report.title') }}</h1>
+                <p class="subtitle">{{ t('report.subtitle') }}</p>
+            </div>
+        </div>
+        <div class="report-meta">
+            <p><strong>{{ t('report.domain') }}:</strong> {{ scan.domain }}</p>
+            <p><strong>{{ t('report.scan_date') }}:</strong> {{ scan.created_at }}</p>
+            <p><strong>{{ t('report.scan_id') }}:</strong> #{{ scan.id }}</p>
+        </div>
+    </header>
+
+    <div class="print-toolbar no-print">
+        <button id="printBtn">{{ t('report.print_pdf') }}</button>
+        <a class="btn-link" id="exportJson" href="/api/reports/{{ scan.id }}/export?format=json-download">JSON</a>
+        <a class="btn-link" id="exportMd" href="/api/reports/{{ scan.id }}/export?format=markdown">Markdown</a>
+        <a class="btn-link" id="exportCsv" href="/api/reports/{{ scan.id }}/export?format=csv">{{ t('report.export_csv') }}</a>
+        <a href="/" class="btn-link">{{ t('report.back') }}</a>
+        <a href="/trends" class="btn-link">Trends</a>
+    </div>
+    <script src="/static/js/report.js?v={{ asset_token }}"></script>
+
+    <section class="summary">
+        <h2>{{ t('report.executive_summary') }}</h2>
+        <div class="summary-grid">
+            <div class="stat">
+                <div class="stat-value grade grade-{{ (scan.grade or 'N')|lower }}">{{ scan.grade or 'N/A' }}</div>
+                <div class="stat-label">{{ t('report.tls_grade') }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">{{ scan.score if scan.score is not none else '-' }}{% if scan.score is not none %}%{% endif %}</div>
+                <div class="stat-label">{{ t('report.headers_score') }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value issues">{{ recommendations|length }}</div>
+                <div class="stat-label">{{ t('report.advice_items') }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value sev-critical">{{ counts.critical }}</div>
+                <div class="stat-label">Critical</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value sev-high">{{ counts.high }}</div>
+                <div class="stat-label">High</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value sev-medium">{{ counts.medium }}</div>
+                <div class="stat-label">Medium</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value sev-low">{{ counts.low }}</div>
+                <div class="stat-label">Low</div>
+            </div>
+            {% set ncsc = results.ncsc_tls or {} %}
+            {% if ncsc.overall_level %}
+            <div class="stat">
+                <div class="stat-value">{{ ncsc.overall_label or ncsc.overall_level }}</div>
+                <div class="stat-label">NCSC TLS</div>
+            </div>
+            {% endif %}
+            {% set cdn = results.cdn or ncsc.cdn or {} %}
+            {% if cdn.name %}
+            <div class="stat">
+                <div class="stat-value" style="font-size:1.1rem">{{ cdn.name }}</div>
+                <div class="stat-label">CDN</div>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    {% set ncsc = results.ncsc_tls or {} %}
+    {% if ncsc.findings %}
+    <section class="findings">
+        <h2>NCSC TLS findings</h2>
+        <table class="data">
+            <thead><tr><th>Severity</th><th>ID</th><th>Title</th><th>Problem</th></tr></thead>
+            <tbody>
+            {% for f in ncsc.findings %}
+                <tr>
+                    <td class="sev-{{ f.severity }}">{{ f.severity }}</td>
+                    <td class="mono">{{ f.id }}</td>
+                    <td>{{ f.title }}</td>
+                    <td>{{ f.problem }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
+    <section class="recommendations">
+        <h2>{{ t('report.advice_heading') }}</h2>
+        {% if not recommendations %}
+        <div class="no-issues">
+            <h3>{{ t('report.no_issues_title') }}</h3>
+            <p>{{ t('report.no_issues_body') }}</p>
+        </div>
+        {% else %}
+            <ol class="remediation-steps">
+            {% for r in recommendations %}
+                {% if r.severity in ['critical', 'high', 'medium'] %}
+                <li class="sev-{{ r.severity }}">
+                    <strong>{{ r.title }}</strong>
+                    <span class="muted"> — {{ r.fix }}</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+            </ol>
+            {% for r in recommendations %}
+            <article class="rec sev-{{ r.severity }}">
+                <div class="rec-head">
+                    <span class="sev-badge sev-{{ r.severity }}">{{ r.severity|upper }}</span>
+                    <span class="rec-category">{{ r.category }}</span>
+                    <h3>{{ r.title }}</h3>
+                </div>
+                <div class="rec-body">
+                    <p class="rec-problem"><strong>{{ t('report.problem') }}:</strong> {{ r.problem }}</p>
+                    <p class="rec-fix"><strong>{{ t('report.fix') }}:</strong> {{ r.fix }}</p>
+                    {% if r.retest %}
+                    <p class="rec-retest"><strong>{{ t('report.retest') }}:</strong> {{ r.retest }}</p>
+                    {% endif %}
+                    {% if r.reference %}
+                    <p class="rec-ref"><strong>{{ t('report.reference') }}:</strong> <a href="{{ r.reference }}" rel="noopener noreferrer">{{ r.reference }}</a></p>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        {% endif %}
+    </section>
+
+    <section class="findings">
+        <h2>{{ t('report.scan_results') }}</h2>
+
+        {% if results.http_deep and results.http_deep.success %}
+        <h3>Infrastructure &amp; hosting</h3>
+        {% if results.http_deep.infrastructure %}
+        <p>
+            {% for infra in results.http_deep.infrastructure %}
+            <span class="infra-tag">{{ infra.name }}{% if infra.confidence != 'high' %} (probable){% endif %}</span>
+            {% endfor %}
+        </p>
+        {% endif %}
+        <table class="data">
+            <tbody>
+                {% if results.http_deep.resolved_ip %}
+                <tr><th>Resolved IP</th><td class="mono">{{ results.http_deep.resolved_ip }}</td></tr>
+                {% endif %}
+                {% if results.http_deep.cname_chain %}
+                <tr><th>CNAME chain</th><td class="mono">{{ results.http_deep.cname_chain|join(' &rarr; ') }}</td></tr>
+                {% endif %}
+                {% if results.http_deep.final_status %}
+                <tr><th>Final status</th><td>{{ results.http_deep.final_status }} &mdash; {{ results.http_deep.final_url }}</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        {% if results.http_deep.redirect_chain %}
+        <table class="data">
+            <thead><tr><th>Step</th><th>Status</th><th>URL</th></tr></thead>
+            <tbody>
+                {% for step in results.http_deep.redirect_chain %}
+                <tr><td>{{ loop.index }}</td><td class="{{ 'bad' if step.status >= 400 else ('muted' if step.status >= 300 else 'ok') }}">{{ step.status }}</td><td class="mono">{{ step.url }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if results.http_deep.diagnostics %}
+        {% for d in results.http_deep.diagnostics %}
+        <div class="rec sev-medium">
+            <div class="rec-head"><h3>{{ d.title }}</h3></div>
+            <div class="rec-body">
+                <p><strong>Detail:</strong> {{ d.detail }}</p>
+                <p><strong>Actie:</strong> {{ d.action }}</p>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if results.http_deep.all_headers %}
+        <table class="data">
+            <thead><tr><th>Response header</th><th>Value</th></tr></thead>
+            <tbody>
+                {% for h, v in results.http_deep.all_headers.items() %}
+                <tr><td>{{ h }}</td><td class="mono">{{ v }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% endif %}
+
+        {% if results.security and results.security.success %}
+        <h3>Security audit</h3>
+
+        {% set subs = results.security.subdomains or {} %}
+        {% if subs.success %}
+        <p>{{ subs.count or 0 }} subdomain(s) checked via Certificate Transparency.</p>
+        {# Coverage caveats, not findings: they describe what this scan could
+           establish, not something wrong with the domain. #}
+        {% if subs.source_error %}
+        <p class="bad">Certificate Transparency lookup unavailable, so only the apex domain
+        was checked. This section is an absent answer, not a clean one — it says nothing
+        about the subdomains. ({{ subs.source_error }})</p>
+        {% elif subs.truncated %}
+        <p class="bad">Only the first {{ subs.limit or 0 }} of {{ subs.discovered_count or 0 }}
+        discovered hostnames were checked — this section does not cover the whole attack surface.</p>
+        {% endif %}
+        {% if subs.source_stale %}
+        {# crt.sh is down and this is the last answer known to be real. Shown
+           rather than withheld, but dated, so it is never read as current. #}
+        <p class="bad">crt.sh is currently unavailable, so this is the last successful
+        lookup, from {{ subs.source_cached_at[:16].replace('T', ' ') if subs.source_cached_at else 'earlier' }} UTC
+        ({{ ((subs.source_cache_age_seconds or 0) // 3600) }}h old). Certificates issued
+        since then are not in this list. ({{ subs.source_outage }})</p>
+        {% elif subs.source_cached %}
+        {# Provenance, not a caveat: the list is real, it is just not freshly
+           fetched, and an unchanged count should not read as a re-confirmation. #}
+        <p class="muted">Certificate list reused from an earlier crt.sh lookup
+        ({{ ((subs.source_cache_age_seconds or 0) // 3600) }}h old) rather than queried again.</p>
+        {% endif %}
+        {% if subs.takeovers %}
+        <table class="data">
+            <thead><tr><th>Subdomain</th><th>Service</th><th>CNAME</th><th>Confidence</th><th>Why flagged</th></tr></thead>
+            <tbody>
+                {% for t in subs.takeovers %}
+                <tr><td class="mono">{{ t.subdomain }}</td><td>{{ t.service }}</td><td class="mono">{{ t.cname }}</td><td class="bad">{{ t.confidence }}</td>
+                <td>{{ 'Unclaimed-resource page served' if t.fingerprint_match else 'CNAME target is NXDOMAIN' }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% if subs.dangling %}
+        <h4>Dangling CNAMEs (provider not in signature list)</h4>
+        <table class="data">
+            <thead><tr><th>Subdomain</th><th>CNAME target</th><th>State</th></tr></thead>
+            <tbody>
+                {% for d in subs.dangling %}
+                <tr><td class="mono">{{ d.subdomain }}</td><td class="mono">{{ d.cname }}</td><td>NXDOMAIN</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% if not subs.takeovers and not subs.dangling %}
+        <p class="ok">No dangling / takeover-able subdomains detected.</p>
+        {% endif %}
+        {% endif %}
+
+        {% set web = results.security.web_exposure or {} %}
+        {% if web.success and web.sensitive_files %}
+        <table class="data">
+            <thead><tr><th>Exposed path</th><th>Status</th></tr></thead>
+            <tbody>
+                {% for f in web.sensitive_files %}
+                <tr><td class="mono">{{ f.path }}</td><td class="bad">HTTP {{ f.status }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% set dm = results.security.dns_mail or {} %}
+        {% if dm.success %}
+        <table class="data">
+            <tbody>
+                <tr><th>Zone transfer (AXFR)</th><td class="{{ 'bad' if (dm.axfr.vulnerable) else 'ok' }}">{{ 'Vulnerable' if dm.axfr.vulnerable else 'Refused' }}</td></tr>
+                <tr><th>CAA record</th><td>{{ 'Present' if dm.caa.present else 'Missing' }}</td></tr>
+                <tr><th>SPF DNS lookups</th><td class="{{ 'bad' if dm.spf_lookups.over_limit else 'ok' }}">{{ dm.spf_lookups.count }} / 10</td></tr>
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% set info = results.security.info_disclosure or {} %}
+        {% if info.success and info.technologies %}
+        <p><strong>Detected technologies:</strong> {{ info.technologies|join(', ') }}</p>
+        {% endif %}
+        {% endif %}
+
+        {% set hs = results.hubspot_cf or {} %}
+        {% if hs.success %}
+        <h3>HubSpot / Cloudflare</h3>
+        <p>
+            HubSpot: <strong>{{ 'detected' if hs.hubspot and hs.hubspot.detected else 'not detected' }}</strong>
+            · Cloudflare: <strong>{{ 'detected' if hs.cloudflare and hs.cloudflare.detected else 'not detected' }}</strong>
+            · Behind Cloudflare: <strong>{{ 'yes' if hs.behind_cloudflare else 'no' }}</strong>
+        </p>
+        {% if hs.hubspot and hs.hubspot.portal_ids %}
+        <p>Portal ID(s): <span class="mono">{{ hs.hubspot.portal_ids|join(', ') }}</span></p>
+        {% endif %}
+        {% if hs.findings %}
+        <table class="data">
+            <thead><tr><th>Severity</th><th>Finding</th><th>Remediation</th></tr></thead>
+            <tbody>
+                {% for f in hs.findings %}
+                <tr>
+                    <td class="sev-{{ f.severity }}">{{ f.severity }}</td>
+                    <td>{{ f.title }}</td>
+                    <td>{{ f.fix }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% endif %}
+
+        {% set js = results.js_scan or {} %}
+        {% if js.success %}
+        <h3>JS Dependencies &amp; Secrets</h3>
+        <p>{{ js.scripts_analyzed or 0 }} script(s) analyzed on {{ js.base_url }}</p>
+        {% if js.vulnerable_libraries %}
+        <table class="data">
+            <thead><tr><th>Library</th><th>Version</th><th>CVEs</th></tr></thead>
+            <tbody>
+                {% for lib in js.vulnerable_libraries %}
+                <tr><td>{{ lib.library }}</td><td>{{ lib.version }}</td><td class="mono">{{ lib.cves|join(', ') }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% if js.secrets_found %}
+        <table class="data">
+            <thead><tr><th>Secret type</th><th>Masked value</th></tr></thead>
+            <tbody>
+                {% for s in js.secrets_found %}
+                <tr><td class="bad">{{ s.type }}</td><td class="mono">{{ s.masked_value }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% if not js.vulnerable_libraries and not js.secrets_found %}
+        <p class="ok">No vulnerable libraries or exposed secrets detected.</p>
+        {% endif %}
+        {% endif %}
+
+        {% set ac = results.active_scan or {} %}
+        {% if ac.success and ac.enabled %}
+        <h3>Active Vulnerability Scan</h3>
+        <p>{{ ac.detail }}</p>
+        {% if ac.findings %}
+        <table class="data">
+            <thead><tr><th>Type</th><th>URL</th><th>Param</th><th>Evidence</th></tr></thead>
+            <tbody>
+                {% for f in ac.findings %}
+                <tr><td class="bad">{{ f.type }}</td><td class="mono">{{ f.url }}</td><td>{{ f.param }}</td><td>{{ f.evidence }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="ok">No vulnerabilities found by the active probes.</p>
+        {% endif %}
+        {% endif %}
+
+        {% if results.dns %}
+        <h3>DNS records</h3>
+        <table class="data">
+            <thead><tr><th>Type</th><th>Value</th></tr></thead>
+            <tbody>
+                {% for rtype, dns_recs in (results.dns or {}).items() %}
+                    {% for r in dns_recs %}
+                    <tr><td>{{ rtype }}</td><td class="mono">{{ r }}</td></tr>
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if results.tls_deep and results.tls_deep.success %}
+        <h3>TLS protocols</h3>
+        <table class="data">
+            <thead><tr><th>Protocol</th><th>Supported</th><th>Cipher</th></tr></thead>
+            <tbody>
+                {% for p in (results.tls_deep.protocols or []) %}
+                <tr>
+                    <td>{{ p.name }}</td>
+                    <td class="{{ 'ok' if p.supported else 'muted' }}">{{ 'Yes' if p.supported else 'No' }}</td>
+                    <td class="mono">{{ p.cipher or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% set ncsc = results.ncsc_tls or {} %}
+        {% if ncsc.success %}
+        <h3>NCSC TLS Guidelines 2025-05</h3>
+        <p>
+            <strong>Overall:</strong>
+            <span class="{{ 'ok' if ncsc.pass else 'bad' }}">{{ ncsc.overall_label or ncsc.overall_level }}</span>
+            — <a href="{{ ncsc.guideline_url }}">{{ ncsc.guideline }}</a>
+        </p>
+        {% set order = ncsc.cipher_order or results.tls_deep.cipher_order or {} %}
+        {% if order %}
+        <p>
+            <strong>Cipher suite order:</strong>
+            {% if not order.applicable %}
+            <span class="muted">Not applicable</span>
+            {% elif order.pass %}
+            <span class="ok">Server prefers Good/Sufficient</span>
+            {% elif order.pass is sameas false %}
+            <span class="bad">Server preferred {{ order.server_preferred_iana or order.server_preferred }} (expected {{ order.expected_preferred_iana or order.expected_preferred }})</span>
+            {% else %}
+            <span class="muted">Could not verify</span>
+            {% endif %}
+        </p>
+        {% endif %}
+        {% if ncsc.findings %}
+        <table class="data">
+            <thead><tr><th>{{ t('report.severity') }}</th><th>{{ t('report.finding') }}</th><th>{{ t('report.fix') }}</th><th>{{ t('report.retest') }}</th></tr></thead>
+            <tbody>
+                {% for f in ncsc.findings %}
+                <tr>
+                    <td>{{ f.severity }}</td>
+                    <td>{{ f.title }}<div class="muted">{{ f.problem }}</div></td>
+                    <td>{{ f.fix }}</td>
+                    <td>{{ f.retest or 'Re-run DomainLens NCSC TLS / internet.nl HTTPS.' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% endif %}
+
+        {% if results.http_headers and results.http_headers.success %}
+        <h3>HTTP security headers</h3>
+        <table class="data">
+            <thead><tr><th>Header</th><th>Status</th><th>Value</th></tr></thead>
+            <tbody>
+                {% for h, v in (results.http_headers.headers_found or {}).items() %}
+                <tr><td>{{ h }}</td><td class="ok">Present</td><td class="mono">{{ v }}</td></tr>
+                {% endfor %}
+                {% for h in (results.http_headers.headers_missing or []) %}
+                <tr><td>{{ h }}</td><td class="bad">Missing</td><td>-</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if results.ports %}
+        <h3>Open ports</h3>
+        {% if results.ports.open %}
+        <table class="data">
+            <thead><tr><th>Port</th><th>Service</th></tr></thead>
+            <tbody>
+                {% for p in (results.ports.open or []) %}
+                <tr><td>{{ p.port }}</td><td>{{ p.service }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No open ports detected in the common range.</p>
+        {% endif %}
+        {% endif %}
+
+        {% if results.blacklist %}
+        <h3>DNSBL check</h3>
+        <p><strong>IP:</strong> {{ results.blacklist.ip or '-' }}</p>
+        {% if results.blacklist.is_listed %}
+        <p class="bad"><strong>Listed on:</strong> {{ (results.blacklist.listed or [])|join(', ') }}</p>
+        {% else %}
+        <p class="ok">IP is clean on all tested DNSBLs.</p>
+        {% endif %}
+        {% endif %}
+    </section>
+
+    <footer class="report-footer">
+        <p>{{ t('report.generated_by') }} {{ app_version or '' }} &mdash; {{ scan.created_at }}</p>
+    </footer>
+</body>
+</html>

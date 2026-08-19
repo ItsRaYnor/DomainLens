@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('settings.title') }} · {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main" class="account-main settings-main">
+        {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
+        {% if message %}<div class="login-info">{{ message }}</div>{% endif %}
+
+        <p class="login-hint" data-i18n="settings.secrets_hint">{{ t('settings.secrets_hint') }}</p>
+
+        {% if integrations %}
+        <section class="card integrations-card">
+            <h2>Optional API keys</h2>
+            <p class="muted">
+                These unlock extra read-only data sources. You can set them here, or
+                keep using environment variables — an environment variable always wins
+                and locks the field. Only these low-privilege keys are editable from the
+                UI; credentials that grant access to other systems (ServiceNow, OAuth,
+                SAML, SCIM, Rapid7) stay environment-only by design.
+            </p>
+
+            <p class="key-protection {{ 'protection-weak' if key_protection.mode != 'encrypted' else '' }}">
+                <strong>At rest:</strong>
+                {{ 'Encrypted' if key_protection.mode == 'encrypted' else 'Obfuscated only' }} —
+                {{ key_protection.detail }}
+            </p>
+
+            <div id="apiKeysMsg" class="hidden"></div>
+
+            <div class="api-key-list" id="apiKeyList">
+            {% for item in integrations %}
+                <div class="api-key-row" data-env="{{ item.env }}">
+                    <div class="api-key-head">
+                        <strong>{{ item.name }}</strong>
+                        <span class="status {{ 'status-pass' if item.configured else 'status-warn' }}">
+                            {% if item.configured %}
+                                Configured{% if item.source == 'environment' %} via environment{% endif %}
+                                {% if item.hint %}<code>{{ item.hint }}</code>{% endif %}
+                            {% else %}Not set{% endif %}
+                        </span>
+                    </div>
+                    <p class="muted api-key-desc">
+                        {{ item.enables }}. <code>{{ item.env }}</code>
+                        {% if not item.configured %}
+                        — without it: {{ item.without }}.
+                        <a href="{{ item.signup }}" target="_blank" rel="noopener noreferrer">Get a key</a>
+                        {% endif %}
+                    </p>
+                    {% if item.env_locked %}
+                    <p class="muted settings-locked">
+                        Set via the <code>{{ item.env }}</code> environment variable, so it cannot be
+                        edited here. Remove it from your compose file to manage it from this page.
+                    </p>
+                    {% endif %}
+                    <div class="api-key-controls">
+                        {% if not item.env_locked %}
+                        <input type="password" class="api-key-input" autocomplete="off"
+                               placeholder="{{ 'Enter a new key to replace the current one' if item.configured else 'Paste key' }}">
+                        <button type="button" class="btn-primary-lite api-key-save">Save</button>
+                        {% if item.configured %}
+                        <button type="button" class="btn-ghost api-key-clear">Remove</button>
+                        {% endif %}
+                        {% endif %}
+                        {% if item.configured %}
+                        <button type="button" class="btn-ghost api-key-test">Test</button>
+                        {% endif %}
+                    </div>
+                    <div class="api-key-test-result"></div>
+                </div>
+            {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if credential_groups %}
+        <section class="card integrations-card">
+            <h2>Integration credentials</h2>
+            <p class="muted">
+                Credentials for the outbound integrations. Setting them here keeps them
+                out of your compose file, where they would otherwise sit in plaintext and
+                be readable through <code>docker inspect</code> and the container's own
+                environment. An environment variable still wins and locks the field.
+                Values are write-only: they can be replaced or removed here, never read back.
+            </p>
+
+            <p class="key-protection {{ 'protection-weak' if key_protection.mode != 'encrypted' else '' }}">
+                <strong>At rest:</strong>
+                {{ 'Encrypted' if key_protection.mode == 'encrypted' else 'Obfuscated only' }} —
+                {{ key_protection.detail }}
+            </p>
+
+            <div class="api-key-list" id="credentialList">
+            {% for group in credential_groups %}
+                <div class="cred-group-head">
+                    <h3 class="cred-group">{{ group.group }}</h3>
+                    {% if group.group in testable_groups %}
+                    <button type="button" class="btn-ghost group-test-btn" data-group="{{ group.group }}">Test connection</button>
+                    {% endif %}
+                </div>
+                {% if group.group in testable_groups %}
+                <div class="api-key-test-result group-test-result" data-group="{{ group.group }}"></div>
+                {% endif %}
+                {% for item in group['items'] %}
+                <div class="api-key-row" data-env="{{ item.env }}">
+                    <div class="api-key-head">
+                        <strong>{{ item.name }}</strong>
+                        <span class="status {{ 'status-pass' if item.configured else 'status-warn' }}">
+                            {% if item.configured %}
+                                Set{% if item.source == 'environment' %} via environment{% endif %}
+                                {% if item.hint %}<code>{{ item.hint }}</code>{% endif %}
+                            {% else %}Not set{% endif %}
+                        </span>
+                    </div>
+                    <p class="muted api-key-desc">{{ item.note }} <code>{{ item.env }}</code></p>
+                    {% if item.env_locked %}
+                    <p class="muted settings-locked">
+                        Set via the <code>{{ item.env }}</code> environment variable. Remove it
+                        from your compose file to manage it from this page.
+                    </p>
+                    {% else %}
+                    <div class="api-key-controls">
+                        <input type="password" class="api-key-input" autocomplete="new-password"
+                               placeholder="{{ 'Enter a new value to replace the current one' if item.configured else 'Paste value' }}">
+                        <button type="button" class="btn-primary-lite api-key-save">Save</button>
+                        {% if item.configured %}
+                        <button type="button" class="btn-ghost api-key-clear">Remove</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="card settings-version-card" id="settingsVersionCard">
+            <h2>DomainLens <span class="version-chip">v{{ app_version }}</span></h2>
+            <p class="muted build-line">
+                {% if app_version_info and app_version_info.git_revision %}
+                Build:
+                <a href="https://github.com/{{ update_repo }}/commit/{{ app_version_info.git_revision }}"
+                   target="_blank" rel="noopener noreferrer"><code>{{ app_version_info.git_revision }}</code></a>
+                {% else %}
+                Build: <code>unknown</code> (no git revision baked into this image)
+                {% endif %}
+                {% if app_version_info and app_version_info.docker and app_version_info.docker.tag %}
+                · image <code>{{ app_version_info.docker.name or 'domainlens' }}:{{ app_version_info.docker.tag }}</code>
+                {% endif %}
+            </p>
+            <p class="muted" id="settingsUpdateHint">Loading update status…</p>
+            <pre class="mono update-commands hidden" id="settingsUpdateCommands"></pre>
+            <button type="button" class="btn-ghost" id="settingsCheckUpdatesBtn">Check for updates</button>
+        </section>
+
+        <div class="settings-layout">
+            <nav class="settings-nav" id="settingsNav"></nav>
+            <div class="settings-panels" id="settingsPanels"></div>
+        </div>
+    </main>
+
+    {# Data blocks, not executable script: the app serves a strict CSP
+       (script-src 'self', no 'unsafe-inline'), which blocks inline <script>.
+       Putting the bootstrap in an inline block meant initAdminSettings() was
+       never called and every button on this page silently did nothing. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script type="application/json" id="settingsSchema">{{ schema|tojson }}</script>
+
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script src="/static/js/system.js?v={{ asset_token }}"></script>
+    <script src="/static/js/admin_settings.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

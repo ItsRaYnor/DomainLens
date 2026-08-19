@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('lookup.ip_title') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="lookup.ip_title">{{ t('lookup.ip_title') }}</h2>
+            <p class="ct-desc" data-i18n="lookup.ip_intro">{{ t('lookup.ip_intro') }}</p>
+            <div class="lookup-form">
+                <input type="text" id="ipInput" placeholder="{{ t('lookup.ip_placeholder') }}"
+                       data-i18n="lookup.ip_placeholder" data-i18n-attr="placeholder"
+                       autocomplete="off" spellcheck="false">
+                <button class="btn-primary-lite" id="ipLookupBtn" type="button" data-i18n="lookup.ip_submit">{{ t('lookup.ip_submit') }}</button>
+            </div>
+        </section>
+        <div id="ipResult"></div>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

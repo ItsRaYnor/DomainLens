@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DomainLens MFA</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body class="login-body">
+    <main class="login-shell">
+        <section class="login-card">
+            <div class="logo-row">
+                <div class="logo-mark">DL</div>
+                <div>
+                    <h1>Two-factor authentication</h1>
+                    <p class="subtitle">Enter your authenticator or backup code</p>
+                </div>
+            </div>
+
+            {% if error %}
+            <div class="login-error">
+                {% if error == 'invalid_code' %}
+                Invalid code. Try again.
+                {% else %}
+                {{ error }}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <form class="login-form" method="post" action="{{ url_for('auth_mfa_verify') }}">
+                <input type="hidden" name="next" value="{{ next_url }}">
+                <label>
+                    Authentication code
+                    <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus>
+                </label>
+                <button type="submit" class="btn-primary-lite login-btn">Verify</button>
+            </form>
+            <p class="login-hint">You can also use a one-time backup code.</p>
+            <a class="btn-ghost" href="{{ url_for('login_page') }}">Back to login</a>
+        </section>
+    </main>
+</body>
+</html>

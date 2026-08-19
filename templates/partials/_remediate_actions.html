@@ -1,0 +1,19 @@
+{# Two ways forward, and the cheap one leads.
+
+   Re-scanning to read advice that is already on disk costs a minute of
+   waiting and another round of traffic at the domain. The stored scan is
+   offered first when there is one, with its date, so the choice between
+   "what did we find" and "what is true right now" is an informed one. #}
+<div class="remediate-actions">
+    {% if latest_scan %}
+    <a class="btn-primary-lite login-btn" href="/?scan={{ latest_scan.id }}&amp;tab=advies">
+        Open last scan
+        <span class="btn-sub">{{ latest_scan.created_at[:16].replace('T', ' ') }} UTC</span>
+    </a>
+    <a class="btn-ghost" href="{{ scan_url }}">Run a new scan</a>
+    {% else %}
+    <a class="btn-primary-lite login-btn" href="{{ scan_url }}">Run a scan</a>
+    <p class="login-hint">No stored scan for this domain yet.</p>
+    {% endif %}
+    <a class="btn-ghost" href="/remediate">All domains</a>
+</div>

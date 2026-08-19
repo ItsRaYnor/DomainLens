@@ -1,0 +1,148 @@
+"""Scan report exporters (JSON / Markdown / CSV) — modular reporting helpers."""
+
+from __future__ import annotations
+
+import csv
+import io
+import json
+from datetime import datetime, timezone
+from typing import Any
+
+import version as app_version
+
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def build_report_bundle(
+    scan: dict,
+    recommendations: list[dict] | None = None,
+    counts: dict | None = None,
+) -> dict[str, Any]:
+    """Structured report payload for APIs and downloads."""
+    data = scan.get("data") or {}
+    recs = recommendations or []
+    ncsc = data.get("ncsc_tls") or {}
+    cdn = data.get("cdn") or (ncsc.get("cdn") if isinstance(ncsc, dict) else None) or {}
+    sig = (data.get("tls_deep") or {}).get("signature_hashes") or ncsc.get("signature_hashes") or {}
+    return {
+        "generator": {
+            "name": "DomainLens",
+            "version": app_version.get_version(),
+            "generated_at": _iso_now(),
+        },
+        "scan": {
+            "id": scan.get("id"),
+            "domain": scan.get("domain"),
+            "created_at": scan.get("created_at"),
+            "grade": scan.get("grade"),
+            "score": scan.get("score"),
+            "issues_count": scan.get("issues_count"),
+        },
+        "summary": {
+            "recommendation_counts": counts or {},
+            "recommendation_total": len(recs),
+            "tls_grade": scan.get("grade"),
+            "headers_score": scan.get("score"),
+            "ncsc_overall": ncsc.get("overall_level") if isinstance(ncsc, dict) else None,
+            "ncsc_pass": ncsc.get("pass") if isinstance(ncsc, dict) else None,
+            "cdn": cdn.get("name") if isinstance(cdn, dict) else None,
+            "signature_hashes_pass": sig.get("pass") if isinstance(sig, dict) else None,
+        },
+        "recommendations": recs,
+        "ncsc_tls": {
+            "overall_level": ncsc.get("overall_level"),
+            "overall_label": ncsc.get("overall_label"),
+            "pass": ncsc.get("pass"),
+            "findings": ncsc.get("findings") or [],
+            "cdn": cdn,
+            "signature_hashes": sig,
+            "cipher_order": ncsc.get("cipher_order") or (data.get("tls_deep") or {}).get("cipher_order"),
+        }
+        if isinstance(ncsc, dict) and ncsc
+        else None,
+        "results": data,
+    }
+
+
+def to_json_text(bundle: dict, *, indent: int = 2) -> str:
+    return json.dumps(bundle, indent=indent, ensure_ascii=False, default=str)
+
+
+def to_markdown(bundle: dict) -> str:
+    scan = bundle.get("scan") or {}
+    summary = bundle.get("summary") or {}
+    counts = summary.get("recommendation_counts") or {}
+    gen = bundle.get("generator") or {}
+    lines = [
+        f"# DomainLens Security Report — `{scan.get('domain')}`",
+        "",
+        f"- **Scan ID:** #{scan.get('id')}",
+        f"- **Scan date:** {scan.get('created_at')}",
+        f"- **Generated:** {gen.get('generated_at')} (DomainLens {gen.get('version')})",
+        f"- **TLS grade:** {scan.get('grade') or 'N/A'}",
+        f"- **Headers score:** {scan.get('score') if scan.get('score') is not None else '—'}",
+        f"- **Advies items:** {summary.get('recommendation_total', 0)} "
+        f"(critical={counts.get('critical', 0)}, high={counts.get('high', 0)}, "
+        f"medium={counts.get('medium', 0)}, low={counts.get('low', 0)})",
+    ]
+    if summary.get("cdn"):
+        lines.append(f"- **CDN:** {summary['cdn']}")
+    if summary.get("ncsc_overall"):
+        lines.append(
+            f"- **NCSC TLS:** {summary.get('ncsc_overall')} "
+            f"({'pass' if summary.get('ncsc_pass') else 'fail'})"
+        )
+    lines.extend(["", "## Advies — fix & retest", ""])
+
+    recs = bundle.get("recommendations") or []
+    if not recs:
+        lines.append("_No open configuration issues found._")
+    else:
+        for i, r in enumerate(recs, 1):
+            lines.append(f"### {i}. [{str(r.get('severity') or '').upper()}] {r.get('title')}")
+            lines.append("")
+            lines.append(f"- **Category:** {r.get('category')}")
+            lines.append(f"- **Problem:** {r.get('problem')}")
+            lines.append(f"- **Fix:** {r.get('fix')}")
+            if r.get("retest"):
+                lines.append(f"- **Retest:** {r.get('retest')}")
+            if r.get("reference"):
+                lines.append(f"- **Reference:** {r.get('reference')}")
+            lines.append("")
+
+    ncsc = bundle.get("ncsc_tls") or {}
+    findings = ncsc.get("findings") or []
+    if findings:
+        lines.extend(["## NCSC TLS findings", ""])
+        for f in findings:
+            lines.append(
+                f"- **{f.get('severity', '').upper()}** `{f.get('id')}` — {f.get('title')}: "
+                f"{f.get('problem')}"
+            )
+        lines.append("")
+
+    lines.extend(["---", f"_Generated by DomainLens {gen.get('version')}_", ""])
+    return "\n".join(lines)
+
+
+def to_csv_advies(recommendations: list[dict]) -> str:
+    buf = io.StringIO()
+    writer = csv.DictWriter(
+        buf,
+        fieldnames=["severity", "category", "title", "problem", "fix", "retest", "reference"],
+        extrasaction="ignore",
+    )
+    writer.writeheader()
+    for item in recommendations or []:
+        writer.writerow({
+            "severity": item.get("severity"),
+            "category": item.get("category"),
+            "title": item.get("title"),
+            "problem": item.get("problem"),
+            "fix": item.get("fix"),
+            "retest": item.get("retest"),
+            "reference": item.get("reference"),
+        })
+    return buf.getvalue()

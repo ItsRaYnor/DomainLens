@@ -1,0 +1,25 @@
+Flask==3.1.3
+waitress==3.0.2
+python-whois==0.9.6
+dnspython==2.8.0
+requests==2.34.2
+openpyxl==3.1.5
+# Security: hardened XML parsing, SAML signature verification, JWT for SCIM/OAuth tokens
+defusedxml==0.7.1
+# NOTE: signxml must stay >=4.5.1 — cryptography>=47 removed the SECT* binary
+# curves (SECT163K1 etc.) that signxml<4.5.1 references unconditionally at
+# import time, which raises AttributeError and silently disables SAML
+# signature verification (saml_sp.py fails closed, but SSO stops working).
+# Pinned to the latest tested-compatible release rather than Dependabot's
+# 4.0.4 suggestion, which is still broken with cryptography 50.x.
+signxml==5.1.0
+lxml==6.1.1
+PyJWT==2.13.0
+# pyOpenSSL: the only way to request and observe a stapled OCSP response.
+# stdlib ssl exposes neither the status_request extension nor an OCSP
+# callback, so without this the stapling check cannot run at all and reports
+# "unknown" rather than guessing.
+pyOpenSSL==26.4.0
+cryptography==50.0.0
+pyotp==2.10.0
+qrcode==8.2
