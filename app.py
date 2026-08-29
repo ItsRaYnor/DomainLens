@@ -14,6 +14,7 @@ import select
 import socket
 import time
 import ssl
+import warnings
 import concurrent.futures
 import threading
 from datetime import datetime, timezone
@@ -912,6 +913,24 @@ def _has_forward_secrecy(cipher_name):
     if upper.startswith("TLS_AES_") or upper.startswith("TLS_CHACHA20"):
         return True  # TLS 1.3 suites always use ephemeral key exchange
     return "ECDHE" in upper or bool(re.search(r"(?<![E])DHE", upper))
+
+
+# Probing whether a server still accepts TLS 1.0 or 1.1 is the whole point of
+# the check below: a server that answers on them is the finding, and NCSC
+# grades both insufficient. Python deprecated the constants that name them, so
+# every scan filled the container log with a warning about doing deliberately
+# what it was asked to do -- several lines per probed host, which buries the
+# lines that do mean something.
+#
+# Filtered once at import rather than around the assignment: _test_protocol
+# runs in a thread pool, and warnings.catch_warnings() mutates a global filter
+# list, so concurrent probes would race each other's suppression. The message
+# pattern keeps this to exactly these two deprecations.
+warnings.filterwarnings(
+    "ignore",
+    message=r"ssl\.TLSVersion\.TLSv1(_1)? is deprecated",
+    category=DeprecationWarning,
+)
 
 
 def _test_protocol(domain, tls_version, port=443, timeout=5):
