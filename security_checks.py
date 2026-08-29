@@ -500,11 +500,12 @@ def check_security_txt_key(body, base_url=None):
         result["reason"] = "Encryption URL does not resolve to a public address"
         return result
 
-    try:
-        r = _get(url, timeout=8)
-    except Exception as exc:
+    # Same reasoning as the file itself: a key URL may redirect, and every
+    # hop is checked rather than trusted.
+    r, _final, detail = _get_following_safe_redirects(url, timeout=8)
+    if r is None:
         result["state"] = "unmeasured"
-        result["reason"] = f"Could not fetch the key: {type(exc).__name__}"
+        result["reason"] = f"Could not fetch the key: {detail}"
         return result
 
     if r.status_code != 200:
@@ -540,6 +541,7 @@ def inspect_security_txt(domain, timeout=8):
         "fields": {},
         "raw": None,
         "key": None,
+        "redirected_from": None,
         "error": None,
     }
     if not _safe_host(domain):
@@ -550,13 +552,16 @@ def inspect_security_txt(domain, timeout=8):
     for scheme in ("https", "http"):
         base = f"{scheme}://{domain}"
         url = base + "/.well-known/security.txt"
-        try:
-            response = _get(url, timeout=timeout)
-        except Exception as exc:
-            last_error = f"{type(exc).__name__}"
+        response, final_url, detail = _get_following_safe_redirects(url, timeout=timeout)
+        if response is None:
+            last_error = detail
             continue
-        result["url"] = url
+        result["url"] = final_url
         result["status"] = response.status_code
+        # Worth showing: a file served from somewhere other than the address
+        # asked for is normal, but the operator should see where it came from.
+        if final_url != url:
+            result["redirected_from"] = url
         if response.status_code != 200:
             continue
         body = response.text[:20000] if response.content else ""
@@ -585,13 +590,60 @@ def _looks_like_env_file(body):
     return bool(_ENV_LINE_RE.search(body)) and not _looks_like_html(body)
 
 
+def _get_following_safe_redirects(url, timeout=8, max_hops=5):
+    """Fetch a URL, following redirects, checking the host at every hop.
+
+    requests follows redirects on its own, but it does not care where they
+    lead: a 302 to 127.0.0.1 or to a cloud metadata address would walk this
+    scanner into the network it runs in, on the say-so of the site being
+    scanned. Every hop is resolved and checked instead.
+
+    Returns (response, final_url, hops) or (None, None, reason).
+    """
+    seen = []
+    current = url
+    for _ in range(max_hops + 1):
+        host = urllib.parse.urlsplit(current).hostname
+        if not host or not _safe_host(host):
+            return None, None, f"{current} does not resolve to a public address"
+        try:
+            response = _get(current, timeout=timeout, allow_redirects=False)
+        except Exception as exc:
+            return None, None, type(exc).__name__
+        if response.status_code not in (301, 302, 303, 307, 308):
+            return response, current, seen
+        location = response.headers.get("Location")
+        if not location:
+            return response, current, seen
+        seen.append(current)
+        current = urllib.parse.urljoin(current, location)
+        if current in seen:
+            return None, None, "redirect loop"
+    return None, None, f"more than {max_hops} redirects"
+
+
 def _probe_path(base, path, signatures, expects_html=False):
-    try:
-        r = _get(base + path, timeout=6, allow_redirects=False)
-    except Exception:
-        return None
-    if r.status_code != 200:
-        return None
+    # security.txt is the one path here where a redirect is a normal answer:
+    # apex to www, or http to https, are both ordinary ways to serve it, and
+    # RFC 9116 does not require it to be served without one. Reporting "no
+    # security.txt" for a site that publishes one behind a 302 blames the
+    # site for our own refusal to follow.
+    #
+    # Everywhere else the redirect stays unfollowed on purpose: a /.env that
+    # redirects to a login page has not exposed anything, and following it
+    # would turn that into a finding.
+    if path.endswith("security.txt"):
+        r, final_url, _hops = _get_following_safe_redirects(base + path, timeout=6)
+        if r is None or r.status_code != 200:
+            return None
+    else:
+        try:
+            r = _get(base + path, timeout=6, allow_redirects=False)
+        except Exception:
+            return None
+        if r.status_code != 200:
+            return None
+        final_url = base + path
     body = r.text[:6000] if r.content else ""
     # security.txt is a GOOD thing — track separately. Still requires a real
     # "Contact:" field (RFC 9116); otherwise a 200-status HTML fallback page
@@ -601,7 +653,7 @@ def _probe_path(base, path, signatures, expects_html=False):
             # The body rides along so the RFC 9116 fields can be read without
             # a second request for a file we have already downloaded.
             return {"path": path, "status": r.status_code, "positive": True,
-                    "body": body}
+                    "body": body, "url": final_url}
         return None
 
     # Reject generic HTML fallback/soft-404 pages for paths that should never

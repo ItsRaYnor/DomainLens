@@ -10,7 +10,9 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # write, not read: the release step below creates the tag that the
+      # in-app update check compares against.
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -58,11 +60,44 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Registry push needs write; the repo-description API needs read/write/delete
+      # on the PAT (Docker Hub treats that as admin). A write-only token pushes fine
+      # then fails here with Forbidden.
       - name: Update Docker Hub description
-        uses: peter-evans/dockerhub-description@v4
+        uses: peter-evans/dockerhub-description@v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/domainlens
           short-description: "Domain Intelligence Toolkit for quick domain security analysis and vulnerability scanning."
           readme-filepath: ./docs/DOCKERHUB_README.md
+
+      # The update check in the app reads GitHub releases (falling back to
+      # tags). Creating those by hand was a step nobody remembered, which is
+      # why 0.0.1 and 0.0.2 shipped without one and the check had nothing to
+      # compare against for months.
+      #
+      # No second build results from this: GitHub deliberately does not start
+      # a workflow run for a ref pushed with GITHUB_TOKEN, so the tag trigger
+      # above stays available for a hand-pushed tag without firing here.
+      - name: Tag and release this version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v${VERSION}"
+          # Idempotent on purpose: pushes to main that do not bump VERSION are
+          # normal, and re-releasing an existing version would either fail the
+          # build or quietly move a published tag.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; nothing to do."
+            exit 0
+          fi
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "Tag $tag already exists without a release; creating the release only."
+            gh release create "$tag" --title "DomainLens ${VERSION}" --generate-notes
+            exit 0
+          fi
+          gh release create "$tag" --target "${GITHUB_SHA}" --title "DomainLens ${VERSION}" --generate-notes
