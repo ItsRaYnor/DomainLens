@@ -111,6 +111,124 @@ Configure ServiceNow env vars to auto-create incidents for high/critical events.
 
 ---
 
+## DNS propagation check
+
+**Tools &rarr; DNS record** asks one resolver a question; the propagation panel below it
+asks several the same question and compares the answers.
+
+Tick the resolvers to compare and press **Check propagation**. The verdict is
+one of three, and they are kept apart on purpose:
+
+| Verdict | Meaning |
+|---|---|
+| propagated | Every resolver that answered returned the same records |
+| inconsistent | They answered and the records differ &mdash; still rolling out |
+| unknown | Fewer than two answered, so nothing was compared |
+
+A resolver that times out is listed as **unreachable**, never as
+disagreeing. That is our reach failing, not evidence about the zone, and
+counting it as "not propagated yet" would send someone chasing a rollout that
+already finished.
+
+Record order is normalised before comparing: round-robin resolvers rotate an
+RRset deliberately, and comparing raw order would report a difference on every
+second lookup of a settled record.
+
+Each row expands into **Query detail** &mdash; the answer, authority and
+additional sections with TTLs, the response flags, and which address replied.
+That is what tells you *why* two resolvers disagree rather than just *that*
+they do.
+
+### Custom resolvers
+
+To compare your own recursors, add them in **Settings &rarr; Scan &rarr;
+Custom resolvers**, one per line:
+
+```
+Office = 10.0.0.1, 10.0.0.2
+DMZ = 192.0.2.53
+```
+
+They then appear as checkboxes alongside the built-in ones.
+
+Addresses are configured there rather than typed on the lookup page for a
+reason: DomainLens commonly runs without authentication on a LAN, and an
+endpoint that accepted a resolver address would be a way to aim UDP/53 at any
+host the server can reach. Only literal IP addresses are accepted, a label
+cannot shadow a built-in resolver name, and a malformed line is skipped rather
+than breaking the page.
+
+## Responsible disclosure: your own security.txt and PGP key
+
+DomainLens checks other people's `security.txt`. It can publish one of its own
+too, with a contact key it generates for you.
+
+Configure it under **Settings &rarr; Responsible disclosure**. `Contact` is the
+only required field; with it set and the section enabled, the file appears at
+`/.well-known/security.txt`. Both that file and the key below are reachable
+without signing in, as RFC 9116 requires &mdash; a researcher who has to log in
+to find out how to report a bug does not report it.
+
+`Expires` is mandatory in RFC 9116 and is computed at request time from the
+configured number of days, so the file cannot quietly go stale the way a
+hand-written date does. Anything over a year is clamped to a year.
+
+Checking any domain's published contact and key &mdash; including your own,
+once you have published one &mdash; is **Tools &rarr; Responsible disclosure**.
+The lookups live there too: they are tools, and the scan page no longer
+carries its own copy of the DNS lookup.
+
+**Tools &rarr; Responsible disclosure** carries four things, all of which work
+on a domain that is not this one:
+
+| Tool | What it does |
+|---|---|
+| Check a domain | Fetches its `security.txt` and follows `Encryption:` to the key |
+| Validate a security.txt | Checks a **pasted** file against RFC 9116, before you publish it |
+| Validate a PGP key | Reads a pasted armoured key: algorithm, fingerprint, identities, expiry |
+| Generate a keypair | Makes a keypair and keeps **neither** half |
+
+The validators fetch nothing and store nothing, which is what makes them
+usable on a draft. A pasted key is read in a throwaway keyring with
+`--import-options show-only`, so it is never imported or trusted anywhere. A
+private key pasted into the validator is reported rather than refused:
+someone checking "does my key work" with the wrong half needs to be told
+which half they have.
+
+The generator under Tools is for someone else's domain and keeps nothing. The
+one in Settings, below, is for **this** installation and keeps the public half
+so it can be published.
+
+### Generating the key
+
+**Settings &rarr; Responsible disclosure key &rarr; Generate keypair** creates an
+OpenPGP keypair (ed25519 by default) and:
+
+- keeps the **public** half, serving it at `/.well-known/pgp-key.asc` and
+  referencing it from `security.txt` with an `Encryption:` field;
+- shows you the **private** half exactly once, to download or copy.
+
+**The private key is never stored.** It is generated in a throwaway keyring
+that is deleted before the request returns, handed back in that one response,
+and written to nothing &mdash; not the database, not the logs, not `/data`. It
+cannot be shown again; generate a new key if you lose it.
+
+That is a deliberate limit rather than an oversight. DomainLens commonly runs
+without authentication on a LAN, and a copy of its database plus
+`DOMAINLENS_SECRET_KEY` would otherwise hand someone the key that decrypts
+every vulnerability report its owner ever received. Keep the private key in
+your password manager or your own GnuPG keyring, and decrypt there.
+
+Settings refuse a PGP **private** key block in any field, whichever route it
+arrives by, and the key endpoint fails loudly rather than serving one.
+
+### Requirements
+
+Key generation shells out to `gpg`, which ships in the Docker image. On a
+native install without GnuPG the button is disabled and says so; everything
+else on the page keeps working, and you can still paste a public key you
+generated elsewhere.
+
 ## Weak authentication testing
 
 **Legal / ethical use only** — test domains you own or have written permission to assess.

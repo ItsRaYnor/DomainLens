@@ -3,7 +3,9 @@
                 <h3>Monitoring</h3>
                 <div class="drawer-actions">
                     <button class="btn-icon-sm" id="runDueBtn" title="Run due scans now">Run due</button>
-                    <button class="btn-icon-sm" id="monitorsCloseBtn" title="Close">&times;</button>
+                    {# As a page there is nothing behind this to close: the
+                       button only ever hid the page itself. #}
+                    {% if not as_page %}<button class="btn-icon-sm" id="monitorsCloseBtn" title="Close">&times;</button>{% endif %}
                 </div>
             </div>
             <div class="drawer-stats" id="monitorStats"></div>

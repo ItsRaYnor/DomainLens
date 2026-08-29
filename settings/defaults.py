@@ -105,9 +105,29 @@ DEFAULTS = {
         "security_headers": DEFAULT_SECURITY_HEADERS,
         "monitor_import_types": DEFAULT_MONITOR_IMPORT_TYPES,
         "benelux_geo_allow": ["NL", "DE", "BE"],
+        # "Label = 1.2.3.4, 5.6.7.8" per line. Configured here and referred
+        # to by label afterwards: the DNS API runs unauthenticated on a LAN,
+        # so an address must never arrive on a request.
+        "custom_resolvers": [],
         # Reuse today's answer from third-party services (crt.sh, OSINT feeds)
         # instead of asking them again on every scan of the same domain.
         "external_cache": {"enabled": True, "ttl_hours": 24, "max_stale_hours": 168},
+    },
+    # Responsible disclosure: what /.well-known/security.txt publishes, and
+    # the public half of the contact key. The private half is never stored --
+    # it is handed to the operator once at generation and forgotten.
+    "disclosure": {
+        "enabled": False,
+        "contact": "",
+        "policy_url": "",
+        "acknowledgments_url": "",
+        "preferred_languages": "en, nl",
+        "expires_days": 365,
+        "canonical_url": "",
+        "pgp_public_key": "",
+        "pgp_fingerprint": "",
+        "pgp_uid": "",
+        "pgp_generated_at": "",
     },
     "reporting": {
         "retention_days": 365,

@@ -19,7 +19,13 @@
     "lookup_impersonation": "Impersonation",
     "reports_history": "Scan history",
     "reports_trends": "Trends",
-    "skip_to_content": "Skip to content"
+    "skip_to_content": "Skip to content",
+    "lookup_pgp": "PGP & security.txt",
+    "tools": "Tools",
+    "tools_ip": "IP address",
+    "tools_dns": "DNS record",
+    "tools_impersonation": "Impersonation",
+    "tools_disclosure": "Responsible disclosure"
   },
   "search": {
     "placeholder": "Enter domain name (e.g. example.com)",
@@ -138,7 +144,8 @@
       "scim": "SCIM provisioning",
       "servicenow": "ServiceNow",
       "rapid7": "Rapid7 InsightVM",
-      "appearance": "Appearance"
+      "appearance": "Appearance",
+      "disclosure": "Responsible disclosure"
     },
     "general": {
       "locale": "Language",
@@ -163,6 +170,7 @@
       "security_headers": "Security headers to check",
       "monitor_import_types": "DNS record types for monitor import",
       "benelux_geo_allow": "Benelux country codes (CDN geo hints)",
+      "custom_resolvers": "Custom resolvers (Label = 1.2.3.4, 5.6.7.8 per line)",
       "external_cache_enabled": "Reuse third-party lookups (crt.sh, OSINT feeds)",
       "external_cache_ttl_hours": "Reuse third-party lookups for (hours)",
       "external_cache_max_stale_hours": "Show last successful lookup during an outage, up to (hours)",
@@ -299,7 +307,17 @@
       "automation": "Automation",
       "access": "Access & identity",
       "integrations": "Integrations",
-      "other": "Other"
+      "other": "Other",
+      "disclosure": "Responsible disclosure"
+    },
+    "disclosure": {
+      "enabled": "Publish /.well-known/security.txt",
+      "contact": "Security contact (email or URL, comma-separated)",
+      "policy_url": "Disclosure policy URL",
+      "acknowledgments_url": "Acknowledgments (hall of fame) URL",
+      "preferred_languages": "Preferred languages",
+      "expires_days": "security.txt validity (days, max 365)",
+      "canonical_url": "Canonical URL (leave empty to derive)"
     }
   },
   "rapid7_ui": {

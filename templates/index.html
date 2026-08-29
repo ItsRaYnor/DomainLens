@@ -115,21 +115,6 @@
             </div>
         </section>
 
-        <!-- DNS lookup: check a record you just changed, without a terminal -->
-        <section class="card" id="dnsLookupCard">
-            <details id="dnsLookupDetails">
-                <summary><strong>DNS lookup</strong> <span class="ct-desc">&mdash; check a single record, like <code>dig</code></span></summary>
-                <div class="dns-lookup-form">
-                    <input type="text" id="dnsLookupName" placeholder="send.example.com" autocomplete="off">
-                    <select id="dnsLookupType"></select>
-                    <select id="dnsLookupResolver"></select>
-                    <button class="btn-primary-lite" id="dnsLookupBtn" type="button">Look up</button>
-                </div>
-                <p class="ct-desc">The resolver list is fixed on purpose: accepting an address would turn this into a way to probe port 53 on any host this server can reach. <code>authoritative</code> asks the zone's own nameservers, which skips every cache &mdash; use it to see whether a change has actually been published.</p>
-                <div id="dnsLookupResult"></div>
-            </details>
-        </section>
-
         <!-- Error toast -->
         <div id="errorToast" class="toast hidden"></div>
 

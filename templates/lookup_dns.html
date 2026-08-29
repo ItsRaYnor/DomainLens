@@ -23,6 +23,17 @@
             <p class="ct-desc">The resolver list is fixed on purpose: accepting an address would turn this into a way to probe port 53 on any host this server can reach. <code>authoritative</code> asks the zone's own nameservers, which skips every cache — use it to see whether a change has actually been published.</p>
             <div id="dnsLookupResult"></div>
         </section>
+
+        <section class="card">
+            <h2>Propagation check</h2>
+            <p class="ct-desc">Ask several resolvers the same question and compare their answers. A resolver that does not reply is reported as unreachable, never as disagreeing &mdash; its silence says nothing about whether your change rolled out.</p>
+            <div id="dnsPropResolvers" class="prop-resolvers"></div>
+            <p class="ct-desc" id="dnsPropCustomHint"></p>
+            <div class="dns-lookup-form">
+                <button class="btn-primary-lite" id="dnsPropBtn" type="button">Check propagation</button>
+            </div>
+            <div id="dnsPropResult"></div>
+        </section>
     </main>
     <div id="errorToast" class="toast hidden"></div>
     {% include "partials/footer.html" %}

@@ -21,6 +21,8 @@ zones from an internal resolver.
 
 from __future__ import annotations
 
+import concurrent.futures
+import ipaddress
 import time
 
 import dns.exception
@@ -112,11 +114,14 @@ def _format(rdata, rtype):
     return rdata.to_text()
 
 
-def query(name, rtype="A", resolver="system"):
-    """Resolve one name and return the answer with its metadata."""
-    name, rtype, resolver_key = _validate(name, rtype, resolver)
-    started = time.monotonic()
+def _query_addresses(name, rtype, resolver_key, addresses, want_ad=True):
+    """Send one question to the first of `addresses` that answers.
 
+    Shared by the fixed resolvers, the authoritative path and the custom
+    list, so all three report the same shape -- including the detail block,
+    which is the only way to see *why* two resolvers disagree.
+    """
+    started = time.monotonic()
     result = {
         "name": name,
         "type": rtype,
@@ -127,63 +132,210 @@ def query(name, rtype="A", resolver="system"):
         "authenticated": None,
         "authoritative_zone": None,
         "nameservers": None,
+        "answered_by": None,
+        "detail": None,
         "error": None,
     }
 
-    if resolver_key == "authoritative":
-        zone, addresses = _authoritative_addresses(name)
-        result["authoritative_zone"] = zone
-        result["nameservers"] = addresses[:4]
-        request = dns.message.make_query(
-            dns.name.from_text(name), dns.rdatatype.from_text(rtype), want_dnssec=True)
-        last = None
-        for address in addresses[:4]:
-            try:
-                response = dns.query.udp(request, address, timeout=_TIMEOUT)
-                break
-            except dns.exception.DNSException as exc:
-                last = exc
-        else:
-            result["error"] = f"No nameserver answered: {last}"
-            result["elapsed_ms"] = round((time.monotonic() - started) * 1000)
-            return result
-        result["rcode"] = dns.rcode.to_text(response.rcode())
-        # An authoritative server signs but does not validate, so AD says
-        # nothing here and is left unset rather than reported as False.
-        for rrset in response.answer:
-            if rrset.rdtype == dns.rdatatype.RRSIG:
-                continue
-            result["ttl"] = rrset.ttl
-            result["records"] += [_format(rd, rtype) for rd in rrset]
-        result["elapsed_ms"] = round((time.monotonic() - started) * 1000)
-        return result
-
     request = dns.message.make_query(
         dns.name.from_text(name), dns.rdatatype.from_text(rtype), want_dnssec=True)
-    # Ask for the AD bit explicitly: without it most resolvers never set it,
-    # and a missing AD would read as "DNSSEC not validated" when it simply
-    # was not asked about.
-    request.flags |= dns.flags.AD
+    if want_ad:
+        # Ask for the AD bit explicitly: without it most resolvers never set
+        # it, and a missing AD would read as "DNSSEC not validated" when it
+        # simply was not asked about.
+        request.flags |= dns.flags.AD
 
-    addresses = RESOLVERS[resolver_key] or dns.resolver.get_default_resolver().nameservers
+    response = None
     last = None
-    for address in list(addresses)[:3]:
+    for address in list(addresses)[:4]:
         try:
             response = dns.query.udp(request, str(address), timeout=_TIMEOUT)
+            result["answered_by"] = str(address)
             break
         except dns.exception.DNSException as exc:
             last = exc
-    else:
+    if response is None:
         result["error"] = f"Query failed: {last}"
         result["elapsed_ms"] = round((time.monotonic() - started) * 1000)
         return result
 
     result["rcode"] = dns.rcode.to_text(response.rcode())
-    result["authenticated"] = bool(response.flags & dns.flags.AD)
+    if want_ad:
+        result["authenticated"] = bool(response.flags & dns.flags.AD)
     for rrset in response.answer:
         if rrset.rdtype == dns.rdatatype.RRSIG:
             continue
         result["ttl"] = rrset.ttl
         result["records"] += [_format(rd, rtype) for rd in rrset]
+    result["detail"] = _response_detail(response, rtype)
     result["elapsed_ms"] = round((time.monotonic() - started) * 1000)
     return result
+
+
+def query(name, rtype="A", resolver="system", custom=None):
+    """Resolve one name and return the answer with its metadata."""
+    custom = custom or {}
+    if resolver and resolver.strip().lower() in custom:
+        key = resolver.strip().lower()
+        name, rtype, _ = _validate(name, rtype, "system")
+        return _query_addresses(name, rtype, key, custom[key])
+
+    name, rtype, resolver_key = _validate(name, rtype, resolver)
+
+    if resolver_key == "authoritative":
+        zone, addresses = _authoritative_addresses(name)
+        # An authoritative server signs but does not validate, so AD says
+        # nothing here and is left unset rather than reported as False.
+        result = _query_addresses(name, rtype, resolver_key, addresses, want_ad=False)
+        result["authoritative_zone"] = zone
+        result["nameservers"] = addresses[:4]
+        if result.get("error"):
+            result["error"] = result["error"].replace("Query failed", "No nameserver answered")
+        return result
+
+    addresses = RESOLVERS[resolver_key] or dns.resolver.get_default_resolver().nameservers
+    return _query_addresses(name, rtype, resolver_key, addresses)
+
+
+# --- Custom resolvers ------------------------------------------------------
+# Operators need to check their own recursors, but the query API is reachable
+# without authentication on a LAN, so an address must never come straight off
+# a request. These are configured once by an admin in settings and referred to
+# by name afterwards -- the same contract RESOLVERS already has.
+
+def parse_custom_resolvers(lines):
+    """Read "label = addr[, addr]" lines from settings into resolver entries.
+
+    A malformed line is skipped rather than raising: this runs on the way in
+    to every lookup, and one typo in settings should not take the DNS page
+    down with it.
+    """
+    resolvers = {}
+    for raw in (lines or []):
+        text = (raw or "").strip()
+        if not text or text.startswith("#"):
+            continue
+        label, _, addresses = text.partition("=")
+        if not addresses:
+            # "1.1.1.1" alone is a reasonable thing to type; name it after
+            # itself rather than rejecting it.
+            label, addresses = text, text
+        key = label.strip().lower()
+        parsed = []
+        for candidate in addresses.split(","):
+            candidate = candidate.strip()
+            if not candidate:
+                continue
+            try:
+                ipaddress.ip_address(candidate)
+            except ValueError:
+                continue
+            parsed.append(candidate)
+        if key and parsed and key not in RESOLVERS:
+            resolvers[key] = parsed
+    return resolvers
+
+
+def _response_detail(response, rtype):
+    """The parts of the reply worth showing next to the records.
+
+    Without this a lookup answers "what" but never "who said so and how" --
+    which is exactly what you need when two resolvers disagree.
+    """
+    if response is None:
+        return None
+    detail = {
+        "flags": dns.flags.to_text(response.flags).split(),
+        "rcode": dns.rcode.to_text(response.rcode()),
+        "answer": [], "authority": [], "additional": [],
+    }
+    for section, key in ((response.answer, "answer"),
+                         (response.authority, "authority"),
+                         (response.additional, "additional")):
+        for rrset in section:
+            for rdata in rrset:
+                detail[key].append({
+                    "name": str(rrset.name),
+                    "ttl": rrset.ttl,
+                    "type": dns.rdatatype.to_text(rrset.rdtype),
+                    "value": rdata.to_text(),
+                })
+    return detail
+
+
+def propagation(name, rtype="A", resolvers=None, custom=None):
+    """Ask several resolvers the same question and compare their answers.
+
+    The verdict keeps three things apart, because an operator acts on each
+    differently:
+
+      propagated    every resolver that answered returned the same records
+      inconsistent  they answered, and the records differ -- still rolling out
+      unknown       too few answered to compare anything
+
+    A resolver that timed out is never counted as disagreeing. Treating our
+    own failure to reach it as "not propagated yet" would send someone
+    chasing a rollout that already finished.
+    """
+    name, rtype, _ = _validate(name, rtype, "system")
+    custom = custom or {}
+    # None means "use the usual set"; an explicitly empty list is a caller
+    # asking to compare nothing, which is a mistake worth naming.
+    if resolvers is None:
+        keys = ["cloudflare", "google", "quad9", "authoritative"]
+    else:
+        keys = list(resolvers)
+
+    known = {**{k: v for k, v in RESOLVERS.items()}, **custom}
+    unknown_keys = [k for k in keys if k not in known]
+    if unknown_keys:
+        raise LookupError_("Unknown resolver(s): " + ", ".join(sorted(unknown_keys)))
+    if not keys:
+        raise LookupError_("Select at least one resolver to compare")
+
+    def ask(key):
+        try:
+            if key in custom:
+                return _query_addresses(name, rtype, key, custom[key])
+            return query(name, rtype, key)
+        except Exception as exc:
+            return {"name": name, "type": rtype, "resolver": key, "records": [],
+                    "ttl": None, "rcode": None, "error": f"{type(exc).__name__}: {exc}",
+                    "detail": None, "elapsed_ms": None}
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(keys))) as pool:
+        for outcome in pool.map(ask, keys):
+            results.append(outcome)
+    # map() preserves input order; keep the caller's order so the report reads
+    # the same way the checkboxes were ticked.
+    answered = [r for r in results if not r.get("error")]
+    unreachable = [r for r in results if r.get("error")]
+
+    # Order within an RRset is not significant and round-robin resolvers
+    # deliberately rotate it, so comparing unsorted lists would report a
+    # difference on every second lookup.
+    signatures = {}
+    for r in answered:
+        signature = (r.get("rcode"), tuple(sorted(r.get("records") or [])))
+        signatures.setdefault(signature, []).append(r["resolver"])
+
+    if len(answered) < 2:
+        verdict = "unknown"
+    elif len(signatures) == 1:
+        verdict = "propagated"
+    else:
+        verdict = "inconsistent"
+
+    return {
+        "name": name,
+        "type": rtype,
+        "verdict": verdict,
+        "results": results,
+        "answered": len(answered),
+        "unreachable": [r["resolver"] for r in unreachable],
+        "groups": [
+            {"records": list(sig[1]), "rcode": sig[0], "resolvers": who}
+            for sig, who in signatures.items()
+        ],
+    }

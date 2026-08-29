@@ -2,6 +2,14 @@ let currentDays = 30;
 
 function $(id) { return document.getElementById(id); }
 
+// Same contract as the helper in app.js: bind only when the node is there,
+// so a template change cannot silently kill the bindings that follow it.
+function on(id, event, handler) {
+    const el = $(id);
+    if (el) el.addEventListener(event, handler);
+    return el;
+}
+
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
     return String(str)
@@ -475,8 +483,12 @@ document.addEventListener('DOMContentLoaded', () => {
             reload();
         });
     });
-    $('refreshBtn').addEventListener('click', reload);
-    $('domainFilter').addEventListener('keydown', e => {
+    // Guarded, like the lookups below: one missing node used to throw here
+    // and take every later binding -- the drill-downs, the close button --
+    // and the loadTrends() call at the end of this listener down with it,
+    // leaving a page that looked empty rather than broken.
+    on('refreshBtn', 'click', reload);
+    on('domainFilter', 'keydown', e => {
         if (e.key === 'Enter') reload();
     });
     const clear = $('clearFilterBtn');
@@ -487,18 +499,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    $('kpiGrid').addEventListener('click', e => {
+    on('kpiGrid', 'click', e => {
         const tile = e.target.closest('[data-drill]');
         if (tile) openDrill(tile.getAttribute('data-drill'));
     });
-    $('kpiGrid').addEventListener('keydown', e => {
+    on('kpiGrid', 'keydown', e => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         const tile = e.target.closest('[data-drill]');
         if (tile) { e.preventDefault(); openDrill(tile.getAttribute('data-drill')); }
     });
 
-    $('drilldownClose').addEventListener('click', closeDrill);
-    $('drilldownBody').addEventListener('click', e => {
+    on('drilldownClose', 'click', closeDrill);
+    on('drilldownBody', 'click', e => {
         const btn = e.target.closest('.scan-delete');
         if (btn) deleteScan(btn.getAttribute('data-scan-id'));
     });

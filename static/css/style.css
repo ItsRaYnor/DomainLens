@@ -1710,10 +1710,15 @@ footer, .app-footer {
     display: flex;
     gap: .2rem;
     flex-wrap: wrap;
-    max-width: 1200px;
+    /* Same track as .header-content and main (960px). It used to centre on
+       1200px, so the row sat 120px left of everything under it. */
+    max-width: 960px;
     margin: 0 auto;
     padding: .4rem 1rem;
 }
+/* The item carries its own .7rem of padding, which would push the first
+   label that far right of the content edge it is meant to line up with. */
+.subnav-item:first-child { margin-left: -.7rem; }
 .subnav-item {
     padding: .32rem .7rem;
     border-radius: 6px;
@@ -1907,7 +1912,12 @@ footer, .app-footer {
     .lookup-form button { width: 100%; flex: 0 0 auto; }
     .lookup-form .lookup-field { flex: 0 0 auto; }
     .dns-lookup-form { flex-direction: column; }
+    /* input[type="text"] and not a bare input: the desktop rule above uses
+       the attribute selector, so a plain `input` here loses on specificity
+       and its `flex: 1 1 16rem` survives. Stacked into a column that basis
+       is a HEIGHT, which grew the box to 256px. */
     .dns-lookup-form input,
+    .dns-lookup-form input[type="text"],
     .dns-lookup-form select,
     .dns-lookup-form button { width: 100%; flex: 0 0 auto; }
 
@@ -2040,4 +2050,120 @@ footer, .app-footer {
     color: var(--text-faint);
     padding: 0 0.6rem;
     margin-bottom: 0.3rem;
+}
+
+/* Propagation check: resolver checkboxes and the per-resolver rows. */
+.prop-resolvers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin: 0.5rem 0;
+}
+
+.prop-resolver {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    cursor: pointer;
+}
+
+.prop-row {
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.prop-row strong {
+    display: block;
+    margin-bottom: 0.2rem;
+}
+
+.dns-detail {
+    margin-top: 0.4rem;
+}
+
+.dns-detail summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--muted, inherit);
+}
+
+/* A DNS value can be a few hundred characters of base64 (RRSIG, DNSKEY).
+   break-all lets the browser squeeze that column to almost nothing and spend
+   the height instead -- an RRSIG landed in a 58px column and grew the row to
+   699px. Fixed layout gives the value a real share of the width; the wrapper
+   scrolls rather than letting the table push the page sideways. */
+.dns-detail-table-wrap {
+    overflow-x: auto;
+}
+
+.dns-detail table {
+    table-layout: fixed;
+    width: 100%;
+    min-width: 34rem;
+}
+
+.dns-detail th:nth-child(1), .dns-detail td:nth-child(1) { width: 5.5rem; }
+.dns-detail th:nth-child(2), .dns-detail td:nth-child(2) { width: 9rem; }
+.dns-detail th:nth-child(3), .dns-detail td:nth-child(3) { width: 4rem; }
+.dns-detail th:nth-child(4), .dns-detail td:nth-child(4) { width: 4.5rem; }
+
+.dns-detail-value {
+    word-break: break-all;
+}
+
+/* Responsible disclosure key generation. */
+.pgp-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+}
+
+.pgp-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.pgp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+/* The private key is shown once; it needs room to be read and selected. */
+#pgpPrivateBox {
+    width: 100%;
+    font-size: 0.8rem;
+    white-space: pre;
+    overflow-x: auto;
+}
+
+/* The key block lives inside the disclosure settings panel, under that
+   section's own Save button, so one feature reads as one thing. */
+.disclosure-key-block {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+/* The validators take pasted files and keys; a narrow box makes them
+   unreadable and hides where a line actually ends. */
+#stxtInput, #pgpKeyInput, #genPrivBox, #genPubBox {
+    width: 100%;
+    font-size: .82rem;
+    white-space: pre;
+    overflow-x: auto;
+    margin: .4rem 0;
+}
+
+/* Validator output: short lists of errors, warnings and notes. */
+.finding-list {
+    margin: .2rem 0 .8rem 1.1rem;
+    padding: 0;
+    font-size: .9rem;
+    line-height: 1.5;
 }

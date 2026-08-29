@@ -38,6 +38,7 @@ RUN apt-get update \
         curl \
         ca-certificates \
         gosu \
+        gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

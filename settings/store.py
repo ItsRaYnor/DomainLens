@@ -60,6 +60,17 @@ def _validate_field(section: str, key: str, value):
     """
     from settings.registry import FIELD_META
 
+    # No settings value may carry a PGP private key. disclosure.pgp_public_key
+    # is reachable through the admin settings API as well as through key
+    # generation, and pasting the wrong half of an export there would publish
+    # it at /.well-known/pgp-key.asc. Checked for every section: there is no
+    # field anywhere that has a legitimate reason to hold one.
+    if isinstance(value, str) and "-----BEGIN PGP PRIVATE KEY BLOCK-----" in value:
+        raise ValueError(
+            f"{section}.{key} contains a PGP PRIVATE key block. Only the "
+            "public half belongs in settings; DomainLens never stores a "
+            "private key.")
+
     meta = (FIELD_META.get(section) or {}).get(key) or {}
     if meta.get("type") == "color":
         import theming
@@ -260,6 +271,11 @@ class SettingsStore:
                 }
             schema[section] = {
                 "fields": fields,
+                # Explicit, because the schema is serialised with sorted keys:
+                # without this every section renders alphabetically, which put
+                # the mandatory contact field third and the on/off switch
+                # fourth in the disclosure panel.
+                "order": list((FIELD_META.get(section) or {}).keys()),
                 "defaults": section_defaults(section),
             }
         return {

@@ -144,6 +144,38 @@
         </section>
         {% endif %}
 
+        <section class="card integrations-card" id="disclosure">
+            <h2>Responsible disclosure key</h2>
+            <p class="ct-desc">
+                Generate an OpenPGP keypair for your security contact. DomainLens keeps
+                the <strong>public</strong> half and publishes it at
+                <code>/.well-known/pgp-key.asc</code>, referenced from your
+                <code>/.well-known/security.txt</code>.
+            </p>
+            <p class="ct-desc">
+                <strong>The private key is shown once and never stored.</strong> It is
+                returned in the response, not written to the database, and cannot be
+                recovered afterwards &mdash; so a copy of this installation never hands
+                anyone the key to the disclosures you receive. Save it to your password
+                manager before you leave this page.
+            </p>
+            <div id="pgpStatus" class="ct-desc"></div>
+            <div class="pgp-form">
+                <label>Name <input type="text" id="pgpName" placeholder="Example BV Security" autocomplete="off"></label>
+                <label>Email <input type="email" id="pgpEmail" placeholder="security@example.com" autocomplete="off"></label>
+                <label>Expiry <input type="text" id="pgpExpiry" value="2y" autocomplete="off"></label>
+            </div>
+            <p class="ct-desc">A passphrase is optional here; if you set one on the
+               downloaded key later with <code>gpg --edit-key</code> it protects the file
+               at rest in your own keyring.</p>
+            <button class="btn-primary-lite" id="pgpGenerateBtn" type="button">Generate keypair</button>
+            <div id="pgpResult"></div>
+            <p class="ct-desc">
+                To check this or any other domain's published key the way a researcher
+                would, use <a href="/tools/disclosure">Tools &rarr; Responsible disclosure</a>.
+            </p>
+        </section>
+
         <section class="card settings-version-card" id="settingsVersionCard">
             <h2>DomainLens <span class="version-chip">v{{ app_version }}</span></h2>
             <p class="muted build-line">

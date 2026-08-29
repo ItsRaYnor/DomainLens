@@ -35,9 +35,25 @@ FIELD_META = {
         "security_headers": {"type": "lines", "label": "settings.scan.security_headers"},
         "monitor_import_types": {"type": "lines", "label": "settings.scan.monitor_import_types"},
         "benelux_geo_allow": {"type": "lines", "label": "settings.scan.benelux_geo_allow"},
+        "custom_resolvers": {"type": "lines", "label": "settings.scan.custom_resolvers"},
         "external_cache.enabled": {"type": "bool", "label": "settings.scan.external_cache_enabled"},
         "external_cache.ttl_hours": {"type": "int", "min": 1, "max": 168, "label": "settings.scan.external_cache_ttl_hours"},
         "external_cache.max_stale_hours": {"type": "int", "min": 0, "max": 2160, "label": "settings.scan.external_cache_max_stale_hours"},
+    },
+    # The key fields are absent on purpose: a public key is produced by
+    # generation or by an explicit paste, never by free-text editing, and
+    # pgp_fingerprint must keep matching the key it describes.
+    "disclosure": {
+        # Ordered the way the file is filled in: switch it on, give the one
+        # mandatory field, then the optional extras.
+        "enabled": {"type": "bool", "label": "settings.disclosure.enabled"},
+        "contact": {"type": "text", "label": "settings.disclosure.contact"},
+        "expires_days": {"type": "int", "min": 1, "max": 365,
+                         "label": "settings.disclosure.expires_days"},
+        "policy_url": {"type": "text", "label": "settings.disclosure.policy_url"},
+        "acknowledgments_url": {"type": "text", "label": "settings.disclosure.acknowledgments_url"},
+        "preferred_languages": {"type": "text", "label": "settings.disclosure.preferred_languages"},
+        "canonical_url": {"type": "text", "label": "settings.disclosure.canonical_url"},
     },
     "reporting": {
         "retention_days": {"type": "int", "min": 7, "max": 3650, "label": "settings.reporting.retention_days"},
@@ -206,9 +222,11 @@ SETTING_CATEGORIES = [
     {"key": "settings.categories.access",
      "sections": ["auth_local", "auth_oauth", "auth_saml", "scim"]},
     {"key": "settings.categories.integrations", "sections": ["servicenow", "rapid7"]},
+    {"key": "settings.categories.disclosure", "sections": ["disclosure"]},
 ]
 
 ADMIN_SECTIONS = [
+    "disclosure",
     "appearance",
     "general",
     "scheduler",

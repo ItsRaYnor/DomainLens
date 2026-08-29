@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsible disclosure — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2>Check a domain</h2>
+            <p class="ct-desc">
+                Read a domain's <code>/.well-known/security.txt</code> and follow its
+                <code>Encryption:</code> field to check the PGP key a researcher would
+                actually be told to use.
+            </p>
+            <div class="lookup-form">
+                <label class="lookup-field">
+                    <span>Domain</span>
+                    <input type="text" id="pgpLookupDomain" placeholder="example.com"
+                           autocomplete="off" spellcheck="false">
+                </label>
+                <button class="btn-primary-lite" id="pgpLookupBtn" type="button">Check</button>
+            </div>
+            <p class="ct-desc">
+                Three outcomes are kept apart: the key was fetched and read, it could not
+                be reached (ours to admit, not the site's fault), or there is no
+                <code>Encryption:</code> field at all &mdash; which is allowed, since the
+                field is optional in RFC 9116.
+            </p>
+            <div id="pgpLookupResult"></div>
+        </section>
+
+        <section class="card">
+            <h2>Validate a security.txt</h2>
+            <p class="ct-desc">
+                Paste a file to check it before you publish it. Nothing is fetched and
+                nothing is stored &mdash; which is the point: you can check a draft.
+            </p>
+            <textarea id="stxtInput" rows="8" class="mono"
+                      placeholder="Contact: mailto:security@example.com&#10;Expires: 2027-01-01T00:00:00Z"></textarea>
+            <div class="lookup-form">
+                <button class="btn-primary-lite" id="stxtValidateBtn" type="button">Validate</button>
+            </div>
+            <div id="stxtResult"></div>
+        </section>
+
+        <section class="card">
+            <h2>Validate a PGP key</h2>
+            <p class="ct-desc">
+                Paste an armoured key to see whether it parses, what algorithm it uses,
+                which identities it carries and when it expires. The key is read in a
+                throwaway keyring and never imported or kept.
+            </p>
+            <textarea id="pgpKeyInput" rows="8" class="mono"
+                      placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----"></textarea>
+            <div class="lookup-form">
+                <button class="btn-primary-lite" id="pgpKeyValidateBtn" type="button">Validate key</button>
+            </div>
+            <p class="ct-desc">
+                Paste the <strong>public</strong> half. A private key is reported rather
+                than refused, because publishing the wrong half is the mistake worth
+                catching here &mdash; but do not paste one you still rely on.
+            </p>
+            <div id="pgpKeyResult"></div>
+        </section>
+
+        <section class="card">
+            <h2>Generate a keypair</h2>
+            <p class="ct-desc">
+                For a domain you are setting up. <strong>Neither half is stored</strong>
+                &mdash; both are shown once and forgotten, so this is a tool, not a
+                configuration step.
+            </p>
+            <div class="pgp-form">
+                <label>Name <input type="text" id="genName" placeholder="Example BV Security" autocomplete="off"></label>
+                <label>Email <input type="email" id="genEmail" placeholder="security@example.com" autocomplete="off"></label>
+                <label>Expiry <input type="text" id="genExpiry" value="2y" autocomplete="off"></label>
+            </div>
+            <button class="btn-primary-lite" id="genBtn" type="button">Generate keypair</button>
+            <div id="genResult"></div>
+            <p class="ct-desc">
+                To publish a key for <em>this</em> installation &mdash; where the public
+                half is kept and served at <code>/.well-known/pgp-key.asc</code> &mdash;
+                use <a href="/admin/settings#disclosure">Settings &rarr; Responsible disclosure</a>.
+            </p>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

@@ -16,6 +16,9 @@ import ipaddress
 import re
 import secrets
 import socket
+import urllib.parse
+
+import security_txt
 
 import dns.resolver
 import dns.query
@@ -436,6 +439,143 @@ _ADMIN_PATHS = ["/admin", "/administrator", "/wp-admin/", "/.git/", "/actuator",
 _ENV_LINE_RE = re.compile(r"(?m)^[A-Za-z_][A-Za-z0-9_]{2,}\s*=\s*\S+")
 
 
+# --- RFC 9116 security.txt -------------------------------------------------
+# The file is fetched anyway for the presence check; parsing it costs nothing
+# extra and turns a bare yes/no into something a researcher can act on.
+
+
+# A PGP public key block, as armoured by RFC 4880. The private counterpart is
+# matched too: finding one published is a serious finding, not a valid key.
+_PGP_PUBLIC_RE = re.compile(r"-----BEGIN PGP PUBLIC KEY BLOCK-----")
+_PGP_PRIVATE_RE = re.compile(r"-----BEGIN PGP PRIVATE KEY BLOCK-----")
+
+
+# The parser lives in security_txt: it is about the file format, not
+# about scanning. Re-exported here because callers and tests reach for it
+# by this name, and the move should not be their problem.
+parse_security_txt = security_txt.parse_security_txt
+
+
+def check_security_txt_key(body, base_url=None):
+    """Resolve and inspect the PGP key an Encryption: field points at.
+
+    Three outcomes are kept apart, because an operator acts on each
+    differently: the key was fetched and read, the key could not be reached
+    (ours to report as unmeasured, never as the site's defect), and there is
+    no Encryption: field to follow at all.
+    """
+    result = {
+        "state": "not_applicable",
+        "encryption_urls": [],
+        "url": None,
+        "reason": None,
+        "armored": False,
+        "private_key_published": False,
+    }
+    fields = parse_security_txt(body)
+    urls = [u for u in fields.get("encryption", []) if u]
+    result["encryption_urls"] = urls
+    if not urls:
+        # Encryption is OPTIONAL in RFC 9116. Absent is a deliberate choice,
+        # not a failure to measure and not a defect.
+        result["reason"] = "No Encryption: field in security.txt"
+        return result
+
+    url = urls[0]
+    result["url"] = url
+    # dns: and openpgp4fpr: URIs are legal but point at a key we would have
+    # to look up elsewhere; say so rather than reporting a fetch failure.
+    if not url.lower().startswith(("http://", "https://")):
+        result["state"] = "unmeasured"
+        result["reason"] = f"Encryption URI is not HTTP(S) and was not followed: {url}"
+        return result
+
+    host = urllib.parse.urlsplit(url).hostname
+    # The URL comes out of the scanned site's own file, so it is attacker
+    # controlled: without this, a hostile security.txt could point us at a
+    # cloud metadata endpoint or an internal host and use the scanner as a
+    # proxy to it.
+    if not host or not _safe_host(host):
+        result["state"] = "unmeasured"
+        result["reason"] = "Encryption URL does not resolve to a public address"
+        return result
+
+    try:
+        r = _get(url, timeout=8)
+    except Exception as exc:
+        result["state"] = "unmeasured"
+        result["reason"] = f"Could not fetch the key: {type(exc).__name__}"
+        return result
+
+    if r.status_code != 200:
+        result["state"] = "measured"
+        result["reason"] = f"Key URL returned HTTP {r.status_code}"
+        return result
+
+    text = r.text[:200000] if r.content else ""
+    result["private_key_published"] = bool(_PGP_PRIVATE_RE.search(text))
+    result["armored"] = bool(_PGP_PUBLIC_RE.search(text))
+    result["state"] = "measured"
+    if result["private_key_published"]:
+        result["reason"] = "The URL serves a PGP PRIVATE key block"
+    elif result["armored"]:
+        result["reason"] = "Armoured PGP public key block served"
+    else:
+        result["reason"] = "The URL did not serve an armoured PGP public key block"
+    return result
+
+
+def inspect_security_txt(domain, timeout=8):
+    """Fetch one domain's security.txt and report what it says.
+
+    The manual counterpart to the scan check: same parsing, same three key
+    states, but aimed at a single domain on demand -- including your own,
+    which is the usual reason to look.
+    """
+    result = {
+        "domain": domain,
+        "found": False,
+        "url": None,
+        "status": None,
+        "fields": {},
+        "raw": None,
+        "key": None,
+        "error": None,
+    }
+    if not _safe_host(domain):
+        result["error"] = "Host does not resolve to a public address"
+        return result
+
+    last_error = None
+    for scheme in ("https", "http"):
+        base = f"{scheme}://{domain}"
+        url = base + "/.well-known/security.txt"
+        try:
+            response = _get(url, timeout=timeout)
+        except Exception as exc:
+            last_error = f"{type(exc).__name__}"
+            continue
+        result["url"] = url
+        result["status"] = response.status_code
+        if response.status_code != 200:
+            continue
+        body = response.text[:20000] if response.content else ""
+        # Same guard as the scan: a 200 HTML fallback page is a soft 404, not
+        # a security.txt, and reporting it as one invents a policy that does
+        # not exist.
+        if _looks_like_html(body) or "contact:" not in body.lower():
+            continue
+        result["found"] = True
+        result["raw"] = body
+        result["fields"] = parse_security_txt(body)
+        result["key"] = check_security_txt_key(body, base)
+        return result
+
+    if not result["url"] and last_error:
+        result["error"] = f"Could not reach {domain} ({last_error})"
+    return result
+
+
 def _looks_like_html(body):
     stripped = body.lstrip()[:100].lower()
     return stripped.startswith("<!doctype") or stripped.startswith("<html") or "<head" in stripped
@@ -458,7 +598,10 @@ def _probe_path(base, path, signatures, expects_html=False):
     # (soft 404) would be misreported as "security.txt present".
     if path.endswith("security.txt"):
         if signatures and any(sig in body for sig in signatures) and not _looks_like_html(body):
-            return {"path": path, "status": r.status_code, "positive": True}
+            # The body rides along so the RFC 9116 fields can be read without
+            # a second request for a file we have already downloaded.
+            return {"path": path, "status": r.status_code, "positive": True,
+                    "body": body}
         return None
 
     # Reject generic HTML fallback/soft-404 pages for paths that should never
@@ -525,6 +668,7 @@ def check_web_exposure(domain):
         "cookies": [], "cors": {}, "methods": {},
         "sensitive_files": [], "admin_endpoints": [],
         "security_txt": False,
+        "security_txt_key": None,
     }
 
     if not _safe_host(domain):
@@ -588,6 +732,7 @@ def check_web_exposure(domain):
         pass
 
     # --- Sensitive files (light wordlist) ---
+    security_txt_body = ""
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
         futures = {ex.submit(_probe_path, base, p, sigs, html): p
                    for p, sigs, html in _SENSITIVE_PATHS}
@@ -596,10 +741,26 @@ def check_web_exposure(domain):
                 r = fut.result()
                 if r and r.get("positive") and r["path"].endswith("security.txt"):
                     result["security_txt"] = True
+                    security_txt_body = r.get("body") or ""
                 elif r and not r.get("positive"):
                     result["sensitive_files"].append(r)
             except Exception:
                 continue
+
+    # --- security.txt PGP key (RFC 9116 Encryption:) ---
+    # Only when the file was actually found: with no security.txt there is no
+    # field to follow, and a "key missing" line would be a second complaint
+    # about the one thing already reported.
+    if result["security_txt"]:
+        try:
+            result["security_txt_key"] = check_security_txt_key(security_txt_body, base)
+        except Exception as exc:
+            result["security_txt_key"] = {
+                "state": "unmeasured",
+                "reason": f"Key check failed: {type(exc).__name__}",
+                "encryption_urls": [], "url": None,
+                "armored": False, "private_key_published": False,
+            }
 
     # --- Admin / debug endpoints ---
     baseline = _get_soft_404_baseline(base)
@@ -1062,6 +1223,32 @@ def audit_findings(audit):
             "There is no /.well-known/security.txt, so researchers have no clear way to report vulnerabilities.",
             fix="Publish /.well-known/security.txt with a Contact field (RFC 9116).",
         ))
+
+    # The PGP key behind Encryption:. Only states we actually established are
+    # reported: "unmeasured" is our limitation, and putting it in the findings
+    # list would read as a defect of the scanned site. "not_applicable" is the
+    # operator's deliberate choice -- Encryption: is optional in RFC 9116, so
+    # advising them to add one is advice they have already declined.
+    key = web.get("security_txt_key") or {}
+    if key.get("state") == "measured":
+        if key.get("private_key_published"):
+            findings.append(_finding(
+                "critical", "Exposure",
+                "security.txt Encryption: URL serves a PGP PRIVATE key",
+                "The key published for encrypted reports is a private key. Anyone who "
+                "fetched it can decrypt reports sent to this address and sign as its owner.",
+                evidence=key.get("url"),
+                fix="Remove the private key, revoke it, and publish only the exported public key.",
+            ))
+        elif not key.get("armored"):
+            findings.append(_finding(
+                "low", "Best Practice",
+                "security.txt Encryption: URL does not serve a PGP public key",
+                "The Encryption: field points at a URL that does not return an armoured "
+                "PGP public key block, so a researcher following it cannot encrypt a report.",
+                evidence=f"{key.get('url')} -- {key.get('reason')}",
+                fix="Serve the armoured public key (-----BEGIN PGP PUBLIC KEY BLOCK-----) at that URL, or drop the Encryption: field.",
+            ))
 
     # --- DNS & mail gaps ---
     dm = audit.get("dns_mail") or {}

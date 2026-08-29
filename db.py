@@ -3,6 +3,7 @@ SQLite-backed scan history storage for DomainLens.
 Uses only stdlib sqlite3 — no external dependencies.
 """
 
+import contextlib
 import json
 import os
 import sqlite3
@@ -19,12 +20,25 @@ def _db_path():
     )
 
 
+@contextlib.contextmanager
 def _connect():
+    """Open a connection, commit or roll back, and always close it.
+
+    sqlite3's own `with conn:` is a TRANSACTION context manager -- it commits
+    but never closes. Every call here therefore leaked a connection (and its
+    WAL file handles) until the garbage collector happened to run. Wrapping
+    it keeps the existing `with _lock, _connect() as conn:` call sites and
+    their commit/rollback semantics exactly as they were, and adds the close.
+    """
     conn = sqlite3.connect(_db_path(), timeout=10, isolation_level=None)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def init_db():

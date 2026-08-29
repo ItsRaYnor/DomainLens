@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 from unittest import mock
 
@@ -6,13 +8,50 @@ import security_checks as s
 import osint
 
 
+# crt.sh answers are cached in the database for a day. Without an isolated
+# one these tests read whatever the developer's own DomainLens happens to
+# have cached, and a mocked outage quietly returns a real earlier answer --
+# which is exactly how they started failing on a machine that had run a scan.
+_tempdir = None
+
+
+def setUpModule():
+    global _tempdir
+    _tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    os.environ["DOMAINLENS_DB"] = os.path.join(_tempdir.name, "crtsh.db")
+    import db
+    db.init_db()
+
+
+def tearDownModule():
+    os.environ.pop("DOMAINLENS_DB", None)
+    _tempdir.cleanup()
+
+
+def _clear_cache():
+    """Between tests, not just between runs.
+
+    Several of these ask about the same domain: the one that succeeds caches
+    an answer, and the next one -- which mocks an outage -- gets that answer
+    back instead of the failure it set up.
+    """
+    import db
+    with db._lock, db._connect() as conn:
+        conn.execute("DELETE FROM external_cache")
+
+
+class CacheIsolatedTestCase(unittest.TestCase):
+    def setUp(self):
+        _clear_cache()
+
+
 def _resp(status, payload=None):
     r = mock.Mock(status_code=status)
     r.json.return_value = payload if payload is not None else []
     return r
 
 
-class CrtShRetryTests(unittest.TestCase):
+class CrtShRetryTests(CacheIsolatedTestCase):
     """crt.sh answers 502/503 for seconds at a time under load, so a single
     attempt fails far more often than the service is actually down.
     """
@@ -88,7 +127,7 @@ class CrtShRetryTests(unittest.TestCase):
         self.assertIn("failed", error)
 
 
-class EnumerationFailureHonestyTests(unittest.TestCase):
+class EnumerationFailureHonestyTests(CacheIsolatedTestCase):
     """A failed crt.sh lookup was swallowed, leaving only the apex — so a
     takeover scan that had enumerated nothing still reported "no dangling
     subdomains detected", which reads as a clean bill of health rather than
@@ -157,7 +196,7 @@ class EnumerationFailureHonestyTests(unittest.TestCase):
         self.assertTrue(any("Possible subdomain takeover" in t for t in titles))
 
 
-class OsintCrtShTests(unittest.TestCase):
+class OsintCrtShTests(CacheIsolatedTestCase):
 
     def test_transient_502_is_retried(self):
         rows = [{"name_value": "www.example.com", "issuer_name": "CA"}]

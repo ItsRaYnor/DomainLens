@@ -135,7 +135,7 @@ class MonitorAndManualScansShareTheRegistryTests(MonitorScanProgressTests):
 
 
 class MonitorProgressRenderingTests(unittest.TestCase):
-    """The drawer covers the main progress bar, so the button that was
+    """/monitoring has no progress bar of its own, so the button that was
     pressed has to show the state itself."""
 
     def _app_js(self):
@@ -163,6 +163,63 @@ class MonitorProgressRenderingTests(unittest.TestCase):
         js = self._app_js()
         block = js[js.index("async function resumeScanIfRunning"):][:1400]
         self.assertIn("jobResults(job)", block)
+
+
+class RunNowOnTheMonitoringPageTests(unittest.TestCase):
+    """"Run now" reported "Network error while running monitor scan" for a
+    scan that had already started and went on to finish.
+
+    The monitoring block lives on its own page now, not in a drawer over the
+    scan page, so none of the scan page's progress nodes are in the document.
+    The shared helpers looked them up unguarded, and the TypeError landed in
+    runMonitorScan's catch -- which blamed the network, the one cause it
+    could not have been after the POST returned 202.
+    """
+
+    def _read(self, *parts):
+        return (pathlib.Path(__file__).resolve().parent.parent
+                .joinpath(*parts).read_text(encoding="utf-8"))
+
+    def _app_js(self):
+        return self._read("static", "js", "app.js")
+
+    def _block(self, js, marker, size=1200):
+        return js[js.index(marker):][:size]
+
+    def test_the_run_now_page_lacks_the_scan_pages_progress_nodes(self):
+        """The premise of the bug: if these ever land on /monitoring the
+        guards below stop being the thing that keeps Run now working."""
+        page = self._read("templates", "monitoring.html")
+        partial = self._read("templates", "partials", "_monitoring_block.html")
+        for node in ('id="loading"', 'id="results"', 'id="scanBtn"'):
+            self.assertNotIn(node, page)
+            self.assertNotIn(node, partial)
+
+    def test_show_scanning_tolerates_a_page_without_a_progress_bar(self):
+        block = self._block(self._app_js(), "function showScanning")
+        for node in ("'loading'", "'loadingDomain'", "'results'", "'scanBtn'"):
+            self.assertNotIn(f"$({node}).", block,
+                             f"$({node}) is dereferenced without a guard")
+
+    def test_hide_scanning_still_clears_the_poll_timer_off_the_scan_page(self):
+        """Guarding the whole body on #loading would leave the timer armed,
+        polling a job whose page has no progress bar to update."""
+        block = self._block(self._app_js(), "function hideScanning")
+        self.assertNotIn("$('loading').", block)
+        self.assertIn("clearTimeout(scanPollTimer)", block)
+        self.assertNotIn("if (!box) return", block)
+
+    def test_a_finished_job_is_not_rendered_into_a_page_without_a_pane(self):
+        """renderResults threw mid-poll, so followJob's promise never
+        resolved: the monitor list never reloaded and the button stuck."""
+        block = self._block(self._app_js(), "async function followJob", 2200)
+        self.assertIn("if ($('results')) renderResults(results)", block)
+
+    def test_closing_the_monitors_block_does_not_blank_the_page(self):
+        """As a page the block is a page-panel with nothing behind it;
+        hiding it after a successful scan hid the monitor list itself."""
+        block = self._block(self._app_js(), "function closeMonitors")
+        self.assertIn("classList.contains('drawer')", block)
 
 
 if __name__ == "__main__":

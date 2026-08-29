@@ -98,7 +98,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // Pick up a scan that was still running when this page was last left.
     resumeScanIfRunning();
-    initDnsLookup();
     openFromQuery();
     // Tab navigation
     document.querySelectorAll('.tab').forEach(tab => {
@@ -364,7 +363,7 @@ async function startScan() {
         return;
     }
     if (looksLikeIp(domain)) {
-        window.location.href = '/lookup/ip?ip=' + encodeURIComponent(domain);
+        window.location.href = '/tools/ip?ip=' + encodeURIComponent(domain);
         return;
     }
 
@@ -436,18 +435,30 @@ function readJob() {
     catch (e) { return null; }
 }
 
+// The progress bar belongs to the scan page, but "Run now" on /monitoring
+// drives the same job through these helpers. Every node is therefore
+// optional: an unguarded lookup threw a TypeError that runMonitorScan's
+// catch relabelled as "Network error" for a scan that had in fact started.
 function showScanning(domain) {
-    $('loading').classList.remove('hidden');
-    $('loadingDomain').textContent = domain;
+    const box = $('loading');
+    if (box) box.classList.remove('hidden');
+    const label = $('loadingDomain');
+    if (label) label.textContent = domain;
     updateLoadingText(domain);
-    $('results').classList.add('hidden');
-    $('scanBtn').disabled = true;
+    const results = $('results');
+    if (results) results.classList.add('hidden');
+    const btn = $('scanBtn');
+    if (btn) btn.disabled = true;
     setProgress(0, null);
 }
 
 function hideScanning() {
-    $('loading').classList.add('hidden');
-    $('scanBtn').disabled = false;
+    const box = $('loading');
+    if (box) box.classList.add('hidden');
+    const btn = $('scanBtn');
+    if (btn) btn.disabled = false;
+    // Not guarded by the nodes above: the poll timer runs on every page that
+    // can start a job, and leaving it armed keeps polling a finished scan.
     if (scanPollTimer) { clearTimeout(scanPollTimer); scanPollTimer = null; }
 }
 
@@ -510,7 +521,10 @@ async function followJob(jobId, options) {
                 if (results) {
                     scanData = results;
                     currentScanId = jobScanId(job);
-                    renderResults(results);
+                    // Only the scan page has a pane to render into. On
+                    // /monitoring rendering threw mid-poll, so this promise
+                    // never resolved and the button stayed on "Scanning…".
+                    if ($('results')) renderResults(results);
                 }
             }
             if (opts.onDone) opts.onDone(job);
@@ -1942,6 +1956,9 @@ function closeHistory() {
     // network error by the caller's catch block.
     const drawer = $('historyDrawer');
     if (!drawer) return;
+    // Rendered as a full page (/reports) it is a page-panel, not a drawer:
+    // hiding it blanked the page with no way back but a reload.
+    if (!drawer.classList.contains('drawer')) return;
     drawer.classList.add('hidden');
     syncOverlay();
 }
@@ -2092,6 +2109,10 @@ async function openMonitors() {
 function closeMonitors() {
     const drawer = $('monitorsDrawer');
     if (!drawer) return;
+    // Included as a full page (/monitoring) the block is a page-panel, not a
+    // drawer: there are no results behind it to reveal, so closing it after a
+    // scan just blanked the page.
+    if (!drawer.classList.contains('drawer')) return;
     monitorsDrawerOpen = false;
     drawer.classList.add('hidden');
     syncOverlay();
@@ -2280,8 +2301,9 @@ async function importMonitors() {
 
 async function runMonitorScan(monitorId, btn) {
     // The scan runs on the server either way; what was missing was any sign
-    // that it had started. The drawer covers the main progress bar, so the
-    // percentage also goes on the button that was just pressed.
+    // that it had started. This block renders as its own page (/monitoring),
+    // which has no progress bar at all, so the percentage goes on the button
+    // that was just pressed.
     const label = btn ? btn.textContent : null;
     const setLabel = text => { if (btn) btn.textContent = text; };
     if (btn) btn.disabled = true;
@@ -2840,78 +2862,3 @@ function renderPorts(data) {
     el.innerHTML = html;
 }
 
-// ===== DNS lookup =====
-// Checking a record you just changed used to mean opening a terminal. The
-// resolver choice is a fixed list, not an address, so this cannot be used to
-// probe port 53 on arbitrary hosts.
-async function initDnsLookup() {
-    const typeEl = $('dnsLookupType');
-    const resolverEl = $('dnsLookupResolver');
-    const btn = $('dnsLookupBtn');
-    if (!typeEl || !resolverEl || !btn) return;
-
-    try {
-        const resp = await fetch('/api/dns/options');
-        const data = await resp.json();
-        typeEl.innerHTML = (data.types || []).map(t => `<option>${escapeHtml(t)}</option>`).join('');
-        resolverEl.innerHTML = (data.resolvers || []).map(r => `<option>${escapeHtml(r)}</option>`).join('');
-        typeEl.value = 'TXT';
-    } catch (e) {
-        return;
-    }
-
-    const run = () => dnsLookup();
-    btn.addEventListener('click', run);
-    $('dnsLookupName').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
-}
-
-async function dnsLookup() {
-    const out = $('dnsLookupResult');
-    const name = $('dnsLookupName').value.trim();
-    if (!name) { out.innerHTML = ''; return; }
-    const type = $('dnsLookupType').value;
-    const resolver = $('dnsLookupResolver').value;
-    out.innerHTML = '<p class="history-empty">Looking up…</p>';
-
-    let data;
-    try {
-        const params = new URLSearchParams({ name, type, resolver });
-        const resp = await fetch('/api/dns/query?' + params.toString());
-        data = await resp.json();
-        if (!resp.ok || data.error) {
-            out.innerHTML = `<p class="status status-fail">${escapeHtml(data.error || 'Lookup failed')}</p>`;
-            return;
-        }
-    } catch (e) {
-        out.innerHTML = `<p class="status status-fail">${escapeHtml(t('errors.network'))}</p>`;
-        return;
-    }
-
-    let html = '';
-    if (!data.records.length) {
-        // NXDOMAIN and "the name exists but has no record of this type" are
-        // different answers and must not read the same.
-        const detail = data.rcode === 'NXDOMAIN'
-            ? `${escapeHtml(data.name)} does not exist`
-            : `${escapeHtml(data.name)} exists but has no ${escapeHtml(data.type)} record`;
-        html += `<p class="status status-warn">${detail} (${escapeHtml(data.rcode)})</p>`;
-    } else {
-        html += '<table class="data-table"><tbody>';
-        data.records.forEach(r => {
-            html += `<tr><td class="mono" style="word-break:break-all">${escapeHtml(r)}</td></tr>`;
-        });
-        html += '</tbody></table>';
-    }
-
-    const meta = [];
-    if (data.ttl !== null && data.ttl !== undefined) meta.push(`TTL ${escapeHtml(String(data.ttl))}s`);
-    meta.push(`${escapeHtml(String(data.elapsed_ms))} ms`);
-    if (data.resolver === 'authoritative') {
-        meta.push(`authoritative for ${escapeHtml(data.authoritative_zone || '?')}`);
-        if (data.nameservers) meta.push(escapeHtml(data.nameservers.join(', ')));
-    } else if (data.authenticated) {
-        meta.push('DNSSEC validated');
-    }
-    html += `<p class="http-meta"><span>${meta.join(' · ')}</span></p>`;
-    out.innerHTML = html;
-}

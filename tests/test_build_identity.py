@@ -162,9 +162,23 @@ class RenameCompletenessTests(unittest.TestCase):
         self.assertEqual(offenders, [], "the old name is still referenced")
 
     def test_the_version_restarted(self):
+        """The rename reset the count to 0.0.1 under a new image name, so the
+        series never inherits a NetProbe-era number.
+
+        Pinned to the literal this asserted the reset once and then blocked
+        every release after it -- which is the opposite of the rule it exists
+        to protect. What has to hold is the floor: three integers, never
+        below the first tag the domainlens repository published.
+        """
         import pathlib
         root = pathlib.Path(__file__).resolve().parent.parent
-        self.assertEqual((root / "VERSION").read_text(encoding="utf-8").strip(), "0.0.1")
+        raw = (root / "VERSION").read_text(encoding="utf-8").strip()
+        parts = raw.split(".")
+        self.assertEqual(3, len(parts), f"VERSION is not major.minor.patch: {raw!r}")
+        self.assertTrue(all(p.isdigit() for p in parts),
+                        f"VERSION is not numeric: {raw!r}")
+        self.assertGreaterEqual(tuple(int(p) for p in parts), (0, 0, 1),
+                                f"VERSION dropped below the reset floor: {raw!r}")
 
     def test_the_environment_prefix_is_the_new_one(self):
         import version
