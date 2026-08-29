@@ -28,8 +28,9 @@ class SectionRouteTests(unittest.TestCase):
             os.environ.pop(key, None)
 
     def test_every_section_has_its_own_address(self):
-        for path in ("/", "/lookup/ip", "/lookup/dns", "/lookup/impersonation",
-                     "/monitoring", "/reports", "/trends", "/remediate"):
+        for path in ("/", "/tools/ip", "/tools/dns", "/tools/impersonation",
+                     "/tools/disclosure", "/monitoring", "/reports", "/trends",
+                     "/remediate"):
             self.assertEqual(self.client.get(path).status_code, 200, path)
 
     def test_the_current_section_is_marked(self):
@@ -41,10 +42,41 @@ class SectionRouteTests(unittest.TestCase):
         body = self.client.get("/reports").data.decode()
         self.assertEqual(body.count('aria-current="page"'), 2)  # section + subnav
 
-    def test_lookup_pages_share_the_lookup_section(self):
-        for path in ("/lookup/ip", "/lookup/dns", "/lookup/impersonation"):
+    def test_tool_pages_share_the_tools_section(self):
+        for path in ("/tools/ip", "/tools/dns", "/tools/impersonation",
+                     "/tools/disclosure"):
             body = self.client.get(path).data.decode()
-            self.assertIn('href="/lookup/ip" class="nav-item current"', body, path)
+            self.assertIn('href="/tools/ip" class="nav-item current"', body, path)
+
+    def test_the_subnav_shares_the_content_width(self):
+        """It centred on a 1200px track while the header and main use 960px,
+        so the row of tools sat 120px left of everything under it."""
+        import pathlib
+        css = (pathlib.Path(__file__).resolve().parent.parent
+               / "static" / "css" / "style.css").read_text(encoding="utf-8")
+        block = css[css.index(".subnav {"):][:400]
+        self.assertIn("max-width: 960px", block)
+        self.assertNotIn("max-width: 1200px", block)
+
+    def test_the_old_lookup_addresses_still_resolve(self):
+        """They were linked and bookmarked before the tools grouping; a dead
+        link is a worse outcome than an extra redirect."""
+        for old, new in (("/lookup/ip", "/tools/ip"),
+                         ("/lookup/dns", "/tools/dns"),
+                         ("/lookup/impersonation", "/tools/impersonation"),
+                         ("/lookup/pgp", "/tools/disclosure")):
+            with self.subTest(old=old):
+                resp = self.client.get(old)
+                self.assertEqual(301, resp.status_code)
+                self.assertTrue(resp.headers["Location"].endswith(new),
+                                resp.headers["Location"])
+
+    def test_the_scan_page_no_longer_carries_its_own_dns_lookup(self):
+        """It is a tool and lives under Tools; a second copy on the scan page
+        was a duplicate implementation drifting from the real one."""
+        body = self.client.get("/").data.decode()
+        self.assertNotIn("dnsLookupCard", body)
+        self.assertNotIn('id="dnsLookupName"', body)
 
     def test_reports_and_trends_share_a_subnav(self):
         for path in ("/reports", "/trends"):
@@ -180,14 +212,14 @@ class IpInTheSearchBoxTests(unittest.TestCase):
         block = self._app_js()
         block = block[block.index("async function startScan"):][:900]
         self.assertIn("looksLikeIp(domain)", block)
-        self.assertIn("/lookup/ip?ip=", block)
+        self.assertIn("/tools/ip?ip=", block)
 
     def test_the_check_runs_before_the_scan_starts(self):
         # After the request would be too late: the API has already refused it.
         block = self._app_js()
         start = block.index("async function startScan")
         scan_call = block.index("/api/scan/start", start)
-        redirect = block.index("/lookup/ip?ip=", start)
+        redirect = block.index("/tools/ip?ip=", start)
         self.assertLess(redirect, scan_call)
 
     def test_ipv4_and_ipv6_are_both_recognised(self):

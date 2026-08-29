@@ -53,6 +53,7 @@
                             <th>Role</th>
                             <th>Status</th>
                             <th>MFA</th>
+                            <th>Last login</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -66,6 +67,18 @@
                             <td>{{ u.role }}</td>
                             <td>{{ 'enabled' if u.enabled else 'disabled' }}</td>
                             <td>{{ 'on' if u.mfa_enabled else 'off' }}</td>
+                            {# Never signed in is a measured fact, not a blank:
+                               it is the state an admin is actually looking for
+                               when auditing dormant accounts. #}
+                            <td class="user-last-login">
+                                {% if u.last_login_at %}
+                                    {{ u.last_login_at|last_login }}
+                                    {% set ago = u.last_login_at|time_ago %}
+                                    {% if ago %}<div class="muted">{{ ago }}</div>{% endif %}
+                                {% else %}
+                                    <span class="muted">Never</span>
+                                {% endif %}
+                            </td>
                             <td class="user-actions">
                                 <form method="post" action="{{ url_for('admin_users_toggle', user_id=u.id) }}" style="display:inline">
                                     <button type="submit" class="btn-ghost-sm">{{ 'Disable' if u.enabled else 'Enable' }}</button>

@@ -28,11 +28,13 @@ import dns.query
 import dns.zone
 import requests
 import whois
-from flask import Flask, render_template, request, jsonify, abort, redirect, url_for, session
+from flask import Flask, Response, render_template, request, jsonify, abort, redirect, url_for, session
 
 import db
 import recommendations
 import security_checks
+import security_txt
+import pgp_keys
 import servicenow
 import osint
 import hubspot_cf
@@ -150,6 +152,64 @@ def _monitor_import_types():
 def _benelux_geo_allow():
     codes = _scan_config().get("benelux_geo_allow") or ["NL", "DE", "BE"]
     return frozenset(codes)
+
+
+def _parse_stored_timestamp(value):
+    """Read a timestamp the app itself wrote, or admit that it could not.
+
+    Returns None for both "nothing stored" and "stored but unreadable"; the
+    callers below keep those two apart, because they are different facts.
+    """
+    if value in (None, ""):
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+@app.template_filter("last_login")
+def _format_last_login(value):
+    """Three states, kept apart: a known sign-in, never signed in, and a
+    stored value that cannot be read.
+
+    The third must not render as "Never". That reads as a fact about the
+    person rather than about the record, and it is the reading an admin
+    would act on -- disabling an account that has in fact been in use.
+    """
+    if value in (None, ""):
+        return "Never"
+    parsed = _parse_stored_timestamp(value)
+    if parsed is None:
+        return f"Unreadable ({value})"
+    return parsed.strftime("%Y-%m-%d %H:%M UTC")
+
+
+@app.template_filter("time_ago")
+def _format_time_ago(value):
+    """Relative age for the sub-line. Empty when there is no age to state,
+    so the absolute column above never gains a caption contradicting it."""
+    parsed = _parse_stored_timestamp(value)
+    if parsed is None:
+        return ""
+    seconds = (datetime.now(timezone.utc) - parsed).total_seconds()
+    if seconds < 0:
+        # A clock skew or an edited record; saying "in 3 days" would be
+        # noise, and saying "just now" would be wrong.
+        return ""
+    for limit, divisor, unit in (
+        (90, 1, "second"),
+        (5400, 60, "minute"),
+        (86400, 3600, "hour"),
+    ):
+        if seconds < limit:
+            count = max(1, int(seconds // divisor))
+            return f"{count} {unit}{'s' if count != 1 else ''} ago"
+    days = int(seconds // 86400)
+    return f"{days} day{'s' if days != 1 else ''} ago"
 
 
 @app.context_processor
@@ -3330,10 +3390,15 @@ def _check_rate_limit(ip, bucket="scan"):
 
 # Sub-navigation per section. Kept here rather than in each template so a
 # new tool is added in one place and every page agrees on what exists.
-_LOOKUP_SUBNAV = [
-    ("nav.lookup_ip", "/lookup/ip"),
-    ("nav.lookup_dns", "/lookup/dns"),
-    ("nav.lookup_impersonation", "/lookup/impersonation"),
+# Lookups were their own top-level section; they are tools, and so is the
+# disclosure checker. One "Tools" section is the honest grouping. The old
+# /lookup/* paths still resolve -- see the redirects below -- because they
+# have been linked and bookmarked.
+_TOOLS_SUBNAV = [
+    ("nav.tools_ip", "/tools/ip"),
+    ("nav.tools_dns", "/tools/dns"),
+    ("nav.tools_impersonation", "/tools/impersonation"),
+    ("nav.tools_disclosure", "/tools/disclosure"),
 ]
 _REPORTS_SUBNAV = [
     ("nav.reports_history", "/reports"),
@@ -3351,25 +3416,40 @@ def index():
     return render_template("index.html", section="scan")
 
 
-@app.route("/lookup/ip")
+@app.route("/tools/ip")
 def lookup_ip_view():
     return render_template(
-        "lookup_ip.html", section="lookup",
-        subnav=_subnav(_LOOKUP_SUBNAV, "/lookup/ip"))
+        "lookup_ip.html", section="tools",
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/ip"))
+
+
+@app.route("/lookup/ip")
+def lookup_ip_view_legacy():
+    return redirect("/tools/ip", code=301)
+
+
+@app.route("/tools/dns")
+def lookup_dns_view():
+    return render_template(
+        "lookup_dns.html", section="tools",
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/dns"))
 
 
 @app.route("/lookup/dns")
-def lookup_dns_view():
+def lookup_dns_view_legacy():
+    return redirect("/tools/dns", code=301)
+
+
+@app.route("/tools/impersonation")
+def lookup_impersonation_view():
     return render_template(
-        "lookup_dns.html", section="lookup",
-        subnav=_subnav(_LOOKUP_SUBNAV, "/lookup/dns"))
+        "lookup_impersonation.html", section="tools",
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/impersonation"))
 
 
 @app.route("/lookup/impersonation")
-def lookup_impersonation_view():
-    return render_template(
-        "lookup_impersonation.html", section="lookup",
-        subnav=_subnav(_LOOKUP_SUBNAV, "/lookup/impersonation"))
+def lookup_impersonation_view_legacy():
+    return redirect("/tools/impersonation", code=301)
 
 
 @app.route("/monitoring")
@@ -4500,6 +4580,7 @@ def api_dns_query():
             request.args.get("name", ""),
             request.args.get("type", "A"),
             request.args.get("resolver", "system"),
+            custom=_custom_resolvers(),
         )
     except dns_tools.LookupError_ as exc:
         return jsonify({"error": str(exc)}), 400
@@ -4508,12 +4589,278 @@ def api_dns_query():
     return jsonify(result)
 
 
+def _custom_resolvers():
+    """Admin-configured resolvers, by label.
+
+    Read fresh each request so a settings change takes effect without a
+    restart, and parsed defensively so one bad line cannot break the page.
+    """
+    try:
+        return dns_tools.parse_custom_resolvers(
+            _scan_config().get("custom_resolvers") or [])
+    except Exception:
+        return {}
+
+
+def _disclosure_config():
+    return _reload_settings().disclosure()
+
+
+def _public_base_url():
+    """Prefer the configured public URL: behind a reverse proxy the request
+    host is the internal one, and a Canonical: pointing at it is useless."""
+    configured = (_reload_settings().general().get("public_url") or "").strip()
+    return configured or request.url_root
+
+
+@app.route(security_txt.SECURITY_TXT_PATH, methods=["GET"])
+def well_known_security_txt():
+    """This installation's own disclosure contact.
+
+    404 when disclosure is not configured: an empty or contact-less file is
+    worse than none, because a researcher reads it as "they have thought
+    about this" and stops looking for another way to reach you.
+    """
+    config = _disclosure_config()
+    body = security_txt.build(
+        config,
+        base_url=_public_base_url(),
+        has_key=bool((config.get("pgp_public_key") or "").strip()),
+    )
+    if not body:
+        abort(404)
+    # mimetype, not content_type: Flask appends the charset itself, and
+    # spelling it out here produced "charset=utf-8; charset=utf-8".
+    return Response(body, mimetype="text/plain")
+
+
+@app.route(security_txt.PUBLIC_KEY_PATH, methods=["GET"])
+def well_known_pgp_key():
+    """The armoured public key referenced by Encryption:.
+
+    The private-key guard is not paranoia about our own code: this value can
+    also be pasted in, and publishing a private key here would be the single
+    worst outcome this feature could produce.
+    """
+    key = (_disclosure_config().get("pgp_public_key") or "").strip()
+    # Private-key check first, and loudly. A 404 here would be safe but
+    # silent, and an operator whose key file is the wrong half needs to find
+    # that out from something noisier than a missing page.
+    if pgp_keys.contains_private_key(key):
+        log.error("Stored disclosure key contains a PRIVATE key block; refusing to serve it")
+        abort(500)
+    if not key or not pgp_keys.looks_like_public_key(key):
+        abort(404)
+    return Response(key + chr(10), mimetype="application/pgp-keys")
+
+
+@app.route("/api/admin/pgp/status", methods=["GET"])
+@auth.require_admin
+def api_admin_pgp_status():
+    config = _disclosure_config()
+    return jsonify({
+        "gpg_available": pgp_keys.available(),
+        "gpg_version": pgp_keys.version(),
+        "fingerprint": config.get("pgp_fingerprint") or None,
+        "uid": config.get("pgp_uid") or None,
+        "generated_at": config.get("pgp_generated_at") or None,
+        "has_public_key": bool((config.get("pgp_public_key") or "").strip()),
+        "public_key_url": security_txt.PUBLIC_KEY_PATH,
+        "security_txt_url": security_txt.SECURITY_TXT_PATH,
+    })
+
+
+@app.route("/api/admin/pgp/generate", methods=["POST"])
+@auth.require_admin
+def api_admin_pgp_generate():
+    """Generate a keypair, keep the public half, return the private half once.
+
+    The private key is in this response body and nowhere else. It is not
+    written to the database, not logged, and not recoverable afterwards --
+    which is the entire point, and why the UI has to make the operator save
+    it before they navigate away.
+    """
+    if not pgp_keys.available():
+        return jsonify({"error": "gpg is not installed on this server, so a key cannot be generated here. The Docker image ships with it; on a native install, install GnuPG (Gpg4win on Windows) and restart DomainLens."}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = pgp_keys.generate(
+            payload.get("name", ""),
+            payload.get("email", ""),
+            payload.get("passphrase", "") or "",
+            payload.get("expiry", "2y"),
+        )
+    except pgp_keys.PgpInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except pgp_keys.PgpError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    _settings_store.update_section("disclosure", {
+        "pgp_public_key": result["public_key"],
+        "pgp_fingerprint": result["fingerprint"],
+        "pgp_uid": result["uid"],
+        "pgp_generated_at": datetime.now(timezone.utc).isoformat(),
+    }, user_id=(auth.current_user() or {}).get("id"))
+    log.info("Generated disclosure PGP key %s (private half not stored)",
+             result["fingerprint"])
+
+    return jsonify({
+        "fingerprint": result["fingerprint"],
+        "uid": result["uid"],
+        "public_key": result["public_key"],
+        # Returned once. Nothing server-side keeps a copy.
+        "private_key": result["private_key"],
+        "protected": result["protected"],
+        "warning": "This is the only copy of the private key. Save it now; "
+                   "DomainLens does not store it and cannot show it again.",
+    }), 201
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Browsers ask for this on every page whether or not it is linked.
+
+    Without it every single page logged a 404 in the console, which trains
+    people to ignore the console -- where the errors that matter show up.
+    """
+    return redirect("/static/favicon.svg", code=301)
+
+
+@app.route("/tools/disclosure")
+def lookup_pgp_view():
+    return render_template(
+        "lookup_pgp.html", section="tools",
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/disclosure"))
+
+
+@app.route("/lookup/pgp")
+def lookup_pgp_view_legacy():
+    return redirect("/tools/disclosure", code=301)
+
+
+@app.route("/api/pgp/inspect", methods=["GET"])
+def api_pgp_inspect():
+    """Read one domain's security.txt and check the key it points at.
+
+    Rate limited on the same bucket as DNS lookups: it makes outbound
+    requests on behalf of whoever can reach this page.
+    """
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    domain = _normalize_domain(request.args.get("domain", ""))
+    if not _is_valid_domain(domain):
+        return jsonify({"error": "Enter a valid public domain name"}), 400
+    try:
+        return jsonify(security_checks.inspect_security_txt(domain))
+    except Exception as exc:
+        return jsonify({"error": _safe_error(exc)}), 502
+
+
+@app.route("/api/pgp/validate-securitytxt", methods=["POST"])
+def api_pgp_validate_securitytxt():
+    """Check a pasted security.txt against RFC 9116.
+
+    Nothing is fetched and nothing is stored: it reads the text it was given,
+    which is what makes it usable on a file you have not published yet.
+    """
+    payload = request.get_json(silent=True) or {}
+    body = payload.get("body", "")
+    if len(body) > 100_000:
+        return jsonify({"error": "That is larger than any security.txt should be"}), 400
+    return jsonify(security_txt.validate(body))
+
+
+@app.route("/api/pgp/validate-key", methods=["POST"])
+def api_pgp_validate_key():
+    """Describe a pasted armoured key: algorithm, fingerprint, uids, expiry.
+
+    A private key pasted here is reported rather than refused. Someone
+    checking "does my key work" with the wrong half needs to be told that,
+    not handed a validation error.
+    """
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many checks in a short time. Wait a moment."}), 429
+    # No gpg check here on purpose: inspect_key can tell a signature from a
+    # key without it, and answering "gpg is not installed" to someone who
+    # pasted the wrong block sends them after the wrong problem.
+    payload = request.get_json(silent=True) or {}
+    armored = payload.get("key", "")
+    if len(armored) > 500_000:
+        return jsonify({"error": "That is larger than any armoured key should be"}), 400
+    try:
+        return jsonify(pgp_keys.inspect_key(armored))
+    except pgp_keys.PgpError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
+@app.route("/api/pgp/generate", methods=["POST"])
+def api_pgp_generate_throwaway():
+    """Generate a keypair and keep nothing at all.
+
+    The counterpart in /api/admin/pgp/generate stores the public half so this
+    installation can publish it. This one is a tool: it is for a domain that
+    is not this one, so neither half is persisted and the caller gets both.
+    """
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many requests in a short time. Wait a moment."}), 429
+    if not pgp_keys.available():
+        return jsonify({"error": "gpg is not installed on this server, so a key cannot be generated here. The Docker image ships with it; on a native install, install GnuPG (Gpg4win on Windows) and restart DomainLens."}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        result = pgp_keys.generate(
+            payload.get("name", ""),
+            payload.get("email", ""),
+            payload.get("passphrase", "") or "",
+            payload.get("expiry", "2y"),
+        )
+    except pgp_keys.PgpInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except pgp_keys.PgpError as exc:
+        return jsonify({"error": _safe_error(exc)}), 502
+    log.info("Generated a throwaway PGP key %s (nothing stored)", result["fingerprint"])
+    return jsonify({
+        **result,
+        "warning": "Neither half of this key is stored. Save it now; it cannot "
+                   "be shown again.",
+    }), 201
+
+
 @app.route("/api/dns/options", methods=["GET"])
 def api_dns_options():
+    custom = _custom_resolvers()
     return jsonify({
         "types": dns_tools.RECORD_TYPES,
-        "resolvers": sorted(dns_tools.RESOLVERS),
+        "resolvers": sorted(dns_tools.RESOLVERS) + sorted(custom),
+        "custom_resolvers": sorted(custom),
     })
+
+
+@app.route("/api/dns/propagation", methods=["GET"])
+def api_dns_propagation():
+    """Ask several resolvers the same question and report whether they agree.
+
+    Resolvers are named, never addressed: the names come from the fixed list
+    plus whatever an admin configured in settings, so this endpoint cannot be
+    turned into a way to probe port 53 on an arbitrary host.
+    """
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    selected = [r for r in request.args.getlist("resolver") if r.strip()]
+    if not selected:
+        raw = request.args.get("resolvers", "")
+        selected = [r.strip() for r in raw.split(",") if r.strip()]
+    try:
+        result = dns_tools.propagation(
+            request.args.get("name", ""),
+            request.args.get("type", "A"),
+            selected or None,
+            custom=_custom_resolvers(),
+        )
+    except dns_tools.LookupError_ as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": _safe_error(exc)}), 502
+    return jsonify(result)
 
 
 @app.route("/api/history", methods=["GET"])

@@ -3,7 +3,9 @@
                 <h3>Scan History</h3>
                 <div class="drawer-actions">
                     <button class="btn-icon-sm" id="historyClearBtn" title="Clear all history">Clear</button>
-                    <button class="btn-icon-sm" id="historyCloseBtn" title="Close">&times;</button>
+                    {# As a page there is nothing behind this to close: the
+                       button only ever hid the page itself. #}
+                    {% if not as_page %}<button class="btn-icon-sm" id="historyCloseBtn" title="Close">&times;</button>{% endif %}
                 </div>
             </div>
             <div class="drawer-stats" id="historyStats"></div>

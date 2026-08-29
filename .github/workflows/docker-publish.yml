@@ -57,3 +57,12 @@ jobs:
             DOMAINLENS_BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/domainlens
+          short-description: "Domain Intelligence Toolkit for quick domain security analysis and vulnerability scanning."
+          readme-filepath: ./docs/DOCKERHUB_README.md

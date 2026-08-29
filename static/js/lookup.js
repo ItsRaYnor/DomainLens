@@ -10,6 +10,35 @@ function esc(value) {
     return div.innerHTML;
 }
 
+// Every fetch on these pages used to end in a bare "Network error", which
+// is the one thing it usually is not: a 404 from a server that has not been
+// restarted since a route was added, or a 500, both arrive as a perfectly
+// healthy response carrying HTML. Saying "network" sends someone to check
+// their connection instead of their server.
+async function requestJson(url, options) {
+    let resp;
+    try {
+        resp = await fetch(url, options);
+    } catch (e) {
+        throw new Error('Could not reach the server. Is DomainLens still running?');
+    }
+    const body = await resp.text();
+    let data = null;
+    try {
+        data = body ? JSON.parse(body) : null;
+    } catch (e) {
+        if (resp.status === 404) {
+            throw new Error(`This endpoint is not available (HTTP 404). If you just `
+                + `updated DomainLens, restart it: routes are registered at startup.`);
+        }
+        throw new Error(`The server returned HTTP ${resp.status} instead of JSON.`);
+    }
+    if (!resp.ok || (data && data.error)) {
+        throw new Error((data && data.error) || `The server returned HTTP ${resp.status}.`);
+    }
+    return data;
+}
+
 function toast(message) {
     const el = $('errorToast');
     if (!el) return;
@@ -44,14 +73,9 @@ async function ipLookup() {
 
     let data;
     try {
-        const resp = await fetch('/api/ip/' + encodeURIComponent(value));
-        data = await resp.json();
-        if (!resp.ok || data.error) {
-            out.innerHTML = `<section class="card"><p class="status status-fail">${esc(data.error || 'Lookup failed')}</p></section>`;
-            return;
-        }
+        data = await requestJson('/api/ip/' + encodeURIComponent(value));
     } catch (e) {
-        out.innerHTML = `<section class="card"><p class="status status-fail">Network error</p></section>`;
+        out.innerHTML = `<section class="card"><p class="status status-fail">${esc(e.message)}</p></section>`;
         return;
     }
 
@@ -139,18 +163,13 @@ async function buildDossier() {
 
     let data;
     try {
-        const resp = await fetch('/api/evidence', {
+        data = await requestJson('/api/evidence', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ domain, protected_domain: protectedDomain }),
         });
-        data = await resp.json();
-        if (!resp.ok || data.error) {
-            out.innerHTML = `<section class="card"><p class="status status-fail">${esc(data.error || 'Could not build the dossier')}</p></section>`;
-            return;
-        }
     } catch (e) {
-        out.innerHTML = `<section class="card"><p class="status status-fail">Network error</p></section>`;
+        out.innerHTML = `<section class="card"><p class="status status-fail">${esc(e.message)}</p></section>`;
         return;
     }
 
@@ -253,17 +272,128 @@ function formatCacheAge(seconds) {
     return hours < 24 ? `${Math.round(hours)} h` : `${Math.round(hours / 24)} d`;
 }
 
+let dnsResolverOptions = [];
+let dnsCustomResolvers = [];
+
 async function initDnsLookupPage() {
     const typeEl = $('dnsLookupType');
     if (!typeEl) return;
     try {
         const data = await (await fetch('/api/dns/options')).json();
         typeEl.innerHTML = (data.types || []).map(t => `<option>${esc(t)}</option>`).join('');
-        $('dnsLookupResolver').innerHTML = (data.resolvers || []).map(r => `<option>${esc(r)}</option>`).join('');
+        dnsResolverOptions = data.resolvers || [];
+        dnsCustomResolvers = data.custom_resolvers || [];
+        $('dnsLookupResolver').innerHTML = dnsResolverOptions.map(r => `<option>${esc(r)}</option>`).join('');
         typeEl.value = 'TXT';
     } catch (e) { return; }
     $('dnsLookupBtn').addEventListener('click', dnsLookup);
     $('dnsLookupName').addEventListener('keydown', e => { if (e.key === 'Enter') dnsLookup(); });
+
+    // Propagation: the same resolver list, as checkboxes. Everything except
+    // the system resolver is ticked by default -- "system" is whatever this
+    // container was handed, which says nothing about the public internet.
+    const box = $('dnsPropResolvers');
+    if (box) {
+        box.innerHTML = (dnsResolverOptions || []).map((r, i) => `<label class="prop-resolver">
+            <input type="checkbox" value="${esc(r)}"${r === 'system' ? '' : ' checked'}>
+            <span>${esc(r)}</span></label>`).join('');
+        // Say plainly whether any own resolvers are configured. Buried in a
+        // sentence about port 53, the link read as a footnote and people
+        // looked for an address box on this page instead.
+        const hint = $('dnsPropCustomHint');
+        if (hint) {
+            hint.innerHTML = dnsCustomResolvers.length
+                ? `Your own resolvers: <strong>${esc(dnsCustomResolvers.join(', '))}</strong>. `
+                  + `<a href="/admin/settings#scan">Edit the list</a>.`
+                : `<strong>Want to check your own DNS server?</strong> Add it under `
+                  + `<a href="/admin/settings#scan">Settings &rarr; Scan &rarr; Custom resolvers</a>, `
+                  + `one <code>Label = 1.2.3.4</code> per line &mdash; it then appears as a checkbox here. `
+                  + `Addresses live in settings rather than in this box so an unauthenticated `
+                  + `page cannot be used to aim UDP/53 at any host this server can reach.`;
+        }
+        const propBtn = $('dnsPropBtn');
+        if (propBtn) propBtn.addEventListener('click', dnsPropagation);
+    }
+}
+
+// Rendered next to every answer so you can see what came back, not just the
+// values: which server replied, the flags it set, and the authority section
+// that explains a delegation you did not expect.
+function dnsDetailHtml(data) {
+    const d = data.detail;
+    if (!d) return '';
+    const rows = [];
+    ['answer', 'authority', 'additional'].forEach(section => {
+        (d[section] || []).forEach(r => {
+            // An RRSIG is a few hundred characters of base64. Left whole it
+            // wraps into a cell taller than the screen and buries the records
+            // the table exists to show. Marked with an ellipsis rather than
+            // silently cut, and the whole value stays in the title.
+            const full = String(r.value === null || r.value === undefined ? '' : r.value);
+            const shown = full.length > 120 ? full.slice(0, 120) + '…' : full;
+            const title = full.length > 120 ? ` title="${esc(full)}"` : '';
+            rows.push(`<tr><td class="mono">${esc(section)}</td><td class="mono">${esc(r.name)}</td>`
+                + `<td class="mono">${esc(r.ttl)}</td><td class="mono">${esc(r.type)}</td>`
+                + `<td class="mono dns-detail-value"${title}>${esc(shown)}</td></tr>`);
+        });
+    });
+    if (!rows.length) return '';
+    const flags = (d.flags || []).join(' ');
+    return `<details class="dns-detail"><summary>Query detail</summary>
+        <p class="http-meta"><span>${esc(d.rcode)}${flags ? ' · flags: ' + esc(flags) : ''}`
+        + `${data.answered_by ? ' · answered by ' + esc(data.answered_by) : ''}</span></p>
+        <div class="dns-detail-table-wrap"><table class="data-table"><thead><tr><th>Section</th><th>Name</th><th>TTL</th><th>Type</th><th>Value</th></tr></thead>
+        <tbody>${rows.join('')}</tbody></table></div></details>`;
+}
+
+async function dnsPropagation() {
+    const out = $('dnsPropResult');
+    const name = $('dnsLookupName').value.trim();
+    if (!name) { out.innerHTML = '<p class="status status-warn">Enter a name above first.</p>'; return; }
+    const chosen = Array.from($('dnsPropResolvers').querySelectorAll('input:checked')).map(c => c.value);
+    if (!chosen.length) { out.innerHTML = '<p class="status status-warn">Tick at least one resolver.</p>'; return; }
+
+    out.innerHTML = '<p class="history-empty">Asking ' + esc(chosen.length) + ' resolvers…</p>';
+    let data;
+    try {
+        const params = new URLSearchParams({ name, type: $('dnsLookupType').value });
+        chosen.forEach(r => params.append('resolver', r));
+        data = await requestJson('/api/dns/propagation?' + params.toString());
+    } catch (e) {
+        out.innerHTML = `<p class="status status-fail">${esc(e.message)}</p>`;
+        return;
+    }
+
+    // Three verdicts, three sentences. "unknown" is never dressed up as a
+    // pass: too few resolvers answered to have compared anything.
+    const verdicts = {
+        propagated: ['status-pass', `All ${data.answered} resolvers that answered agree.`],
+        inconsistent: ['status-fail', `Resolvers disagree — the change is still rolling out.`],
+        unknown: ['status-warn', `Not enough resolvers answered (${data.answered}) to compare.`],
+    };
+    const [cls, text] = verdicts[data.verdict] || ['status-warn', 'No verdict'];
+    let html = `<p class="status ${cls}">${esc(text)}</p>`;
+    if ((data.unreachable || []).length) {
+        html += `<p class="ct-desc">Could not be measured: ${esc(data.unreachable.join(', '))}.`
+            + ` This is our reach, not their records.</p>`;
+    }
+    if (data.verdict === 'inconsistent') {
+        html += '<table class="data-table"><thead><tr><th>Answer</th><th>Seen by</th></tr></thead><tbody>'
+            + data.groups.map(g => `<tr><td class="mono" style="word-break:break-all">`
+                + `${esc((g.records || []).join(', ') || g.rcode || '—')}</td>`
+                + `<td>${esc((g.resolvers || []).join(', '))}</td></tr>`).join('')
+            + '</tbody></table>';
+    }
+    html += (data.results || []).map(r => {
+        const head = r.error
+            ? `<span class="status status-warn">unreachable</span> ${esc(r.error)}`
+            : `<span class="mono">${esc((r.records || []).join(', ') || r.rcode || '—')}</span>`
+              + (r.ttl !== null && r.ttl !== undefined ? ` · TTL ${esc(r.ttl)}s` : '')
+              + (r.elapsed_ms !== null && r.elapsed_ms !== undefined ? ` · ${esc(r.elapsed_ms)} ms` : '');
+        return `<div class="prop-row"><strong>${esc(r.resolver)}</strong><div>${head}</div>`
+            + dnsDetailHtml(r) + '</div>';
+    }).join('');
+    out.innerHTML = html;
 }
 
 async function dnsLookup() {
@@ -276,14 +406,9 @@ async function dnsLookup() {
         const params = new URLSearchParams({
             name, type: $('dnsLookupType').value, resolver: $('dnsLookupResolver').value,
         });
-        const resp = await fetch('/api/dns/query?' + params.toString());
-        data = await resp.json();
-        if (!resp.ok || data.error) {
-            out.innerHTML = `<p class="status status-fail">${esc(data.error || 'Lookup failed')}</p>`;
-            return;
-        }
+        data = await requestJson('/api/dns/query?' + params.toString());
     } catch (e) {
-        out.innerHTML = '<p class="status status-fail">Network error</p>';
+        out.innerHTML = `<p class="status status-fail">${esc(e.message)}</p>`;
         return;
     }
 
@@ -307,6 +432,7 @@ async function dnsLookup() {
         meta.push('DNSSEC validated');
     }
     html += `<p class="http-meta"><span>${meta.join(' · ')}</span></p>`;
+    html += dnsDetailHtml(data);
     out.innerHTML = html;
 }
 
@@ -337,6 +463,221 @@ async function initRemediate() {
     }
 }
 
+// ===== PGP / security.txt lookup =====
+
+function keyVerdict(key) {
+    // The three states, each with the sentence an operator can act on.
+    if (!key) return ['status-warn', 'No key information'];
+    if (key.state === 'not_applicable') {
+        return ['status-warn', 'No Encryption: field — optional in RFC 9116, so this is a '
+                + 'choice, not a fault. Researchers have no way to encrypt a report.'];
+    }
+    if (key.state === 'unmeasured') {
+        return ['status-warn', 'Could not be checked: ' + (key.reason || 'unknown')
+                + '. That is our reach, not their records.'];
+    }
+    if (key.private_key_published) {
+        return ['status-fail', 'The Encryption: URL serves a PGP PRIVATE key. Anyone who '
+                + 'fetched it can decrypt reports sent to this address.'];
+    }
+    if (key.armored) return ['status-pass', 'Armoured PGP public key served.'];
+    return ['status-fail', 'The URL does not serve a PGP public key: ' + (key.reason || '')];
+}
+
+async function pgpLookup() {
+    const out = $('pgpLookupResult');
+    const domain = ($('pgpLookupDomain').value || '').trim().toLowerCase();
+    if (!domain) { out.innerHTML = ''; return; }
+    out.innerHTML = '<p class="history-empty">Fetching security.txt…</p>';
+    let data;
+    try {
+        data = await requestJson('/api/pgp/inspect?domain=' + encodeURIComponent(domain));
+    } catch (e) {
+        out.innerHTML = `<p class="status status-fail">${esc(e.message)}</p>`;
+        return;
+    }
+
+    if (!data.found) {
+        // Absent is a finding in itself, and distinct from unreachable.
+        const why = data.error
+            ? esc(data.error)
+            : `No security.txt at ${esc(data.url || domain)}`
+              + (data.status ? ` (HTTP ${esc(data.status)})` : '');
+        out.innerHTML = `<p class="status status-warn">${why}</p>`
+            + '<p class="ct-desc">Researchers have no documented way to report a '
+            + 'vulnerability to this domain.</p>';
+        return;
+    }
+
+    const [cls, text] = keyVerdict(data.key);
+    let html = `<p class="status status-pass">security.txt found at ${esc(data.url)}</p>`;
+    html += `<p class="status ${cls}">${esc(text)}</p>`;
+    if (data.key && data.key.url) {
+        html += `<p class="ct-desc">Encryption: <span class="mono" style="word-break:break-all">${esc(data.key.url)}</span></p>`;
+    }
+
+    const fields = data.fields || {};
+    const rows = Object.keys(fields).sort().map(name => {
+        const values = (fields[name] || []).map(v =>
+            `<div class="mono" style="word-break:break-all">${esc(v)}</div>`).join('');
+        return `<tr><td>${esc(name)}</td><td>${values}</td></tr>`;
+    }).join('');
+    if (rows) {
+        html += '<table class="data-table"><thead><tr><th>Field</th><th>Value</th></tr></thead>'
+            + `<tbody>${rows}</tbody></table>`;
+    }
+    if (data.raw) {
+        html += '<details class="dns-detail"><summary>Raw file</summary>'
+            + `<pre class="mono" style="white-space:pre-wrap;word-break:break-all">${esc(data.raw)}</pre></details>`;
+    }
+    out.innerHTML = html;
+}
+
+function listBlock(cls, title, items) {
+    if (!items || !items.length) return '';
+    return `<p class="status ${cls}">${esc(title)}</p><ul class="finding-list">`
+        + items.map(i => `<li>${esc(i)}</li>`).join('') + '</ul>';
+}
+
+async function validateSecurityTxt() {
+    const out = $('stxtResult');
+    const body = $('stxtInput').value;
+    if (!body.trim()) { out.innerHTML = '<p class="status status-warn">Paste a file first.</p>'; return; }
+    let data;
+    try {
+        data = await requestJson('/api/pgp/validate-securitytxt', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ body }),
+        });
+    } catch (e) {
+        out.innerHTML = `<p class="status status-fail">${esc(e.message)}</p>`;
+        return;
+    }
+    // Errors break the file; warnings and notes do not. Kept apart so an
+    // operator can tell "this is broken" from "this could say more".
+    let html = data.valid
+        ? '<p class="status status-pass">Valid against RFC 9116.</p>'
+        : '<p class="status status-fail">Not a valid security.txt.</p>';
+    html += listBlock('status-fail', 'Errors', data.errors);
+    html += listBlock('status-warn', 'Warnings', data.warnings);
+    html += listBlock('status-warn', 'Could say more', data.notes);
+    const fields = data.fields || {};
+    const rows = Object.keys(fields).sort().map(n =>
+        `<tr><td>${esc(n)}</td><td class="mono" style="word-break:break-all">`
+        + `${esc((fields[n] || []).join(', '))}</td></tr>`).join('');
+    if (rows) {
+        html += '<table class="data-table"><thead><tr><th>Field</th><th>Value</th></tr></thead>'
+            + `<tbody>${rows}</tbody></table>`;
+    }
+    out.innerHTML = html;
+}
+
+async function validatePgpKey() {
+    const out = $('pgpKeyResult');
+    const key = $('pgpKeyInput').value;
+    if (!key.trim()) { out.innerHTML = '<p class="status status-warn">Paste a key first.</p>'; return; }
+    out.innerHTML = '<p class="history-empty">Reading the key…</p>';
+    let data;
+    try {
+        data = await requestJson('/api/pgp/validate-key', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key }),
+        });
+    } catch (e) {
+        out.innerHTML = `<p class="status status-fail">${esc(e.message)}</p>`;
+        return;
+    }
+    let html = '';
+    if (data.is_private) {
+        html += '<p class="status status-fail">This is a PGP <strong>private</strong> key. '
+             + 'If it has been published anywhere, treat it as compromised: revoke it and '
+             + 'publish only the exported public half.</p>';
+    }
+    html += data.valid
+        ? '<p class="status status-pass">gpg read this key.</p>'
+        : `<p class="status status-fail">${esc(data.error || 'gpg could not read this key')}</p>`;
+    if ((data.keys || []).length) {
+        html += '<table class="data-table"><thead><tr><th>Fingerprint</th><th>Algorithm</th>'
+             + '<th>Created</th><th>Expires</th><th>Identities</th></tr></thead><tbody>'
+            + data.keys.map(k => {
+                const exp = k.expires
+                    ? (k.expired ? `<span class="status status-fail">${esc(k.expires)} — expired</span>`
+                                 : esc(k.expires))
+                    : 'never';
+                return `<tr><td class="mono" style="word-break:break-all">${esc(k.fingerprint || '?')}</td>`
+                    + `<td>${esc(k.algorithm)}${k.bits ? ' / ' + esc(k.bits) : ''}</td>`
+                    + `<td>${esc(k.created || '?')}</td><td>${exp}</td>`
+                    + `<td>${esc((k.uids || []).join(', '))}</td></tr>`;
+            }).join('')
+            + '</tbody></table>';
+    }
+    out.innerHTML = html;
+}
+
+async function generateThrowawayKey() {
+    const btn = $('genBtn');
+    const out = $('genResult');
+    const name = ($('genName').value || '').trim();
+    const email = ($('genEmail').value || '').trim();
+    const expiry = ($('genExpiry').value || '2y').trim();
+    if (!name || !email) {
+        out.innerHTML = '<p class="status status-warn">Enter a name and an email address.</p>';
+        return;
+    }
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Generating…';
+    out.innerHTML = '<p class="history-empty">Generating a keypair…</p>';
+    let data;
+    try {
+        data = await requestJson('/api/pgp/generate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, expiry }),
+        });
+    } catch (e) {
+        out.innerHTML = `<p class="status status-fail">${esc(e.message)}</p>`;
+        return;
+    } finally {
+        btn.disabled = false; btn.textContent = label;
+    }
+
+    out.innerHTML = `<div class="login-error"><strong>Save both halves now.</strong> ${esc(data.warning)}</div>
+        <p class="muted mono" style="word-break:break-all">${esc(data.fingerprint)}</p>
+        <div class="pgp-actions">
+            <button class="btn-primary-lite" id="genDownloadPriv" type="button">Download private key</button>
+            <button class="btn-ghost" id="genDownloadPub" type="button">Download public key</button>
+        </div>
+        <label class="ct-desc">Private key</label><textarea id="genPrivBox" rows="8" readonly class="mono"></textarea>
+        <label class="ct-desc">Public key</label><textarea id="genPubBox" rows="8" readonly class="mono"></textarea>`;
+    // Assigned, not interpolated: armour text never becomes markup.
+    $('genPrivBox').value = data.private_key;
+    $('genPubBox').value = data.public_key;
+
+    const save = (text, suffix) => {
+        const blob = new Blob([text], { type: 'application/pgp-keys' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `domainlens-${(data.fingerprint || 'key').slice(-16)}-${suffix}.asc`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+    $('genDownloadPriv').addEventListener('click', () => save(data.private_key, 'private'));
+    $('genDownloadPub').addEventListener('click', () => save(data.public_key, 'public'));
+}
+
+function initPgpLookupPage() {
+    const btn = $('pgpLookupBtn');
+    if (!btn) return;
+    btn.addEventListener('click', pgpLookup);
+    $('pgpLookupDomain').addEventListener('keydown', e => {
+        if (e.key === 'Enter') pgpLookup();
+    });
+    const bind = (id, handler) => { const el = $(id); if (el) el.addEventListener('click', handler); };
+    bind('stxtValidateBtn', validateSecurityTxt);
+    bind('pgpKeyValidateBtn', validatePgpKey);
+    bind('genBtn', generateThrowawayKey);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     if (window.DomainLensI18n) {
         try { await DomainLensI18n.init(DomainLensI18n.pageLocale()); }
@@ -360,5 +701,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('impProtected').addEventListener('keydown', e => { if (e.key === 'Enter') buildDossier(); });
     }
     initDnsLookupPage();
+    initPgpLookupPage();
     initRemediate();
 });

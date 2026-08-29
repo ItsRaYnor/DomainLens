@@ -19,7 +19,13 @@
     "lookup_impersonation": "Imitatie",
     "reports_history": "Scangeschiedenis",
     "reports_trends": "Trends",
-    "skip_to_content": "Naar de inhoud"
+    "skip_to_content": "Naar de inhoud",
+    "lookup_pgp": "PGP & security.txt",
+    "tools": "Tools",
+    "tools_ip": "IP-adres",
+    "tools_dns": "DNS-record",
+    "tools_impersonation": "Impersonatie",
+    "tools_disclosure": "Responsible disclosure"
   },
   "search": {
     "placeholder": "Voer een domeinnaam in (bijv. example.com)",
@@ -138,7 +144,8 @@
       "scim": "SCIM-provisioning",
       "servicenow": "ServiceNow",
       "rapid7": "Rapid7 InsightVM",
-      "appearance": "Weergave"
+      "appearance": "Weergave",
+      "disclosure": "Responsible disclosure"
     },
     "general": {
       "locale": "Taal",
@@ -163,6 +170,7 @@
       "security_headers": "Te controleren security headers",
       "monitor_import_types": "DNS-recordtypes voor monitor-import",
       "benelux_geo_allow": "Benelux-landcodes (CDN geo)",
+      "custom_resolvers": "Eigen resolvers (Label = 1.2.3.4, 5.6.7.8 per regel)",
       "external_cache_enabled": "Hergebruik externe lookups (crt.sh, OSINT-feeds)",
       "external_cache_ttl_hours": "Externe lookups hergebruiken gedurende (uren)",
       "external_cache_max_stale_hours": "Laatste geslaagde lookup tonen bij storing, tot (uren)",
@@ -299,7 +307,17 @@
       "automation": "Automatisering",
       "access": "Toegang & identiteit",
       "integrations": "Koppelingen",
-      "other": "Overig"
+      "other": "Overig",
+      "disclosure": "Responsible disclosure"
+    },
+    "disclosure": {
+      "enabled": "Publiceer /.well-known/security.txt",
+      "contact": "Beveiligingscontact (e-mail of URL, komma-gescheiden)",
+      "policy_url": "URL van disclosure-beleid",
+      "acknowledgments_url": "URL van dankbetuigingen (hall of fame)",
+      "preferred_languages": "Voorkeurstalen",
+      "expires_days": "Geldigheid security.txt (dagen, max 365)",
+      "canonical_url": "Canonieke URL (leeg laten om af te leiden)"
     }
   },
   "rapid7_ui": {

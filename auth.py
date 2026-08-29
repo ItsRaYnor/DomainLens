@@ -625,6 +625,10 @@ def _public_path(path: str) -> bool:
         "/static/",
         "/scim/",
         "/oauth/token",
+        # RFC 9116 says security.txt must be reachable without credentials --
+        # a researcher who has to log in to find out how to report a bug will
+        # not report it. The key it points at is public by definition.
+        "/.well-known/",
     )
     if path == "/favicon.ico":
         return True

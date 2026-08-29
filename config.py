@@ -51,6 +51,9 @@ class Settings:
     def reporting(self) -> dict:
         return dict(self.raw.get("reporting") or {})
 
+    def disclosure(self) -> dict:
+        return dict(self.raw.get("disclosure") or {})
+
     def weak_auth(self) -> dict:
         w = dict(self.raw.get("weak_auth") or {})
         cred = w.get("credentials_file")
@@ -103,8 +106,34 @@ def config_path() -> Path:
     return get_store().config_path
 
 
+# Underscore-prefixed like _app_secret: app_settings sections that start with
+# one are the app's own bookkeeping, not operator-editable configuration.
+_BOOTSTRAP_MARKER = "_monitor_bootstrap"
+
+
 def bootstrap_monitors(db_module) -> int:
+    """Seed the config-declared monitors once, on a database that has never
+    been seeded.
+
+    This used to upsert on every start, so deleting the example monitor was
+    impossible -- the next deploy put it back -- and an operator with their
+    own list got it added to theirs again.
+
+    "Once, ever" rather than "whenever the table is empty": an operator who
+    deletes every monitor they have has still made a decision, and seeding
+    again would overrule it at the next restart. The marker lives in
+    app_settings beside _app_secret, which is the existing home for state
+    that is the app's own rather than the operator's.
+    """
     settings = load_settings(db_module=db_module)
+    marker = db_module.get_setting_section(_BOOTSTRAP_MARKER)
+    if marker and marker.get("done"):
+        return 0
+    if db_module.list_monitors(limit=1):
+        # An existing install that predates the marker: it already has
+        # monitors, so it has plainly been seeded. Record that and stop.
+        db_module.set_setting_section(_BOOTSTRAP_MARKER, {"done": True})
+        return 0
     created = 0
     defaults_cfg = settings.scheduler().get("defaults") or {}
     for item in settings.bootstrap_monitors():
@@ -134,4 +163,5 @@ def bootstrap_monitors(db_module) -> int:
             defaults=defaults,
         )
         created += 1
+    db_module.set_setting_section(_BOOTSTRAP_MARKER, {"done": True})
     return created

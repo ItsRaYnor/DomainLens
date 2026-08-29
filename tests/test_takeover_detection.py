@@ -1,9 +1,31 @@
+import os
+import tempfile
 import unittest
 from unittest import mock
 
 import dns.resolver
 
 import security_checks as s
+
+
+# Subdomain enumeration goes through the cached crt.sh path. Without an
+# isolated, empty cache these tests read whatever this machine happened to
+# have stored for example.com, and the mocked response is never consulted --
+# which is how a passing suite started reporting 2 subdomains instead of 10.
+_tempdir = None
+
+
+def setUpModule():
+    global _tempdir
+    _tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    os.environ["DOMAINLENS_DB"] = os.path.join(_tempdir.name, "takeover.db")
+    import db
+    db.init_db()
+
+
+def tearDownModule():
+    os.environ.pop("DOMAINLENS_DB", None)
+    _tempdir.cleanup()
 
 
 class NxdomainDistinctionTests(unittest.TestCase):
@@ -96,6 +118,13 @@ class TakeoverClassificationTests(unittest.TestCase):
 
 
 class EnumerationTruncationTests(unittest.TestCase):
+    def setUp(self):
+        # A sibling test caches a result for the same domain; without this
+        # the mock below is bypassed entirely.
+        import db
+        with db._lock, db._connect() as conn:
+            conn.execute("DELETE FROM external_cache")
+
     """A capped subdomain list rendered identically to a complete one, so
     "no takeovers found" read as "all subdomains are clean" even when most
     were never checked.

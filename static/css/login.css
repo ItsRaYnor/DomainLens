@@ -169,6 +169,12 @@
     vertical-align: top;
 }
 
+/* The timestamp reads as one value; wrapping it mid-date in a narrow column
+   makes two adjacent rows hard to compare at a glance. */
+.user-last-login {
+    white-space: nowrap;
+}
+
 .user-actions {
     display: flex;
     flex-wrap: wrap;

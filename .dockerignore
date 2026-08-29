@@ -1,12 +1,51 @@
+# Build context only. Repo files stay in git; this list never deletes them.
+# Runtime needs: app Python, templates, static, i18n, routes, settings,
+# config/weak_auth_credentials.json, scripts/, docker-entrypoint.sh,
+# requirements.txt, VERSION, LICENSE, and the compose files the in-image
+# update script defaults to.
+
+# VCS / CI / local tooling
 .git
+.github/
+.claude/
 .gitignore
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.db
-.pytest_cache/
-tests/__pycache__/
-domainlens.db
+.dockerignore
+.vscode/
+.idea/
+
+# Docs and markdown (Hub description is read from the checkout, not the image)
+docs/
 *.md
 
+# Tests and Python debris
+tests/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Local secrets and runtime data (also in .gitignore; belt and braces)
+.env
+.env.*
+!.env.example
+config/domainlens.json
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Image build inputs are not needed inside the finished image
+Dockerfile

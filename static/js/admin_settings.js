@@ -319,7 +319,11 @@
         panels.innerHTML = sections.map((s, i) => {
             const sec = schema[s];
             const fields = sec.fields || {};
-            const body = Object.keys(fields).map(k => renderField(s, k, fields[k])).join('');
+            // sec.order is the order the registry declares; Object.keys is
+            // alphabetical here because the schema is serialised sorted.
+            const keys = (sec.order || []).filter(k => k in fields);
+            Object.keys(fields).forEach(k => { if (!keys.includes(k)) keys.push(k); });
+            const body = keys.map(k => renderField(s, k, fields[k])).join('');
             return `<section class="settings-panel${i === 0 ? ' active' : ''}" id="panel-${escapeHtml(s)}">
                 <form class="settings-form" data-section="${escapeHtml(s)}">${body}
                 <button type="submit" class="btn-primary-lite">${escapeHtml(t('common.save'))}</button>
@@ -336,6 +340,18 @@
                 $('panel-' + sec).classList.add('active');
             });
         });
+
+        // The key card ships in the template as a standalone section, but it
+        // belongs to the disclosure settings and nowhere else: left at the
+        // bottom of the page it showed under every unrelated tab, and the
+        // two halves of one feature read as two features.
+        const keyCard = $('disclosure');
+        const disclosurePanel = $('panel-disclosure');
+        if (keyCard && disclosurePanel) {
+            keyCard.classList.remove('card', 'integrations-card');
+            keyCard.classList.add('disclosure-key-block');
+            disclosurePanel.appendChild(keyCard);
+        }
 
         panels.querySelectorAll('.settings-form').forEach(form => {
             form.addEventListener('submit', async (e) => {
@@ -404,6 +420,116 @@
         }
     }
 
+    // ===== Responsible disclosure key =====
+
+    async function refreshPgpStatus() {
+        const box = $('pgpStatus');
+        if (!box) return;
+        let data;
+        try {
+            data = await (await fetch('/api/admin/pgp/status')).json();
+        } catch (e) {
+            box.innerHTML = '<span class="status status-warn">Could not read key status</span>';
+            return;
+        }
+        const btn = $('pgpGenerateBtn');
+        if (!data.gpg_available) {
+            // Say which package is missing rather than letting the button
+            // fail halfway through a generation.
+            box.innerHTML = '<span class="status status-warn">gpg is not installed on this server,'
+                + ' so a key cannot be generated here. The Docker image ships with it; on a native'
+                + ' install, install GnuPG (Gpg4win on Windows) and restart DomainLens.</span>';
+            if (btn) btn.disabled = true;
+            return;
+        }
+        if (btn) btn.disabled = false;
+        box.innerHTML = data.has_public_key
+            ? `<span class="status status-pass">Key published</span>
+               <div class="muted">${escapeHtml(data.uid || '')}</div>
+               <div class="mono" style="word-break:break-all">${escapeHtml(data.fingerprint || '')}</div>
+               <div class="muted">Public key: <a href="${escapeHtml(data.public_key_url)}">${escapeHtml(data.public_key_url)}</a>
+               · <a href="${escapeHtml(data.security_txt_url)}">security.txt</a></div>`
+            : '<span class="status status-warn">No key yet</span>';
+    }
+
+    async function generatePgpKey() {
+        const btn = $('pgpGenerateBtn');
+        const out = $('pgpResult');
+        const name = ($('pgpName').value || '').trim();
+        const email = ($('pgpEmail').value || '').trim();
+        const expiry = ($('pgpExpiry').value || '2y').trim();
+        if (!name || !email) {
+            out.innerHTML = '<p class="status status-warn">Enter a name and an email address.</p>';
+            return;
+        }
+        // Replacing a key silently would strand every researcher holding the
+        // old one, so the confirmation names that consequence.
+        if ($('pgpStatus').textContent.includes('Key published')
+            && !confirm('This replaces the published key. Anyone holding the old one '
+                        + 'will have to fetch the new key before they can encrypt to you. Continue?')) {
+            return;
+        }
+        const label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Generating…';
+        out.innerHTML = '<p class="history-empty">Generating a keypair…</p>';
+        let data;
+        try {
+            const resp = await fetch('/api/admin/pgp/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, expiry }),
+            });
+            data = await resp.json();
+            if (!resp.ok || data.error) {
+                out.innerHTML = `<p class="status status-fail">${escapeHtml(data.error || 'Generation failed')}</p>`;
+                return;
+            }
+        } catch (e) {
+            out.innerHTML = '<p class="status status-fail">Network error while generating the key</p>';
+            return;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = label;
+        }
+
+        const filename = `domainlens-${(data.fingerprint || 'key').slice(-16)}-private.asc`;
+        out.innerHTML = `
+            <div class="login-error"><strong>Save this now.</strong> ${escapeHtml(data.warning)}</div>
+            <p class="muted mono" style="word-break:break-all">${escapeHtml(data.fingerprint)}</p>
+            <div class="pgp-actions">
+                <button class="btn-primary-lite" id="pgpDownloadBtn" type="button">Download private key</button>
+                <button class="btn-ghost" id="pgpCopyBtn" type="button">Copy to clipboard</button>
+            </div>
+            <textarea id="pgpPrivateBox" rows="10" readonly class="mono"></textarea>`;
+        // Assigned rather than interpolated: the key goes in as a value, so
+        // there is no path where armour text is parsed as markup.
+        $('pgpPrivateBox').value = data.private_key;
+
+        $('pgpDownloadBtn').addEventListener('click', () => {
+            const blob = new Blob([data.private_key], { type: 'application/pgp-keys' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        $('pgpCopyBtn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(data.private_key);
+                $('pgpCopyBtn').textContent = 'Copied';
+            } catch (e) {
+                // Clipboard needs a secure context; over plain http on a LAN
+                // it simply is not there, and the textarea is the fallback.
+                $('pgpCopyBtn').textContent = 'Copy failed — select the text below';
+            }
+        });
+        await refreshPgpStatus();
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         // i18n must never be able to take the rest of the page down with it.
         try {
@@ -427,5 +553,11 @@
         const btn = $('settingsCheckUpdatesBtn');
         if (btn) btn.addEventListener('click', () => refreshUpdates(true));
         refreshUpdates(false);
+
+        const pgpBtn = $('pgpGenerateBtn');
+        if (pgpBtn) {
+            pgpBtn.addEventListener('click', generatePgpKey);
+            refreshPgpStatus();
+        }
     });
 })();
