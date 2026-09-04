@@ -264,7 +264,12 @@ const DRILL = {
         title: 'Domains',
         note: 'The most recent scan of each domain — this is what the averages above are based on.',
     },
-    issues: { title: 'Domains by open issues', note: 'Latest scan per domain, most issues first.' },
+    issues: {
+        title: 'Issues: what moved in this period',
+        note: 'First scan against last, per domain, biggest deterioration first. A count '
+            + 'on its own cannot tell a domain that sat at 20 issues all month from one '
+            + 'that went from 2 to 20. A domain scanned once has no change to report.',
+    },
     tls: { title: 'Domains by TLS score', note: 'Latest scan per domain, lowest TLS score first.' },
     headers: { title: 'Domains by header score', note: 'Latest scan per domain, lowest header score first.' },
     blacklist: {
@@ -316,6 +321,67 @@ async function renderScansDrill(body) {
         </tbody></table></div>`;
 }
 
+// A rising issues line answers "how many" but not "where", and a domain
+// sitting at 20 issues all month looks identical to one that went from 2 to
+// 20. This drill-down shows the move, and links through to the field-level
+// comparison that names what actually changed.
+function deltaCell(row) {
+    if (row.single_scan || row.delta === null || row.delta === undefined) {
+        // Not zero: one scan means the change was never observed, and "0"
+        // would read as "we looked and it held steady".
+        return '<span class="muted" title="Only one scan in this period, so there is '
+             + 'nothing to compare it against">not measured</span>';
+    }
+    if (row.delta > 0) return `<span class="status status-fail">+${escapeHtml(String(row.delta))}</span>`;
+    if (row.delta < 0) return `<span class="status status-pass">${escapeHtml(String(row.delta))}</span>`;
+    return '<span class="muted">0</span>';
+}
+
+function compareLink(row) {
+    if (row.single_scan) return '<span class="muted">—</span>';
+    const day = v => String(v || '').slice(0, 10);
+    // Each period is a single day wide -- the day each scan actually ran --
+    // so the comparison lands on exactly the two scans shown in this row.
+    const qs = new URLSearchParams({
+        domain: row.domain,
+        a_from: day(row.first_created_at), a_to: day(row.first_created_at),
+        b_from: day(row.last_created_at), b_to: day(row.last_created_at),
+    });
+    return `<a href="/reports/compare?${qs.toString()}">what changed</a>`;
+}
+
+async function renderDeltaDrill(body) {
+    const resp = await fetch('/api/reporting/deltas?' + drillQuery().toString());
+    const data = await resp.json();
+    const rows = data.domains || [];
+    if (!rows.length) {
+        body.innerHTML = '<div class="chart-empty">No domain metrics in this period</div>';
+        return;
+    }
+    const moved = rows.filter(r => r.delta !== null && r.delta !== 0).length;
+    const unmeasured = rows.filter(r => r.single_scan).length;
+    let note = `${moved} domain(s) moved.`;
+    if (unmeasured) {
+        note += ` ${unmeasured} scanned only once in this period, so their change `
+             +  'could not be measured.';
+    }
+    body.innerHTML = `<p class="ct-desc">${escapeHtml(note)}</p>
+        <div class="table-scroll"><table class="data-table drill-table">
+        <thead><tr><th>Domain</th><th>Issues at start</th><th>Issues now</th><th>Change</th>
+        <th>Grade</th><th>Scans</th><th></th></tr></thead>
+        <tbody>${rows.map(r => `
+            <tr>
+                <td><a href="/report/${escapeHtml(String(r.last_scan_id))}">${escapeHtml(r.domain)}</a></td>
+                <td>${r.single_scan ? '<span class="muted">—</span>' : escapeHtml(String(r.first_issues ?? 0))}</td>
+                <td>${escapeHtml(String(r.last_issues ?? 0))}</td>
+                <td>${deltaCell(r)}</td>
+                <td>${escapeHtml(String(r.first_grade || '?'))} &rarr; ${escapeHtml(String(r.last_grade || '?'))}</td>
+                <td>${escapeHtml(String(r.scans ?? 0))}</td>
+                <td>${compareLink(r)}</td>
+            </tr>`).join('')}
+        </tbody></table></div>`;
+}
+
 async function renderDomainsDrill(body, kind) {
     const resp = await fetch('/api/reporting/domains?' + drillQuery().toString());
     const data = await resp.json();
@@ -358,6 +424,7 @@ async function openDrill(kind) {
     body.innerHTML = '<div class="chart-empty">Loading…</div>';
     try {
         if (kind === 'scans') await renderScansDrill(body);
+        else if (kind === 'issues') await renderDeltaDrill(body);
         else await renderDomainsDrill(body, kind);
     } catch (err) {
         body.innerHTML = `<p class="status status-warn">${escapeHtml(err.message || 'Could not load')}</p>`;

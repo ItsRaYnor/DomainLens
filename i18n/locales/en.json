@@ -25,7 +25,8 @@
     "tools_ip": "IP address",
     "tools_dns": "DNS record",
     "tools_impersonation": "Impersonation",
-    "tools_disclosure": "Responsible disclosure"
+    "tools_disclosure": "Responsible disclosure",
+    "reports_compare": "Compare"
   },
   "search": {
     "placeholder": "Enter domain name (e.g. example.com)",
