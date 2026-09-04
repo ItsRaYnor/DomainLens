@@ -80,7 +80,17 @@
                 <label>Name <input type="text" id="genName" placeholder="Example BV Security" autocomplete="off"></label>
                 <label>Email <input type="email" id="genEmail" placeholder="security@example.com" autocomplete="off"></label>
                 <label>Expiry <input type="text" id="genExpiry" value="2y" autocomplete="off"></label>
+                <label>Passphrase (optional)
+                    <input type="password" id="genPassphrase" autocomplete="new-password"
+                           placeholder="leave empty for an unprotected key">
+                </label>
             </div>
+            <p class="ct-desc">
+                A passphrase encrypts the private key file itself, so the downloaded
+                <code>.asc</code> is useless to anyone who cannot supply it. It is used
+                for this one generation and never stored &mdash; if you lose it the key
+                is gone, because there is nothing here that could recover it.
+            </p>
             <button class="btn-primary-lite" id="genBtn" type="button">Generate keypair</button>
             <div id="genResult"></div>
             <p class="ct-desc">

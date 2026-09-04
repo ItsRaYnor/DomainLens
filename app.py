@@ -64,6 +64,7 @@ import ip_intel
 import theming
 import scan_cache
 import scan_diff
+import own_infra
 import scan_jobs
 from settings.store import get_store
 from settings.defaults import DEFAULT_SECURITY_HEADERS, DEFAULT_DKIM_SELECTORS, DEFAULT_SCAN_PORTS
@@ -2650,14 +2651,23 @@ _DNSBL_SPAMHAUS_DOMAIN_ZONES = ["dbl", "zrd"]
 
 
 def _build_dnsbl_list():
-    """Return [(zone_host, kind)] where kind is "ip" or "domain"."""
-    servers = [(zone, "ip") for zone in _DNSBL_OPEN]
+    """Return [(zone_host, kind, label)].
+
+    The label is what gets stored and shown. A Spamhaus DQS query carries the
+    account key as the first label of the hostname, so using the queried name
+    as the display name published that key: on the results page, in the saved
+    scan JSON, and in every exported report. A report shared with anyone then
+    hands them a working key.
+    """
+    servers = [(zone, "ip", zone) for zone in _DNSBL_OPEN]
     key = _spamhaus_dqs_key()
     if key:
         for zone in _DNSBL_SPAMHAUS_IP_ZONES:
-            servers.append((f"{key}.{zone}.dq.spamhaus.net", "ip"))
+            servers.append((f"{key}.{zone}.dq.spamhaus.net", "ip",
+                            f"{zone}.dq.spamhaus.net"))
         for zone in _DNSBL_SPAMHAUS_DOMAIN_ZONES:
-            servers.append((f"{key}.{zone}.dq.spamhaus.net", "domain"))
+            servers.append((f"{key}.{zone}.dq.spamhaus.net", "domain",
+                            f"{zone}.dq.spamhaus.net"))
     return servers
 
 
@@ -2700,23 +2710,24 @@ def check_blacklist(domain):
         results["ip"] = ip
         reversed_ip = ".".join(reversed(ip.split(".")))
 
-        for bl, kind in _build_dnsbl_list():
+        for bl, kind, label in _build_dnsbl_list():
             if querying_an_address and kind == "domain":
                 continue
             # Domain lists take the hostname; IP lists take the reversed IP.
             prefix = domain if kind == "domain" else reversed_ip
             query = f"{prefix}.{bl}"
+            # label, never bl: the queried name carries the DQS key.
             try:
                 answers = dns.resolver.resolve(query, "A")
                 if _dnsbl_is_real_hit(answers):
-                    results["listed"].append(bl)
+                    results["listed"].append(label)
                 else:
-                    results["errors"].append(bl)
-                    results["clean"].append(bl)
+                    results["errors"].append(label)
+                    results["clean"].append(label)
             except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
-                results["clean"].append(bl)
+                results["clean"].append(label)
             except Exception:
-                results["clean"].append(bl)
+                results["clean"].append(label)
 
         results["is_listed"] = len(results["listed"]) > 0
     except Exception as exc:
@@ -2881,13 +2892,32 @@ def _build_check_map(domain, apex, extra_dkim_selectors=None, force_refresh=Fals
         "weak_auth": lambda: check_weak_auth(domain),
         "js_scan": lambda: check_js_scan(domain),
         "active_scan": lambda: check_active_scan(domain),
+        "own_infra": lambda: check_own_infra(domain),
     }
 
 
 # Checks that send active test traffic (login attempts, XSS/SQLi/redirect
 # probes) — never run these in a full scan unless the operator has explicitly
 # opted in via settings, regardless of which checkboxes are ticked.
-_OPT_IN_ACTIVE_CHECKS = {"weak_auth", "active_scan"}
+_OPT_IN_ACTIVE_CHECKS = {"weak_auth", "active_scan", "own_infra"}
+
+
+def check_own_infra(domain):
+    """Open relay and open resolver, for hosts the operator says are theirs.
+
+    Two gates, not one: the feature is off by default, and even on it only
+    runs against domains named in the allowlist. A single switch would turn
+    "test my infrastructure" into "test everything I happen to scan", and
+    these are the two checks where that difference matters most.
+    """
+    config = domainlens_config.load_settings().own_infra()
+    relay = own_infra.check_open_relay(domain, config)
+    resolver_result = own_infra.check_open_resolver(domain, config)
+    return {
+        "allowed": own_infra.is_allowed(domain, config),
+        "relay": relay,
+        "resolver": resolver_result,
+    }
 
 
 def _run_checks(check_map, names, results, progress_cb=None):
@@ -2920,12 +2950,17 @@ def full_scan(domain, extra_dkim_selectors=None, progress_cb=None, force_refresh
     check_map = _build_check_map(
         domain, apex, extra_dkim_selectors=extra_dkim_selectors,
         force_refresh=force_refresh)
-    weak_enabled = domainlens_config.load_settings().weak_auth().get("enabled")
-    active_enabled = domainlens_config.load_settings().active_scan().get("enabled")
+    settings = domainlens_config.load_settings()
+    weak_enabled = settings.weak_auth().get("enabled")
+    active_enabled = settings.active_scan().get("enabled")
+    # Both gates here too: an allowlisted domain is the only one a full scan
+    # will probe, so scanning someone else's domain never reaches these.
+    infra_enabled = own_infra.is_allowed(domain, settings.own_infra())
     names = [
         n for n in check_map
         if n != "weak_auth" or weak_enabled
         if n != "active_scan" or active_enabled
+        if n != "own_infra" or infra_enabled
     ]
 
     _run_checks(check_map, names, results, progress_cb)

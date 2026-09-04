@@ -458,6 +458,7 @@
         const name = ($('pgpName').value || '').trim();
         const email = ($('pgpEmail').value || '').trim();
         const expiry = ($('pgpExpiry').value || '2y').trim();
+        const passphrase = $('pgpPassphrase') ? $('pgpPassphrase').value : '';
         if (!name || !email) {
             out.innerHTML = '<p class="status status-warn">Enter a name and an email address.</p>';
             return;
@@ -478,7 +479,7 @@
             const resp = await fetch('/api/admin/pgp/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, expiry }),
+                body: JSON.stringify({ name, email, expiry, passphrase }),
             });
             data = await resp.json();
             if (!resp.ok || data.error) {
@@ -491,12 +492,19 @@
         } finally {
             btn.disabled = false;
             btn.textContent = label;
+            // Cleared once used: it protects the file just handed over, and
+            // leaving it in the form serves nothing.
+            const field = $('pgpPassphrase');
+            if (field) field.value = '';
         }
 
         const filename = `domainlens-${(data.fingerprint || 'key').slice(-16)}-private.asc`;
         out.innerHTML = `
             <div class="login-error"><strong>Save this now.</strong> ${escapeHtml(data.warning)}</div>
             <p class="muted mono" style="word-break:break-all">${escapeHtml(data.fingerprint)}</p>
+            <p class="ct-desc">${escapeHtml(data.protected
+                ? 'The private key is passphrase-protected; you will need it to use the key.'
+                : 'The private key has no passphrase: anyone holding the file can use it.')}</p>
             <div class="pgp-actions">
                 <button class="btn-primary-lite" id="pgpDownloadBtn" type="button">Download private key</button>
                 <button class="btn-ghost" id="pgpCopyBtn" type="button">Copy to clipboard</button>

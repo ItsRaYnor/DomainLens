@@ -164,10 +164,18 @@
                 <label>Name <input type="text" id="pgpName" placeholder="Example BV Security" autocomplete="off"></label>
                 <label>Email <input type="email" id="pgpEmail" placeholder="security@example.com" autocomplete="off"></label>
                 <label>Expiry <input type="text" id="pgpExpiry" value="2y" autocomplete="off"></label>
+                <label>Passphrase (optional)
+                    <input type="password" id="pgpPassphrase" autocomplete="new-password"
+                           placeholder="leave empty for an unprotected key">
+                </label>
             </div>
-            <p class="ct-desc">A passphrase is optional here; if you set one on the
-               downloaded key later with <code>gpg --edit-key</code> it protects the file
-               at rest in your own keyring.</p>
+            <p class="ct-desc">
+                A passphrase encrypts the downloaded private key file, so a copy of it
+                is useless to anyone who cannot supply it. It is used for this one
+                generation and never stored &mdash; lose it and the key is gone, because
+                nothing here can recover it. The public half published by this
+                installation is unaffected either way.
+            </p>
             <button class="btn-primary-lite" id="pgpGenerateBtn" type="button">Generate keypair</button>
             <div id="pgpResult"></div>
             <p class="ct-desc">

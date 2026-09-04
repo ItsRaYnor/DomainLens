@@ -19,6 +19,8 @@ import socket
 import urllib.parse
 
 import security_txt
+import pgp_keys
+import cert_transparency
 
 import dns.resolver
 import dns.query
@@ -471,6 +473,7 @@ def check_security_txt_key(body, base_url=None):
         "reason": None,
         "armored": False,
         "private_key_published": False,
+        "key_details": None,
     }
     fields = parse_security_txt(body)
     urls = [u for u in fields.get("encryption", []) if u]
@@ -523,6 +526,20 @@ def check_security_txt_key(body, base_url=None):
         result["reason"] = "Armoured PGP public key block served"
     else:
         result["reason"] = "The URL did not serve an armoured PGP public key block"
+
+    # The key is already in hand, so read it here rather than making someone
+    # copy it into the validator to learn the same things. "Armoured" only
+    # says the wrapper is right: an expired key, or one whose only identity
+    # is an address nobody reads, still passes that and still leaves a
+    # researcher unable to reach anyone.
+    if result["armored"] or result["private_key_published"]:
+        try:
+            result["key_details"] = pgp_keys.inspect_key(text)
+        except Exception as exc:
+            # Never fatal: the fetch succeeded, and failing to parse is our
+            # limitation rather than a fault in what they published.
+            result["key_details"] = {"valid": False, "keys": [],
+                                     "error": f"Could not read the key: {type(exc).__name__}"}
     return result
 
 
@@ -578,6 +595,46 @@ def inspect_security_txt(domain, timeout=8):
 
     if not result["url"] and last_error:
         result["error"] = f"Could not reach {domain} ({last_error})"
+    return result
+
+
+def _check_mx_dane(domain, max_hosts=5):
+    """TLSA records on each mail exchanger, per host.
+
+    Returns the three states this codebase keeps apart. "No MX" is not a
+    DANE failure: a domain that receives no mail has no mail hosts to
+    secure, and reporting it as missing DANE would be advice about something
+    that does not exist.
+    """
+    result = {"state": "not_applicable", "hosts": [], "reason": None,
+              "with_dane": 0, "without_dane": 0}
+    mx = _resolve(domain, "MX")
+    if not mx:
+        result["reason"] = "No MX records, so there are no mail hosts to secure"
+        return result
+
+    hosts = []
+    for record in mx:
+        parts = str(record).split()
+        target = (parts[-1] if parts else "").rstrip(".")
+        if target and target not in hosts:
+            hosts.append(target)
+    if hosts == [""] or not hosts:
+        # A null MX (RFC 7505) is "this domain receives no mail", not a gap.
+        result["reason"] = "Null MX: this domain receives no mail"
+        return result
+
+    result["state"] = "measured"
+    for host in hosts[:max_hosts]:
+        records = _resolve(f"_25._tcp.{host}", "TLSA")
+        entry = {"host": host, "present": bool(records), "records": records}
+        result["hosts"].append(entry)
+        if records:
+            result["with_dane"] += 1
+        else:
+            result["without_dane"] += 1
+    if len(hosts) > max_hosts:
+        result["truncated"] = len(hosts) - max_hosts
     return result
 
 
@@ -998,6 +1055,20 @@ def check_dns_mail_gaps(domain):
         tlsa = _resolve(f"_443._tcp.{domain}", "TLSA")
         result["tlsa"] = {"present": bool(tlsa), "records": tlsa}
 
+        # Certificates actually issued, against the CAA record that says who
+        # may. CAA is only consulted at issuance, so it can look correct
+        # while a certificate exists that nobody asked for.
+        rows, ct_error, _meta = _fetch_crtsh(domain)
+        result["cert_transparency"] = cert_transparency.analyse(
+            rows, caa, days=30, source_error=ct_error)
+
+        # DANE on the mail hosts, which is the one that carries weight:
+        # internet.nl scores it and the Dutch government requires it, while
+        # DANE on 443 is barely deployed. The record lives on each MX host
+        # at _25._tcp, not on the domain -- looking it up on the domain (as
+        # the 443 check does) would report every mail domain as missing it.
+        result["mx_dane"] = _check_mx_dane(domain)
+
         # SPF lookup count
         lookups = _spf_lookup_count(domain)
         result["spf_lookups"] = {
@@ -1314,6 +1385,38 @@ def audit_findings(audit):
             evidence=f"Vulnerable NS: {ns_names}",
             fix="Restrict AXFR to authorized secondary nameservers only (allow-transfer ACL).",
         ))
+    findings.extend(cert_transparency.findings(dm.get("cert_transparency"), _finding))
+
+    # DANE on the mail hosts. Only reported when there are mail hosts: a
+    # domain that receives no mail has nothing to secure here, and advice
+    # about a mail server it does not run is advice it cannot act on.
+    mx_dane = dm.get("mx_dane") or {}
+    if mx_dane.get("state") == "measured":
+        missing = [h["host"] for h in mx_dane.get("hosts", []) if not h.get("present")]
+        if missing and not mx_dane.get("with_dane"):
+            findings.append(_finding(
+                "medium", "Email",
+                "No DANE (TLSA) on the mail hosts",
+                "None of this domain's mail exchangers publish a TLSA record, so a "
+                "sending server cannot verify the certificate it is offered and "
+                "STARTTLS can be stripped or spoofed without detection.",
+                evidence="No _25._tcp TLSA on: " + ", ".join(missing),
+                fix="Publish a TLSA record at _25._tcp.<mx-host> for each mail "
+                    "exchanger, matching the certificate it serves. DNSSEC must be "
+                    "signed for DANE to mean anything.",
+            ))
+        elif missing:
+            findings.append(_finding(
+                "medium", "Email",
+                "DANE (TLSA) is missing on some mail hosts",
+                "Some mail exchangers publish a TLSA record and some do not. A "
+                "sender that reaches one of the unprotected hosts gets no "
+                "verification, which is the same as having none at all.",
+                evidence="Without TLSA: " + ", ".join(missing),
+                fix="Publish a TLSA record at _25._tcp for every mail exchanger, "
+                    "not only the primary.",
+            ))
+
     caa = dm.get("caa") or {}
     if dm.get("success") and not caa.get("has_issue_tag"):
         if caa.get("present"):
