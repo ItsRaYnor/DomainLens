@@ -2167,3 +2167,69 @@ footer, .app-footer {
     font-size: .9rem;
     line-height: 1.5;
 }
+
+/* Reports -> Compare: two period pickers and the difference table. */
+.compare-form { margin: .75rem 0; }
+
+.compare-field {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    max-width: 22rem;
+}
+
+.compare-periods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: .75rem 0;
+}
+
+.compare-period {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .6rem .9rem .9rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: end;
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+.compare-period legend {
+    padding: 0 .35rem;
+    font-size: .85rem;
+    opacity: .75;
+}
+
+.compare-period label {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    font-size: .85rem;
+}
+
+.compare-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: center;
+    margin: .5rem 0 1rem;
+}
+
+.compare-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    cursor: pointer;
+    font-size: .9rem;
+}
+
+/* The two value columns are read side by side, so they get equal room and
+   the label column is not allowed to squeeze them out. */
+.compare-table td:nth-child(2),
+.compare-table td:nth-child(3) {
+    word-break: break-word;
+    max-width: 18rem;
+}

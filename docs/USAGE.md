@@ -229,6 +229,65 @@ native install without GnuPG the button is disabled and says so; everything
 else on the page keeps working, and you can still paste a public key you
 generated elsewhere.
 
+## Comparing two periods
+
+**Reports &rarr; Compare** answers "what changed" for one domain between two
+moments, field by field: SPF dropping from `-all` to `~all`, DMARC from
+reject to none, a TLS grade slipping, a security header disappearing.
+
+Monitoring already tells you *that* something changed. Unless the change is
+one of the few it names outright, the event reads "Observed changes for
+example.com" &mdash; and an SPF weakening lands exactly there, because the
+record still exists and still parses. This names it instead.
+
+Each period is represented by its **most recent** scan: "how did it look in
+May" means how it was left, so a change made mid-period shows in the period
+it happened. Both scans are named under the result, with their dates and ids,
+so the comparison can be checked rather than taken on trust.
+
+Two filters narrow a long result: **only what got worse**, and a single area
+(SPF, DMARC, TLS, headers, and so on). They re-render what is already loaded
+rather than re-running the comparison.
+
+### From a trend line to the change behind it
+
+The **issues** tile on Trends drills into the move rather than the standing.
+A count on its own cannot tell a domain that sat at 20 issues all month from
+one that went from 2 to 20, and the second is why anyone opens a rising line:
+
+| Domain | Issues at start | Issues now | Change |
+|---|---|---|---|
+| spiked.example | 2 | 20 | +18 |
+| steady.example | 20 | 20 | 0 |
+| fixed.example | 15 | 3 | -12 |
+| once.example | &mdash; | 8 | not measured |
+
+A domain scanned once in the window is **not measured**, never `0`: one scan
+has nothing to compare against, and a zero would read as "we looked and it
+held steady".
+
+Each row links to **what changed**, which opens the comparison above on
+exactly those two scans and runs it &mdash; so a rising line leads to "SPF
+went from -all to ~all" in two clicks.
+
+### What counts as a change
+
+Only fields an operator can act on. A raw diff of two scans reports something
+every single time &mdash; TTLs count down, certificates lose a day of
+validity, timings never repeat &mdash; and a report full of that is one
+nobody opens. A certificate's expiry *date* changing is a renewal and is
+reported; its days-remaining ticking down is not.
+
+A direction is only claimed where one value is genuinely better: DMARC
+policies, TLS grades and SPF qualifiers are ordered, so those moves are
+labelled better or worse. Anything else is reported as changed, without a
+verdict invented for it.
+
+A check that ran in only one of the two scans is listed under **could not be
+compared**, never folded into "nothing changed" &mdash; and a period with no
+scan at all is refused outright, because reporting it as steady would be a
+claim nobody measured.
+
 ## Weak authentication testing
 
 **Legal / ethical use only** — test domains you own or have written permission to assess.

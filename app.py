@@ -63,6 +63,7 @@ import evidence
 import ip_intel
 import theming
 import scan_cache
+import scan_diff
 import scan_jobs
 from settings.store import get_store
 from settings.defaults import DEFAULT_SECURITY_HEADERS, DEFAULT_DKIM_SELECTORS, DEFAULT_SCAN_PORTS
@@ -3422,6 +3423,7 @@ _TOOLS_SUBNAV = [
 _REPORTS_SUBNAV = [
     ("nav.reports_history", "/reports"),
     ("nav.reports_trends", "/trends"),
+    ("nav.reports_compare", "/reports/compare"),
 ]
 
 
@@ -4128,6 +4130,96 @@ def trends_view():
         subnav=_subnav(_REPORTS_SUBNAV, "/trends"))
 
 
+def _period_bounds(prefix):
+    """Read a from/to pair off the query string as full-day ISO bounds.
+
+    The "to" end is stretched to the end of that day: a user picking
+    2026-08-29 means the whole of the 29th, and comparing against the bare
+    date would silently exclude every scan run after midnight.
+    """
+    start = (request.args.get(prefix + "_from") or "").strip()
+    end = (request.args.get(prefix + "_to") or "").strip()
+    if not start or not end:
+        return None, None, f"Both {prefix}_from and {prefix}_to are required"
+    for value in (start, end):
+        try:
+            datetime.strptime(value[:10], "%Y-%m-%d")
+        except ValueError:
+            return None, None, f"{value!r} is not a date in YYYY-MM-DD form"
+    if start[:10] > end[:10]:
+        return None, None, f"Period {prefix} ends before it starts"
+    return start[:10], end[:10] + "T23:59:59.999999+00:00", None
+
+
+@app.route("/api/reporting/compare", methods=["GET"])
+def api_reporting_compare():
+    """Field-level differences for one domain between two periods.
+
+    Each period is represented by its most recent scan. Both scans are named
+    in the response: a comparison whose endpoints are invisible cannot be
+    checked by the person reading it.
+    """
+    domain = _normalize_domain(request.args.get("domain", ""))
+    if not _is_valid_domain(domain):
+        return jsonify({"error": "Enter a valid domain to compare"}), 400
+
+    bounds = {}
+    for prefix in ("a", "b"):
+        start, end, error = _period_bounds(prefix)
+        if error:
+            return jsonify({"error": error}), 400
+        bounds[prefix] = (start, end)
+
+    earlier = db.latest_scan_in_range(domain, *bounds["a"])
+    later = db.latest_scan_in_range(domain, *bounds["b"])
+
+    def describe(record, period):
+        if not record:
+            return {"scan_id": None, "created_at": None,
+                    "from": period[0], "to": period[1][:10]}
+        return {"scan_id": record["id"], "created_at": record["created_at"],
+                "grade": record.get("grade"), "score": record.get("score"),
+                "from": period[0], "to": period[1][:10]}
+
+    result = {
+        "domain": domain,
+        "a": describe(earlier, bounds["a"]),
+        "b": describe(later, bounds["b"]),
+        "changes": [], "unmeasured": [], "changed": False,
+        "summary": {"total": 0, "better": 0, "worse": 0, "neutral": 0},
+        "error": None,
+    }
+    # An absent scan is not "nothing changed". Saying so would report a
+    # period nobody scanned as a period in which everything held steady.
+    if not earlier or not later:
+        missing = [name for name, rec in (("A", earlier), ("B", later)) if not rec]
+        result["error"] = (
+            f"No scan of {domain} in period {' and '.join(missing)}. "
+            "There is nothing to compare against.")
+        return jsonify(result)
+
+    if earlier["id"] == later["id"]:
+        result["error"] = (
+            "Both periods resolve to the same scan, so there is nothing to "
+            "compare. Widen one of them.")
+        return jsonify(result)
+
+    result.update(scan_diff.compare(earlier.get("data"), later.get("data")))
+    return jsonify(result)
+
+
+@app.route("/api/reporting/compare/fields", methods=["GET"])
+def api_reporting_compare_fields():
+    return jsonify({"fields": scan_diff.field_catalogue()})
+
+
+@app.route("/reports/compare")
+def reports_compare_view():
+    return render_template(
+        "reports_compare.html", section="reports",
+        subnav=_subnav(_REPORTS_SUBNAV, "/reports/compare"))
+
+
 @app.route("/api/reporting/overview", methods=["GET"])
 def api_reporting_overview():
     days = _parse_positive_int(request.args.get("days"), 30, minimum=1, maximum=365)
@@ -4144,6 +4236,16 @@ def api_reporting_domains():
     if domain and not _is_valid_domain(domain):
         return jsonify({"error": "Invalid domain filter"}), 400
     return jsonify(db.reporting_domains(days=days, domain=domain))
+
+
+@app.route("/api/reporting/deltas", methods=["GET"])
+def api_reporting_deltas():
+    """How each domain moved across the window, worst deterioration first."""
+    days = _parse_positive_int(request.args.get("days"), 30, minimum=1, maximum=365)
+    domain = request.args.get("domain", "").strip().lower() or None
+    if domain and not _is_valid_domain(domain):
+        return jsonify({"error": "Invalid domain filter"}), 400
+    return jsonify(db.reporting_deltas(days=days, domain=domain))
 
 
 @app.route("/api/reporting/trends", methods=["GET"])

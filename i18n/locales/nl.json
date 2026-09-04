@@ -25,7 +25,8 @@
     "tools_ip": "IP-adres",
     "tools_dns": "DNS-record",
     "tools_impersonation": "Impersonatie",
-    "tools_disclosure": "Responsible disclosure"
+    "tools_disclosure": "Responsible disclosure",
+    "reports_compare": "Vergelijken"
   },
   "search": {
     "placeholder": "Voer een domeinnaam in (bijv. example.com)",

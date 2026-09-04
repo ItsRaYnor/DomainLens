@@ -510,6 +510,37 @@ def list_scans(domain=None, limit=100, days=None):
         return [dict(r) for r in rows]
 
 
+def scans_in_range(domain, start, end, limit=200):
+    """Scans for one domain between two ISO dates, newest first.
+
+    list_scans() counts days back from now, which cannot express "the second
+    quarter" or any window that does not end today. Comparing two periods
+    needs both ends stated.
+    """
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, domain, created_at, grade, score, issues_count
+            FROM scans
+            WHERE domain = ? AND created_at >= ? AND created_at <= ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+            """,
+            (domain, start, end, max(1, min(int(limit), 500))),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def latest_scan_in_range(domain, start, end):
+    """The scan that represents a domain's state at the end of a window.
+
+    The last one, not the first: "how did it look in May" means how it was
+    left, and a change made mid-period should show in the period it happened.
+    """
+    rows = scans_in_range(domain, start, end, limit=1)
+    return get_scan(rows[0]["id"]) if rows else None
+
+
 def get_scan(scan_id):
     """Return a full scan record including the JSON data, or None."""
     with _lock, _connect() as conn:
@@ -1169,6 +1200,73 @@ def reporting_domains(days=30, domain=None):
         "domain": domain,
         "domains": [dict(r) for r in rows],
     }
+
+
+def reporting_deltas(days=30, domain=None):
+    """First and last scan per domain in the window, with the change between.
+
+    The drill-downs showed where a domain stands now, which answers "who has
+    the most issues" but not "whose got worse" -- and the second is the one
+    that makes a rising trend line actionable. A domain sitting at 20 issues
+    all month and one that went from 2 to 20 look identical in a snapshot.
+
+    Domains scanned only once in the window have no delta to report; they are
+    returned with first and last pointing at that single scan and a null
+    delta, so the caller can say "only one scan" rather than "no change".
+    """
+    from datetime import timedelta
+
+    days = max(1, min(int(days), 365))
+    start_day = (datetime.now(timezone.utc) - timedelta(days=days - 1)).date().isoformat()
+
+    where = "day >= ?"
+    params = [start_day]
+    if domain:
+        where += " AND domain = ?"
+        params.append(domain)
+
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT
+                b.domain,
+                b.scan_id      AS first_scan_id,
+                b.created_at   AS first_created_at,
+                b.issues_count AS first_issues,
+                b.grade        AS first_grade,
+                e.scan_id      AS last_scan_id,
+                e.created_at   AS last_created_at,
+                e.issues_count AS last_issues,
+                e.grade        AS last_grade,
+                bounds.scans
+            FROM (
+                SELECT domain, MIN(scan_id) AS first_id, MAX(scan_id) AS last_id,
+                       COUNT(*) AS scans
+                FROM scan_metrics
+                WHERE {where}
+                GROUP BY domain
+            ) bounds
+            JOIN scan_metrics b ON b.domain = bounds.domain AND b.scan_id = bounds.first_id
+            JOIN scan_metrics e ON e.domain = bounds.domain AND e.scan_id = bounds.last_id
+            """,
+            params,
+        ).fetchall()
+
+    out = []
+    for row in rows:
+        record = dict(row)
+        single = record["scans"] < 2
+        first = record["first_issues"]
+        last = record["last_issues"]
+        # None, not 0: one scan means the change was never observed, and a
+        # zero would read as "we looked and it held steady".
+        record["delta"] = None if single or first is None or last is None else last - first
+        record["single_scan"] = single
+        out.append(record)
+
+    # Biggest deterioration first: that is what the drill-down is opened for.
+    out.sort(key=lambda r: (r["delta"] is None, -(r["delta"] or 0), r["domain"]))
+    return {"days": days, "domain": domain, "domains": out}
 
 
 def reporting_trends(days=30, domain=None):

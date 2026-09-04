@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compare periods — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2>Compare two periods</h2>
+            <p class="ct-desc">
+                What changed for one domain between two moments &mdash; SPF dropping from
+                <code>-all</code> to <code>~all</code>, DMARC from reject to none, a TLS
+                grade slipping. Each period is represented by its most recent scan, and
+                both are named below the result so you can check what was compared.
+            </p>
+
+            <div class="compare-form">
+                <label class="compare-field">
+                    <span>Domain</span>
+                    <select id="cmpDomain">
+                        <option value="">Loading scanned domains…</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="compare-periods">
+                <fieldset class="compare-period">
+                    <legend>Period A (earlier)</legend>
+                    <label>From <input type="date" id="cmpAFrom"></label>
+                    <label>To <input type="date" id="cmpATo"></label>
+                </fieldset>
+                <fieldset class="compare-period">
+                    <legend>Period B (later)</legend>
+                    <label>From <input type="date" id="cmpBFrom"></label>
+                    <label>To <input type="date" id="cmpBTo"></label>
+                </fieldset>
+            </div>
+
+            <div class="compare-actions">
+                <button class="btn-primary-lite" id="cmpRunBtn" type="button">Compare</button>
+                <label class="compare-toggle">
+                    <input type="checkbox" id="cmpOnlyWorse">
+                    <span>Only show what got worse</span>
+                </label>
+                <select id="cmpSectionFilter" aria-label="Filter by area">
+                    <option value="">All areas</option>
+                </select>
+            </div>
+
+            <div id="cmpResult"></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/compare.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>
