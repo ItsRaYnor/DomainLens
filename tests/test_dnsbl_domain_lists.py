@@ -18,9 +18,22 @@ class DnsblDomainListTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Its own database: importing app opens one, and relying on another
+        # test file having set the path first makes this file pass or fail
+        # depending on what ran before it.
+        import tempfile
+        cls._tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        os.environ["DOMAINLENS_DB"] = os.path.join(cls._tempdir.name, "dnsbl.db")
         os.environ.setdefault("DOMAINLENS_DISABLE_SCHEDULER", "1")
+        import db
+        db.init_db()
         import app
         cls.app = app
+
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("DOMAINLENS_DB", None)
+        cls._tempdir.cleanup()
 
     def _rdata(self, ip):
         r = mock.Mock()
@@ -47,7 +60,7 @@ class DnsblDomainListTests(unittest.TestCase):
 
     def test_domain_zones_are_queried_with_the_domain(self):
         with mock.patch("app._spamhaus_dqs_key", return_value="KEY"):
-            servers = dict(self.app._build_dnsbl_list())
+            servers = {host: kind for host, kind, _label in self.app._build_dnsbl_list()}
         self.assertEqual(servers["KEY.dbl.dq.spamhaus.net"], "domain")
         self.assertEqual(servers["KEY.zrd.dq.spamhaus.net"], "domain")
         self.assertEqual(servers["KEY.zen.dq.spamhaus.net"], "ip")
@@ -55,12 +68,43 @@ class DnsblDomainListTests(unittest.TestCase):
     def test_open_lists_are_all_ip_based(self):
         with mock.patch("app._spamhaus_dqs_key", return_value=""):
             servers = self.app._build_dnsbl_list()
-        self.assertTrue(all(kind == "ip" for _, kind in servers))
+        self.assertTrue(all(kind == "ip" for _, kind, _label in servers))
 
     def test_no_spamhaus_zones_without_a_key(self):
         with mock.patch("app._spamhaus_dqs_key", return_value=""):
-            hosts = [h for h, _ in self.app._build_dnsbl_list()]
+            hosts = [h for h, _kind, _label in self.app._build_dnsbl_list()]
         self.assertFalse(any("spamhaus" in h for h in hosts))
+
+    # --- the key must not leave the query ---
+
+    def test_the_dqs_key_is_not_in_the_name_that_gets_stored(self):
+        """A DQS query carries the account key as the first label of the
+        hostname. Storing the queried name published it on the results page,
+        in the saved scan, and in every exported report -- so a report shared
+        with anyone handed them a working key."""
+        with mock.patch("app._spamhaus_dqs_key", return_value="SECRETKEY"):
+            labels = [label for _host, _kind, label in self.app._build_dnsbl_list()]
+        self.assertTrue(any("spamhaus" in l for l in labels), "no spamhaus zone at all")
+        for label in labels:
+            self.assertNotIn("SECRETKEY", label)
+
+    def test_the_key_is_still_used_for_the_actual_query(self):
+        """Redacting the label must not redact the lookup: without the key in
+        the queried name Spamhaus answers nothing useful."""
+        with mock.patch("app._spamhaus_dqs_key", return_value="SECRETKEY"):
+            hosts = [h for h, _kind, _label in self.app._build_dnsbl_list()]
+        self.assertTrue(any(h.startswith("SECRETKEY.") for h in hosts))
+
+    def test_a_stored_result_never_carries_the_key(self):
+        """End to end: whatever check_blacklist writes is what reaches the
+        database and the report."""
+        with mock.patch("app._spamhaus_dqs_key", return_value="SECRETKEY"),              mock.patch("app._safe_resolve_ip", return_value="192.0.2.1"),              mock.patch("dns.resolver.resolve",
+                        side_effect=dns.resolver.NXDOMAIN("clean")):
+            result = self.app.check_blacklist("example.com")
+        blob = " ".join(result.get("listed", []) + result.get("clean", [])
+                        + result.get("errors", []))
+        self.assertTrue(blob, "nothing was recorded at all")
+        self.assertNotIn("SECRETKEY", blob)
 
     def test_scan_sends_the_domain_to_domain_zones_and_the_ip_to_ip_zones(self):
         queried = []
@@ -110,7 +154,8 @@ class DnsblDomainListTests(unittest.TestCase):
             result = self.app.check_blacklist("bad.example")
 
         self.assertTrue(result["is_listed"])
-        self.assertEqual(result["listed"], ["KEY.dbl.dq.spamhaus.net"])
+        # The zone without the key: that is what is safe to store and show.
+        self.assertEqual(result["listed"], ["dbl.dq.spamhaus.net"])
 
     def test_a_real_ip_listing_is_still_reported(self):
         def fake_resolve(name, rdtype):
@@ -124,7 +169,7 @@ class DnsblDomainListTests(unittest.TestCase):
             result = self.app.check_blacklist("bad.example")
 
         self.assertTrue(result["is_listed"])
-        self.assertEqual(result["listed"], ["KEY.zen.dq.spamhaus.net"])
+        self.assertEqual(result["listed"], ["zen.dq.spamhaus.net"])
 
 
 if __name__ == "__main__":

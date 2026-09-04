@@ -146,7 +146,8 @@
       "servicenow": "ServiceNow",
       "rapid7": "Rapid7 InsightVM",
       "appearance": "Weergave",
-      "disclosure": "Responsible disclosure"
+      "disclosure": "Responsible disclosure",
+      "own_infra": "Tests op eigen infrastructuur"
     },
     "general": {
       "locale": "Taal",
@@ -319,6 +320,10 @@
       "preferred_languages": "Voorkeurstalen",
       "expires_days": "Geldigheid security.txt (dagen, max 365)",
       "canonical_url": "Canonieke URL (leeg laten om af te leiden)"
+    },
+    "own_infra": {
+      "enabled": "Open relay- en open resolver-tests inschakelen",
+      "domains": "Domeinen die je zelf beheert (één per regel; alleen deze worden getest)"
     }
   },
   "rapid7_ui": {

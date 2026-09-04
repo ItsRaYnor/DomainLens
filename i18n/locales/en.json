@@ -146,7 +146,8 @@
       "servicenow": "ServiceNow",
       "rapid7": "Rapid7 InsightVM",
       "appearance": "Appearance",
-      "disclosure": "Responsible disclosure"
+      "disclosure": "Responsible disclosure",
+      "own_infra": "Own infrastructure tests"
     },
     "general": {
       "locale": "Language",
@@ -319,6 +320,10 @@
       "preferred_languages": "Preferred languages",
       "expires_days": "security.txt validity (days, max 365)",
       "canonical_url": "Canonical URL (leave empty to derive)"
+    },
+    "own_infra": {
+      "enabled": "Enable open relay and open resolver tests",
+      "domains": "Domains you run yourself (one per line; only these are tested)"
     }
   },
   "rapid7_ui": {

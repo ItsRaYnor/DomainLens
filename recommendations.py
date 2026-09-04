@@ -117,6 +117,185 @@ def _spf(results):
     return out
 
 
+def _mx_posture(results):
+    """Classify a domain's mail-receiving setup: "null", "none" or "mx".
+
+    MX says whether a domain *receives* mail. It says nothing about sending:
+    a domain with no MX at all can still send perfectly well, and plenty do.
+    That distinction decides what may be advised below, because telling a
+    working sender to publish `-all` would stop their mail.
+
+    RFC 7505 null MX is the one unambiguous case: a single `0 .` record is
+    the operator stating outright that this domain receives no mail.
+    """
+    dns_data = results.get("dns")
+    if not isinstance(dns_data, dict) or "MX" not in dns_data:
+        return None  # not measured; nothing may be concluded
+    records = [str(r).strip() for r in (dns_data.get("MX") or []) if str(r).strip()]
+    if not records:
+        return "none"
+    targets = []
+    for record in records:
+        parts = record.split()
+        targets.append(parts[-1] if parts else "")
+    if len(targets) == 1 and targets[0] in (".", ""):
+        return "null"
+    return "mx"
+
+
+def _non_mailing_domain(results):
+    """A domain that receives no mail should say it sends none either.
+
+    tacticspro.nl is the case that prompted this: a blacklist hit on the web
+    server address, no mail of its own, and nothing published to say so. A
+    domain nobody sends from is still worth forging, and SPF `-all` with
+    DMARC `p=reject` is what makes that forgery fail at the receiver.
+
+    Nothing here fires for a domain with real MX records. The advice would
+    break a working mail setup, and advice an operator cannot follow without
+    breaking their own site does not belong in the findings list.
+    """
+    out = []
+    posture = _mx_posture(results)
+    if posture is None or posture == "mx":
+        return out
+
+    spf = results.get("spf") or {}
+    dmarc = results.get("dmarc") or {}
+    record = (spf.get("record") or "").lower()
+    spf_locked = spf.get("found") and "-all" in record and "include:" not in record \
+        and "a:" not in record and "mx" not in record.replace("mx 0", "")
+    policy = (dmarc.get("policy") or "").lower()
+
+    # An explicit null MX is a statement; an absent MX is only an absence.
+    # The first justifies naming an inconsistency, the second a suggestion.
+    explicit = posture == "null"
+    severity = SEVERITY_MEDIUM if explicit else SEVERITY_LOW
+    receives = ("publishes a null MX record, so it states outright that it receives "
+                "no mail" if explicit else "publishes no MX record, so it receives no mail")
+
+    if not spf.get("found"):
+        out.append(_r(
+            severity, "Email", "No SPF on a domain that receives no mail",
+            f"This domain {receives}. Without SPF, anyone can still send mail claiming "
+            "to be from it, and receivers have nothing to check that against.",
+            "If nothing sends mail from this domain either, publish the shortest "
+            "possible record: `v=spf1 -all`. That tells every receiver to reject "
+            "anything claiming to come from here. Only do this if no service — "
+            "newsletters, ticketing, CRM — sends on its behalf.",
+            "https://datatracker.ietf.org/doc/html/rfc7208",
+        ))
+    elif not spf_locked:
+        out.append(_r(
+            severity, "Email", "SPF still allows senders on a domain that receives no mail",
+            f"This domain {receives}, but its SPF record still authorises senders: "
+            f"`{spf.get('record')}`.",
+            "If nothing legitimately sends from this domain, replace the record with "
+            "`v=spf1 -all`. If something does send, this is correct as it stands and "
+            "the record should keep listing it.",
+            "https://datatracker.ietf.org/doc/html/rfc7208",
+        ))
+
+    if not dmarc.get("found"):
+        out.append(_r(
+            severity, "Email", "No DMARC on a domain that receives no mail",
+            f"This domain {receives}, and publishes no DMARC policy. Mail forged from "
+            "it fails no check, because no check is asked for.",
+            "Publish `_dmarc.yourdomain` TXT: `v=DMARC1; p=reject; rua=mailto:you@example.com`. "
+            "For a domain that sends nothing, `p=reject` can be set immediately — there is "
+            "no legitimate mail to break, which is the usual reason to roll out gradually.",
+            "https://datatracker.ietf.org/doc/html/rfc7489",
+        ))
+    elif policy != "reject":
+        out.append(_r(
+            severity, "Email", f"DMARC is p={policy or 'none'} on a domain that receives no mail",
+            f"This domain {receives}, but its DMARC policy is `p={policy or 'none'}`, so "
+            "receivers are not asked to refuse forged mail.",
+            "For a domain that sends nothing, move straight to `p=reject`: the gradual "
+            "none → quarantine → reject roll-out exists to avoid dropping legitimate "
+            "mail, and there is none here to drop.",
+            "https://datatracker.ietf.org/doc/html/rfc7489",
+        ))
+
+    if posture == "none" and out:
+        out.append(_r(
+            SEVERITY_INFO, "Email", "No null MX published",
+            "This domain has no MX record. Receivers must infer from that absence that "
+            "it accepts no mail, and some will still try the A record instead.",
+            "Publish an explicit null MX (RFC 7505): an `MX` record with priority `0` "
+            "and target `.` — written as `0 .`. It states the same thing without "
+            "leaving anything to inference.",
+            "https://datatracker.ietf.org/doc/html/rfc7505",
+        ))
+    return out
+
+def _own_infra(results):
+    """Findings from the opt-in own-infrastructure tests.
+
+    Only ever populated for a domain the operator listed as theirs, so
+    nothing here can be a report about someone else's server.
+    """
+    data = results.get("own_infra") or {}
+    if not data.get("allowed"):
+        return []
+    out = []
+    relay = data.get("relay") or {}
+    if relay.get("open_relay"):
+        hosts = [h["host"] for h in relay.get("hosts", []) if h.get("relays")]
+        out.append(_r(
+            SEVERITY_CRITICAL, "Email", "Mail server accepts relay for a foreign domain",
+            "A mail host accepted a recipient in a domain it has no reason to serve. "
+            f"An open relay ({', '.join(hosts)}) is used to send spam and phishing in "
+            "your name, and gets the address blocklisted quickly.",
+            "Restrict relaying to authenticated users and your own networks. Postfix: "
+            "`smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, "
+            "reject_unauth_destination`. Exchange: the receive connector's permission "
+            "groups.",
+            "https://www.rfc-editor.org/rfc/rfc5321",
+        ))
+    resolver_result = data.get("resolver") or {}
+    if resolver_result.get("open_resolver"):
+        servers = [n["address"] for n in resolver_result.get("nameservers", [])
+                   if n.get("recurses")]
+        out.append(_r(
+            SEVERITY_HIGH, "DNS", "Nameserver answers recursive queries from anywhere",
+            "An authoritative nameserver also resolves names it has no authority for, "
+            f"for any client that asks ({', '.join(servers)}). Open resolvers are used "
+            "to amplify denial-of-service traffic against third parties.",
+            "Separate the authoritative and recursive roles, or restrict recursion to "
+            "your own networks. BIND: `allow-recursion { localnets; };`.",
+            "https://www.rfc-editor.org/rfc/rfc5358",
+        ))
+    return out
+
+
+def _mx_dane_advice(results):
+    """DANE on the mail hosts -- the one internet.nl scores.
+
+    DANE on port 443 is barely deployed and barely matters; on the mail
+    exchangers it is what stops STARTTLS being stripped, and the Dutch
+    government requires it.
+    """
+    audit = results.get("security") or {}
+    dm = (audit.get("dns_mail") or {}) if isinstance(audit, dict) else {}
+    dane = dm.get("mx_dane") or {}
+    if dane.get("state") != "measured":
+        return []
+    missing = [h["host"] for h in dane.get("hosts", []) if not h.get("present")]
+    if not missing:
+        return []
+    return [_r(
+        SEVERITY_MEDIUM, "Email", "No DANE (TLSA) on the mail hosts",
+        "These mail exchangers publish no TLSA record: "
+        f"{', '.join(missing)}. A sending server cannot verify the certificate it "
+        "is offered, so STARTTLS can be stripped or spoofed without detection.",
+        "Publish a TLSA record at `_25._tcp.<mx-host>` for each exchanger, matching "
+        "the certificate it serves. DNSSEC must be signed for DANE to mean anything, "
+        "and the record has to be rotated with the certificate.",
+        "https://datatracker.ietf.org/doc/html/rfc7672",
+    )]
+
+
 def _dmarc(results):
     out = []
     dmarc = results.get("dmarc")
@@ -1276,7 +1455,8 @@ def generate(results):
     domain = results.get("domain")
     recs = []
     for fn in (
-        _whois, _dnssec, _spf, _dmarc, _dkim, _mta_sts, _tlsrpt,
+        _whois, _dnssec, _spf, _dmarc, _non_mailing_domain, _dkim, _mta_sts, _tlsrpt,
+        _own_infra, _mx_dane_advice,
         _tls, _ncsc_tls, _cdn_hardening, _weak_auth, _https_redirect, _headers, _ipv6, _blacklist, _ports,
         _osint, _http_deep, _hubspot_cf, _rapid7, _security_audit, _js_scan, _active_scan,
     ):

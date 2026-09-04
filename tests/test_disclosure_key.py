@@ -209,9 +209,6 @@ class SecurityTxtBuildTests(unittest.TestCase):
         self.assertIn("Canonical: https://d.example/.well-known/security.txt", body)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class SecurityTxtValidationTests(unittest.TestCase):
     """The validator is for a file you have not published yet, so it reads
@@ -399,3 +396,173 @@ class KeyInspectionTests(unittest.TestCase):
         keys = pgp_keys._parse_colon_keys(listing)
         self.assertIsNone(keys[0]["expires"])
         self.assertFalse(keys[0]["expired"])
+
+
+class PassphraseTests(unittest.TestCase):
+    """A passphrase encrypts the private key file itself, so the copy handed
+    to the operator is useless to anyone who cannot supply it.
+
+    It is used for the one generation and never kept: not in the response
+    beyond a boolean, not in settings, not in the database.
+    """
+
+    def _fake_run(self):
+        def run(home, args, passphrase=None, stdin_text=None):
+            self.seen.append(passphrase)
+            if "--list-keys" in args:
+                return mock.Mock(returncode=0, stdout="fpr:::::::::" + "A" * 40 + ":\n")
+            if "--export-secret-keys" in args:
+                return mock.Mock(returncode=0, stdout=FAKE_PRIVATE)
+            return mock.Mock(returncode=0, stdout=FAKE_PUBLIC, stderr="")
+        return run
+
+    def setUp(self):
+        self.seen = []
+
+    def test_the_passphrase_reaches_gpg(self):
+        with mock.patch.object(pgp_keys, "_run", side_effect=self._fake_run()):
+            pgp_keys.generate("Security", "a@example.com", "s3cret", "2y")
+        self.assertIn("s3cret", self.seen)
+
+    def test_the_result_says_whether_the_key_is_protected(self):
+        with mock.patch.object(pgp_keys, "_run", side_effect=self._fake_run()):
+            with_pass = pgp_keys.generate("S", "a@example.com", "pw", "2y")
+            without = pgp_keys.generate("S", "a@example.com", "", "2y")
+        self.assertTrue(with_pass["protected"])
+        self.assertFalse(without["protected"])
+
+    def test_the_passphrase_itself_is_never_returned(self):
+        """The caller gets a boolean, not the secret back. Anything returned
+        here reaches the browser, and for the settings generator the log."""
+        with mock.patch.object(pgp_keys, "_run", side_effect=self._fake_run()):
+            result = pgp_keys.generate("S", "a@example.com", "unique-passphrase", "2y")
+        self.assertNotIn("passphrase", result)
+        self.assertNotIn("unique-passphrase",
+                         " ".join(str(v) for v in result.values()))
+
+    @unittest.skipUnless(_gpg_usable(), "gpg cannot generate keys in this environment")
+    def test_a_protected_key_really_needs_its_passphrase(self):
+        """The property, not the flag: gpg must refuse to use the key without
+        it. Runs against real gpg, which is how it ships."""
+        import shutil
+        import subprocess
+        result = pgp_keys.generate("Protected", "a@example.com", "pw-under-test", "2y")
+
+        def usable_with(passphrase):
+            home = tempfile.mkdtemp(prefix="pptest-", dir=pgp_keys.GPG_HOME_BASE)
+            try:
+                base = [pgp_keys.GPG_BINARY, "--batch", "--no-tty",
+                        "--pinentry-mode", "loopback", "--passphrase", passphrase]
+                subprocess.run(base + ["--import"], input=result["private_key"],
+                               env={**os.environ, "GNUPGHOME": home},
+                               capture_output=True, text=True, timeout=60)
+                signed = subprocess.run(
+                    base + ["--local-user", result["fingerprint"], "--sign",
+                            "--output", os.devnull],
+                    input="x", env={**os.environ, "GNUPGHOME": home},
+                    capture_output=True, text=True, timeout=60)
+                return signed.returncode == 0
+            finally:
+                shutil.rmtree(home, ignore_errors=True)
+
+        self.assertTrue(usable_with("pw-under-test"))
+        self.assertFalse(usable_with("not-the-passphrase"))
+
+
+class KeyDetailsFromSecurityTxtTests(unittest.TestCase):
+    """The key is already fetched during the domain check, so it is read
+    there rather than making someone copy it into the validator.
+
+    "Armoured" only says the wrapper is right: an expired key passes that and
+    still leaves a researcher unable to encrypt anything.
+    """
+
+    def setUp(self):
+        import security_checks
+        self.checks = security_checks
+
+    def _check(self, key_text, inspect=None):
+        body = "Contact: mailto:a@example.com\nEncryption: https://example.com/k.asc\n"
+        response = mock.Mock(status_code=200, text=key_text,
+                             content=key_text.encode(), headers={})
+        patches = [
+            mock.patch.object(self.checks, "_safe_host", return_value=True),
+            mock.patch.object(self.checks, "_get", return_value=response),
+        ]
+        if inspect is not None:
+            patches.append(mock.patch.object(self.checks.pgp_keys, "inspect_key",
+                                             **inspect))
+        for patch in patches:
+            patch.start()
+        try:
+            return self.checks.check_security_txt_key(body)
+        finally:
+            for patch in reversed(patches):
+                patch.stop()
+
+    def test_a_fetched_key_is_read_without_a_second_step(self):
+        details = {"valid": True, "is_private": False, "error": None,
+                   "keys": [{"fingerprint": "A" * 40, "algorithm": "EdDSA (ed25519)",
+                             "created": "2026-01-01", "expires": None,
+                             "expired": False, "uids": ["Security <a@example.com>"]}]}
+        result = self._check(FAKE_PUBLIC, inspect={"return_value": details})
+        self.assertEqual("measured", result["state"])
+        self.assertTrue(result["key_details"]["valid"])
+        self.assertEqual("A" * 40, result["key_details"]["keys"][0]["fingerprint"])
+
+    def test_nothing_is_parsed_when_the_url_serves_no_key(self):
+        """No point shelling out to gpg for an HTML page."""
+        with mock.patch.object(self.checks.pgp_keys, "inspect_key") as inspect:
+            result = self._check("<html>not a key</html>")
+        inspect.assert_not_called()
+        self.assertIsNone(result["key_details"])
+
+    def test_a_parse_failure_does_not_break_the_check(self):
+        """The fetch succeeded; failing to read the key afterwards is our
+        limitation, not a fault in what they published."""
+        result = self._check(FAKE_PUBLIC,
+                             inspect={"side_effect": RuntimeError("gpg exploded")})
+        self.assertEqual("measured", result["state"])
+        self.assertTrue(result["armored"])
+        self.assertFalse(result["key_details"]["valid"])
+        self.assertIn("Could not read", result["key_details"]["error"])
+
+
+class PassphraseUiTests(unittest.TestCase):
+    def _read(self, *parts):
+        import pathlib
+        return (pathlib.Path(__file__).resolve().parent.parent
+                .joinpath(*parts).read_text(encoding="utf-8"))
+
+    def test_both_generators_offer_a_passphrase(self):
+        for template, field in (("lookup_pgp.html", "genPassphrase"),
+                                ("admin_settings.html", "pgpPassphrase")):
+            with self.subTest(template=template):
+                html = self._read("templates", template)
+                self.assertIn('id="' + field + '"', html)
+                self.assertIn('type="password"', html)
+
+    def test_the_passphrase_is_cleared_after_use(self):
+        """It protects the file that was just handed over; leaving it sitting
+        in the form serves nothing."""
+        for script, field in (("lookup.js", "genPassphrase"),
+                              ("admin_settings.js", "pgpPassphrase")):
+            with self.subTest(script=script):
+                js = self._read("static", "js", script)
+                self.assertIn(field, js)
+                self.assertIn("field.value = ''", js)
+
+    def test_the_result_says_which_kind_of_key_was_made(self):
+        """An unprotected private key file is usable by anyone holding it,
+        and that is worth saying at the moment it is downloaded."""
+        for script in ("lookup.js", "admin_settings.js"):
+            with self.subTest(script=script):
+                self.assertIn("no passphrase", self._read("static", "js", script))
+
+    def test_the_domain_check_renders_the_key_details_it_already_has(self):
+        js = self._read("static", "js", "lookup.js")
+        self.assertIn("key_details", js)
+        self.assertIn("expired", js)
+
+if __name__ == "__main__":
+    unittest.main()

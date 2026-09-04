@@ -173,6 +173,12 @@ to find out how to report a bug does not report it.
 configured number of days, so the file cannot quietly go stale the way a
 hand-written date does. Anything over a year is clamped to a year.
 
+The domain check reads the key it fetches, so its fingerprint, algorithm,
+identities and expiry appear straight away -- no copying into the
+validator to learn the same things. That matters because "armoured"
+only says the wrapper is right: an expired key passes that check and
+still leaves a researcher unable to encrypt anything.
+
 Checking any domain's published contact and key &mdash; including your own,
 once you have published one &mdash; is **Tools &rarr; Responsible disclosure**.
 The lookups live there too: they are tools, and the scan page no longer
@@ -221,6 +227,17 @@ your password manager or your own GnuPG keyring, and decrypt there.
 
 Settings refuse a PGP **private** key block in any field, whichever route it
 arrives by, and the key endpoint fails loudly rather than serving one.
+
+### Passphrase on the private key
+
+Both generators take an optional passphrase. It encrypts the private key
+file, so the downloaded `.asc` is useless to anyone who cannot supply it.
+
+It is used for that one generation and kept nowhere: not in the response
+beyond a yes/no, not in settings, not in the database. Lose it and the key is
+gone, because nothing here could recover it. The result says which kind of
+key you got, since an unprotected private key file is usable by anyone
+holding it.
 
 ### Requirements
 
@@ -287,6 +304,56 @@ A check that ran in only one of the two scans is listed under **could not be
 compared**, never folded into "nothing changed" &mdash; and a period with no
 scan at all is refused outright, because reporting it as steady would be a
 claim nobody measured.
+
+## DANE on the mail hosts
+
+DomainLens looked up TLSA at `_443._tcp` on the domain. That is the
+deployment almost nobody has; the record that carries weight lives at
+`_25._tcp` on each **mail exchanger**, which is what internet.nl scores and
+what the Dutch government requires.
+
+Each MX host is now checked separately, because partial coverage is its own
+problem: a sender that reaches the one host without TLSA gets no
+verification, which is the same as having none. A domain with no MX, or with
+a null MX, is **not applicable** rather than failing &mdash; it has no mail
+hosts to secure.
+
+## Unexpected certificates
+
+CAA says which authorities *may* issue. It is consulted only at issuance, so
+it can look perfectly correct while a certificate exists that nobody asked
+for: a CA that ignored it, a record added after the fact, or a certificate
+obtained through a compromised DNS account.
+
+The scan now compares the Certificate Transparency logs (already fetched for
+subdomain enumeration) against the domain's own CAA record, and reports
+certificates issued in the last 30 days by an authority CAA does not permit.
+
+An issuer that cannot be mapped to a CAA identifier is reported as **not
+checked**, never as a violation. The mapping is a lookup table, not a rule,
+and a false alarm here is the kind that gets a check ignored. A domain with
+no CAA `issue` property has made no restriction, so nothing can be
+unexpected; a crt.sh outage is **unmeasured**, never a clean bill of health.
+
+## Own infrastructure tests (open relay, open resolver)
+
+These ask a mail server to relay and a nameserver to recurse. Against a
+stranger's host that is a probe, so they are gated twice and **both** gates
+must pass:
+
+1. **Off by default.** Enabling is a settings change.
+2. **An allowlist.** Only domains named under **Settings &rarr; Own
+   infrastructure tests** are ever contacted. A single on/off switch would
+   turn "test my infrastructure" into "test everything I happen to scan".
+
+They are deliberately gentle: one connection, one probe, a short timeout, no
+retries. The relay test disconnects **before DATA** &mdash; it never sends a
+message, so a server that would have relayed is identified without anything
+being relayed. The probe recipient is under `.invalid`, which RFC 2606
+reserves so it can never resolve or belong to anyone.
+
+A server that refuses to talk is not a finding: refusing is usually the
+correct behaviour, and a timeout is recorded as unknown rather than clean.
 
 ## Weak authentication testing
 

@@ -55,6 +55,10 @@ FIELD_META = {
         "preferred_languages": {"type": "text", "label": "settings.disclosure.preferred_languages"},
         "canonical_url": {"type": "text", "label": "settings.disclosure.canonical_url"},
     },
+    "own_infra": {
+        "enabled": {"type": "bool", "label": "settings.own_infra.enabled"},
+        "domains": {"type": "lines", "label": "settings.own_infra.domains"},
+    },
     "reporting": {
         "retention_days": {"type": "int", "min": 7, "max": 3650, "label": "settings.reporting.retention_days"},
         "digest_enabled": {"type": "bool", "label": "settings.reporting.digest_enabled"},
@@ -216,7 +220,7 @@ FIELD_META = {
 SETTING_CATEGORIES = [
     {"key": "settings.categories.appearance", "sections": ["appearance", "general"]},
     {"key": "settings.categories.scanning",
-     "sections": ["scan", "weak_auth", "active_scan", "js_scan"]},
+     "sections": ["scan", "weak_auth", "active_scan", "js_scan", "own_infra"]},
     {"key": "settings.categories.automation",
      "sections": ["scheduler", "reporting", "updates"]},
     {"key": "settings.categories.access",
@@ -227,6 +231,7 @@ SETTING_CATEGORIES = [
 
 ADMIN_SECTIONS = [
     "disclosure",
+    "own_infra",
     "appearance",
     "general",
     "scheduler",

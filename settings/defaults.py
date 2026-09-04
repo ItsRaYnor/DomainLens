@@ -169,6 +169,15 @@ DEFAULTS = {
         "include_http": True,
         "extra_params": [],
     },
+    "own_infra": {
+        # Open relay and open resolver tests. These ask a mail server to relay
+        # and a nameserver to recurse, which against a stranger's host is a
+        # probe. Off by default, and even when enabled they only run against
+        # domains named in `domains` -- a global switch would turn "test my
+        # infrastructure" into "test everything I happen to scan".
+        "enabled": False,
+        "domains": [],
+    },
     "js_scan": {
         # Passive — always safe to run: fetches the homepage's JS/CSS and
         # checks for known-vulnerable library versions and leaked secrets.

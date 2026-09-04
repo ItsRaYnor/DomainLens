@@ -71,9 +71,12 @@ class ApiKeyEndpointTests(unittest.TestCase):
         self.client.put("/api/admin/api-keys/SPAMHAUS_DQS_KEY", json={"value": "dqs123"})
         # _build_dnsbl_list used to read a module-level constant captured at
         # import time, so a key added at runtime had no effect.
-        # _build_dnsbl_list() returns (zone_host, kind) pairs.
+        # _build_dnsbl_list() returns (zone_host, kind, label) triples.
         servers = self.app_module._build_dnsbl_list()
-        self.assertTrue(any("dqs123" in host for host, _kind in servers))
+        # (host, kind, label): the label is key-free for storage, the host
+        # still carries the key because that is what Spamhaus is queried with.
+        self.assertTrue(any("dqs123" in host for host, _kind, _label in servers))
+        self.assertFalse(any("dqs123" in label for _host, _kind, label in servers))
 
     def test_delete_removes_key(self):
         self._login()

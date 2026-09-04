@@ -515,6 +515,31 @@ async function pgpLookup() {
     if (data.key && data.key.url) {
         html += `<p class="ct-desc">Encryption: <span class="mono" style="word-break:break-all">${esc(data.key.url)}</span></p>`;
     }
+    // The key was fetched during the check, so its details are already here.
+    // "Armoured" only says the wrapper is right: an expired key passes that
+    // and still leaves a researcher unable to encrypt anything.
+    const details = data.key && data.key.key_details;
+    if (details && (details.keys || []).length) {
+        html += '<table class="data-table"><thead><tr><th>Fingerprint</th><th>Algorithm</th>'
+             + '<th>Created</th><th>Expires</th><th>Identities</th></tr></thead><tbody>'
+            + details.keys.map(k => {
+                const exp = k.expires
+                    ? (k.expired ? `<span class="status status-fail">${esc(k.expires)} — expired</span>`
+                                 : esc(k.expires))
+                    : 'never';
+                return `<tr><td class="mono" style="word-break:break-all">${esc(k.fingerprint || '?')}</td>`
+                    + `<td>${esc(k.algorithm)}${k.bits ? ' / ' + esc(k.bits) : ''}</td>`
+                    + `<td>${esc(k.created || '?')}</td><td>${exp}</td>`
+                    + `<td>${esc((k.uids || []).join(', '))}</td></tr>`;
+            }).join('') + '</tbody></table>';
+        if (details.keys.some(k => k.expired)) {
+            html += '<p class="status status-fail">The published key has expired. A '
+                 + 'researcher following this field cannot encrypt to it.</p>';
+        }
+    } else if (details && details.error) {
+        html += `<p class="status status-warn">The key was fetched but could not be read: `
+             + `${esc(details.error)}</p>`;
+    }
 
     const fields = data.fields || {};
     const rows = Object.keys(fields).sort().map(name => {
@@ -620,6 +645,7 @@ async function generateThrowawayKey() {
     const name = ($('genName').value || '').trim();
     const email = ($('genEmail').value || '').trim();
     const expiry = ($('genExpiry').value || '2y').trim();
+    const passphrase = $('genPassphrase') ? $('genPassphrase').value : '';
     if (!name || !email) {
         out.innerHTML = '<p class="status status-warn">Enter a name and an email address.</p>';
         return;
@@ -631,16 +657,24 @@ async function generateThrowawayKey() {
     try {
         data = await requestJson('/api/pgp/generate', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, expiry }),
+            body: JSON.stringify({ name, email, expiry, passphrase }),
         });
     } catch (e) {
         out.innerHTML = `<p class="status status-fail">${esc(e.message)}</p>`;
         return;
     } finally {
         btn.disabled = false; btn.textContent = label;
+        // Cleared once used: it protects the file that was just handed over,
+        // and leaving it sitting in the form serves nothing.
+        const field = $('genPassphrase');
+        if (field) field.value = '';
     }
 
+    const protection = data.protected
+        ? 'The private key is passphrase-protected; you will need it to use the key.'
+        : 'The private key has no passphrase: anyone holding the file can use it.';
     out.innerHTML = `<div class="login-error"><strong>Save both halves now.</strong> ${esc(data.warning)}</div>
+        <p class="ct-desc">${esc(protection)}</p>
         <p class="muted mono" style="word-break:break-all">${esc(data.fingerprint)}</p>
         <div class="pgp-actions">
             <button class="btn-primary-lite" id="genDownloadPriv" type="button">Download private key</button>

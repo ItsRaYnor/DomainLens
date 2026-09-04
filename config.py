@@ -54,6 +54,9 @@ class Settings:
     def disclosure(self) -> dict:
         return dict(self.raw.get("disclosure") or {})
 
+    def own_infra(self) -> dict:
+        return dict(self.raw.get("own_infra") or {})
+
     def weak_auth(self) -> dict:
         w = dict(self.raw.get("weak_auth") or {})
         cred = w.get("credentials_file")
