@@ -159,6 +159,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         closeMonitors();
     });
     on('historyClearBtn', 'click', clearHistory);
+    on('historyCompareRun', 'click', runHistoryCompare);
+    on('historyCompareClear', 'click', clearHistoryCompare);
     on('createMonitorBtn', 'click', createMonitor);
     on('importMonitorsBtn', 'click', importMonitors);
     on('runDueBtn', 'click', runDueMonitors);
@@ -1961,12 +1963,113 @@ async function loadHistory() {
         statsEl.innerHTML = `<span><strong>${escapeHtml(String(stats.total_scans || 0))}</strong>scans</span>
             <span><strong>${escapeHtml(String(stats.unique_domains || 0))}</strong>domains</span>`;
         renderHistoryList(data.scans || []);
+        syncCompareBar();
     } catch (err) {
         list.innerHTML = '<p class="history-empty">Failed to load history</p>';
     }
 }
 
+// Up to two scan ids picked in the history list for an old-vs-new comparison.
+let compareSelection = [];
+
+function toggleCompareSelect(id, checked) {
+    if (checked) {
+        compareSelection.push(id);
+        // Keep only the two most recent picks; drop the oldest silently.
+        if (compareSelection.length > 2) compareSelection = compareSelection.slice(-2);
+    } else {
+        compareSelection = compareSelection.filter(x => x !== id);
+    }
+    syncCompareBar();
+    // Re-sync checkboxes so a dropped pick visibly clears.
+    document.querySelectorAll('#historyList .history-compare-pick input').forEach(() => {});
+    if (typeof lastHistoryScans !== 'undefined' && lastHistoryScans) renderHistoryList(lastHistoryScans);
+}
+
+function syncCompareBar() {
+    const bar = $('historyCompareBar');
+    const hint = $('historyCompareHint');
+    const run = $('historyCompareRun');
+    if (!bar) return;
+    bar.classList.remove('hidden');
+    const n = compareSelection.length;
+    if (hint) hint.textContent = n === 0
+        ? 'Tick two scans to compare them.'
+        : (n === 1 ? '1 selected — pick one more.' : '2 selected.');
+    if (run) run.disabled = n !== 2;
+}
+
+async function runHistoryCompare() {
+    if (compareSelection.length !== 2) return;
+    // The list is newest-first; compare older (a) against newer (b) so
+    // "worse/better" reads in chronological order regardless of pick order.
+    const [x, y] = compareSelection;
+    const a = Math.min(x, y), b = Math.max(x, y);
+    const out = $('historyCompareResult');
+    out.classList.remove('hidden');
+    out.innerHTML = '<p class="history-empty">Comparing…</p>';
+    try {
+        const resp = await fetch(`/api/compare?a=${a}&b=${b}`);
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            out.innerHTML = `<p class="status status-fail">${escapeHtml(data.error || 'Compare failed')}</p>`;
+            return;
+        }
+        out.innerHTML = renderCompareHtml(data);
+    } catch (e) {
+        out.innerHTML = '<p class="status status-fail">Network error</p>';
+    }
+}
+
+function clearHistoryCompare() {
+    compareSelection = [];
+    const out = $('historyCompareResult');
+    if (out) { out.classList.add('hidden'); out.innerHTML = ''; }
+    syncCompareBar();
+    if (typeof lastHistoryScans !== 'undefined' && lastHistoryScans) renderHistoryList(lastHistoryScans);
+}
+
+function compareValueText(row) {
+    const fmt = v => {
+        if (v === null || v === undefined) return '—';
+        if (typeof v === 'boolean') return v ? 'yes' : 'no';
+        if (Array.isArray(v)) return v.length ? v.join(', ') : 'none';
+        if (v && typeof v === 'object') {
+            return Object.entries(v).filter(([, n]) => n).map(([k, n]) => `${k}:${n}`).join(' ') || 'none';
+        }
+        return String(v);
+    };
+    return { old: fmt(row.old), now: fmt(row.new) };
+}
+
+// Reusable old-vs-new table used by both the history compare and a monitor
+// event's "what changed" panel. `data` is the /api/compare payload.
+function renderCompareHtml(data) {
+    const rows = (data.diff && data.diff.dimensions) || [];
+    const order = { worse: 0, better: 1, changed: 2, unmeasured: 3, unchanged: 4 };
+    const shown = rows.slice().sort((p, q) => (order[p.status] ?? 9) - (order[q.status] ?? 9));
+    const badge = s => `<span class="cmp-badge cmp-${escapeHtml(s)}">${escapeHtml(s)}</span>`;
+    const head = `
+        <div class="cmp-head">
+            <a href="${escapeHtml(data.a.report_url)}" target="_blank" rel="noopener">A · ${escapeHtml(data.a.domain || '')} (${escapeHtml(data.a.grade || 'N/A')})</a>
+            <span>→</span>
+            <a href="${escapeHtml(data.b.report_url)}" target="_blank" rel="noopener">B · ${escapeHtml(data.b.domain || '')} (${escapeHtml(data.b.grade || 'N/A')})</a>
+        </div>`;
+    const body = shown.map(r => {
+        const v = compareValueText(r);
+        return `<tr class="cmp-row cmp-${escapeHtml(r.status)}">
+            <td>${escapeHtml(r.label)}</td>
+            <td>${badge(r.status)}</td>
+            <td class="mono">${v.old} → ${v.now}</td>
+        </tr>`;
+    }).join('');
+    return head + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${body}</tbody></table></div>`;
+}
+
+let lastHistoryScans = null;
+
 function renderHistoryList(scans) {
+    lastHistoryScans = scans;
     const list = $('historyList');
     if (scans.length === 0) {
         list.innerHTML = '<p class="history-empty">No scans saved yet</p>';
@@ -1999,6 +2102,18 @@ function renderHistoryList(scans) {
 
         const actions = document.createElement('div');
         actions.className = 'history-item-actions';
+
+        const cmp = document.createElement('label');
+        cmp.className = 'history-compare-pick';
+        cmp.title = 'Select for comparison (pick two)';
+        const cmpBox = document.createElement('input');
+        cmpBox.type = 'checkbox';
+        cmpBox.checked = compareSelection.includes(s.id);
+        cmpBox.addEventListener('click', e => e.stopPropagation());
+        cmpBox.addEventListener('change', () => toggleCompareSelect(s.id, cmpBox.checked));
+        cmp.appendChild(cmpBox);
+        cmp.appendChild(document.createTextNode(' vs'));
+        actions.appendChild(cmp);
 
         const loadBtn = document.createElement('button');
         loadBtn.textContent = 'Load';
@@ -2438,15 +2553,41 @@ function renderMonitorEvents(events) {
         const snLink = event.servicenow_number
             ? ` · <span class="muted">${escapeHtml(event.servicenow_number)}</span>`
             : '';
+        // Change events know the scan they were measured against, so offer a
+        // full old-vs-new drill-down on demand.
+        const prev = event.details && event.details.previous_scan_id;
+        const changeLink = (event.event_type === 'scan_changed' && prev && event.scan_id)
+            ? ` · <a href="#" class="event-diff-link" data-a="${escapeHtml(String(prev))}" data-b="${escapeHtml(String(event.scan_id))}">what changed?</a>`
+            : '';
         return `<div class="event-item sev-${escapeHtml(event.severity)}">
             <div class="event-head">
                 <span class="rec-badge sev-${escapeHtml(event.severity)}">${escapeHtml((event.severity || 'info').toUpperCase())}</span>
                 <span class="monitor-meta">${escapeHtml(event.monitor_name || event.monitor_target || '')} · ${escapeHtml(when)}</span>
             </div>
             <div class="event-summary">${escapeHtml(event.summary)}</div>
-            <div class="monitor-meta">${escapeHtml(event.event_type || '')}${scanLink}${snLink}</div>
+            <div class="monitor-meta">${escapeHtml(event.event_type || '')}${scanLink}${changeLink}${snLink}</div>
+            <div class="event-diff hidden"></div>
         </div>`;
     }).join('');
+
+    el.querySelectorAll('.event-diff-link').forEach(link => {
+        link.addEventListener('click', async e => {
+            e.preventDefault();
+            const panel = link.closest('.event-item').querySelector('.event-diff');
+            if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+            panel.classList.remove('hidden');
+            panel.innerHTML = '<p class="history-empty">Comparing…</p>';
+            try {
+                const resp = await fetch(`/api/compare?a=${link.dataset.a}&b=${link.dataset.b}`);
+                const data = await resp.json();
+                panel.innerHTML = (!resp.ok || data.error)
+                    ? `<p class="status status-fail">${escapeHtml(data.error || 'Compare failed')}</p>`
+                    : renderCompareHtml(data);
+            } catch (err) {
+                panel.innerHTML = '<p class="status status-fail">Network error</p>';
+            }
+        });
+    });
 }
 
 // ===== Remediation plan =====

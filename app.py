@@ -32,6 +32,7 @@ from flask import Flask, render_template, request, jsonify, abort, redirect, url
 
 import db
 import recommendations
+import scan_diff
 import security_checks
 import servicenow
 import osint
@@ -3244,6 +3245,9 @@ def _monitor_event_from_results(monitor, results, previous_record):
         if previous_record:
             details["previous_tls_grade"] = previous_grade
             details["previous_blacklist_listed"] = previous_blacklist
+            # The scan this change is measured against, so the event UI can
+            # request a full old-vs-new diff (/api/compare) on demand.
+            details["previous_scan_id"] = previous_record.get("id")
         return current_hash, {
             "event_type": "scan_changed",
             "severity": severity,
@@ -4708,6 +4712,49 @@ def api_history_delete(scan_id):
 def api_history_clear():
     db.clear_history()
     return jsonify({"cleared": True})
+
+
+def _scan_compare_meta(record):
+    """Compact per-scan header for a comparison: what it is and where to read it."""
+    return {
+        "id": record["id"],
+        "domain": record.get("domain"),
+        "created_at": record.get("created_at"),
+        "grade": record.get("grade"),
+        "score": record.get("score"),
+        "issues_count": record.get("issues_count"),
+        "report_url": f"/report/{record['id']}",
+    }
+
+
+@app.route("/api/compare", methods=["GET"])
+def api_compare_scans():
+    """Structured worse/better/changed diff between two saved scans.
+
+    `a` is the older (baseline) scan, `b` the newer one. Used by both the
+    history compare view and a monitor event's "what changed" panel, so the
+    two never diverge in how a regression is judged.
+    """
+    try:
+        a_id = int(request.args.get("a", ""))
+        b_id = int(request.args.get("b", ""))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Pass two scan ids: a (older) and b (newer)"}), 400
+
+    old = db.get_scan(a_id)
+    new = db.get_scan(b_id)
+    if not old or not new:
+        return jsonify({"error": "One or both scans were not found"}), 404
+
+    old_counts = recommendations.summarize_counts(recommendations.generate(old["data"]))
+    new_counts = recommendations.summarize_counts(recommendations.generate(new["data"]))
+    diff = scan_diff.compare(old["data"], new["data"],
+                             old_severity=old_counts, new_severity=new_counts)
+    return jsonify({
+        "a": _scan_compare_meta(old),
+        "b": _scan_compare_meta(new),
+        "diff": diff,
+    })
 
 
 @app.route("/api/monitors", methods=["GET"])
