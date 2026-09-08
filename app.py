@@ -2922,8 +2922,53 @@ def _attach_ncsc_tls(results, domain=None):
     return results
 
 
+# The set of checks a scan or a monitor can select, grouped for display. This
+# is the single source of truth the monitor form renders from, so the monitor
+# selector cannot drift from the checks the scanner actually runs. Keys must
+# match _build_check_map (plus "ncsc_tls", derived from tls_deep).
+CHECK_CATALOG = [
+    {"group": "Domain & DNS", "checks": [
+        {"key": "whois", "label": "WHOIS"},
+        {"key": "dns", "label": "DNS"},
+        {"key": "dnssec", "label": "DNSSEC"},
+        {"key": "ipv6", "label": "IPv6"},
+    ]},
+    {"group": "Email Security", "checks": [
+        {"key": "spf", "label": "SPF"},
+        {"key": "dmarc", "label": "DMARC"},
+        {"key": "dkim", "label": "DKIM"},
+        {"key": "mta_sts", "label": "MTA-STS"},
+        {"key": "tlsrpt", "label": "TLS-RPT"},
+    ]},
+    {"group": "SSL / TLS", "checks": [
+        {"key": "ssl", "label": "SSL/TLS"},
+        {"key": "tls_deep", "label": "TLS Scan"},
+        {"key": "ncsc_tls", "label": "NCSC TLS"},
+    ]},
+    {"group": "Web", "checks": [
+        {"key": "http_headers", "label": "Headers"},
+        {"key": "https_redirect", "label": "HTTPS"},
+        {"key": "http_deep", "label": "HTTP Analysis"},
+        {"key": "hubspot_cf", "label": "HubSpot / CF"},
+    ]},
+    {"group": "Network", "checks": [
+        {"key": "blacklist", "label": "Blacklist"},
+        {"key": "ports", "label": "Ports"},
+        {"key": "osint", "label": "OSINT"},
+    ]},
+    {"group": "Security", "checks": [
+        {"key": "security", "label": "Security Audit"},
+        {"key": "js_scan", "label": "JS Dependency & Secrets"},
+    ]},
+]
+
 def _prepare_checks(payload_checks):
-    """Normalize check selection input to a safe list."""
+    """Normalize check selection input to a safe list.
+
+    Kept permissive on purpose: opt-in active checks (weak_auth, active_scan)
+    are requested by key here too, so this must not drop keys that are absent
+    from CHECK_CATALOG (the display catalog for the scan/monitor UI).
+    """
     if not isinstance(payload_checks, list):
         return ["all"]
     checks = [item for item in payload_checks if isinstance(item, str) and item]
@@ -4598,6 +4643,13 @@ def api_dns_query():
     except Exception as exc:
         return jsonify({"error": _safe_error(exc)}), 502
     return jsonify(result)
+
+
+@app.route("/api/checks", methods=["GET"])
+def api_checks_catalog():
+    """The grouped catalog of selectable checks, for the monitor form to render
+    the same "pick what to run" selection the scan form offers."""
+    return jsonify({"catalog": CHECK_CATALOG})
 
 
 @app.route("/api/dns/options", methods=["GET"])

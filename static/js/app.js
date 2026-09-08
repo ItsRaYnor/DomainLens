@@ -162,6 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     on('createMonitorBtn', 'click', createMonitor);
     on('importMonitorsBtn', 'click', importMonitors);
     on('runDueBtn', 'click', runDueMonitors);
+    initMonitorChecks();
     on('importModeInput', 'change', syncImportMode);
 
     // Schedule preset dropdown: sets the underlying minutes value directly,
@@ -2173,7 +2174,7 @@ function renderMonitorList(monitors) {
         const main = document.createElement('div');
         main.className = 'monitor-main';
         main.innerHTML = `<div class="monitor-name">${escapeHtml(m.name)}</div>
-            <div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(m.record_type)} · ${escapeHtml(formatFrequency(m.schedule_minutes))}</div>
+            <div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(m.record_type)} · ${escapeHtml(formatFrequency(m.schedule_minutes))} · ${escapeHtml(monitorScopeLabel(m.checks))}</div>
             <div class="monitor-meta">${escapeHtml(m.source_label || m.source_type)}${m.next_scan_at ? ' · next: ' + escapeHtml(new Date(m.next_scan_at).toLocaleString()) : ''}</div>
             <div class="monitor-meta">${monitorReportLinks(m)}</div>`;
         item.appendChild(main);
@@ -2212,6 +2213,59 @@ function renderMonitorList(monitors) {
     });
 }
 
+// Renders the same grouped check catalog the scan form offers, so a monitor
+// can be scoped to specific checks instead of always re-running everything.
+async function initMonitorChecks() {
+    const groups = $('monitorChecksGroups');
+    const allCb = $('monitorChecksAll');
+    const toggle = $('monitorChecksToggle');
+    if (!groups || !allCb || !toggle) return;
+    let catalog = [];
+    try {
+        catalog = (await (await fetch('/api/checks')).json()).catalog || [];
+    } catch (e) { return; }
+    groups.innerHTML = catalog.map(g => `
+        <fieldset class="monitor-check-group">
+            <legend>${escapeHtml(g.group)}</legend>
+            ${g.checks.map(c =>
+                `<label><input type="checkbox" class="monitor-check-item" value="${escapeHtml(c.key)}"> ${escapeHtml(c.label)}</label>`
+            ).join('')}
+        </fieldset>`).join('');
+
+    toggle.addEventListener('click', () => {
+        const hidden = groups.classList.toggle('hidden');
+        toggle.setAttribute('aria-expanded', String(!hidden));
+    });
+    // "Monitor everything" and specific picks are mutually exclusive: ticking
+    // a specific check clears "everything", and re-ticking "everything" clears
+    // the specific picks, so the intent sent to the server is never ambiguous.
+    allCb.addEventListener('change', () => {
+        if (allCb.checked) {
+            groups.querySelectorAll('.monitor-check-item').forEach(i => { i.checked = false; });
+        }
+    });
+    groups.querySelectorAll('.monitor-check-item').forEach(cb => {
+        cb.addEventListener('change', () => {
+            if (cb.checked) allCb.checked = false;
+            const any = groups.querySelector('.monitor-check-item:checked');
+            if (!any) allCb.checked = true;
+        });
+    });
+}
+
+function monitorScopeLabel(checks) {
+    if (!Array.isArray(checks) || checks.length === 0 || checks.includes('all')) return 'all checks';
+    return checks.length === 1 ? '1 check' : `${checks.length} checks`;
+}
+
+function collectMonitorChecks() {
+    const allCb = $('monitorChecksAll');
+    const groups = $('monitorChecksGroups');
+    if (!allCb || !groups || allCb.checked) return ['all'];
+    const picked = Array.from(groups.querySelectorAll('.monitor-check-item:checked')).map(c => c.value);
+    return picked.length ? picked : ['all'];
+}
+
 async function createMonitor() {
     const domain = $('monitorDomainInput').value.trim();
     if (!domain) {
@@ -2221,11 +2275,12 @@ async function createMonitor() {
     const name = $('monitorNameInput').value.trim();
     const schedule_minutes = Number($('monitorScheduleInput').value || 1440);
     const record_type = $('monitorTypeInput').value;
+    const checks = collectMonitorChecks();
     try {
         const resp = await fetch('/api/monitors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type }),
+            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type, checks }),
         });
         const data = await resp.json();
         if (!resp.ok || data.error) {
