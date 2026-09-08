@@ -84,6 +84,66 @@ def _security_findings(results):
     return len(sec.get("findings") or [])
 
 
+def _missing_headers(results):
+    headers = results.get("http_headers") or {}
+    if not headers.get("success"):
+        return None
+    return sorted(headers.get("headers_missing") or [])
+
+
+# The email-auth mechanisms, each a check that reports a boolean `pass`.
+_EMAIL_KEYS = ("spf", "dmarc", "dkim", "mta_sts", "tlsrpt")
+
+
+def _email_auth_passing(results):
+    """Number of email-auth mechanisms that pass, among those measured.
+
+    A mechanism counts as measured when its check ran (the key holds a dict);
+    an absent record is a measured failure, not an unmeasured one. Returns None
+    only when no email check ran at all, so the dimension is omitted rather
+    than reported as a regression to zero.
+    """
+    measured = [k for k in _EMAIL_KEYS if isinstance(results.get(k), dict)]
+    if not measured:
+        return None
+    return sum(1 for k in measured if (results.get(k) or {}).get("pass"))
+
+
+def _threat_feed_hits(results):
+    osint = results.get("osint") or {}
+    if not osint.get("success"):
+        return None
+    return int((osint.get("summary") or {}).get("threat_hits") or 0)
+
+
+def _leaked_secrets(results):
+    js = results.get("js_scan") or {}
+    if not js.get("success"):
+        return None
+    return len(js.get("secrets_found") or [])
+
+
+def _vulnerable_js(results):
+    js = results.get("js_scan") or {}
+    if not js.get("success"):
+        return None
+    return len(js.get("vulnerable_libraries") or [])
+
+
+def _set_growth_worse(old, new):
+    """A set where a newly present member is worse (a header that went missing,
+    a port that opened). Growth is worse, shrinkage is better."""
+    if old == new:
+        return STATUS_UNCHANGED
+    added = set(new) - set(old)
+    removed = set(old) - set(new)
+    if added:
+        return STATUS_WORSE
+    if removed:
+        return STATUS_BETTER
+    return STATUS_CHANGED
+
+
 def _grade_worse(old, new):
     o, n = _GRADE_RANK.get(old), _GRADE_RANK.get(new)
     if o is None or n is None:
@@ -144,6 +204,16 @@ _DIMENSIONS = [
      "compare": _bool_worse_when_false, "unit": "bool"},
     {"key": "security_findings", "label": "Security-audit findings", "extract": _security_findings,
      "compare": _number_worse_when_higher, "unit": "findings"},
+    {"key": "missing_headers", "label": "Missing security headers", "extract": _missing_headers,
+     "compare": _set_growth_worse, "unit": "headers"},
+    {"key": "email_auth", "label": "Email auth passing", "extract": _email_auth_passing,
+     "compare": _number_worse_when_lower, "unit": "mechanisms"},
+    {"key": "reputation", "label": "Threat-feed hits", "extract": _threat_feed_hits,
+     "compare": _number_worse_when_higher, "unit": "hits"},
+    {"key": "secrets", "label": "Leaked secrets", "extract": _leaked_secrets,
+     "compare": _number_worse_when_higher, "unit": "secrets"},
+    {"key": "vulnerable_js", "label": "Vulnerable JS libraries", "extract": _vulnerable_js,
+     "compare": _number_worse_when_higher, "unit": "libraries"},
 ]
 
 

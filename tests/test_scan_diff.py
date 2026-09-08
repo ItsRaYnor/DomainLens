@@ -64,6 +64,46 @@ class ScanDiffDirectionTests(unittest.TestCase):
         summary = scan_diff.compare(old, new)["summary"]
         self.assertEqual(summary["worse"], 1)
 
+    def test_a_header_going_missing_is_worse(self):
+        old = {"http_headers": {"success": True, "headers_missing": []}}
+        new = {"http_headers": {"success": True, "headers_missing": ["Strict-Transport-Security"]}}
+        row = self._row(scan_diff.compare(old, new), "missing_headers")
+        self.assertEqual(row["status"], "worse")
+        self.assertEqual(row["new"], ["Strict-Transport-Security"])
+
+    def test_fixing_a_header_is_better(self):
+        old = {"http_headers": {"success": True, "headers_missing": ["Content-Security-Policy"]}}
+        new = {"http_headers": {"success": True, "headers_missing": []}}
+        self.assertEqual(self._row(scan_diff.compare(old, new), "missing_headers")["status"], "better")
+
+    def test_losing_an_email_mechanism_is_worse(self):
+        old = {"spf": {"pass": True}, "dmarc": {"pass": True}, "dkim": {"pass": True}}
+        new = {"spf": {"pass": True}, "dmarc": {"pass": False}, "dkim": {"pass": True}}
+        row = self._row(scan_diff.compare(old, new), "email_auth")
+        self.assertEqual(row["status"], "worse")
+        self.assertEqual((row["old"], row["new"]), (3, 2))
+
+    def test_email_dimension_absent_when_no_email_check_ran(self):
+        # No email keys at all: the dimension must be unmeasured, not 0 pass.
+        row = self._row(scan_diff.compare({"tls_deep": {"success": True, "grade": "A"}},
+                                          {"tls_deep": {"success": True, "grade": "A"}}), "email_auth")
+        self.assertEqual(row["status"], "unmeasured")
+
+    def test_new_threat_feed_hits_are_worse(self):
+        old = {"osint": {"success": True, "summary": {"threat_hits": 0}}}
+        new = {"osint": {"success": True, "summary": {"threat_hits": 3}}}
+        self.assertEqual(self._row(scan_diff.compare(old, new), "reputation")["status"], "worse")
+
+    def test_a_new_leaked_secret_is_worse(self):
+        old = {"js_scan": {"success": True, "secrets_found": []}}
+        new = {"js_scan": {"success": True, "secrets_found": [{"type": "aws_key"}]}}
+        self.assertEqual(self._row(scan_diff.compare(old, new), "secrets")["status"], "worse")
+
+    def test_a_new_vulnerable_library_is_worse(self):
+        old = {"js_scan": {"success": True, "vulnerable_libraries": [{"name": "jquery"}]}}
+        new = {"js_scan": {"success": True, "vulnerable_libraries": [{"name": "jquery"}, {"name": "lodash"}]}}
+        self.assertEqual(self._row(scan_diff.compare(old, new), "vulnerable_js")["status"], "worse")
+
     def _row(self, diff, key):
         return next(r for r in diff["dimensions"] if r["key"] == key)
 
