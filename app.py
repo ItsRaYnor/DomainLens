@@ -3015,6 +3015,55 @@ def _save_monitor_definitions(monitor_defs, *, schedule_minutes, checks, enabled
     return stored
 
 
+def _resolve_monitored_record(target, record_type):
+    """Resolve the one DNS record a monitor watches, for change detection.
+
+    A monitor's record type used to be stored and displayed but never
+    resolved, so "monitor the CNAME of chat.example.com" watched the same full
+    scan as everything else and never noticed the record itself changing or
+    going NXDOMAIN. This resolves exactly that record and returns it in the
+    three states Reporting keeps apart:
+
+      measured=True,  present=True   — the record resolved to one or more values
+      measured=True,  present=False  — the name is NXDOMAIN (the dangling signal)
+      measured=False                 — the lookup failed (SERVFAIL/timeout/network);
+                                       never treated as a change, so a resolver
+                                       hiccup cannot invent a "record disappeared".
+    """
+    rtype = (record_type or "A").upper()
+    if rtype not in dns_tools.RECORD_TYPES:
+        # Import sources may carry a type the lookup does not offer (e.g. SOA
+        # on an apex); nothing to watch rather than an error.
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": None, "authenticated": None,
+                "error": f"{rtype} is not a resolvable record type here"}
+    try:
+        answer = dns_tools.query(target, rtype, resolver="system")
+    except dns_tools.LookupError_ as exc:
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": None, "authenticated": None,
+                "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - any resolver failure is unmeasured
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": None, "authenticated": None,
+                "error": _safe_error(exc)}
+
+    if answer.get("error"):
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": answer.get("rcode"),
+                "authenticated": answer.get("authenticated"),
+                "error": answer["error"]}
+
+    rcode = answer.get("rcode")
+    records = sorted(answer.get("records") or [])
+    # NXDOMAIN and NOERROR are both measured answers; only NXDOMAIN and an
+    # empty NOERROR mean the watched record is absent.
+    present = bool(records)
+    return {"type": rtype, "measured": True, "present": present,
+            "records": records, "rcode": rcode,
+            "authenticated": answer.get("authenticated"), "error": None}
+
+
 def _monitor_state_hash(results):
     """Create a stable fingerprint for change detection."""
     tracked = {
@@ -3049,8 +3098,39 @@ def _monitor_state_hash(results):
             "by_severity": (results.get("rapid7") or {}).get("by_severity"),
         },
     }
+    # The watched DNS record is deliberately NOT folded into this fingerprint.
+    # A measured→unmeasured transition (a resolver hiccup) would otherwise flip
+    # the hash and read as a change. Record changes are detected separately, by
+    # comparing the two measured records in _watched_record_transition, which
+    # ignores unmeasured scans entirely.
     payload = json.dumps(tracked, sort_keys=True, default=str, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _watched_record_transition(monitor, results, previous_results):
+    """Describe a change in the monitor's watched DNS record, or None.
+
+    Returns (severity, summary) when the specific record the monitor watches
+    changed value or went NXDOMAIN between the previous scan and this one.
+    Only fires when both scans measured the record: an unmeasured lookup on
+    either side is "could not be measured", never a transition.
+    """
+    current = results.get("monitored_record") or {}
+    previous = (previous_results or {}).get("monitored_record") or {}
+    if not current.get("measured") or not previous.get("measured"):
+        return None
+    if current.get("records") == previous.get("records"):
+        return None
+
+    rtype = current.get("type") or monitor.get("record_type") or "record"
+    target = monitor["target"]
+    if previous.get("present") and not current.get("present"):
+        # The value the CNAME/A/... pointed at is gone. This is the dangling
+        # signal a takeover scan would otherwise only catch on a full re-enum.
+        return "high", f"{rtype} record for {target} disappeared (now {current.get('rcode') or 'empty'})"
+    if not previous.get("present") and current.get("present"):
+        return "medium", f"{rtype} record for {target} reappeared"
+    return "medium", f"{rtype} record for {target} changed value"
 
 
 def _monitor_event_from_results(monitor, results, previous_record):
@@ -3061,6 +3141,7 @@ def _monitor_event_from_results(monitor, results, previous_record):
     recommendation_count = len(recommendations.generate(results))
     blacklist_listed = bool((results.get("blacklist") or {}).get("is_listed"))
     tls_grade = (results.get("tls_deep") or {}).get("grade")
+    watched = results.get("monitored_record") or {}
     details = {
         "target": monitor["target"],
         "record_type": monitor["record_type"],
@@ -3068,6 +3149,10 @@ def _monitor_event_from_results(monitor, results, previous_record):
         "recommendation_count": recommendation_count,
         "blacklist_listed": blacklist_listed,
         "warnings": warnings,
+        "record_measured": watched.get("measured"),
+        "record_present": watched.get("present"),
+        "record_values": watched.get("records"),
+        "record_rcode": watched.get("rcode"),
     }
 
     if not previous_hash:
@@ -3078,8 +3163,12 @@ def _monitor_event_from_results(monitor, results, previous_record):
             "details": details,
         }
 
-    if previous_hash != current_hash:
-        previous_results = (previous_record or {}).get("data") or {}
+    previous_results = (previous_record or {}).get("data") or {}
+    record_transition = _watched_record_transition(monitor, results, previous_results)
+    # A change is either a shift in the tracked fingerprint or a change in the
+    # watched DNS record. The record is kept out of the fingerprint (see
+    # _monitor_state_hash), so a pure record change is caught only here.
+    if previous_hash != current_hash or record_transition:
         previous_grade = (previous_results.get("tls_deep") or {}).get("grade")
         previous_blacklist = bool((previous_results.get("blacklist") or {}).get("is_listed"))
         if not previous_record:
@@ -3102,6 +3191,8 @@ def _monitor_event_from_results(monitor, results, previous_record):
         elif previous_grade in {"A+", "A", "B"} and tls_grade in {"D", "F", "T"}:
             severity = "high"
             summary = f"{monitor['target']} TLS grade regressed from {previous_grade} to {tls_grade}"
+        elif record_transition:
+            severity, summary = record_transition
         else:
             severity = "medium"
             summary = f"Observed changes for {monitor['target']}"
@@ -3133,6 +3224,7 @@ def _scan_monitor(monitor, progress_cb=None):
     results = run_selected_checks(target, checks, progress_cb=progress_cb)
     results["domain"] = target
     results["timestamp"] = datetime.now(timezone.utc).isoformat()
+    results["monitored_record"] = _resolve_monitored_record(target, monitor.get("record_type"))
     _attach_rapid7_findings(results, target)
     results["recommendations"] = recommendations.generate(results)
     results["recommendation_counts"] = recommendations.summarize_counts(results["recommendations"])
@@ -4513,6 +4605,13 @@ def api_dns_options():
     return jsonify({
         "types": dns_tools.RECORD_TYPES,
         "resolvers": sorted(dns_tools.RESOLVERS),
+        # Provider-assigned CNAME targets: a dangling CNAME to one of these is
+        # stale but not claimable. Sent so the lookup page can label a
+        # dead-target CNAME without duplicating the list in JS.
+        "provider_assigned": [
+            {"suffix": s, "provider": e["provider"], "note": e["note"]}
+            for e in security_checks._PROVIDER_ASSIGNED for s in e["cnames"]
+        ],
     })
 
 

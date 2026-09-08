@@ -1088,9 +1088,12 @@ function renderSecurity(data) {
         if (dangling.length > 0) {
             html += '<div class="diag-list">';
             dangling.forEach(d => {
+                const detail = d.registrable === false
+                    ? `CNAME: <code>${escapeHtml(d.cname)}</code> returns NXDOMAIN. Target is a ${escapeHtml(d.provider || 'provider-assigned')} name that a third party cannot re-register — a stale record to clean up, not a claimable takeover.`
+                    : `CNAME: <code>${escapeHtml(d.cname)}</code> returns NXDOMAIN. The provider is not in DomainLens's signature list, so this is not confirmed claimable — but it is a stale record.`;
                 html += `<div class="diag-item" style="border-left-color:var(--orange)">
                     <div class="diag-title">${escapeHtml(d.subdomain)} → dangling CNAME</div>
-                    <div class="diag-detail">CNAME: <code>${escapeHtml(d.cname)}</code> returns NXDOMAIN. The provider is not in DomainLens's signature list, so this is not confirmed claimable — but it is a stale record.</div>
+                    <div class="diag-detail">${detail}</div>
                     <div class="diag-detail">Fix: remove the record if the target is no longer in use.</div>
                 </div>`;
             });

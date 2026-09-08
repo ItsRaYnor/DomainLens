@@ -162,9 +162,19 @@ class RenameCompletenessTests(unittest.TestCase):
         self.assertEqual(offenders, [], "the old name is still referenced")
 
     def test_the_version_restarted(self):
+        # The rename to DomainLens reset the count to the 0.0.x era rather than
+        # carrying NetProbe's old numbering forward. Assert it stayed in that
+        # era and is a valid, non-regressed semver — not a fixed 0.0.1, which
+        # would break on every patch bump the versioning policy requires.
         import pathlib
         root = pathlib.Path(__file__).resolve().parent.parent
-        self.assertEqual((root / "VERSION").read_text(encoding="utf-8").strip(), "0.0.1")
+        raw = (root / "VERSION").read_text(encoding="utf-8").strip()
+        parts = raw.split(".")
+        self.assertEqual(len(parts), 3, f"VERSION is not semver: {raw!r}")
+        major, minor, patch = (int(p) for p in parts)
+        self.assertEqual(major, 0, "still in the post-rename 0.0.x era")
+        self.assertGreaterEqual((major, minor, patch), (0, 0, 1),
+                                "VERSION must never go below the reset point")
 
     def test_the_environment_prefix_is_the_new_one(self):
         import version
