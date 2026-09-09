@@ -274,6 +274,7 @@ function formatCacheAge(seconds) {
 
 let dnsResolverOptions = [];
 let dnsCustomResolvers = [];
+let dnsProviderAssigned = [];
 
 async function initDnsLookupPage() {
     const typeEl = $('dnsLookupType');
@@ -284,6 +285,7 @@ async function initDnsLookupPage() {
         dnsResolverOptions = data.resolvers || [];
         dnsCustomResolvers = data.custom_resolvers || [];
         $('dnsLookupResolver').innerHTML = dnsResolverOptions.map(r => `<option>${esc(r)}</option>`).join('');
+        dnsProviderAssigned = data.provider_assigned || [];
         typeEl.value = 'TXT';
     } catch (e) { return; }
     $('dnsLookupBtn').addEventListener('click', dnsLookup);
@@ -396,6 +398,31 @@ async function dnsPropagation() {
     out.innerHTML = html;
 }
 
+function providerAssignedFor(host) {
+    const h = String(host || '').replace(/\.$/, '').toLowerCase();
+    return dnsProviderAssigned.find(p => h.includes(p.suffix)) || null;
+}
+
+// Follow a CNAME target and report whether it still resolves. A CNAME whose
+// target is NXDOMAIN is a dangling record; when the target is a
+// provider-assigned name it is stale but not claimable, which is called out
+// so the reader does not mistake it for a takeover.
+async function dnsDanglingNotice(target, resolver) {
+    let data;
+    try {
+        const params = new URLSearchParams({ name: target, type: 'A', resolver });
+        const resp = await fetch('/api/dns/query?' + params.toString());
+        data = await resp.json();
+        if (!resp.ok || data.error) return '';
+    } catch (e) { return ''; }
+    if (data.rcode !== 'NXDOMAIN') return '';
+    const assigned = providerAssignedFor(target);
+    const msg = assigned
+        ? `Dangling CNAME: target <code>${esc(target)}</code> returns NXDOMAIN. It is a ${esc(assigned.provider)} name that a third party cannot re-register — a stale record to clean up, not a claimable takeover.`
+        : `Dangling CNAME: target <code>${esc(target)}</code> returns NXDOMAIN. The record is stale; claimability depends on whether the provider lets the target be re-registered.`;
+    return `<p class="status status-warn">${msg}</p>`;
+}
+
 async function dnsLookup() {
     const out = $('dnsLookupResult');
     const name = $('dnsLookupName').value.trim();
@@ -433,6 +460,14 @@ async function dnsLookup() {
     }
     html += `<p class="http-meta"><span>${meta.join(' · ')}</span></p>`;
     html += dnsDetailHtml(data);
+
+    // Follow a CNAME to flag a dangling target (NXDOMAIN), with the
+    // claimable-vs-stale nuance for provider-assigned names.
+    if (data.type === 'CNAME' && data.records.length) {
+        const target = String(data.records[0]).replace(/\.$/, '');
+        const notice = await dnsDanglingNotice(target, $('dnsLookupResolver').value);
+        if (notice) html += notice;
+    }
     out.innerHTML = html;
 }
 

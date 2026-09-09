@@ -16,12 +16,14 @@ class OptionalIntegrationStatusTests(unittest.TestCase):
         cls.app = app
 
     def tearDown(self):
-        for key in ("ABUSECH_AUTH_KEY", "OTX_API_KEY", "SPAMHAUS_DQS_KEY"):
+        for key in ("ABUSECH_AUTH_KEY", "OTX_API_KEY", "SPAMHAUS_DQS_KEY",
+                    "VIRUSTOTAL_API_KEY"):
             os.environ.pop(key, None)
 
     def test_catalogue_covers_the_optional_keys(self):
         envs = {item["env"] for item in self.app._optional_integration_status()}
-        self.assertEqual(envs, {"SPAMHAUS_DQS_KEY", "ABUSECH_AUTH_KEY", "OTX_API_KEY"})
+        self.assertEqual(envs, {"SPAMHAUS_DQS_KEY", "ABUSECH_AUTH_KEY", "OTX_API_KEY",
+                                "VIRUSTOTAL_API_KEY"})
 
     def test_every_entry_explains_itself(self):
         for item in self.app._optional_integration_status():

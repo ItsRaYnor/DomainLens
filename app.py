@@ -33,6 +33,7 @@ from flask import Flask, Response, render_template, request, jsonify, abort, red
 
 import db
 import recommendations
+import scan_diff
 import security_checks
 import security_txt
 import pgp_keys
@@ -63,7 +64,6 @@ import evidence
 import ip_intel
 import theming
 import scan_cache
-import scan_diff
 import own_infra
 import scan_jobs
 from settings.store import get_store
@@ -2990,7 +2990,12 @@ def run_selected_checks(domain, checks, extra_dkim_selectors=None, progress_cb=N
     names = [n for n in selected if n in check_map]
     _run_checks(check_map, names, results, progress_cb)
 
-    if "ncsc_tls" in checks or "tls_deep" in results or "ncsc_tls" in selected:
+    # Only attach the NCSC assessment when it was actually selected. It used to
+    # be attached whenever tls_deep happened to run, so picking just "TLS Scan"
+    # returned a full NCSC verdict — including critical findings and a
+    # compliant=False conclusion — for a check the operator never asked for.
+    # The CDN detection it carries rode along the same way.
+    if "ncsc_tls" in checks:
         results = _attach_ncsc_tls(results, domain)
     return results
 
@@ -3037,8 +3042,53 @@ def _attach_ncsc_tls(results, domain=None):
     return results
 
 
+# The set of checks a scan or a monitor can select, grouped for display. This
+# is the single source of truth the monitor form renders from, so the monitor
+# selector cannot drift from the checks the scanner actually runs. Keys must
+# match _build_check_map (plus "ncsc_tls", derived from tls_deep).
+CHECK_CATALOG = [
+    {"group": "Domain & DNS", "checks": [
+        {"key": "whois", "label": "WHOIS"},
+        {"key": "dns", "label": "DNS"},
+        {"key": "dnssec", "label": "DNSSEC"},
+        {"key": "ipv6", "label": "IPv6"},
+    ]},
+    {"group": "Email Security", "checks": [
+        {"key": "spf", "label": "SPF"},
+        {"key": "dmarc", "label": "DMARC"},
+        {"key": "dkim", "label": "DKIM"},
+        {"key": "mta_sts", "label": "MTA-STS"},
+        {"key": "tlsrpt", "label": "TLS-RPT"},
+    ]},
+    {"group": "SSL / TLS", "checks": [
+        {"key": "ssl", "label": "SSL/TLS"},
+        {"key": "tls_deep", "label": "TLS Scan"},
+        {"key": "ncsc_tls", "label": "NCSC TLS"},
+    ]},
+    {"group": "Web", "checks": [
+        {"key": "http_headers", "label": "Headers"},
+        {"key": "https_redirect", "label": "HTTPS"},
+        {"key": "http_deep", "label": "HTTP Analysis"},
+        {"key": "hubspot_cf", "label": "HubSpot / CF"},
+    ]},
+    {"group": "Network", "checks": [
+        {"key": "blacklist", "label": "Blacklist"},
+        {"key": "ports", "label": "Ports"},
+        {"key": "osint", "label": "OSINT"},
+    ]},
+    {"group": "Security", "checks": [
+        {"key": "security", "label": "Security Audit"},
+        {"key": "js_scan", "label": "JS Dependency & Secrets"},
+    ]},
+]
+
 def _prepare_checks(payload_checks):
-    """Normalize check selection input to a safe list."""
+    """Normalize check selection input to a safe list.
+
+    Kept permissive on purpose: opt-in active checks (weak_auth, active_scan)
+    are requested by key here too, so this must not drop keys that are absent
+    from CHECK_CATALOG (the display catalog for the scan/monitor UI).
+    """
     if not isinstance(payload_checks, list):
         return ["all"]
     checks = [item for item in payload_checks if isinstance(item, str) and item]
@@ -3130,6 +3180,55 @@ def _save_monitor_definitions(monitor_defs, *, schedule_minutes, checks, enabled
     return stored
 
 
+def _resolve_monitored_record(target, record_type):
+    """Resolve the one DNS record a monitor watches, for change detection.
+
+    A monitor's record type used to be stored and displayed but never
+    resolved, so "monitor the CNAME of chat.example.com" watched the same full
+    scan as everything else and never noticed the record itself changing or
+    going NXDOMAIN. This resolves exactly that record and returns it in the
+    three states Reporting keeps apart:
+
+      measured=True,  present=True   — the record resolved to one or more values
+      measured=True,  present=False  — the name is NXDOMAIN (the dangling signal)
+      measured=False                 — the lookup failed (SERVFAIL/timeout/network);
+                                       never treated as a change, so a resolver
+                                       hiccup cannot invent a "record disappeared".
+    """
+    rtype = (record_type or "A").upper()
+    if rtype not in dns_tools.RECORD_TYPES:
+        # Import sources may carry a type the lookup does not offer (e.g. SOA
+        # on an apex); nothing to watch rather than an error.
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": None, "authenticated": None,
+                "error": f"{rtype} is not a resolvable record type here"}
+    try:
+        answer = dns_tools.query(target, rtype, resolver="system")
+    except dns_tools.LookupError_ as exc:
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": None, "authenticated": None,
+                "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - any resolver failure is unmeasured
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": None, "authenticated": None,
+                "error": _safe_error(exc)}
+
+    if answer.get("error"):
+        return {"type": rtype, "measured": False, "present": False,
+                "records": [], "rcode": answer.get("rcode"),
+                "authenticated": answer.get("authenticated"),
+                "error": answer["error"]}
+
+    rcode = answer.get("rcode")
+    records = sorted(answer.get("records") or [])
+    # NXDOMAIN and NOERROR are both measured answers; only NXDOMAIN and an
+    # empty NOERROR mean the watched record is absent.
+    present = bool(records)
+    return {"type": rtype, "measured": True, "present": present,
+            "records": records, "rcode": rcode,
+            "authenticated": answer.get("authenticated"), "error": None}
+
+
 def _monitor_state_hash(results):
     """Create a stable fingerprint for change detection."""
     tracked = {
@@ -3164,8 +3263,39 @@ def _monitor_state_hash(results):
             "by_severity": (results.get("rapid7") or {}).get("by_severity"),
         },
     }
+    # The watched DNS record is deliberately NOT folded into this fingerprint.
+    # A measured→unmeasured transition (a resolver hiccup) would otherwise flip
+    # the hash and read as a change. Record changes are detected separately, by
+    # comparing the two measured records in _watched_record_transition, which
+    # ignores unmeasured scans entirely.
     payload = json.dumps(tracked, sort_keys=True, default=str, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _watched_record_transition(monitor, results, previous_results):
+    """Describe a change in the monitor's watched DNS record, or None.
+
+    Returns (severity, summary) when the specific record the monitor watches
+    changed value or went NXDOMAIN between the previous scan and this one.
+    Only fires when both scans measured the record: an unmeasured lookup on
+    either side is "could not be measured", never a transition.
+    """
+    current = results.get("monitored_record") or {}
+    previous = (previous_results or {}).get("monitored_record") or {}
+    if not current.get("measured") or not previous.get("measured"):
+        return None
+    if current.get("records") == previous.get("records"):
+        return None
+
+    rtype = current.get("type") or monitor.get("record_type") or "record"
+    target = monitor["target"]
+    if previous.get("present") and not current.get("present"):
+        # The value the CNAME/A/... pointed at is gone. This is the dangling
+        # signal a takeover scan would otherwise only catch on a full re-enum.
+        return "high", f"{rtype} record for {target} disappeared (now {current.get('rcode') or 'empty'})"
+    if not previous.get("present") and current.get("present"):
+        return "medium", f"{rtype} record for {target} reappeared"
+    return "medium", f"{rtype} record for {target} changed value"
 
 
 def _monitor_event_from_results(monitor, results, previous_record):
@@ -3176,6 +3306,7 @@ def _monitor_event_from_results(monitor, results, previous_record):
     recommendation_count = len(recommendations.generate(results))
     blacklist_listed = bool((results.get("blacklist") or {}).get("is_listed"))
     tls_grade = (results.get("tls_deep") or {}).get("grade")
+    watched = results.get("monitored_record") or {}
     details = {
         "target": monitor["target"],
         "record_type": monitor["record_type"],
@@ -3183,6 +3314,10 @@ def _monitor_event_from_results(monitor, results, previous_record):
         "recommendation_count": recommendation_count,
         "blacklist_listed": blacklist_listed,
         "warnings": warnings,
+        "record_measured": watched.get("measured"),
+        "record_present": watched.get("present"),
+        "record_values": watched.get("records"),
+        "record_rcode": watched.get("rcode"),
     }
 
     if not previous_hash:
@@ -3193,8 +3328,12 @@ def _monitor_event_from_results(monitor, results, previous_record):
             "details": details,
         }
 
-    if previous_hash != current_hash:
-        previous_results = (previous_record or {}).get("data") or {}
+    previous_results = (previous_record or {}).get("data") or {}
+    record_transition = _watched_record_transition(monitor, results, previous_results)
+    # A change is either a shift in the tracked fingerprint or a change in the
+    # watched DNS record. The record is kept out of the fingerprint (see
+    # _monitor_state_hash), so a pure record change is caught only here.
+    if previous_hash != current_hash or record_transition:
         previous_grade = (previous_results.get("tls_deep") or {}).get("grade")
         previous_blacklist = bool((previous_results.get("blacklist") or {}).get("is_listed"))
         if not previous_record:
@@ -3217,12 +3356,17 @@ def _monitor_event_from_results(monitor, results, previous_record):
         elif previous_grade in {"A+", "A", "B"} and tls_grade in {"D", "F", "T"}:
             severity = "high"
             summary = f"{monitor['target']} TLS grade regressed from {previous_grade} to {tls_grade}"
+        elif record_transition:
+            severity, summary = record_transition
         else:
             severity = "medium"
             summary = f"Observed changes for {monitor['target']}"
         if previous_record:
             details["previous_tls_grade"] = previous_grade
             details["previous_blacklist_listed"] = previous_blacklist
+            # The scan this change is measured against, so the event UI can
+            # request a full old-vs-new diff (/api/compare) on demand.
+            details["previous_scan_id"] = previous_record.get("id")
         return current_hash, {
             "event_type": "scan_changed",
             "severity": severity,
@@ -3248,6 +3392,7 @@ def _scan_monitor(monitor, progress_cb=None):
     results = run_selected_checks(target, checks, progress_cb=progress_cb)
     results["domain"] = target
     results["timestamp"] = datetime.now(timezone.utc).isoformat()
+    results["monitored_record"] = _resolve_monitored_record(target, monitor.get("record_type"))
     _attach_rapid7_findings(results, target)
     results["recommendations"] = recommendations.generate(results)
     results["recommendation_counts"] = recommendations.summarize_counts(results["recommendations"])
@@ -4981,6 +5126,13 @@ def api_pgp_generate_throwaway():
     }), 201
 
 
+@app.route("/api/checks", methods=["GET"])
+def api_checks_catalog():
+    """The grouped catalog of selectable checks, for the monitor form to render
+    the same "pick what to run" selection the scan form offers."""
+    return jsonify({"catalog": CHECK_CATALOG})
+
+
 @app.route("/api/dns/options", methods=["GET"])
 def api_dns_options():
     custom = _custom_resolvers()
@@ -4988,6 +5140,13 @@ def api_dns_options():
         "types": dns_tools.RECORD_TYPES,
         "resolvers": sorted(dns_tools.RESOLVERS) + sorted(custom),
         "custom_resolvers": sorted(custom),
+        # Provider-assigned CNAME targets: a dangling CNAME to one of these is
+        # stale but not claimable. Sent so the lookup page can label a
+        # dead-target CNAME without duplicating the list in JS.
+        "provider_assigned": [
+            {"suffix": s, "provider": e["provider"], "note": e["note"]}
+            for e in security_checks._PROVIDER_ASSIGNED for s in e["cnames"]
+        ],
     })
 
 
@@ -5060,6 +5219,49 @@ def api_history_delete(scan_id):
 def api_history_clear():
     db.clear_history()
     return jsonify({"cleared": True})
+
+
+def _scan_compare_meta(record):
+    """Compact per-scan header for a comparison: what it is and where to read it."""
+    return {
+        "id": record["id"],
+        "domain": record.get("domain"),
+        "created_at": record.get("created_at"),
+        "grade": record.get("grade"),
+        "score": record.get("score"),
+        "issues_count": record.get("issues_count"),
+        "report_url": f"/report/{record['id']}",
+    }
+
+
+@app.route("/api/compare", methods=["GET"])
+def api_compare_scans():
+    """Structured worse/better/changed diff between two saved scans.
+
+    `a` is the older (baseline) scan, `b` the newer one. Used by both the
+    history compare view and a monitor event's "what changed" panel, so the
+    two never diverge in how a regression is judged.
+    """
+    try:
+        a_id = int(request.args.get("a", ""))
+        b_id = int(request.args.get("b", ""))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Pass two scan ids: a (older) and b (newer)"}), 400
+
+    old = db.get_scan(a_id)
+    new = db.get_scan(b_id)
+    if not old or not new:
+        return jsonify({"error": "One or both scans were not found"}), 404
+
+    old_counts = recommendations.summarize_counts(recommendations.generate(old["data"]))
+    new_counts = recommendations.summarize_counts(recommendations.generate(new["data"]))
+    diff = scan_diff.compare_dimensions(old["data"], new["data"],
+                                        old_severity=old_counts, new_severity=new_counts)
+    return jsonify({
+        "a": _scan_compare_meta(old),
+        "b": _scan_compare_meta(new),
+        "diff": diff,
+    })
 
 
 @app.route("/api/monitors", methods=["GET"])

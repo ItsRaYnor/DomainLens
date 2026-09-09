@@ -1106,6 +1106,60 @@ main {
     gap: 0.55rem;
 }
 
+.monitor-checks {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+}
+.monitor-checks-all { display: inline-flex; align-items: center; gap: 0.35rem; }
+.monitor-checks-groups {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+.monitor-check-group {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.55rem;
+    margin: 0;
+}
+.monitor-check-group legend { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; padding: 0 0.25rem; }
+.monitor-check-group label { display: flex; align-items: center; gap: 0.35rem; padding: 0.1rem 0; }
+
+/* Scan comparison (history + monitor events) */
+.history-compare-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+}
+.history-compare-bar span { margin-right: auto; opacity: 0.8; }
+.history-compare-result { padding: 0.5rem 0.75rem; }
+.history-compare-pick { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.8rem; opacity: 0.85; }
+.cmp-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 0.4rem; }
+.cmp-table td { padding: 0.3rem 0.5rem; vertical-align: middle; }
+.cmp-badge {
+    display: inline-block;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.cmp-worse { background: var(--red-bg); color: var(--red); }
+.cmp-better { background: var(--green-bg); color: var(--green); }
+.cmp-changed { background: var(--orange-bg); color: var(--orange); }
+.cmp-unmeasured, .cmp-unchanged { background: var(--bg-subtle); color: var(--link); opacity: 0.8; }
+.event-diff { margin-top: 0.4rem; }
+.chart-point { cursor: pointer; }
+.drill-note { font-size: 0.85rem; opacity: 0.8; margin: 0 0 0.4rem; }
+
 .stack-form input,
 .stack-form select,
 .stack-form textarea {

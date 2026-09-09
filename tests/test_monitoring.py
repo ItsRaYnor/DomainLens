@@ -61,15 +61,22 @@ mail 3600 IN MX 10 mx1.mailhost.test.
         monitor = self.db.get_monitor(monitor_id)
 
         original_runner = self.app_module.run_selected_checks
+        original_record = self.app_module._resolve_monitored_record
         try:
             self.app_module.run_selected_checks = lambda domain, checks, progress_cb=None: {
                 "dns": {"A": ["93.184.216.34"]},
                 "domain": domain,
                 "timestamp": "2026-01-01T00:00:00+00:00",
             }
+            self.app_module._resolve_monitored_record = lambda target, record_type: {
+                "type": "A", "measured": True, "present": True,
+                "records": ["93.184.216.34"], "rcode": "NOERROR",
+                "authenticated": None, "error": None,
+            }
             outcome = self.app_module._scan_monitor(monitor)
         finally:
             self.app_module.run_selected_checks = original_runner
+            self.app_module._resolve_monitored_record = original_record
 
         self.assertIsInstance(outcome["scan_id"], int)
         updated = self.db.get_monitor(monitor_id)
@@ -97,6 +104,14 @@ mail 3600 IN MX 10 mx1.mailhost.test.
         monitor = self.db.get_monitor(monitor_id)
 
         original_runner = self.app_module.run_selected_checks
+        original_record = self.app_module._resolve_monitored_record
+        # Hold the watched record steady so this test exercises the blacklist
+        # transition, not the DNS-record transition.
+        self.app_module._resolve_monitored_record = lambda target, record_type: {
+            "type": "A", "measured": True, "present": True,
+            "records": ["93.184.216.34"], "rcode": "NOERROR",
+            "authenticated": None, "error": None,
+        }
         try:
             self.app_module.run_selected_checks = lambda domain, checks, progress_cb=None: {
                 "dns": {"A": ["93.184.216.34"]},
@@ -114,6 +129,7 @@ mail 3600 IN MX 10 mx1.mailhost.test.
             self.app_module._scan_monitor(monitor)
         finally:
             self.app_module.run_selected_checks = original_runner
+            self.app_module._resolve_monitored_record = original_record
 
         events = self.db.list_monitor_events(monitor_id=monitor_id, limit=5)
         self.assertEqual(events[0]["event_type"], "scan_changed")

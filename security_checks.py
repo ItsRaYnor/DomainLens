@@ -148,6 +148,44 @@ def _finding(severity, category, title, detail, evidence="", fix=""):
 # 1. Subdomain enumeration + takeover detection
 # ---------------------------------------------------------------------------
 
+# Providers that hand out the hostname themselves, with a portion no third
+# party can choose. A dangling CNAME to one of these is a stale record worth
+# removing, but it is NOT a claimable takeover: to re-point the name an
+# attacker would have to make the provider re-issue that exact hostname, and
+# the provider-assigned portion (an AWS-allocated ELB suffix, a random
+# CloudFront distribution id) cannot be requested. Kept apart from the
+# takeover signatures on purpose — conflating "stale" with "claimable" turns a
+# cleanup task into a false vulnerability report.
+#
+# Contrast with classic per-tenant services (S3, GitHub Pages, Heroku): there
+# the customer picks the whole subdomain, so anyone can re-register it. Those
+# stay in _TAKEOVER_SIGNATURES.
+_PROVIDER_ASSIGNED = [
+    {"provider": "AWS Elastic Load Balancing",
+     "cnames": [".elb.amazonaws.com"],
+     "note": "the ELB DNS name carries an AWS-allocated suffix that cannot be requested"},
+    {"provider": "AWS CloudFront",
+     "cnames": [".cloudfront.net"],
+     "note": "the CloudFront distribution domain is a random AWS-assigned id, and an "
+             "alternate domain can only be added after ownership is proven"},
+]
+
+
+def provider_assigned(hostname):
+    """Return the provider entry if `hostname` is a provider-assigned name.
+
+    A provider-assigned name is one whose registrable portion the provider,
+    not the customer, controls — so a dangling CNAME to it is stale but not
+    claimable. Returns None when the host is not recognised, in which case
+    claimability is genuinely unknown rather than ruled out.
+    """
+    host = (hostname or "").rstrip(".").lower()
+    for entry in _PROVIDER_ASSIGNED:
+        if any(c in host for c in entry["cnames"]):
+            return entry
+    return None
+
+
 # Fingerprints for services vulnerable to subdomain takeover.
 # Each entry: cname substrings that point at the service + body signatures that
 # indicate the resource is unclaimed / dangling.
@@ -300,6 +338,7 @@ def _check_one_takeover(sub):
 
     if not matched:
         if target_nxdomain:
+            assigned = provider_assigned(cname)
             return {
                 "kind": "dangling",
                 "subdomain": sub,
@@ -308,7 +347,13 @@ def _check_one_takeover(sub):
                 "target_resolves": False,
                 "fingerprint_match": False,
                 "http_status": None,
-                "confidence": "medium",
+                # registrable is False when the target is a provider-assigned
+                # name (stale, but nobody can re-register it) and None when the
+                # provider is simply unknown to us (claimability untested).
+                "registrable": None if assigned is None else False,
+                "provider": assigned["provider"] if assigned else None,
+                "provider_note": assigned["note"] if assigned else None,
+                "confidence": "low" if assigned else "medium",
             }
         return None
 
@@ -1251,16 +1296,33 @@ def audit_findings(audit):
             fix=f"Remove the dangling DNS record for {t['subdomain']}, or re-claim the resource on {t['service']}.",
         ))
     for d in subs.get("dangling", []):
-        findings.append(_finding(
-            "medium", "Subdomain Takeover",
-            f"Dangling CNAME: {d['subdomain']}",
-            f"{d['subdomain']} is a CNAME to {d['cname']}, which returns NXDOMAIN. "
-            "The provider is not in DomainLens's takeover-signature list, so this could "
-            "not be confirmed as claimable, but a CNAME pointing at a non-existent "
-            "target is a stale record and may be claimable by whoever can register it.",
-            evidence=f"CNAME → {d['cname']} (NXDOMAIN)",
-            fix=f"Remove the DNS record for {d['subdomain']} if the target is no longer in use.",
-        ))
+        if d.get("registrable") is False:
+            # Provider-assigned name: measured as stale, and claimability is
+            # not "unknown" but ruled out — kept apart so the operator reads a
+            # cleanup task, not a takeover they need to race an attacker on.
+            provider = d.get("provider") or "the hosting provider"
+            note = d.get("provider_note") or "the provider controls the hostname"
+            findings.append(_finding(
+                "low", "Subdomain Takeover",
+                f"Dangling CNAME: {d['subdomain']}",
+                f"{d['subdomain']} is a CNAME to {d['cname']}, which returns NXDOMAIN — "
+                f"the {provider} resource behind it is gone. This is a stale record to "
+                f"clean up, not a claimable takeover: {note}, so a third party cannot "
+                f"re-register the target.",
+                evidence=f"CNAME → {d['cname']} (NXDOMAIN, provider-assigned)",
+                fix=f"Remove the DNS record for {d['subdomain']}; the target is no longer in use.",
+            ))
+        else:
+            findings.append(_finding(
+                "medium", "Subdomain Takeover",
+                f"Dangling CNAME: {d['subdomain']}",
+                f"{d['subdomain']} is a CNAME to {d['cname']}, which returns NXDOMAIN. "
+                "The provider is not in DomainLens's takeover-signature list, so this could "
+                "not be confirmed as claimable, but a CNAME pointing at a non-existent "
+                "target is a stale record and may be claimable by whoever can register it.",
+                evidence=f"CNAME → {d['cname']} (NXDOMAIN)",
+                fix=f"Remove the DNS record for {d['subdomain']} if the target is no longer in use.",
+            ))
     # Scan-coverage limits (a truncated list, or an unreachable Certificate
     # Transparency source) are deliberately NOT findings. A finding is
     # something wrong with the scanned domain that the owner can act on;
