@@ -6,8 +6,8 @@ import unittest
 class MonitorWatchesTheChosenRecordTests(unittest.TestCase):
     """A monitor's record type was stored but never resolved, so choosing
     "CNAME" for a host watched the same full scan as everything else and never
-    noticed the record itself changing or going NXDOMAIN — exactly the stale
-    chat.example.com case. The watched record now drives change detection.
+    noticed the record itself changing or going NXDOMAIN — the stale dangling
+    CNAME case. The watched record now drives change detection.
     """
 
     def setUp(self):
