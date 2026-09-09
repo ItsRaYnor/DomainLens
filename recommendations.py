@@ -146,10 +146,10 @@ def _mx_posture(results):
 def _non_mailing_domain(results):
     """A domain that receives no mail should say it sends none either.
 
-    tacticspro.nl is the case that prompted this: a blacklist hit on the web
-    server address, no mail of its own, and nothing published to say so. A
-    domain nobody sends from is still worth forging, and SPF `-all` with
-    DMARC `p=reject` is what makes that forgery fail at the receiver.
+    The case that prompted this: a blacklist hit on the web server address,
+    no mail of its own, and nothing published to say so. A domain nobody
+    sends from is still worth forging, and SPF `-all` with DMARC `p=reject`
+    is what makes that forgery fail at the receiver.
 
     Nothing here fires for a domain with real MX records. The advice would
     break a working mail setup, and advice an operator cannot follow without
