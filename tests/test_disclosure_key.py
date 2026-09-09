@@ -359,7 +359,8 @@ class KeyInspectionTests(unittest.TestCase):
             captured["stdin"] = stdin_text
             return mock.Mock(stdout="", stderr="empty")
 
-        with mock.patch.object(pgp_keys, "_run", side_effect=fake_run):
+        with mock.patch.object(pgp_keys, "available", return_value=True), \
+                mock.patch.object(pgp_keys, "_run", side_effect=fake_run):
             pgp_keys.inspect_key(FAKE_PUBLIC)
         self.assertIn("--import", captured["args"])
         self.assertEqual(FAKE_PUBLIC.strip(), captured["stdin"])
@@ -373,7 +374,8 @@ class KeyInspectionTests(unittest.TestCase):
             captured["args"] = args
             return mock.Mock(stdout="", stderr="")
 
-        with mock.patch.object(pgp_keys, "_run", side_effect=fake_run):
+        with mock.patch.object(pgp_keys, "available", return_value=True), \
+                mock.patch.object(pgp_keys, "_run", side_effect=fake_run):
             pgp_keys.inspect_key(FAKE_PUBLIC)
         self.assertIn("show-only", captured["args"])
 

@@ -158,9 +158,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         closeMonitors();
     });
     on('historyClearBtn', 'click', clearHistory);
+    on('historyCompareRun', 'click', runHistoryCompare);
+    on('historyCompareClear', 'click', clearHistoryCompare);
     on('createMonitorBtn', 'click', createMonitor);
     on('importMonitorsBtn', 'click', importMonitors);
     on('runDueBtn', 'click', runDueMonitors);
+    initMonitorChecks();
     on('importModeInput', 'change', syncImportMode);
 
     // Schedule preset dropdown: sets the underlying minutes value directly,
@@ -1102,9 +1105,12 @@ function renderSecurity(data) {
         if (dangling.length > 0) {
             html += '<div class="diag-list">';
             dangling.forEach(d => {
+                const detail = d.registrable === false
+                    ? `CNAME: <code>${escapeHtml(d.cname)}</code> returns NXDOMAIN. Target is a ${escapeHtml(d.provider || 'provider-assigned')} name that a third party cannot re-register — a stale record to clean up, not a claimable takeover.`
+                    : `CNAME: <code>${escapeHtml(d.cname)}</code> returns NXDOMAIN. The provider is not in DomainLens's signature list, so this is not confirmed claimable — but it is a stale record.`;
                 html += `<div class="diag-item" style="border-left-color:var(--orange)">
                     <div class="diag-title">${escapeHtml(d.subdomain)} → dangling CNAME</div>
-                    <div class="diag-detail">CNAME: <code>${escapeHtml(d.cname)}</code> returns NXDOMAIN. The provider is not in DomainLens's signature list, so this is not confirmed claimable — but it is a stale record.</div>
+                    <div class="diag-detail">${detail}</div>
                     <div class="diag-detail">Fix: remove the record if the target is no longer in use.</div>
                 </div>`;
             });
@@ -1974,12 +1980,113 @@ async function loadHistory() {
         statsEl.innerHTML = `<span><strong>${escapeHtml(String(stats.total_scans || 0))}</strong>scans</span>
             <span><strong>${escapeHtml(String(stats.unique_domains || 0))}</strong>domains</span>`;
         renderHistoryList(data.scans || []);
+        syncCompareBar();
     } catch (err) {
         list.innerHTML = '<p class="history-empty">Failed to load history</p>';
     }
 }
 
+// Up to two scan ids picked in the history list for an old-vs-new comparison.
+let compareSelection = [];
+
+function toggleCompareSelect(id, checked) {
+    if (checked) {
+        compareSelection.push(id);
+        // Keep only the two most recent picks; drop the oldest silently.
+        if (compareSelection.length > 2) compareSelection = compareSelection.slice(-2);
+    } else {
+        compareSelection = compareSelection.filter(x => x !== id);
+    }
+    syncCompareBar();
+    // Re-sync checkboxes so a dropped pick visibly clears.
+    document.querySelectorAll('#historyList .history-compare-pick input').forEach(() => {});
+    if (typeof lastHistoryScans !== 'undefined' && lastHistoryScans) renderHistoryList(lastHistoryScans);
+}
+
+function syncCompareBar() {
+    const bar = $('historyCompareBar');
+    const hint = $('historyCompareHint');
+    const run = $('historyCompareRun');
+    if (!bar) return;
+    bar.classList.remove('hidden');
+    const n = compareSelection.length;
+    if (hint) hint.textContent = n === 0
+        ? 'Tick two scans to compare them.'
+        : (n === 1 ? '1 selected — pick one more.' : '2 selected.');
+    if (run) run.disabled = n !== 2;
+}
+
+async function runHistoryCompare() {
+    if (compareSelection.length !== 2) return;
+    // The list is newest-first; compare older (a) against newer (b) so
+    // "worse/better" reads in chronological order regardless of pick order.
+    const [x, y] = compareSelection;
+    const a = Math.min(x, y), b = Math.max(x, y);
+    const out = $('historyCompareResult');
+    out.classList.remove('hidden');
+    out.innerHTML = '<p class="history-empty">Comparing…</p>';
+    try {
+        const resp = await fetch(`/api/compare?a=${a}&b=${b}`);
+        const data = await resp.json();
+        if (!resp.ok || data.error) {
+            out.innerHTML = `<p class="status status-fail">${escapeHtml(data.error || 'Compare failed')}</p>`;
+            return;
+        }
+        out.innerHTML = renderCompareHtml(data);
+    } catch (e) {
+        out.innerHTML = '<p class="status status-fail">Network error</p>';
+    }
+}
+
+function clearHistoryCompare() {
+    compareSelection = [];
+    const out = $('historyCompareResult');
+    if (out) { out.classList.add('hidden'); out.innerHTML = ''; }
+    syncCompareBar();
+    if (typeof lastHistoryScans !== 'undefined' && lastHistoryScans) renderHistoryList(lastHistoryScans);
+}
+
+function compareValueText(row) {
+    const fmt = v => {
+        if (v === null || v === undefined) return '—';
+        if (typeof v === 'boolean') return v ? 'yes' : 'no';
+        if (Array.isArray(v)) return v.length ? v.join(', ') : 'none';
+        if (v && typeof v === 'object') {
+            return Object.entries(v).filter(([, n]) => n).map(([k, n]) => `${k}:${n}`).join(' ') || 'none';
+        }
+        return String(v);
+    };
+    return { old: fmt(row.old), now: fmt(row.new) };
+}
+
+// Reusable old-vs-new table used by both the history compare and a monitor
+// event's "what changed" panel. `data` is the /api/compare payload.
+function renderCompareHtml(data) {
+    const rows = (data.diff && data.diff.dimensions) || [];
+    const order = { worse: 0, better: 1, changed: 2, unmeasured: 3, unchanged: 4 };
+    const shown = rows.slice().sort((p, q) => (order[p.status] ?? 9) - (order[q.status] ?? 9));
+    const badge = s => `<span class="cmp-badge cmp-${escapeHtml(s)}">${escapeHtml(s)}</span>`;
+    const head = `
+        <div class="cmp-head">
+            <a href="${escapeHtml(data.a.report_url)}" target="_blank" rel="noopener">A · ${escapeHtml(data.a.domain || '')} (${escapeHtml(data.a.grade || 'N/A')})</a>
+            <span>→</span>
+            <a href="${escapeHtml(data.b.report_url)}" target="_blank" rel="noopener">B · ${escapeHtml(data.b.domain || '')} (${escapeHtml(data.b.grade || 'N/A')})</a>
+        </div>`;
+    const body = shown.map(r => {
+        const v = compareValueText(r);
+        return `<tr class="cmp-row cmp-${escapeHtml(r.status)}">
+            <td>${escapeHtml(r.label)}</td>
+            <td>${badge(r.status)}</td>
+            <td class="mono">${v.old} → ${v.now}</td>
+        </tr>`;
+    }).join('');
+    return head + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${body}</tbody></table></div>`;
+}
+
+let lastHistoryScans = null;
+
 function renderHistoryList(scans) {
+    lastHistoryScans = scans;
     const list = $('historyList');
     if (scans.length === 0) {
         list.innerHTML = '<p class="history-empty">No scans saved yet</p>';
@@ -2012,6 +2119,18 @@ function renderHistoryList(scans) {
 
         const actions = document.createElement('div');
         actions.className = 'history-item-actions';
+
+        const cmp = document.createElement('label');
+        cmp.className = 'history-compare-pick';
+        cmp.title = 'Select for comparison (pick two)';
+        const cmpBox = document.createElement('input');
+        cmpBox.type = 'checkbox';
+        cmpBox.checked = compareSelection.includes(s.id);
+        cmpBox.addEventListener('click', e => e.stopPropagation());
+        cmpBox.addEventListener('change', () => toggleCompareSelect(s.id, cmpBox.checked));
+        cmp.appendChild(cmpBox);
+        cmp.appendChild(document.createTextNode(' vs'));
+        actions.appendChild(cmp);
 
         const loadBtn = document.createElement('button');
         loadBtn.textContent = 'Load';
@@ -2191,7 +2310,7 @@ function renderMonitorList(monitors) {
         const main = document.createElement('div');
         main.className = 'monitor-main';
         main.innerHTML = `<div class="monitor-name">${escapeHtml(m.name)}</div>
-            <div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(m.record_type)} · ${escapeHtml(formatFrequency(m.schedule_minutes))}</div>
+            <div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(m.record_type)} · ${escapeHtml(formatFrequency(m.schedule_minutes))} · ${escapeHtml(monitorScopeLabel(m.checks))}</div>
             <div class="monitor-meta">${escapeHtml(m.source_label || m.source_type)}${m.next_scan_at ? ' · next: ' + escapeHtml(new Date(m.next_scan_at).toLocaleString()) : ''}</div>
             <div class="monitor-meta">${monitorReportLinks(m)}</div>`;
         item.appendChild(main);
@@ -2230,6 +2349,59 @@ function renderMonitorList(monitors) {
     });
 }
 
+// Renders the same grouped check catalog the scan form offers, so a monitor
+// can be scoped to specific checks instead of always re-running everything.
+async function initMonitorChecks() {
+    const groups = $('monitorChecksGroups');
+    const allCb = $('monitorChecksAll');
+    const toggle = $('monitorChecksToggle');
+    if (!groups || !allCb || !toggle) return;
+    let catalog = [];
+    try {
+        catalog = (await (await fetch('/api/checks')).json()).catalog || [];
+    } catch (e) { return; }
+    groups.innerHTML = catalog.map(g => `
+        <fieldset class="monitor-check-group">
+            <legend>${escapeHtml(g.group)}</legend>
+            ${g.checks.map(c =>
+                `<label><input type="checkbox" class="monitor-check-item" value="${escapeHtml(c.key)}"> ${escapeHtml(c.label)}</label>`
+            ).join('')}
+        </fieldset>`).join('');
+
+    toggle.addEventListener('click', () => {
+        const hidden = groups.classList.toggle('hidden');
+        toggle.setAttribute('aria-expanded', String(!hidden));
+    });
+    // "Monitor everything" and specific picks are mutually exclusive: ticking
+    // a specific check clears "everything", and re-ticking "everything" clears
+    // the specific picks, so the intent sent to the server is never ambiguous.
+    allCb.addEventListener('change', () => {
+        if (allCb.checked) {
+            groups.querySelectorAll('.monitor-check-item').forEach(i => { i.checked = false; });
+        }
+    });
+    groups.querySelectorAll('.monitor-check-item').forEach(cb => {
+        cb.addEventListener('change', () => {
+            if (cb.checked) allCb.checked = false;
+            const any = groups.querySelector('.monitor-check-item:checked');
+            if (!any) allCb.checked = true;
+        });
+    });
+}
+
+function monitorScopeLabel(checks) {
+    if (!Array.isArray(checks) || checks.length === 0 || checks.includes('all')) return 'all checks';
+    return checks.length === 1 ? '1 check' : `${checks.length} checks`;
+}
+
+function collectMonitorChecks() {
+    const allCb = $('monitorChecksAll');
+    const groups = $('monitorChecksGroups');
+    if (!allCb || !groups || allCb.checked) return ['all'];
+    const picked = Array.from(groups.querySelectorAll('.monitor-check-item:checked')).map(c => c.value);
+    return picked.length ? picked : ['all'];
+}
+
 async function createMonitor() {
     const domain = $('monitorDomainInput').value.trim();
     if (!domain) {
@@ -2239,11 +2411,12 @@ async function createMonitor() {
     const name = $('monitorNameInput').value.trim();
     const schedule_minutes = Number($('monitorScheduleInput').value || 1440);
     const record_type = $('monitorTypeInput').value;
+    const checks = collectMonitorChecks();
     try {
         const resp = await fetch('/api/monitors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type }),
+            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type, checks }),
         });
         const data = await resp.json();
         if (!resp.ok || data.error) {
@@ -2402,15 +2575,41 @@ function renderMonitorEvents(events) {
         const snLink = event.servicenow_number
             ? ` · <span class="muted">${escapeHtml(event.servicenow_number)}</span>`
             : '';
+        // Change events know the scan they were measured against, so offer a
+        // full old-vs-new drill-down on demand.
+        const prev = event.details && event.details.previous_scan_id;
+        const changeLink = (event.event_type === 'scan_changed' && prev && event.scan_id)
+            ? ` · <a href="#" class="event-diff-link" data-a="${escapeHtml(String(prev))}" data-b="${escapeHtml(String(event.scan_id))}">what changed?</a>`
+            : '';
         return `<div class="event-item sev-${escapeHtml(event.severity)}">
             <div class="event-head">
                 <span class="rec-badge sev-${escapeHtml(event.severity)}">${escapeHtml((event.severity || 'info').toUpperCase())}</span>
                 <span class="monitor-meta">${escapeHtml(event.monitor_name || event.monitor_target || '')} · ${escapeHtml(when)}</span>
             </div>
             <div class="event-summary">${escapeHtml(event.summary)}</div>
-            <div class="monitor-meta">${escapeHtml(event.event_type || '')}${scanLink}${snLink}</div>
+            <div class="monitor-meta">${escapeHtml(event.event_type || '')}${scanLink}${changeLink}${snLink}</div>
+            <div class="event-diff hidden"></div>
         </div>`;
     }).join('');
+
+    el.querySelectorAll('.event-diff-link').forEach(link => {
+        link.addEventListener('click', async e => {
+            e.preventDefault();
+            const panel = link.closest('.event-item').querySelector('.event-diff');
+            if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+            panel.classList.remove('hidden');
+            panel.innerHTML = '<p class="history-empty">Comparing…</p>';
+            try {
+                const resp = await fetch(`/api/compare?a=${link.dataset.a}&b=${link.dataset.b}`);
+                const data = await resp.json();
+                panel.innerHTML = (!resp.ok || data.error)
+                    ? `<p class="status status-fail">${escapeHtml(data.error || 'Compare failed')}</p>`
+                    : renderCompareHtml(data);
+            } catch (err) {
+                panel.innerHTML = '<p class="status status-fail">Network error</p>';
+            }
+        });
+    });
 }
 
 // ===== Remediation plan =====
@@ -2749,6 +2948,20 @@ function cacheNote(section) {
 }
 
 // ===== OSINT =====
+
+// "Not configured" and "zero detections" are different answers and must not
+// render the same: without an API key VirusTotal never ran, so a green 0 there
+// would be a verdict about something that was never checked.
+function vtSummaryCell(s) {
+    if (!s.virustotal_measured) {
+        return '<span class="muted">not configured</span>';
+    }
+    const mal = Number(s.virustotal_malicious || 0);
+    const susp = Number(s.virustotal_suspicious || 0);
+    const cls = mal >= 2 ? 'status-fail' : ((mal + susp) > 0 ? 'status-warn' : 'status-pass');
+    return `<span class="status ${cls}">${escapeHtml(String(mal))} malicious / ${escapeHtml(String(susp))} suspicious</span>`;
+}
+
 function renderOsint(data) {
     const summaryEl = $('osintSummary');
     const ctEl = $('osintCt');
@@ -2772,6 +2985,7 @@ function renderOsint(data) {
         <tr><th>Related hostnames (CT)</th><td>${escapeHtml(String(s.subdomain_count || 0))}</td></tr>
         <tr><th>Wayback snapshots</th><td>${escapeHtml(String(s.wayback_count || 0))}</td></tr>
         <tr><th>Threat feed hits</th><td><span class="status ${threatCls}">${escapeHtml(String(s.threat_hits || 0))}</span></td></tr>
+        <tr><th>VirusTotal detections</th><td>${vtSummaryCell(s)}</td></tr>
         <tr><th>IP</th><td>${escapeHtml(s.ip || '-')}</td></tr>
         <tr><th>ASN</th><td>${escapeHtml(s.asn || '-')}</td></tr>
         <tr><th>Country</th><td>${escapeHtml(s.country || '-')}</td></tr>
@@ -2814,8 +3028,9 @@ function renderOsint(data) {
     const tf = data.sources?.threatfox || {};
     const uh = data.sources?.urlhaus || {};
     const otx = data.sources?.otx || {};
+    const vt = data.sources?.virustotal || {};
     let threatHtml = '';
-    [tf, uh, otx].forEach(src => {
+    [tf, uh, otx, vt].forEach(src => {
         if (!src || !src.source) return;
         if (src.skipped) {
             // The raw message is just a bare env var name; say where it goes.
@@ -2824,6 +3039,24 @@ function renderOsint(data) {
         }
         if (!src.success) {
             threatHtml += `<p class="status status-warn">${escapeHtml(src.source)}: ${escapeHtml(src.error || 'failed')}</p>`;
+            return;
+        }
+        // VirusTotal counts engines, not feed hits, and one lone detection
+        // among ~90 engines is usually a false positive — so it gets its own
+        // wording and only turns red once engines agree.
+        if (src === vt) {
+            const mal = Number(src.malicious || 0);
+            const susp = Number(src.suspicious || 0);
+            const vtCls = mal >= 2 ? 'status-fail' : ((mal + susp) > 0 ? 'status-warn' : 'status-pass');
+            const rep = (src.reputation === null || src.reputation === undefined)
+                ? '' : ` · community score ${escapeHtml(String(src.reputation))}`;
+            threatHtml += `<p class="status ${vtCls}">${escapeHtml(src.source)}: ${escapeHtml(String(mal))} malicious, ${escapeHtml(String(susp))} suspicious of ${escapeHtml(String(mal + susp + Number(src.harmless || 0) + Number(src.undetected || 0)))} engines${rep}</p>`;
+            if ((src.flagged_by || []).length) {
+                threatHtml += `<p class="http-meta"><span>Flagged by: ${escapeHtml((src.flagged_by || []).join(', '))}</span></p>`;
+            }
+            if (mal === 1 && !susp) {
+                threatHtml += '<p class="http-meta"><span>A single engine disagreeing with the rest is commonly a false positive — confirm on the VirusTotal report before acting.</span></p>';
+            }
             return;
         }
         const count = src.hit_count || src.url_count || src.pulses || 0;

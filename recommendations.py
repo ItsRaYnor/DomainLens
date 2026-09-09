@@ -1178,6 +1178,39 @@ def _osint(results):
             "Confirm whether this is expected for your hosting or CDN setup.",
         ))
 
+    # VirusTotal only speaks when it actually ran. Without a key the lookup is
+    # skipped, and an unconfigured source must never produce a verdict — in
+    # either direction.
+    if summary.get("virustotal_measured"):
+        vt = sources.get("virustotal") or {}
+        malicious = int(summary.get("virustotal_malicious") or 0)
+        suspicious = int(summary.get("virustotal_suspicious") or 0)
+        vendors = ", ".join(vt.get("flagged_by") or []) or "unnamed engines"
+        # A single engine flagging a domain is very often a false positive, so
+        # one detection is reported for confirmation rather than as a verdict;
+        # several independent engines agreeing is treated as real.
+        if malicious >= 2:
+            out.append(_r(
+                SEVERITY_CRITICAL, "OSINT",
+                f"VirusTotal: {malicious} engines flag this domain as malicious",
+                f"Multiple independent engines currently flag this domain ({vendors}). "
+                "Independent agreement makes a false positive unlikely.",
+                "Investigate compromise, phishing or malware hosting. After cleanup, request "
+                "a re-analysis on VirusTotal and dispute any remaining incorrect verdicts with the vendors.",
+                "https://www.virustotal.com/",
+            ))
+        elif malicious == 1 or suspicious:
+            out.append(_r(
+                SEVERITY_INFO, "OSINT",
+                "VirusTotal: isolated detection — confirm before acting",
+                f"{malicious} malicious and {suspicious} suspicious verdict(s) from {vendors}. "
+                "A single engine disagreeing with the rest is commonly a false positive, so this "
+                "is reported for confirmation, not as a finding about the domain.",
+                "Open the VirusTotal report and check whether the detection is substantiated. "
+                "If it is not, dispute it with that vendor.",
+                "https://www.virustotal.com/",
+            ))
+
     return out
 
 

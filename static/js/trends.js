@@ -78,7 +78,9 @@ function hoverLayer(points, tooltipFor) {
     const slot = points.length ? a.w / points.length : a.w;
     return points.map((p, i) => {
         const x = a.x0 + i * slot;
-        return `<rect x="${x}" y="${a.y0}" width="${slot}" height="${a.h}" fill="transparent"><title>${escapeHtml(tooltipFor(p))}</title></rect>`;
+        // data-day makes a point clickable: the chart click handler opens the
+        // scans drill-down for that day, where each scan links to its report.
+        return `<rect class="chart-point" data-day="${escapeHtml(String(p.day || ''))}" x="${x}" y="${a.y0}" width="${slot}" height="${a.h}" fill="transparent"><title>${escapeHtml(tooltipFor(p))}</title></rect>`;
     }).join('');
 }
 
@@ -281,6 +283,7 @@ const DRILL = {
 };
 
 let currentDrill = null;
+let currentDrillDay = null;
 
 function drillQuery() {
     const domain = $('domainFilter').value.trim().toLowerCase();
@@ -300,15 +303,20 @@ function gradeCell(grade, score) {
     return `${g}${score != null ? ' (' + escapeHtml(String(score)) + ')' : ''}`;
 }
 
-async function renderScansDrill(body) {
+async function renderScansDrill(body, day) {
     const resp = await fetch('/api/history?limit=200&' + drillQuery().toString());
     const data = await resp.json();
-    const scans = data.scans || [];
+    let scans = data.scans || [];
+    if (day) {
+        // Clicked a chart point: narrow to that day so the graph and the list
+        // line up. Day is a local calendar date derived from created_at.
+        scans = scans.filter(s => localDay(s.created_at) === day);
+    }
     if (!scans.length) {
-        body.innerHTML = '<div class="chart-empty">No scans in this period</div>';
+        body.innerHTML = `<div class="chart-empty">No scans ${day ? 'on ' + escapeHtml(day) : 'in this period'}</div>`;
         return;
     }
-    body.innerHTML = `<div class="table-scroll"><table class="data-table drill-table">
+    body.innerHTML = `${day ? `<p class="drill-note">Scans on ${escapeHtml(day)}</p>` : ''}<div class="table-scroll"><table class="data-table drill-table">
         <thead><tr><th>When</th><th>Domain</th><th>Grade</th><th>Issues</th><th></th></tr></thead>
         <tbody>${scans.map(s => `
             <tr data-scan-id="${escapeHtml(String(s.id))}">
@@ -412,10 +420,15 @@ async function renderDomainsDrill(body, kind) {
         </tbody></table></div>`;
 }
 
-async function openDrill(kind) {
+// The chart series keys each day as created_at[:10] (UTC date prefix), so the
+// client must derive a point's day the same way to line a click up with a row.
+function localDay(createdAt) { return String(createdAt || '').slice(0, 10); }
+
+async function openDrill(kind, day) {
     const meta = DRILL[kind];
     if (!meta) return;
     currentDrill = kind;
+    currentDrillDay = kind === 'scans' ? (day || null) : null;
     const panel = $('drilldown');
     const body = $('drilldownBody');
     panel.classList.remove('hidden');
@@ -423,7 +436,7 @@ async function openDrill(kind) {
     $('drilldownNote').textContent = meta.note;
     body.innerHTML = '<div class="chart-empty">Loading…</div>';
     try {
-        if (kind === 'scans') await renderScansDrill(body);
+        if (kind === 'scans') await renderScansDrill(body, currentDrillDay);
         else if (kind === 'issues') await renderDeltaDrill(body);
         else await renderDomainsDrill(body, kind);
     } catch (err) {
@@ -434,6 +447,7 @@ async function openDrill(kind) {
 
 function closeDrill() {
     currentDrill = null;
+    currentDrillDay = null;
     $('drilldown').classList.add('hidden');
 }
 
@@ -447,7 +461,7 @@ async function deleteScan(scanId) {
     }
     // The KPIs are derived from these rows, so refresh both.
     await loadTrends();
-    if (currentDrill) await openDrill(currentDrill);
+    if (currentDrill) await openDrill(currentDrill, currentDrillDay);
 }
 
 function renderTopDomains(rows) {
@@ -532,7 +546,7 @@ async function reload() {
     }
     try {
         await loadTrends();
-        if (currentDrill) await openDrill(currentDrill);
+        if (currentDrill) await openDrill(currentDrill, currentDrillDay);
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -574,6 +588,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         const tile = e.target.closest('[data-drill]');
         if (tile) { e.preventDefault(); openDrill(tile.getAttribute('data-drill')); }
+    });
+
+    // Clicking a chart point opens the scans for that day, each linking to its
+    // report — so a spike in the graph leads straight to the scans behind it.
+    ['issuesChart', 'scoreChart', 'volumeChart', 'eventsChart'].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        el.addEventListener('click', e => {
+            const pt = e.target.closest('.chart-point');
+            const day = pt && pt.getAttribute('data-day');
+            if (day) openDrill('scans', day);
+        });
     });
 
     on('drilldownClose', 'click', closeDrill);
