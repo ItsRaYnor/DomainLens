@@ -50,6 +50,17 @@ class ScanDiffDirectionTests(unittest.TestCase):
         new = {"dnssec": {"signed": False}}
         self.assertEqual(self._row(scan_diff.compare_dimensions(old, new), "dnssec")["status"], "worse")
 
+    def test_dnssec_timeout_is_unmeasured_not_a_regression(self):
+        old = {"dnssec": {"state": "measured", "signed": True}}
+        new = {"dnssec": {"state": "unmeasured", "signed": None}}
+        field_diff = scan_diff.compare(old, new)
+        self.assertEqual([], field_diff["changes"])
+        self.assertTrue(any(i["section"] == "dnssec" for i in field_diff["unmeasured"]))
+        self.assertEqual(
+            self._row(scan_diff.compare_dimensions(old, new), "dnssec")["status"],
+            "unmeasured",
+        )
+
     def test_a_new_critical_recommendation_is_worse(self):
         diff = scan_diff.compare_dimensions({}, {},
                                  old_severity={"critical": 0, "high": 1},

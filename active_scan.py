@@ -347,8 +347,10 @@ def scan(domain, settings):
 
 
 _SEVERITY_BY_TYPE = {
-    "reflected_xss": "critical",
-    "sqli_error_based": "critical",
+    # These probes find reflection/error signatures, not executable script
+    # context or confirmed query manipulation. Escalate only after validation.
+    "reflected_xss": "medium",
+    "sqli_error_based": "medium",
     "open_redirect": "medium",
 }
 

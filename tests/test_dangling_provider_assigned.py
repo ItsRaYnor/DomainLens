@@ -64,7 +64,7 @@ class DanglingFindingWordingTests(unittest.TestCase):
             "provider": "AWS Elastic Load Balancing",
             "provider_note": "the ELB DNS name carries an AWS-allocated suffix that cannot be requested",
         })
-        self.assertEqual(finding["severity"], "low")
+        self.assertEqual(finding["severity"], "info")
         self.assertIn("not a claimable takeover", finding["detail"])
         self.assertNotIn("may be claimable", finding["detail"])
 
@@ -75,7 +75,7 @@ class DanglingFindingWordingTests(unittest.TestCase):
             "registrable": None,
             "provider": None,
         })
-        self.assertEqual(finding["severity"], "medium")
+        self.assertEqual(finding["severity"], "low")
         self.assertIn("may be claimable", finding["detail"])
 
 

@@ -10,6 +10,11 @@ SEVERITY_LOW = "low"
 SEVERITY_INFO = "info"
 
 
+def _measured(result):
+    """Legacy payloads are measured; new payloads can explicitly say otherwise."""
+    return not isinstance(result, dict) or result.get("state", "measured") == "measured"
+
+
 def _default_retest(category, title, domain=None):
     """Category-aware retest guidance when a finding has no custom steps."""
     target = domain or "the domain"
@@ -84,7 +89,7 @@ def _r(severity, category, title, problem, fix, reference=None, retest=None, dom
 def _dnssec(results):
     out = []
     dnssec = results.get("dnssec")
-    if not dnssec:
+    if not dnssec or not _measured(dnssec):
         return out
     if not dnssec.get("signed"):
         out.append(_r(
@@ -99,7 +104,9 @@ def _dnssec(results):
 def _spf(results):
     out = []
     spf = results.get("spf")
-    if not spf:
+    if not spf or not _measured(spf):
+        return out
+    if _mx_posture(results) == "null":
         return out
     if not spf.get("found"):
         out.append(_r(
@@ -118,7 +125,7 @@ def _spf(results):
 
 
 def _mx_posture(results):
-    """Classify a domain's mail-receiving setup: "null", "none" or "mx".
+    """Classify mail routing as explicit null MX, implicit A/AAAA, or MX.
 
     MX says whether a domain *receives* mail. It says nothing about sending:
     a domain with no MX at all can still send perfectly well, and plenty do.
@@ -133,7 +140,9 @@ def _mx_posture(results):
         return None  # not measured; nothing may be concluded
     records = [str(r).strip() for r in (dns_data.get("MX") or []) if str(r).strip()]
     if not records:
-        return "none"
+        # RFC 5321 falls back to the domain's A/AAAA address. No MX therefore
+        # does not establish that the domain receives no mail.
+        return "implicit"
     targets = []
     for record in records:
         parts = record.split()
@@ -144,20 +153,20 @@ def _mx_posture(results):
 
 
 def _non_mailing_domain(results):
-    """A domain that receives no mail should say it sends none either.
+    """A domain with an explicit null MX should say it sends no mail either.
 
     The case that prompted this: a blacklist hit on the web server address,
     no mail of its own, and nothing published to say so. A domain nobody
     sends from is still worth forging, and SPF `-all` with DMARC `p=reject`
     is what makes that forgery fail at the receiver.
 
-    Nothing here fires for a domain with real MX records. The advice would
-    break a working mail setup, and advice an operator cannot follow without
-    breaking their own site does not belong in the findings list.
+    Nothing here fires for a domain with real MX records or no MX records.
+    The latter still has implicit A/AAAA mail routing under RFC 5321. Advice
+    that could break a working sender does not belong in the findings list.
     """
     out = []
     posture = _mx_posture(results)
-    if posture is None or posture == "mx":
+    if posture != "null":
         return out
 
     spf = results.get("spf") or {}
@@ -167,14 +176,10 @@ def _non_mailing_domain(results):
         and "a:" not in record and "mx" not in record.replace("mx 0", "")
     policy = (dmarc.get("policy") or "").lower()
 
-    # An explicit null MX is a statement; an absent MX is only an absence.
-    # The first justifies naming an inconsistency, the second a suggestion.
-    explicit = posture == "null"
-    severity = SEVERITY_MEDIUM if explicit else SEVERITY_LOW
-    receives = ("publishes a null MX record, so it states outright that it receives "
-                "no mail" if explicit else "publishes no MX record, so it receives no mail")
+    severity = SEVERITY_MEDIUM
+    receives = "publishes a null MX record, so it states outright that it receives no mail"
 
-    if not spf.get("found"):
+    if _measured(spf) and not spf.get("found"):
         out.append(_r(
             severity, "Email", "No SPF on a domain that receives no mail",
             f"This domain {receives}. Without SPF, anyone can still send mail claiming "
@@ -185,7 +190,7 @@ def _non_mailing_domain(results):
             "newsletters, ticketing, CRM — sends on its behalf.",
             "https://datatracker.ietf.org/doc/html/rfc7208",
         ))
-    elif not spf_locked:
+    elif _measured(spf) and not spf_locked:
         out.append(_r(
             severity, "Email", "SPF still allows senders on a domain that receives no mail",
             f"This domain {receives}, but its SPF record still authorises senders: "
@@ -196,7 +201,7 @@ def _non_mailing_domain(results):
             "https://datatracker.ietf.org/doc/html/rfc7208",
         ))
 
-    if not dmarc.get("found"):
+    if _measured(dmarc) and not dmarc.get("found"):
         out.append(_r(
             severity, "Email", "No DMARC on a domain that receives no mail",
             f"This domain {receives}, and publishes no DMARC policy. Mail forged from "
@@ -206,7 +211,7 @@ def _non_mailing_domain(results):
             "no legitimate mail to break, which is the usual reason to roll out gradually.",
             "https://datatracker.ietf.org/doc/html/rfc7489",
         ))
-    elif policy != "reject":
+    elif _measured(dmarc) and policy != "reject":
         out.append(_r(
             severity, "Email", f"DMARC is p={policy or 'none'} on a domain that receives no mail",
             f"This domain {receives}, but its DMARC policy is `p={policy or 'none'}`, so "
@@ -217,16 +222,6 @@ def _non_mailing_domain(results):
             "https://datatracker.ietf.org/doc/html/rfc7489",
         ))
 
-    if posture == "none" and out:
-        out.append(_r(
-            SEVERITY_INFO, "Email", "No null MX published",
-            "This domain has no MX record. Receivers must infer from that absence that "
-            "it accepts no mail, and some will still try the A record instead.",
-            "Publish an explicit null MX (RFC 7505): an `MX` record with priority `0` "
-            "and target `.` — written as `0 .`. It states the same thing without "
-            "leaving anything to inference.",
-            "https://datatracker.ietf.org/doc/html/rfc7505",
-        ))
     return out
 
 def _own_infra(results):
@@ -274,32 +269,61 @@ def _mx_dane_advice(results):
 
     DANE on port 443 is barely deployed and barely matters; on the mail
     exchangers it is what stops STARTTLS being stripped, and the Dutch
-    government requires it.
+    government requires it. Hosted MX outside the scanned zone can only be
+    fixed by its provider, so that case is informational.
     """
     audit = results.get("security") or {}
     dm = (audit.get("dns_mail") or {}) if isinstance(audit, dict) else {}
     dane = dm.get("mx_dane") or {}
     if dane.get("state") != "measured":
         return []
-    missing = [h["host"] for h in dane.get("hosts", []) if not h.get("present")]
-    if not missing:
-        return []
-    return [_r(
-        SEVERITY_MEDIUM, "Email", "No DANE (TLSA) on the mail hosts",
-        "These mail exchangers publish no TLSA record: "
-        f"{', '.join(missing)}. A sending server cannot verify the certificate it "
-        "is offered, so STARTTLS can be stripped or spoofed without detection.",
-        "Publish a TLSA record at `_25._tcp.<mx-host>` for each exchanger, matching "
-        "the certificate it serves. DNSSEC must be signed for DANE to mean anything, "
-        "and the record has to be rotated with the certificate.",
-        "https://datatracker.ietf.org/doc/html/rfc7672",
-    )]
+    if not dane.get("domain") and results.get("domain"):
+        dane = {**dane, "domain": results["domain"]}
+
+    # Keep this module independent from security_checks imports while applying
+    # the same zone ownership rule to saved scans and generated advice.
+    domain = (dane.get("domain") or "").rstrip(".").lower()
+    own, external = [], []
+    for entry in dane.get("hosts") or []:
+        if entry.get("present"):
+            continue
+        host = (entry.get("host") or "").rstrip(".")
+        in_zone = entry.get("in_zone")
+        if in_zone is None and domain:
+            name = host.lower()
+            in_zone = name == domain or name.endswith("." + domain)
+        (external if in_zone is False else own).append(host)
+
+    if own:
+        return [_r(
+            SEVERITY_MEDIUM, "Email", "No DANE (TLSA) on the mail hosts",
+            "These mail exchangers publish no TLSA record: "
+            f"{', '.join(own)}. A sending server cannot verify the certificate it "
+            "is offered, so STARTTLS can be stripped or spoofed without detection.",
+            "Publish a TLSA record at `_25._tcp.<mx-host>` for each exchanger under "
+            "this domain, matching the certificate it serves. DNSSEC must be signed "
+            "for DANE to mean anything, and the record must rotate with the certificate.",
+            "https://datatracker.ietf.org/doc/html/rfc7672",
+        )]
+    if external:
+        return [_r(
+            SEVERITY_INFO, "Email", "Mail provider does not publish DANE (TLSA)",
+            "These hosted mail exchangers publish no TLSA record: "
+            f"{', '.join(external)}. They are outside this domain's DNS zone, so "
+            "you cannot add the record yourself.",
+            "Ask the mail provider about incoming SMTP DANE, or use mail hosts "
+            "under your own DNS zone if DANE is required.",
+            "https://datatracker.ietf.org/doc/html/rfc7672",
+        )]
+    return []
 
 
 def _dmarc(results):
     out = []
     dmarc = results.get("dmarc")
-    if not dmarc:
+    if not dmarc or not _measured(dmarc):
+        return out
+    if _mx_posture(results) == "null":
         return out
     if not dmarc.get("found"):
         out.append(_r(
@@ -322,13 +346,15 @@ def _dmarc(results):
 def _dkim(results):
     out = []
     dkim = results.get("dkim")
-    if not dkim:
+    if not dkim or not _measured(dkim):
         return out
     if not dkim.get("found"):
         out.append(_r(
-            SEVERITY_MEDIUM, "Email", "No DKIM selectors detected",
-            "No DKIM public keys were found for the common selectors tested. Mail from your domain may not be DKIM-signed.",
-            "Enable DKIM signing at your mail provider. Publish the generated public key as `<selector>._domainkey.yourdomain` TXT record. Use at least 2048-bit RSA.",
+            SEVERITY_INFO, "Email", "No DKIM selectors detected",
+            "No DKIM public keys were found for the limited set of selectors tested. "
+            "This does not establish that outbound mail is unsigned.",
+            "Check a recent outbound message's DKIM-Signature header for the actual "
+            "selector. If mail is unsigned, enable DKIM at the mail provider.",
             "https://datatracker.ietf.org/doc/html/rfc6376",
         ))
     return out
@@ -337,7 +363,7 @@ def _dkim(results):
 def _mta_sts(results):
     out = []
     mta = results.get("mta_sts")
-    if mta and not mta.get("found"):
+    if mta and _measured(mta) and not mta.get("found"):
         out.append(_r(
             SEVERITY_LOW, "Email", "MTA-STS not configured",
             "Without MTA-STS, inbound mail can be delivered over unencrypted or misconfigured TLS connections.",
@@ -350,7 +376,7 @@ def _mta_sts(results):
 def _tlsrpt(results):
     out = []
     rpt = results.get("tlsrpt")
-    if rpt and not rpt.get("found"):
+    if rpt and _measured(rpt) and not rpt.get("found"):
         out.append(_r(
             SEVERITY_LOW, "Email", "TLS-RPT not configured",
             "TLS-RPT is not set up. You won't receive reports about TLS failures on inbound mail.",
@@ -575,7 +601,7 @@ def _https_redirect(results):
         return out
     if not red.get("pass"):
         out.append(_r(
-            SEVERITY_HIGH, "Web", "HTTP does not redirect to HTTPS",
+            SEVERITY_MEDIUM, "Web", "HTTP does not redirect to HTTPS",
             "Plain HTTP traffic is not redirected to HTTPS, exposing users to MITM attacks.",
             "Force a 301 redirect from HTTP to HTTPS. Nginx: `return 301 https://$host$request_uri;`. Apache: `Redirect permanent / https://example.com/`.",
         ))
@@ -780,8 +806,13 @@ def _headers(results):
     # absent: the absence at least shows up in the missing list.
     for issue in headers.get("header_value_issues") or []:
         if issue.get("problem") == "invalid":
+            severity = (
+                SEVERITY_LOW
+                if issue.get("header") in {"X-Content-Type-Options", "X-Frame-Options"}
+                else SEVERITY_INFO
+            )
             out.append(_r(
-                SEVERITY_MEDIUM, "Web",
+                severity, "Web",
                 f"{issue['header']} has a value browsers ignore",
                 issue["detail"],
                 f"Set `{issue['header']}: {issue['expected']}`.",
@@ -807,7 +838,7 @@ def _headers(results):
     if wide:
         listed = ", ".join(f"`{f}`" for f in wide[:6])
         out.append(_r(
-            SEVERITY_MEDIUM, "Web",
+            SEVERITY_LOW, "Web",
             f"Permissions-Policy grants {listed} to any embedded site",
             f"These features are set to `*`, so any third-party iframe on the page can use "
             f"them. That is more permissive than the browser default, which limits them to "
@@ -821,7 +852,6 @@ def _headers(results):
 
     missing = headers.get("headers_missing") or []
     if missing:
-        severity = SEVERITY_MEDIUM if len(missing) >= 4 else SEVERITY_LOW
         # Dedicated CSP missing item with full build advice
         if "Content-Security-Policy" in missing:
             out.append(_r(
@@ -837,7 +867,19 @@ def _headers(results):
                 domain=domain,
             ))
             missing = [h for h in missing if h != "Content-Security-Policy"]
+        # HSTS has its own evidence-aware check. Reporting it again based only
+        # on the generic header list creates a duplicate with less context.
+        missing = [h for h in missing if h != "Strict-Transport-Security"]
         if missing:
+            contextual = {
+                "Cross-Origin-Embedder-Policy", "Cross-Origin-Opener-Policy",
+                "Cross-Origin-Resource-Policy", "Permissions-Policy",
+                "X-XSS-Protection", "Referrer-Policy",
+            }
+            severity = (
+                SEVERITY_INFO if all(h in contextual for h in missing)
+                else SEVERITY_LOW
+            )
             # "1 security header(s) missing … does not send several" named
             # nothing and did not agree with itself. A single missing header
             # is now named in the title, and every entry says what the header
@@ -1051,7 +1093,7 @@ def _ipv6(results):
     ipv6 = results.get("ipv6")
     if ipv6 and not ipv6.get("has_ipv6"):
         out.append(_r(
-            SEVERITY_LOW, "Network", "No IPv6 (AAAA) record",
+            SEVERITY_INFO, "Network", "No IPv6 (AAAA) record",
             "The domain only resolves to IPv4. Clients on IPv6-only networks cannot reach it.",
             "Publish AAAA records that point to the IPv6 address of your web server and make sure the service listens on IPv6.",
         ))
@@ -1066,9 +1108,11 @@ def _blacklist(results):
     if bl.get("is_listed"):
         listed = ", ".join(bl.get("listed") or [])
         out.append(_r(
-            SEVERITY_CRITICAL, "Network", "IP listed on DNSBL",
-            f"The server IP is listed on: {listed}. Outbound mail will likely be blocked.",
-            "Investigate potential compromise or spam sources. Request delisting on each DNSBL only after the root cause is fixed.",
+            SEVERITY_INFO, "Network", "IP reputation listing requires context",
+            f"The resolved server IP is listed on: {listed}. This scan does not establish "
+            "that the address sends mail or is controlled exclusively by this domain.",
+            "Confirm whether this is the domain's outbound-mail IP. If it is, investigate "
+            "spam or compromise before requesting delisting; otherwise ask the hosting provider.",
         ))
     return out
 
@@ -1090,8 +1134,9 @@ def _ports(results):
     for entry in ports.get("open") or []:
         port = entry.get("port")
         if port in RISKY_PORTS:
+            severity = SEVERITY_HIGH if port in {23, 3389} else SEVERITY_MEDIUM
             out.append(_r(
-                SEVERITY_HIGH, "Network", f"Risky port {port}/{entry.get('service')} is open",
+                severity, "Network", f"Risky port {port}/{entry.get('service')} is open",
                 RISKY_PORTS[port],
                 "Close the port on the public interface or restrict access via firewall/VPN.",
             ))
@@ -1110,8 +1155,13 @@ def _whois(results):
             parsed = datetime.fromisoformat(exp.replace("Z", "+00:00"))
             days_left = (parsed - datetime.now(timezone.utc)).days
             if 0 <= days_left <= 30:
+                severity = (
+                    SEVERITY_HIGH if days_left <= 1
+                    else SEVERITY_MEDIUM if days_left <= 14
+                    else SEVERITY_INFO
+                )
                 out.append(_r(
-                    SEVERITY_HIGH, "WHOIS", "Domain expires soon",
+                    severity, "WHOIS", "Domain expires soon",
                     f"The domain registration expires in {days_left} days.",
                     "Renew the domain with your registrar and consider enabling auto-renew.",
                 ))
@@ -1155,7 +1205,7 @@ def _osint(results):
 
     if summary.get("listed_in_threat_feeds"):
         out.append(_r(
-            SEVERITY_CRITICAL, "OSINT", "Domain appears in open threat feeds",
+            SEVERITY_HIGH, "OSINT", "Domain appears in open threat feeds",
             "Public OSINT sources (ThreatFox / URLhaus / OTX) returned indicators for this domain.",
             "Investigate host compromise, phishing abuse, or malware distribution. Rotate credentials, review web roots, and request delisting after cleanup.",
             "https://threatfox.abuse.ch/",
@@ -1164,7 +1214,7 @@ def _osint(results):
     subdomain_count = summary.get("subdomain_count") or 0
     if subdomain_count >= 25:
         out.append(_r(
-            SEVERITY_MEDIUM, "OSINT", "Large Certificate Transparency footprint",
+            SEVERITY_INFO, "OSINT", "Large Certificate Transparency footprint",
             f"crt.sh shows {subdomain_count} related hostnames. Unused or forgotten subdomains increase attack surface.",
             "Inventory CT-discovered hostnames, retire unused DNS records, and restrict certificate issuance where possible.",
             "https://crt.sh/",
@@ -1191,7 +1241,7 @@ def _osint(results):
         # several independent engines agreeing is treated as real.
         if malicious >= 2:
             out.append(_r(
-                SEVERITY_CRITICAL, "OSINT",
+                SEVERITY_HIGH, "OSINT",
                 f"VirusTotal: {malicious} engines flag this domain as malicious",
                 f"Multiple independent engines currently flag this domain ({vendors}). "
                 "Independent agreement makes a false positive unlikely.",
@@ -1230,12 +1280,9 @@ def _http_deep(results):
         return out
     domain = results.get("domain")
     for diag in deep.get("diagnostics") or []:
-        severity = SEVERITY_HIGH if str(diag.get("title", "")).startswith(("403", "Cloudflare", "Azure WAF", "App-level")) else SEVERITY_MEDIUM
         title = diag.get("title") or "HTTP diagnostic"
-        if "403" in title or "WAF" in title or "block" in title.lower():
-            severity = SEVERITY_HIGH
         out.append(_r(
-            severity,
+            SEVERITY_INFO,
             "Web",
             title,
             diag.get("detail") or "HTTP analysis reported an access issue.",
@@ -1468,8 +1515,15 @@ def _cdn_hardening(results):
         mapped = skip_map.get(item.get("id"))
         if mapped and mapped in ncsc_ids:
             continue
+        severity = (
+            SEVERITY_INFO
+            if item.get("id") == "cdn-geo-headers"
+            else SEVERITY_HIGH
+            if item.get("id") == "cdn-sig-hash"
+            else SEVERITY_MEDIUM
+        )
         out.append(_r(
-            SEVERITY_HIGH if item.get("id") == "cdn-sig-hash" else SEVERITY_MEDIUM,
+            severity,
             "CDN",
             item.get("title") or "CDN hardening",
             item.get("problem") or (
@@ -1483,14 +1537,58 @@ def _cdn_hardening(results):
     return out
 
 
+def _condition_key(item):
+    """Return a stable identity for conditions emitted by overlapping checks."""
+    title = " ".join(str(item.get("title") or "").lower().split())
+    category = str(item.get("category") or "").lower()
+
+    if ("dane" in title or "tlsa" in title) and "mail" in title:
+        return "email:dane:provider" if "provider" in title else "email:dane:missing"
+    if "content-security-policy" in title or "csp" in title and (
+        "deploy" in title or "tighten" in title or "missing" in title
+    ):
+        return "web:csp"
+    if "hsts" in title and ("missing" in title or "deploy" in title):
+        return "web:hsts:missing"
+    if "tls 1.0" in title:
+        return "tls:protocol:1.0"
+    if "tls 1.1" in title:
+        return "tls:protocol:1.1"
+    if "tls 1.3" in title and ("not" in title or "missing" in title):
+        return "tls:protocol:1.3"
+    if "tls compression" in title:
+        return "tls:compression"
+    if "expired" in title and "certificate" in title:
+        return "certificate:expired"
+    if "self-signed" in title:
+        return "certificate:self-signed"
+    if "ocsp stapling" in title:
+        return "tls:ocsp"
+    if "weak cipher suites" in title or "insufficient cipher" in title:
+        return "tls:cipher:insufficient"
+    if "cors" in title and ("*" in title or "wildcard" in title) and "credential" in title:
+        return "web:cors:wildcard-credentials"
+    return f"{category}:{title}"
+
+
+def _merge_duplicate(primary, duplicate):
+    """Keep one finding while retaining distinct provider-specific remediation."""
+    extra_fix = duplicate.get("fix")
+    if extra_fix and extra_fix not in (primary.get("fix") or ""):
+        primary["fix"] = (primary.get("fix") or "").rstrip() + " " + extra_fix
+    if not primary.get("reference") and duplicate.get("reference"):
+        primary["reference"] = duplicate["reference"]
+    return primary
+
+
 def generate(results):
     """Return a sorted list of advies items (problem / fix / retest) for a scan."""
     domain = results.get("domain")
     recs = []
     for fn in (
         _whois, _dnssec, _spf, _dmarc, _non_mailing_domain, _dkim, _mta_sts, _tlsrpt,
-        _own_infra, _mx_dane_advice,
-        _tls, _ncsc_tls, _cdn_hardening, _weak_auth, _https_redirect, _headers, _ipv6, _blacklist, _ports,
+        _own_infra,
+        _tls, _ncsc_tls, _weak_auth, _https_redirect, _headers, _cdn_hardening, _ipv6, _blacklist, _ports,
         _osint, _http_deep, _hubspot_cf, _rapid7, _security_audit, _js_scan, _active_scan,
     ):
         try:
@@ -1505,7 +1603,12 @@ def generate(results):
             # Ensure every advies item always has retest guidance.
             if not item.get("retest"):
                 item["retest"] = _default_retest(item.get("category"), item.get("title"), domain)
-            recs.append(item)
+            key = _condition_key(item)
+            existing = next((r for r in recs if _condition_key(r) == key), None)
+            if existing is None:
+                recs.append(item)
+            else:
+                _merge_duplicate(existing, item)
     recs.sort(key=lambda r: _SEVERITY_ORDER.get(r["severity"], 99))
     return recs
 

@@ -140,6 +140,19 @@ def compare(before, after):
                 })
             continue
 
+        before_state = (before.get(section) or {}).get("state", "measured")
+        after_state = (after.get(section) or {}).get("state", "measured")
+        if before_state != "measured" or after_state != "measured":
+            unmeasured.append({
+                "section": section, "key": key, "label": label,
+                "reason": (
+                    "not measured in the earlier scan"
+                    if before_state != "measured"
+                    else "not measured in the later scan"
+                ),
+            })
+            continue
+
         old = _extract(before, section, extractor)
         new = _extract(after, section, extractor)
         if old == new:
@@ -229,9 +242,10 @@ def _open_ports(results):
 
 def _dnssec_signed(results):
     dnssec = results.get("dnssec") or {}
-    if not dnssec:
+    if not dnssec or dnssec.get("state", "measured") != "measured":
         return None
-    return bool(dnssec.get("signed"))
+    signed = dnssec.get("signed")
+    return bool(signed) if signed is not None else None
 
 
 def _https_redirect_ok(results):
@@ -260,7 +274,11 @@ _EMAIL_KEYS = ("spf", "dmarc", "dkim", "mta_sts", "tlsrpt")
 
 
 def _email_auth_passing(results):
-    measured = [k for k in _EMAIL_KEYS if isinstance(results.get(k), dict)]
+    measured = [
+        k for k in _EMAIL_KEYS
+        if isinstance(results.get(k), dict)
+        and results[k].get("state", "measured") == "measured"
+    ]
     if not measured:
         return None
     return sum(1 for k in measured if (results.get(k) or {}).get("pass"))

@@ -161,23 +161,23 @@ class EnumerationTruncationTests(unittest.TestCase):
 
 class TakeoverFindingsTests(unittest.TestCase):
 
-    def test_dangling_produces_medium_finding(self):
+    def test_unconfirmed_dangling_record_is_low(self):
         audit = {"subdomains": {"success": True, "takeovers": [], "dangling": [
             {"subdomain": "old.example.com", "cname": "gone.example.net"},
         ]}}
         findings = s.audit_findings(audit)
         dangling = [f for f in findings if f["title"].startswith("Dangling CNAME")]
         self.assertEqual(len(dangling), 1)
-        self.assertEqual(dangling[0]["severity"], "medium")
+        self.assertEqual(dangling[0]["severity"], "low")
 
-    def test_takeover_produces_critical_finding_on_high_confidence(self):
+    def test_high_confidence_possible_takeover_is_high_until_claimed(self):
         audit = {"subdomains": {"success": True, "dangling": [], "takeovers": [
             {"subdomain": "www.example.com", "cname": "a.herokuapp.com", "service": "Heroku",
              "confidence": "high", "fingerprint_match": True, "target_resolves": False,
              "http_status": 404},
         ]}}
         findings = s.audit_findings(audit)
-        self.assertEqual(findings[0]["severity"], "critical")
+        self.assertEqual(findings[0]["severity"], "high")
 
 
 if __name__ == "__main__":

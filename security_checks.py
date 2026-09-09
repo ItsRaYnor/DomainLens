@@ -67,12 +67,27 @@ _RESOLVER.timeout = 4
 _RESOLVER.lifetime = 6
 
 
+class _DnsRecords(list):
+    """List-compatible DNS result that distinguishes absence from failure."""
+
+    def __init__(self, values=(), *, state="measured", error=None):
+        super().__init__(values)
+        self.state = state
+        self.error = error
+
+
 def _resolve(domain, rdtype):
     try:
         answers = _RESOLVER.resolve(domain, rdtype)
-        return [r.to_text() for r in answers]
-    except Exception:
-        return []
+        return _DnsRecords(r.to_text() for r in answers)
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+        return _DnsRecords()
+    except Exception as exc:
+        return _DnsRecords(state="unmeasured", error=str(exc)[:200])
+
+
+def _dns_measurement(records):
+    return getattr(records, "state", "measured")
 
 
 def _is_nxdomain(name):
@@ -643,6 +658,15 @@ def inspect_security_txt(domain, timeout=8):
     return result
 
 
+def _mx_host_in_zone(host, domain):
+    """Return whether an MX hostname is controlled by the scanned DNS zone."""
+    host = (host or "").rstrip(".").lower()
+    domain = (domain or "").rstrip(".").lower()
+    if not host or not domain:
+        return None
+    return host == domain or host.endswith("." + domain)
+
+
 def _check_mx_dane(domain, max_hosts=5):
     """TLSA records on each mail exchanger, per host.
 
@@ -652,35 +676,68 @@ def _check_mx_dane(domain, max_hosts=5):
     that does not exist.
     """
     result = {"state": "not_applicable", "hosts": [], "reason": None,
-              "with_dane": 0, "without_dane": 0}
+              "with_dane": 0, "without_dane": 0, "domain": domain}
     mx = _resolve(domain, "MX")
-    if not mx:
-        result["reason"] = "No MX records, so there are no mail hosts to secure"
+    if _dns_measurement(mx) != "measured":
+        result["state"] = "unmeasured"
+        result["reason"] = getattr(mx, "error", None) or "MX lookup failed"
         return result
-
     hosts = []
     for record in mx:
         parts = str(record).split()
         target = (parts[-1] if parts else "").rstrip(".")
         if target and target not in hosts:
             hosts.append(target)
-    if hosts == [""] or not hosts:
+    if mx and not hosts:
         # A null MX (RFC 7505) is "this domain receives no mail", not a gap.
         result["reason"] = "Null MX: this domain receives no mail"
         return result
+    if not mx:
+        # RFC 5321 implicit MX: delivery falls back to the domain's A/AAAA.
+        hosts = [domain.rstrip(".")]
+        result["implicit_mx"] = True
 
     result["state"] = "measured"
     for host in hosts[:max_hosts]:
         records = _resolve(f"_25._tcp.{host}", "TLSA")
-        entry = {"host": host, "present": bool(records), "records": records}
+        state = _dns_measurement(records)
+        entry = {
+            "host": host,
+            "state": state,
+            "present": bool(records) if state == "measured" else None,
+            "records": records,
+            "in_zone": bool(_mx_host_in_zone(host, domain)),
+        }
         result["hosts"].append(entry)
-        if records:
+        if state != "measured":
+            result["state"] = "unmeasured"
+            result["reason"] = "One or more TLSA lookups could not be measured"
+        elif records:
             result["with_dane"] += 1
         else:
             result["without_dane"] += 1
     if len(hosts) > max_hosts:
         result["truncated"] = len(hosts) - max_hosts
     return result
+
+
+def _mx_dane_missing_split(mx_dane):
+    """Split missing TLSA records into operator-controlled and hosted MX."""
+    domain = mx_dane.get("domain")
+    own, external = [], []
+    for entry in mx_dane.get("hosts") or []:
+        if entry.get("present"):
+            continue
+        host = entry.get("host") or ""
+        in_zone = entry.get("in_zone")
+        if in_zone is None:
+            related = _mx_host_in_zone(host, domain)
+            # Old stored scans may not contain enough context to classify the
+            # host. Keep their existing actionable severity instead of
+            # silently downgrading an unknown.
+            in_zone = True if related is None else related
+        (own if in_zone else external).append(host)
+    return own, external
 
 
 def _looks_like_html(body):
@@ -1083,6 +1140,7 @@ def check_dns_mail_gaps(domain):
             if len(parts) >= 2:
                 caa_tags.append(parts[1])
         result["caa"] = {
+            "state": _dns_measurement(caa),
             "present": bool(caa),
             "records": caa,
             # RFC 8659 tag matching is case-insensitive, but real-world
@@ -1098,14 +1156,23 @@ def check_dns_mail_gaps(domain):
 
         # DANE / TLSA on 443
         tlsa = _resolve(f"_443._tcp.{domain}", "TLSA")
-        result["tlsa"] = {"present": bool(tlsa), "records": tlsa}
+        result["tlsa"] = {
+            "state": _dns_measurement(tlsa),
+            "present": bool(tlsa) if _dns_measurement(tlsa) == "measured" else None,
+            "records": tlsa,
+        }
 
         # Certificates actually issued, against the CAA record that says who
         # may. CAA is only consulted at issuance, so it can look correct
         # while a certificate exists that nobody asked for.
         rows, ct_error, _meta = _fetch_crtsh(domain)
         result["cert_transparency"] = cert_transparency.analyse(
-            rows, caa, days=30, source_error=ct_error)
+            rows, caa, days=30,
+            source_error=(
+                ct_error
+                or ("CAA lookup could not be measured"
+                    if _dns_measurement(caa) != "measured" else None)
+            ))
 
         # DANE on the mail hosts, which is the one that carries weight:
         # internet.nl scores it and the Dutch government requires it, while
@@ -1135,6 +1202,7 @@ def check_dns_mail_gaps(domain):
                     elif part.startswith("p="):
                         p = part.split("=", 1)[1].strip()
         result["dmarc_subdomain"] = {
+            "state": _dns_measurement(dmarc_txt),
             "policy": p, "subdomain_policy": sp,
             # If sp is absent it inherits p; weak only when p is strong but sp explicitly none
             "weak_subdomain": sp == "none" and p in ("quarantine", "reject"),
@@ -1142,8 +1210,12 @@ def check_dns_mail_gaps(domain):
 
         # Wildcard DNS — a fixed unlikely label; if it resolves, a wildcard exists
         rand = "domainlens-wildcard-probe-zzq7x9"
-        wildcard = bool(_resolve(f"{rand}.{domain}", "A"))
-        result["wildcard_dns"] = wildcard
+        wildcard_rows = _resolve(f"{rand}.{domain}", "A")
+        result["wildcard_dns"] = (
+            bool(wildcard_rows)
+            if _dns_measurement(wildcard_rows) == "measured"
+            else None
+        )
 
         # Stray control characters in the policy TXT records
         result["txt_hygiene"] = check_txt_hygiene(domain)
@@ -1285,7 +1357,7 @@ def audit_findings(audit):
     # --- Subdomain takeover ---
     subs = audit.get("subdomains") or {}
     for t in subs.get("takeovers", []):
-        sev = "critical" if t["confidence"] == "high" else "high"
+        sev = "high" if t["confidence"] == "high" else "medium"
         findings.append(_finding(
             sev, "Subdomain Takeover",
             f"Possible subdomain takeover: {t['subdomain']}",
@@ -1303,7 +1375,7 @@ def audit_findings(audit):
             provider = d.get("provider") or "the hosting provider"
             note = d.get("provider_note") or "the provider controls the hostname"
             findings.append(_finding(
-                "low", "Subdomain Takeover",
+                "info", "Subdomain Takeover",
                 f"Dangling CNAME: {d['subdomain']}",
                 f"{d['subdomain']} is a CNAME to {d['cname']}, which returns NXDOMAIN — "
                 f"the {provider} resource behind it is gone. This is a stale record to "
@@ -1314,7 +1386,7 @@ def audit_findings(audit):
             ))
         else:
             findings.append(_finding(
-                "medium", "Subdomain Takeover",
+                "low", "Subdomain Takeover",
                 f"Dangling CNAME: {d['subdomain']}",
                 f"{d['subdomain']} is a CNAME to {d['cname']}, which returns NXDOMAIN. "
                 "The provider is not in DomainLens's takeover-signature list, so this could "
@@ -1334,8 +1406,21 @@ def audit_findings(audit):
     # --- Web exposures ---
     web = audit.get("web_exposure") or {}
     for f in web.get("sensitive_files", []):
+        path = (f.get("path") or "").lower()
+        severity = (
+            "high"
+            if path in {
+                "/.env", "/.env.local", "/.env.production",
+                "/config.php.bak", "/wp-config.php.bak",
+                "/backup.zip", "/backup.sql", "/database.sql", "/dump.sql",
+                "/.aws/credentials", "/id_rsa", "/.htpasswd",
+            }
+            else "medium"
+            if path in {"/.git/config", "/.svn/entries", "/docker-compose.yml", "/phpinfo.php"}
+            else "low"
+        )
         findings.append(_finding(
-            "critical", "Exposure",
+            severity, "Exposure",
             f"Sensitive file exposed: {f['path']}",
             f"The path {f['path']} is publicly readable and matched a known sensitive-content signature.",
             evidence=f"HTTP {f['status']}, {f.get('size', '?')} bytes",
@@ -1344,7 +1429,7 @@ def audit_findings(audit):
     cors = web.get("cors") or {}
     if cors.get("reflects_origin") and cors.get("allow_credentials"):
         findings.append(_finding(
-            "high", "CORS",
+            "medium", "CORS",
             "CORS reflects arbitrary Origin with credentials",
             "The server reflects any Origin in Access-Control-Allow-Origin while allowing credentials — any site can read authenticated responses.",
             evidence=f"ACAO reflected, ACAC=true",
@@ -1352,30 +1437,23 @@ def audit_findings(audit):
         ))
     elif cors.get("wildcard") and cors.get("allow_credentials"):
         findings.append(_finding(
-            "medium", "CORS",
+            "info", "CORS",
             "CORS wildcard with credentials",
-            "Access-Control-Allow-Origin is * together with credentials.",
+            "Access-Control-Allow-Origin is * together with credentials. Standards-compliant "
+            "browsers reject this combination, so no credentialed data exposure was established.",
             fix="Replace the wildcard with an explicit allowlist when credentials are needed.",
         ))
     methods = web.get("methods") or {}
     if methods.get("trace_enabled"):
         findings.append(_finding(
-            "medium", "HTTP Methods",
+            "info", "HTTP Methods",
             "HTTP TRACE enabled (Cross-Site Tracing)",
             "TRACE is enabled and can be abused for Cross-Site Tracing (XST) to steal headers/cookies.",
             evidence=methods.get("allow_header", ""),
             fix="Disable the TRACE method on the web server.",
         ))
-    if methods.get("dangerous"):
-        extra = [m for m in methods["dangerous"] if m != "TRACE"]
-        if extra:
-            findings.append(_finding(
-                "low", "HTTP Methods",
-                f"Potentially unsafe HTTP methods: {', '.join(extra)}",
-                "Write/modify methods are advertised as allowed. Confirm they require authentication.",
-                evidence=methods.get("allow_header", ""),
-                fix="Restrict PUT/DELETE/PATCH to authenticated, authorized users only.",
-            ))
+    # An Allow header alone does not establish that write methods can be used
+    # without authentication or authorization, so it is inventory, not a defect.
     for c in web.get("cookies", []):
         problems = []
         if not c["secure"]:
@@ -1396,7 +1474,7 @@ def audit_findings(audit):
     for a in web.get("admin_endpoints", []):
         if a["status"] == 200:
             findings.append(_finding(
-                "medium", "Exposure",
+                "info", "Exposure",
                 f"Admin/debug endpoint reachable: {a['path']}",
                 f"{a['path']} returned HTTP 200 and may expose an administrative or debug interface.",
                 fix=f"Restrict {a['path']} to trusted networks or require authentication.",
@@ -1441,7 +1519,7 @@ def audit_findings(audit):
     if axfr.get("vulnerable"):
         ns_names = ", ".join(v["nameserver"] for v in axfr["vulnerable"])
         findings.append(_finding(
-            "critical", "DNS",
+            "medium", "DNS",
             "DNS zone transfer (AXFR) allowed",
             f"One or more nameservers allow unauthenticated zone transfers, leaking the full DNS zone ({axfr['records_leaked']} records).",
             evidence=f"Vulnerable NS: {ns_names}",
@@ -1449,38 +1527,48 @@ def audit_findings(audit):
         ))
     findings.extend(cert_transparency.findings(dm.get("cert_transparency"), _finding))
 
-    # DANE on the mail hosts. Only reported when there are mail hosts: a
-    # domain that receives no mail has nothing to secure here, and advice
-    # about a mail server it does not run is advice it cannot act on.
+    # DANE on the mail hosts. Hosted MX lives outside the scanned DNS zone;
+    # only its provider can publish TLSA there, so that gap is informational.
     mx_dane = dm.get("mx_dane") or {}
     if mx_dane.get("state") == "measured":
-        missing = [h["host"] for h in mx_dane.get("hosts", []) if not h.get("present")]
-        if missing and not mx_dane.get("with_dane"):
+        missing_own, missing_external = _mx_dane_missing_split(mx_dane)
+        if missing_own and not mx_dane.get("with_dane"):
             findings.append(_finding(
                 "medium", "Email",
                 "No DANE (TLSA) on the mail hosts",
                 "None of this domain's mail exchangers publish a TLSA record, so a "
                 "sending server cannot verify the certificate it is offered and "
                 "STARTTLS can be stripped or spoofed without detection.",
-                evidence="No _25._tcp TLSA on: " + ", ".join(missing),
+                evidence="No _25._tcp TLSA on: " + ", ".join(missing_own),
                 fix="Publish a TLSA record at _25._tcp.<mx-host> for each mail "
-                    "exchanger, matching the certificate it serves. DNSSEC must be "
-                    "signed for DANE to mean anything.",
+                    "exchanger under this domain, matching the certificate it "
+                    "serves. DNSSEC must be signed for DANE to mean anything.",
             ))
-        elif missing:
+        elif missing_own:
             findings.append(_finding(
                 "medium", "Email",
                 "DANE (TLSA) is missing on some mail hosts",
                 "Some mail exchangers publish a TLSA record and some do not. A "
                 "sender that reaches one of the unprotected hosts gets no "
                 "verification, which is the same as having none at all.",
-                evidence="Without TLSA: " + ", ".join(missing),
-                fix="Publish a TLSA record at _25._tcp for every mail exchanger, "
-                    "not only the primary.",
+                evidence="Without TLSA: " + ", ".join(missing_own),
+                fix="Publish a TLSA record at _25._tcp for every mail exchanger "
+                    "under this domain, not only the primary.",
+            ))
+        elif missing_external:
+            findings.append(_finding(
+                "info", "Email",
+                "Mail provider does not publish DANE (TLSA)",
+                "The mail exchangers publish no TLSA record, so incoming SMTP "
+                "cannot be authenticated with DANE. These exchangers are outside "
+                "this domain's DNS zone, so only the mail provider can add it.",
+                evidence="No _25._tcp TLSA on: " + ", ".join(missing_external),
+                fix="Ask the mail provider about incoming SMTP DANE, or use mail "
+                    "hosts under your own DNS zone if DANE is required.",
             ))
 
     caa = dm.get("caa") or {}
-    if dm.get("success") and not caa.get("has_issue_tag"):
+    if dm.get("success") and caa.get("state", "measured") == "measured" and not caa.get("has_issue_tag"):
         if caa.get("present"):
             findings.append(_finding(
                 "low", "DNS",
@@ -1544,7 +1632,7 @@ def audit_findings(audit):
     info = audit.get("info_disclosure") or {}
     for leak in info.get("version_leaks", []):
         findings.append(_finding(
-            "low", "Info Disclosure",
+            "info", "Info Disclosure",
             f"Version leaked in {leak['header']}",
             f"The server discloses a precise version ({leak['value']}), helping attackers match known CVEs.",
             fix=f"Strip or generalize the {leak['header']} header.",

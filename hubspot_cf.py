@@ -201,7 +201,7 @@ def _build_findings(cf, hs, headers_lc, path_probes, final_status):
     if hs["detected"] and not cf["detected"]:
         findings.append({
             "id": "hubspot_without_cloudflare",
-            "severity": "medium",
+            "severity": "info",
             "title": "HubSpot present without Cloudflare edge signals",
             "problem": "HubSpot fingerprints were found, but Cloudflare edge markers were not. Origin exposure or incomplete CDN onboarding is possible.",
             "fix": "Confirm DNS is orange-clouded (proxied) in Cloudflare, or enable HubSpot/Cloudflare recommended SSL mode (Full/Strict) for the connected domain.",
@@ -211,7 +211,7 @@ def _build_findings(cf, hs, headers_lc, path_probes, final_status):
     if hs["detected"] and hs["cookies"] and not hs["consent_banner_script"]:
         findings.append({
             "id": "hubspot_tracking_without_banner",
-            "severity": "high",
+            "severity": "info",
             "title": "HubSpot tracking cookies without consent banner script",
             "problem": f"HubSpot cookies seen ({', '.join(hs['cookies'])}) but js.hs-banner.com was not loaded.",
             "fix": "Enable the HubSpot cookie consent banner (or your CMP) and block non-essential HubSpot cookies until consent is granted.",
@@ -250,7 +250,7 @@ def _build_findings(cf, hs, headers_lc, path_probes, final_status):
     if hs["forms_script"] and cf["detected"]:
         findings.append({
             "id": "hubspot_forms_behind_cf",
-            "severity": "low",
+            "severity": "info",
             "title": "HubSpot forms behind Cloudflare",
             "problem": "HubSpot forms/scripts are loaded through a Cloudflare-protected site.",
             "fix": "Allow HubSpot form/API endpoints in Cloudflare WAF and Bot Fight Mode exclusions if legitimate submissions are blocked (check Security → Events).",
@@ -261,7 +261,7 @@ def _build_findings(cf, hs, headers_lc, path_probes, final_status):
     if challenged and hs["detected"]:
         findings.append({
             "id": "cloudflare_challenge_hubspot_paths",
-            "severity": "medium",
+            "severity": "info",
             "title": "Cloudflare challenge on HubSpot-related paths",
             "problem": "Cloudflare browser/challenge pages were observed on HubSpot CMS or consent paths.",
             "fix": "Create Cloudflare WAF/skip rules for HubSpot operational paths (/_hcms/, cookie management, form callbacks) used by trusted automation and editors.",
@@ -271,7 +271,7 @@ def _build_findings(cf, hs, headers_lc, path_probes, final_status):
     if hcms and hcms.get("status") in (200, 301, 302, 401, 403):
         findings.append({
             "id": "hubspot_hcms_path_exposed",
-            "severity": "low",
+            "severity": "info",
             "title": "HubSpot CMS management path responds publicly",
             "problem": f"/_hcms/ returned HTTP {hcms.get('status')}.",
             "fix": "Ensure only intended CMS routes are public. Restrict editor/admin surfaces with Cloudflare Access or HubSpot permissions.",
@@ -280,7 +280,7 @@ def _build_findings(cf, hs, headers_lc, path_probes, final_status):
     if final_status in (401, 403) and cf["detected"] and hs["detected"]:
         findings.append({
             "id": "cf_blocks_hubspot_origin",
-            "severity": "high",
+            "severity": "info",
             "title": "Cloudflare returned access denial on HubSpot site",
             "problem": f"Final HTTP status {final_status} with both Cloudflare and HubSpot signals present.",
             "fix": "Inspect Cloudflare Security Events and HubSpot domain SSL mode. False-positive WAF rules commonly break HubSpot pages, chat, and forms.",

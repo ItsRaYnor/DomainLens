@@ -89,9 +89,36 @@ class JsScanTests(unittest.TestCase):
         }
         findings = js_scan.findings(scan_result)
         severities = [f["severity"] for f in findings]
-        self.assertEqual(severities[0], "critical")  # secret first
-        self.assertIn("high", severities)  # vulnerable library
+        self.assertEqual(severities[0], "medium")  # unvalidated access-key identifier
+        self.assertIn("medium", severities)  # vulnerable library, reachability unknown
         self.assertIn("low", severities)  # missing SRI
+
+    def test_intentionally_public_key_is_informational(self):
+        findings = js_scan.findings({
+            "success": True,
+            "vulnerable_libraries": [],
+            "secrets_found": [{
+                "type": "Stripe Live Publishable Key",
+                "masked_value": "pk_l...WXYZ",
+                "source": "https://example.com/app.js",
+            }],
+            "missing_sri": [],
+        })
+        self.assertEqual("info", findings[0]["severity"])
+        self.assertNotIn("rotate", findings[0]["fix"].lower())
+
+    def test_private_secret_pattern_is_high_not_unverified_critical(self):
+        findings = js_scan.findings({
+            "success": True,
+            "vulnerable_libraries": [],
+            "secrets_found": [{
+                "type": "Stripe Live Secret Key",
+                "masked_value": "sk_l...WXYZ",
+                "source": "https://example.com/app.js",
+            }],
+            "missing_sri": [],
+        })
+        self.assertEqual("high", findings[0]["severity"])
 
 
 if __name__ == "__main__":

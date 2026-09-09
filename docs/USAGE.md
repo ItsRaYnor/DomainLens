@@ -314,9 +314,16 @@ what the Dutch government requires.
 
 Each MX host is now checked separately, because partial coverage is its own
 problem: a sender that reaches the one host without TLSA gets no
-verification, which is the same as having none. A domain with no MX, or with
-a null MX, is **not applicable** rather than failing &mdash; it has no mail
-hosts to secure.
+verification, which is the same as having none. With no explicit MX, SMTP
+falls back to the domain's A/AAAA address (the RFC 5321 implicit MX), so
+DomainLens checks `_25._tcp.<domain>`. Only an explicit null MX (`0 .`) is
+**not applicable**, because it states that the domain receives no mail.
+
+Mail exchangers outside the scanned domain's DNS zone (for example hosted
+mail from Zoho, Microsoft or Google) are only **informational** when TLSA is
+missing. The provider controls the zone where that record must be published;
+the domain owner cannot add it. MX names under the scanned domain remain an
+actionable finding.
 
 ## Unexpected certificates
 
@@ -328,6 +335,21 @@ obtained through a compromised DNS account.
 The scan now compares the Certificate Transparency logs (already fetched for
 subdomain enumeration) against the domain's own CAA record, and reports
 certificates issued in the last 30 days by an authority CAA does not permit.
+Because CAA is evaluated at issuance time while DomainLens sees the current
+record, this is a **medium** manual-verification finding rather than proof
+that the CA issued improperly. Issuers DomainLens cannot map remain a
+coverage note and are not counted as domain findings.
+
+## Measurement status and duplicate findings
+
+DNS absence is only reported when the resolver authoritatively measured
+NXDOMAIN or NODATA. Timeouts, SERVFAIL and unavailable resolvers are
+**unmeasured** and do not become missing SPF, DMARC, DKIM, CAA or TLSA
+findings.
+
+Overlapping checks are normalized before advice is shown. TLS/NCSC, CDN/CSP,
+HubSpot/CSP and security-audit findings may contribute remediation context,
+but the same condition is counted only once.
 
 An issuer that cannot be mapped to a CAA identifier is reported as **not
 checked**, never as a violation. The mapping is a lookup table, not a rule,

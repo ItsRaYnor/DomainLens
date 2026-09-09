@@ -415,7 +415,7 @@ def findings(scan_result):
 
     for lib in scan_result.get("vulnerable_libraries", []):
         out.append({
-            "severity": "high",
+            "severity": "medium",
             "category": "Vulnerable JS Library",
             "title": f"{lib['library']} {lib['version']} has known vulnerabilities",
             "detail": lib["summary"],
@@ -425,15 +425,51 @@ def findings(scan_result):
         })
 
     for secret in scan_result.get("secrets_found", []):
+        secret_type = secret["type"]
+        if secret_type in {
+            "Google API Key", "Stripe Live Publishable Key",
+            "Firebase URL with implicit database",
+        }:
+            severity = "info"
+            detail = (
+                f"A client-visible identifier matching {secret_type} was found. "
+                "This may be intentional; its server-side restrictions still need review."
+            )
+            fix = (
+                "Confirm the identifier is intended to be public and restrict it by "
+                "origin, API, quota, and least privilege where the provider supports that."
+            )
+        elif secret_type in {
+            "AWS Secret Key", "Google OAuth Client Secret",
+            "Stripe Live Secret Key", "GitHub Token", "Slack Token",
+            "Slack Webhook", "Private Key Block", "Basic Auth in URL",
+        }:
+            severity = "high"
+            detail = (
+                f"A pattern strongly matching {secret_type} was found in JavaScript "
+                "served to every visitor's browser."
+            )
+            fix = (
+                "Validate and rotate this credential, remove it from client-side code, "
+                "and move privileged operations behind a backend API."
+            )
+        else:
+            severity = "medium"
+            detail = (
+                f"A pattern possibly matching {secret_type} was found in public "
+                "JavaScript, but validity and privilege were not established."
+            )
+            fix = (
+                "Validate the match and its permissions. Rotate and remove it from "
+                "client-side code if it is a live private credential."
+            )
         out.append({
-            "severity": "critical",
+            "severity": severity,
             "category": "Exposed Secret",
-            "title": f"Possible {secret['type']} exposed in client-side JS",
-            "detail": f"A pattern matching {secret['type']} was found in JavaScript "
-                      f"served to every visitor's browser.",
+            "title": f"Possible {secret_type} exposed in client-side JS",
+            "detail": detail,
             "evidence": f"{secret['masked_value']} · found in {secret['source']}",
-            "fix": "Rotate this credential immediately, remove it from client-side "
-                   "code, and move the operation it enables behind a backend API.",
+            "fix": fix,
         })
 
     missing_sri = scan_result.get("missing_sri", [])

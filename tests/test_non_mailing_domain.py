@@ -104,36 +104,13 @@ class NullMxDomainsTests(unittest.TestCase):
 
 
 class DomainsWithNoMxAtAllTests(unittest.TestCase):
-    """An absent MX is only an absence, not a statement, so the advice is
-    softer than for an explicit null MX."""
+    """No MX still permits implicit delivery to A/AAAA under RFC 5321."""
 
-    def test_no_mx_still_gets_the_advice(self):
-        titles = _titles(_findings([]))
-        self.assertTrue(any("SPF" in t for t in titles))
-        self.assertTrue(any("DMARC" in t for t in titles))
+    def test_no_mx_does_not_claim_the_domain_receives_no_mail(self):
+        """Only an explicit null MX supports no-mail remediation."""
+        self.assertEqual([], _findings([]))
 
-    def test_no_mx_is_a_lower_severity_than_an_explicit_null_mx(self):
-        """One is an inconsistency with something published; the other is an
-        inference from silence."""
-        absent = [f for f in _findings([]) if "SPF" in f["title"]][0]
-        explicit = [f for f in _findings(["0 ."]) if "SPF" in f["title"]][0]
-        order = ["info", "low", "medium", "high", "critical"]
-        self.assertLess(order.index(absent["severity"]),
-                        order.index(explicit["severity"]))
-
-    def test_publishing_a_null_mx_is_suggested_when_there_is_none(self):
-        titles = _titles(_findings([]))
-        self.assertTrue(any("null MX" in t for t in titles), titles)
-
-    def test_the_null_mx_suggestion_gives_the_record_to_publish(self):
-        note = [f for f in _findings([]) if "null MX" in f["title"]][0]
-        self.assertIn("0 .", note["fix"])
-        self.assertIn("7505", note["reference"])
-
-    def test_no_null_mx_note_when_nothing_else_is_wrong(self):
-        """A domain with no MX that already publishes -all and p=reject has
-        made its position clear; nagging about the record form alone is
-        advice without a problem behind it."""
+    def test_no_mx_with_locked_policies_stays_silent(self):
         self.assertEqual([], _findings([], spf=LOCKED_SPF, dmarc=LOCKED_DMARC))
 
 
@@ -143,6 +120,8 @@ class WiringTests(unittest.TestCase):
                    "spf": NO_SPF, "dmarc": NO_DMARC}
         titles = [r["title"] for r in recommendations.generate(results)]
         self.assertTrue(any("receives no mail" in t for t in titles), titles)
+        self.assertEqual(1, sum("SPF" in t for t in titles), titles)
+        self.assertEqual(1, sum("DMARC" in t for t in titles), titles)
 
     def test_it_is_filed_under_email(self):
         for finding in _findings(["0 ."]):

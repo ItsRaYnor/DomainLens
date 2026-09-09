@@ -110,9 +110,8 @@ class ActiveScanTests(unittest.TestCase):
             ],
         }
         findings = active_scan.findings_from_scan(scan_result)
-        severities = {f["title"].split("'")[0].strip(): f["severity"] for f in findings}
         self.assertEqual(len(findings), 3)
-        self.assertTrue(all(f["severity"] in ("critical", "medium") for f in findings))
+        self.assertTrue(all(f["severity"] == "medium" for f in findings))
 
 
 if __name__ == "__main__":

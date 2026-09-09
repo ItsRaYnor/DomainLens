@@ -129,7 +129,7 @@ class PermissionsPolicyTests(unittest.TestCase):
             "permissions_policy": {"sensitive_wide_open": ["camera", "microphone"]},
         }})
         item = next(r for r in recs if "Permissions-Policy grants" in r["title"])
-        self.assertEqual(item["severity"], "medium")
+        self.assertEqual(item["severity"], "low")
         self.assertIn("camera", item["title"])
         self.assertIn("(self)", item["fix"])
 

@@ -58,9 +58,9 @@ class CookieCorsFramingTests(unittest.TestCase):
             "access-control-allow-origin": "*",
             "access-control-allow-credentials": "true",
         })
-        ids = {i["id"] for i in result["issues"]}
-        self.assertIn("cors_star", ids)
-        self.assertIn("cors_star_with_credentials", ids)
+        self.assertEqual(1, len(result["issues"]))
+        self.assertEqual("cors_star_with_credentials", result["issues"][0]["id"])
+        self.assertEqual("info", result["issues"][0]["severity"])
 
     def test_framing_unprotected(self):
         csp = web_security.analyze_csp(None)
@@ -145,7 +145,7 @@ class AnalyzeResponseSecurityTests(unittest.TestCase):
         self.assertGreater(result["issue_count"], 2)
         ids = {i["id"] for i in result["issues"]}
         self.assertTrue(any("wildcard" in i or "frame" in i for i in ids))
-        self.assertIn("cors_star", ids)
+        self.assertNotIn("cors_star", ids)
 
 
 if __name__ == "__main__":

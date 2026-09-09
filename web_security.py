@@ -362,19 +362,13 @@ def analyze_cors(headers_lc: dict) -> dict[str, Any]:
     acao = (headers_lc.get("access-control-allow-origin") or "").strip()
     acac = (headers_lc.get("access-control-allow-credentials") or "").strip().lower()
     issues = []
-    if acao == "*":
-        issues.append({
-            "id": "cors_star",
-            "severity": "medium" if acac not in {"true", "1"} else "high",
-            "title": "CORS allows any origin (*)",
-            "detail": "Access-Control-Allow-Origin: * lets any site read responses (worse with credentials).",
-        })
     if acao == "*" and acac in {"true", "1"}:
         issues.append({
             "id": "cors_star_with_credentials",
-            "severity": "high",
+            "severity": "info",
             "title": "CORS * combined with credentials",
-            "detail": "Browsers should reject this; if honored by a misconfig it is critical. Use an explicit allow-list.",
+            "detail": "Standards-compliant browsers reject this header combination, so "
+                      "credentialed cross-origin access was not established.",
         })
     if acao and acao != "*" and acac in {"true", "1"}:
         # Reflecting arbitrary Origin with credentials is dangerous — we only see the response value

@@ -333,7 +333,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
             if row["level"] == LEVEL_INSUFFICIENT:
                 findings.append(_finding(
                     f"proto-{row['name'].lower().replace(' ', '-')}",
-                    "critical",
+                    "high",
                     f"{row['name']} is insufficient (NCSC 2025-05)",
                     f"{row['name']} is classified as Insufficient. Disable it and require TLS 1.2 minimum, preferably TLS 1.3.",
                     LEVEL_INSUFFICIENT,
@@ -344,7 +344,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
     if not proto_map.get("TLS 1.3"):
         findings.append(_finding(
             "proto-missing-tls13",
-            "medium",
+            "low",
             "TLS 1.3 not offered (NCSC prefers Good)",
             "NCSC rates TLS 1.3 as Good and recommends preferring it for future quantum-safe migration.",
             LEVEL_SUFFICIENT,
@@ -357,7 +357,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
     if not proto_map.get("TLS 1.2") and not proto_map.get("TLS 1.3"):
         findings.append(_finding(
             "proto-no-modern",
-            "critical",
+            "high",
             "No modern TLS versions offered",
             "Neither TLS 1.2 nor TLS 1.3 is available. The configuration is Insufficient.",
             LEVEL_INSUFFICIENT,
@@ -383,7 +383,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
     if level_counts.get(LEVEL_INSUFFICIENT, 0) > 0:
         findings.append(_finding(
             "cipher-insufficient",
-            "critical",
+            "high",
             f"{level_counts[LEVEL_INSUFFICIENT]} insufficient cipher suite(s)",
             "One or more accepted cipher suites use algorithms rated Insufficient "
             "(e.g. static RSA key exchange, 3DES, RC4, SHA-1, NULL, DSS, CCM-8).",
@@ -417,7 +417,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
         overall_parts.append(LEVEL_INSUFFICIENT)
         findings.append(_finding(
             "tls-compression",
-            "critical",
+            "high",
             "TLS compression enabled (Insufficient)",
             "TLS compression is Insufficient per NCSC Table 10 and enables CRIME-class attacks.",
             LEVEL_INSUFFICIENT,
@@ -433,7 +433,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
         if cert_assessment["level"] == LEVEL_INSUFFICIENT:
             findings.append(_finding(
                 "cert-key-insufficient",
-                "critical",
+                "high",
                 "Certificate key parameters are Insufficient",
                 cert_assessment.get("detail") or "Key length below NCSC minimum.",
                 LEVEL_INSUFFICIENT,
@@ -488,7 +488,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
     if cipher_order.get("applicable") and cipher_order.get("pass") is False:
         findings.append(_finding(
             "cipher-order",
-            "high",
+            "medium",
             "Cipher suite order prefers weaker suites",
             (
                 cipher_order.get("detail")
@@ -537,7 +537,7 @@ def assess(tls_deep: Optional[dict] = None, *, cert_key_bits: Optional[int] = No
                     )
             findings.append(_finding(
                 "signature-hash-insufficient",
-                "critical",
+                "high",
                 "Insufficient hash for TLS key-exchange signatures (SHA-1)",
                 (
                     sig_hashes.get("detail")

@@ -117,16 +117,15 @@ class HeaderValueRecommendationTests(unittest.TestCase):
             "success": True, "headers_missing": [], "header_value_issues": issues,
         }})
 
-    def test_an_ignored_value_outranks_a_missing_header(self):
-        # Absence at least shows up in the missing list; a value that looks
-        # right and is discarded shows up nowhere.
+    def test_an_ignored_contextual_header_is_informational(self):
+        """Invalid CORP loses optional isolation, not baseline site security."""
         recs = self._recs([{
             "header": "Cross-Origin-Resource-Policy", "value": "samesite",
             "problem": "invalid", "expected": "same-site (or same-origin)",
             "detail": "browsers discard the header",
         }])
         item = next(r for r in recs if "browsers ignore" in r["title"])
-        self.assertEqual(item["severity"], "medium")
+        self.assertEqual(item["severity"], "info")
         self.assertIn("same-site", item["fix"])
 
     def test_a_permissive_value_is_low(self):

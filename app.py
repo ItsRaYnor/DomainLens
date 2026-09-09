@@ -409,13 +409,29 @@ def _get_apex_domain(domain):
     return ".".join(parts[-2:])
 
 
+class _DnsRecords(list):
+    """List-compatible DNS answer that preserves whether absence was measured."""
+
+    def __init__(self, values=(), *, state="measured", error=None):
+        super().__init__(values)
+        self.state = state
+        self.error = error
+
+
 def _resolve(domain, rdtype):
-    """Resolve DNS records, return list of strings."""
+    """Resolve DNS records without turning resolver failure into NODATA."""
     try:
         answers = dns.resolver.resolve(domain, rdtype)
-        return [r.to_text() for r in answers]
-    except Exception:
-        return []
+        return _DnsRecords(r.to_text() for r in answers)
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+        return _DnsRecords()
+    except Exception as exc:
+        return _DnsRecords(state="unmeasured", error=_safe_error(exc))
+
+
+def _dns_measurement(records):
+    """Return the measurement state carried by resolver results or test lists."""
+    return getattr(records, "state", "measured")
 
 
 # ---------------------------------------------------------------------------
@@ -621,27 +637,31 @@ def check_dnssec(domain):
     """Check if DNSSEC is enabled for the domain."""
     try:
         dns.name.from_text(domain)
-        try:
-            dns.resolver.resolve(domain, "DNSKEY")
-            has_dnskey = True
-        except Exception:
-            has_dnskey = False
+        dnskey = _resolve(domain, "DNSKEY")
+        ds = _resolve(domain, "DS")
+        if "unmeasured" in {_dns_measurement(dnskey), _dns_measurement(ds)}:
+            errors = [getattr(rows, "error", None) for rows in (dnskey, ds)]
+            return {
+                "state": "unmeasured",
+                "signed": None,
+                "has_dnskey": None if _dns_measurement(dnskey) == "unmeasured" else bool(dnskey),
+                "has_ds": None if _dns_measurement(ds) == "unmeasured" else bool(ds),
+                "status": next((e for e in errors if e), "DNSSEC could not be measured"),
+            }
 
-        try:
-            dns.resolver.resolve(domain, "DS")
-            has_ds = True
-        except Exception:
-            has_ds = False
+        has_dnskey = bool(dnskey)
+        has_ds = bool(ds)
 
         signed = has_dnskey and has_ds
         return {
+            "state": "measured",
             "signed": signed,
             "has_dnskey": has_dnskey,
             "has_ds": has_ds,
             "status": "DNSSEC enabled" if signed else "DNSSEC not fully configured",
         }
     except Exception as exc:
-        return {"signed": False, "status": _safe_error(exc)}
+        return {"state": "unmeasured", "signed": None, "status": _safe_error(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -657,15 +677,21 @@ def check_spf(domain):
     (the old behaviour) hid this failure mode completely.
     """
     txts = _resolve(domain, "TXT")
+    if _dns_measurement(txts) != "measured":
+        return {
+            "state": "unmeasured", "found": None, "pass": None,
+            "error": getattr(txts, "error", None) or "SPF DNS lookup failed",
+        }
     spf_records = [t.strip('"') for t in txts if t.strip('"').lower().startswith("v=spf1")]
     if not spf_records:
-        return {"found": False, "pass": False}
+        return {"state": "measured", "found": False, "pass": False}
     multiple = len(spf_records) > 1
     clean = spf_records[0]
     mechanisms = clean.split()
     has_all = any(m in ("-all", "~all", "?all") for m in mechanisms)
     strict = "-all" in mechanisms
     return {
+        "state": "measured",
         "found": True,
         "record": clean,
         "records": spf_records,
@@ -684,9 +710,14 @@ def check_dmarc(domain):
     apply even though a record "found" that looks fine on its own.
     """
     records = _resolve(f"_dmarc.{domain}", "TXT")
+    if _dns_measurement(records) != "measured":
+        return {
+            "state": "unmeasured", "found": None, "pass": None,
+            "error": getattr(records, "error", None) or "DMARC DNS lookup failed",
+        }
     dmarc_records = [r.strip('"') for r in records if r.strip('"').lower().startswith("v=dmarc1")]
     if not dmarc_records:
-        return {"found": False, "pass": False}
+        return {"state": "measured", "found": False, "pass": False}
     multiple = len(dmarc_records) > 1
     clean = dmarc_records[0]
     policy = "none"
@@ -695,6 +726,7 @@ def check_dmarc(domain):
         if part.lower().startswith("p="):
             policy = part.split("=", 1)[1].strip().lower()
     return {
+        "state": "measured",
         "found": True,
         "record": clean,
         "records": dmarc_records,
@@ -735,8 +767,12 @@ def check_dkim(domain, selectors=None, extra_selectors=None):
         seen = set(selectors)
         selectors = list(selectors) + [s for s in extra_selectors if s not in seen and not seen.add(s)]
     found = []
+    unmeasured = []
     for sel in selectors:
         records = _resolve(f"{sel}._domainkey.{domain}", "TXT")
+        if _dns_measurement(records) != "measured":
+            unmeasured.append(sel)
+            continue
         if not records:
             continue
         record_text = records[0].strip('"')
@@ -750,7 +786,14 @@ def check_dkim(domain, selectors=None, extra_selectors=None):
             "revoked": tags["p"] == "",
         })
     active = [s for s in found if not s["revoked"]]
-    return {"found": len(found) > 0, "selectors": found, "pass": len(active) > 0}
+    state = "measured" if found or not unmeasured else "unmeasured"
+    return {
+        "state": state,
+        "found": len(found) > 0 if state == "measured" else None,
+        "selectors": found,
+        "pass": len(active) > 0 if state == "measured" else None,
+        "unmeasured_selectors": unmeasured,
+    }
 
 
 def check_mta_sts(domain):
@@ -767,6 +810,11 @@ def check_mta_sts(domain):
     OK, the same blind spot a single-vantage-point check always has.
     """
     records = _resolve(f"_mta-sts.{domain}", "TXT")
+    if _dns_measurement(records) != "measured":
+        return {
+            "state": "unmeasured", "found": None, "pass": None,
+            "error": getattr(records, "error", None) or "MTA-STS DNS lookup failed",
+        }
     dns_record = None
     for r in records:
         clean = r.strip('"')
@@ -774,10 +822,10 @@ def check_mta_sts(domain):
             dns_record = clean
             break
     if not dns_record:
-        return {"found": False, "pass": False}
+        return {"state": "measured", "found": False, "pass": False}
 
     result = {
-        "found": True, "record": dns_record,
+        "state": "measured", "found": True, "record": dns_record,
         "policy_reachable": False, "policy_valid": False, "pass": False,
     }
     try:
@@ -815,12 +863,20 @@ def check_tlsrpt(domain):
     but requests nothing — no reports are ever generated or delivered.
     """
     records = _resolve(f"_smtp._tls.{domain}", "TXT")
+    if _dns_measurement(records) != "measured":
+        return {
+            "state": "unmeasured", "found": None, "pass": None,
+            "error": getattr(records, "error", None) or "TLS-RPT DNS lookup failed",
+        }
     for r in records:
         clean = r.strip('"')
         if "v=tlsrpt" in clean.lower() or "v=TLSRPTv1" in clean:
             has_rua = "rua=" in clean.lower()
-            return {"found": True, "record": clean, "has_rua": has_rua, "pass": has_rua}
-    return {"found": False, "pass": False}
+            return {
+                "state": "measured", "found": True, "record": clean,
+                "has_rua": has_rua, "pass": has_rua,
+            }
+    return {"state": "measured", "found": False, "pass": False}
 
 
 # ---------------------------------------------------------------------------

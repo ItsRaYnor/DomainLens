@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from unittest import mock
 
@@ -14,9 +15,16 @@ class EmailCheckCompletenessTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls._tempdir = tempfile.TemporaryDirectory()
+        os.environ["DOMAINLENS_DB"] = os.path.join(cls._tempdir.name, "domainlens.db")
         os.environ.setdefault("DOMAINLENS_DISABLE_SCHEDULER", "1")
         import app
         cls.app = app
+
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("DOMAINLENS_DB", None)
+        cls._tempdir.cleanup()
 
     # --- SPF: multiple records is a PermError (RFC 7208 SS3.2) ---
 
@@ -36,6 +44,14 @@ class EmailCheckCompletenessTests(unittest.TestCase):
         self.assertTrue(result["multiple_records"])
         self.assertFalse(result["pass"])
 
+    def test_spf_timeout_is_unmeasured_not_missing(self):
+        """Resolver failure must not become a high missing-SPF finding."""
+        failed = self.app._DnsRecords(state="unmeasured", error="timeout")
+        with mock.patch("app._resolve", return_value=failed):
+            result = self.app.check_spf("example.com")
+        self.assertEqual("unmeasured", result["state"])
+        self.assertIsNone(result["found"])
+
     # --- DMARC: multiple records means DMARC is ignored (RFC 7489 SS6.6.3) ---
 
     def test_dmarc_single_reject_passes(self):
@@ -51,6 +67,13 @@ class EmailCheckCompletenessTests(unittest.TestCase):
             result = self.app.check_dmarc("example.com")
         self.assertTrue(result["multiple_records"])
         self.assertFalse(result["pass"])
+
+    def test_dmarc_servfail_is_unmeasured_not_missing(self):
+        failed = self.app._DnsRecords(state="unmeasured", error="SERVFAIL")
+        with mock.patch("app._resolve", return_value=failed):
+            result = self.app.check_dmarc("example.com")
+        self.assertEqual("unmeasured", result["state"])
+        self.assertIsNone(result["found"])
 
     # --- DKIM: revoked keys and non-DKIM TXT records at the selector name ---
 
@@ -77,6 +100,13 @@ class EmailCheckCompletenessTests(unittest.TestCase):
         self.assertFalse(result["found"])
         self.assertFalse(result["pass"])
         self.assertEqual(result["selectors"], [])
+
+    def test_all_dkim_selector_timeouts_are_unmeasured(self):
+        failed = self.app._DnsRecords(state="unmeasured", error="timeout")
+        with mock.patch("app._resolve", return_value=failed):
+            result = self.app.check_dkim("example.com", selectors=["default", "selector1"])
+        self.assertEqual("unmeasured", result["state"])
+        self.assertIsNone(result["found"])
 
     # --- MTA-STS: DNS record present is not the same as a reachable policy ---
 

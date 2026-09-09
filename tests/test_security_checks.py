@@ -132,5 +132,50 @@ class AdminEndpointSoftFourOhFourTests(unittest.TestCase):
         self.assertIsNotNone(result)
 
 
+class EvidenceBasedSeverityTests(unittest.TestCase):
+    def test_axfr_is_reconnaissance_not_critical_compromise(self):
+        findings = s.audit_findings({"dns_mail": {
+            "success": True,
+            "axfr": {
+                "vulnerable": [{"nameserver": "ns.example.com", "records": 20}],
+                "records_leaked": 20,
+            },
+            "caa": {"state": "unmeasured"},
+        }})
+        axfr = next(f for f in findings if "AXFR" in f["title"])
+        self.assertEqual("medium", axfr["severity"])
+
+    def test_sensitive_paths_are_graded_by_exposed_content(self):
+        findings = s.audit_findings({"web_exposure": {
+            "sensitive_files": [
+                {"path": "/.git/HEAD", "status": 200, "size": 20},
+                {"path": "/.env", "status": 200, "size": 200},
+            ],
+        }})
+        by_path = {f["title"].split(": ", 1)[1]: f["severity"] for f in findings}
+        self.assertEqual("low", by_path["/.git/HEAD"])
+        self.assertEqual("high", by_path["/.env"])
+
+    def test_admin_login_page_is_inventory(self):
+        findings = s.audit_findings({"web_exposure": {
+            "admin_endpoints": [{"path": "/wp-admin/", "status": 200}],
+        }})
+        self.assertEqual("info", findings[0]["severity"])
+
+    def test_wildcard_credentials_cors_is_not_claimed_exploitable(self):
+        findings = s.audit_findings({"web_exposure": {
+            "cors": {"wildcard": True, "allow_credentials": True},
+        }})
+        self.assertEqual("info", findings[0]["severity"])
+        self.assertIn("reject", findings[0]["detail"])
+
+    def test_caa_timeout_does_not_become_missing_caa(self):
+        findings = s.audit_findings({"dns_mail": {
+            "success": True,
+            "caa": {"state": "unmeasured", "present": False},
+        }})
+        self.assertFalse(any("CAA" in f["title"] for f in findings), findings)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -59,13 +59,13 @@ class VirusTotalRecommendationTests(unittest.TestCase):
                            "virustotal_malicious": None})
         self.assertEqual([r for r in recs if "VirusTotal" in r["title"]], [])
 
-    def test_several_engines_agreeing_is_critical(self):
+    def test_several_engines_agreeing_is_high_pending_confirmation(self):
         recs = self._recs(
             {"threat_hits": 0, "virustotal_measured": True,
              "virustotal_malicious": 3, "virustotal_suspicious": 0},
             {"virustotal": {"flagged_by": ["VendorA", "VendorB", "VendorC"]}})
         hit = next(r for r in recs if "VirusTotal" in r["title"])
-        self.assertEqual(hit["severity"], recommendations.SEVERITY_CRITICAL)
+        self.assertEqual(hit["severity"], recommendations.SEVERITY_HIGH)
         self.assertIn("VendorA", hit["problem"])
 
     def test_a_single_detection_is_reported_for_confirmation_not_as_a_verdict(self):

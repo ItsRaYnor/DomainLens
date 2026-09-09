@@ -177,7 +177,7 @@ def findings(analysis, _finding):
 
     for item in analysis.get("unexpected", []):
         out.append(_finding(
-            "high", "Certificates",
+            "medium", "Certificates",
             "Certificate issued by an authority CAA does not permit",
             f"{item['certificates']} certificate(s) issued in the last "
             f"{analysis['days']} days by {item['issuer']}, whose CAA identifier "
@@ -190,18 +190,6 @@ def findings(analysis, _finding):
                 "review who can change this domain's DNS.",
         ))
 
-    # Named, not silently dropped: an unmapped issuer is a gap in our table,
-    # and hiding it would let a genuinely unexpected certificate pass as
-    # "nothing to report".
-    if analysis.get("unrecognised_issuers"):
-        out.append(_finding(
-            "info", "Certificates",
-            "Certificate issuer could not be checked against CAA",
-            "Certificates were issued by an authority this tool cannot map to a "
-            "CAA identifier, so whether the CAA record permits it was not "
-            "established. This is a limitation here, not a finding about the "
-            "domain.",
-            evidence="; ".join(analysis["unrecognised_issuers"][:5]),
-            fix="Check by hand whether that authority is one you use.",
-        ))
+    # Unrecognised issuers remain in the analysis as a coverage limitation.
+    # They are not a defect of the scanned domain and therefore not a finding.
     return out
