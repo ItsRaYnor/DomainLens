@@ -126,6 +126,7 @@ def _integration_flags() -> dict:
         "spamhaus_dqs_configured": _optional_key_configured("SPAMHAUS_DQS_KEY"),
         "abusech_configured": _optional_key_configured("ABUSECH_AUTH_KEY"),
         "otx_configured": _optional_key_configured("OTX_API_KEY"),
+        "virustotal_configured": _optional_key_configured("VIRUSTOTAL_API_KEY"),
         "ovh_configured": all(
             os.environ.get(k, "").strip()
             for k in ("OVH_APP_KEY", "OVH_APP_SECRET", "OVH_CONSUMER_KEY")

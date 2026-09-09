@@ -2926,6 +2926,20 @@ function cacheNote(section) {
 }
 
 // ===== OSINT =====
+
+// "Not configured" and "zero detections" are different answers and must not
+// render the same: without an API key VirusTotal never ran, so a green 0 there
+// would be a verdict about something that was never checked.
+function vtSummaryCell(s) {
+    if (!s.virustotal_measured) {
+        return '<span class="muted">not configured</span>';
+    }
+    const mal = Number(s.virustotal_malicious || 0);
+    const susp = Number(s.virustotal_suspicious || 0);
+    const cls = mal >= 2 ? 'status-fail' : ((mal + susp) > 0 ? 'status-warn' : 'status-pass');
+    return `<span class="status ${cls}">${escapeHtml(String(mal))} malicious / ${escapeHtml(String(susp))} suspicious</span>`;
+}
+
 function renderOsint(data) {
     const summaryEl = $('osintSummary');
     const ctEl = $('osintCt');
@@ -2949,6 +2963,7 @@ function renderOsint(data) {
         <tr><th>Related hostnames (CT)</th><td>${escapeHtml(String(s.subdomain_count || 0))}</td></tr>
         <tr><th>Wayback snapshots</th><td>${escapeHtml(String(s.wayback_count || 0))}</td></tr>
         <tr><th>Threat feed hits</th><td><span class="status ${threatCls}">${escapeHtml(String(s.threat_hits || 0))}</span></td></tr>
+        <tr><th>VirusTotal detections</th><td>${vtSummaryCell(s)}</td></tr>
         <tr><th>IP</th><td>${escapeHtml(s.ip || '-')}</td></tr>
         <tr><th>ASN</th><td>${escapeHtml(s.asn || '-')}</td></tr>
         <tr><th>Country</th><td>${escapeHtml(s.country || '-')}</td></tr>
@@ -2991,8 +3006,9 @@ function renderOsint(data) {
     const tf = data.sources?.threatfox || {};
     const uh = data.sources?.urlhaus || {};
     const otx = data.sources?.otx || {};
+    const vt = data.sources?.virustotal || {};
     let threatHtml = '';
-    [tf, uh, otx].forEach(src => {
+    [tf, uh, otx, vt].forEach(src => {
         if (!src || !src.source) return;
         if (src.skipped) {
             // The raw message is just a bare env var name; say where it goes.
@@ -3001,6 +3017,24 @@ function renderOsint(data) {
         }
         if (!src.success) {
             threatHtml += `<p class="status status-warn">${escapeHtml(src.source)}: ${escapeHtml(src.error || 'failed')}</p>`;
+            return;
+        }
+        // VirusTotal counts engines, not feed hits, and one lone detection
+        // among ~90 engines is usually a false positive — so it gets its own
+        // wording and only turns red once engines agree.
+        if (src === vt) {
+            const mal = Number(src.malicious || 0);
+            const susp = Number(src.suspicious || 0);
+            const vtCls = mal >= 2 ? 'status-fail' : ((mal + susp) > 0 ? 'status-warn' : 'status-pass');
+            const rep = (src.reputation === null || src.reputation === undefined)
+                ? '' : ` · community score ${escapeHtml(String(src.reputation))}`;
+            threatHtml += `<p class="status ${vtCls}">${escapeHtml(src.source)}: ${escapeHtml(String(mal))} malicious, ${escapeHtml(String(susp))} suspicious of ${escapeHtml(String(mal + susp + Number(src.harmless || 0) + Number(src.undetected || 0)))} engines${rep}</p>`;
+            if ((src.flagged_by || []).length) {
+                threatHtml += `<p class="http-meta"><span>Flagged by: ${escapeHtml((src.flagged_by || []).join(', '))}</span></p>`;
+            }
+            if (mal === 1 && !susp) {
+                threatHtml += '<p class="http-meta"><span>A single engine disagreeing with the rest is commonly a false positive — confirm on the VirusTotal report before acting.</span></p>';
+            }
             return;
         }
         const count = src.hit_count || src.url_count || src.pulses || 0;

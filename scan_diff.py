@@ -116,6 +116,23 @@ def _threat_feed_hits(results):
     return int((osint.get("summary") or {}).get("threat_hits") or 0)
 
 
+def _virustotal_detections(results):
+    """Engines currently flagging the domain, or None when VT did not run.
+
+    Gated on virustotal_measured rather than on the counts: with no API key the
+    lookup is skipped and the counts are absent, which must read as unmeasured
+    and never as "zero detections".
+    """
+    osint = results.get("osint") or {}
+    if not osint.get("success"):
+        return None
+    summary = osint.get("summary") or {}
+    if not summary.get("virustotal_measured"):
+        return None
+    return int(summary.get("virustotal_malicious") or 0) + int(
+        summary.get("virustotal_suspicious") or 0)
+
+
 def _leaked_secrets(results):
     js = results.get("js_scan") or {}
     if not js.get("success"):
@@ -210,6 +227,8 @@ _DIMENSIONS = [
      "compare": _number_worse_when_lower, "unit": "mechanisms"},
     {"key": "reputation", "label": "Threat-feed hits", "extract": _threat_feed_hits,
      "compare": _number_worse_when_higher, "unit": "hits"},
+    {"key": "virustotal", "label": "VirusTotal detections", "extract": _virustotal_detections,
+     "compare": _number_worse_when_higher, "unit": "engines"},
     {"key": "secrets", "label": "Leaked secrets", "extract": _leaked_secrets,
      "compare": _number_worse_when_higher, "unit": "secrets"},
     {"key": "vulnerable_js", "label": "Vulnerable JS libraries", "extract": _vulnerable_js,

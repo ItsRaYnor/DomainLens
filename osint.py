@@ -7,6 +7,11 @@ Sources (no commercial APIs required):
 - IP/ASN context via ip-api.com (non-commercial free endpoint)
 - Optional abuse.ch ThreatFox / URLhaus when ABUSECH_AUTH_KEY is set
 - Optional AlienVault OTX when OTX_API_KEY is set
+- Optional VirusTotal multi-vendor reputation when VIRUSTOTAL_API_KEY is set
+
+Every optional source reports skipped=True when its key is absent. That is a
+"not measured" state, deliberately distinct from a clean verdict: nothing
+downstream may turn an unconfigured lookup into "this domain is fine".
 """
 
 from __future__ import annotations
@@ -383,6 +388,66 @@ def otx_lookup(domain):
     return result
 
 
+def virustotal_lookup(domain):
+    """Optional VirusTotal domain reputation (API v3).
+
+    Adds a multi-vendor view that the abuse.ch/OTX feeds do not give: those
+    answer "is this domain in a malware/C2 feed", VirusTotal answers "how many
+    engines currently flag it", plus a community reputation score.
+
+    Without a key this returns skipped=True rather than an error or a zero
+    verdict: not configured is not the same as "clean", and nothing downstream
+    may read it as one.
+    """
+    key = _api_key("VIRUSTOTAL_API_KEY")
+    result = {
+        "success": False,
+        "source": "virustotal.com",
+        "configured": bool(key),
+        "malicious": 0,
+        "suspicious": 0,
+        "harmless": 0,
+        "undetected": 0,
+        "reputation": None,
+        "flagged_by": [],
+    }
+    if not key:
+        result["success"] = True
+        result["skipped"] = True
+        result["message"] = "Set VIRUSTOTAL_API_KEY for VirusTotal reputation lookups"
+        return result
+
+    session = _session()
+    data, error = _fetch_json(
+        session,
+        f"https://www.virustotal.com/api/v3/domains/{quote(domain)}",
+        label="VirusTotal", timeout=_TIMEOUT,
+        headers={"x-apikey": key},
+        auth_message="VirusTotal rejected the API key")
+    if data is None:
+        result["error"] = error
+        return result
+
+    attributes = (data.get("data") or {}).get("attributes") or {}
+    stats = attributes.get("last_analysis_stats") or {}
+    # Name the engines that flag it: a bare count invites arguing with the
+    # number, while the vendor list can actually be checked.
+    flagged = [
+        name for name, verdict in (attributes.get("last_analysis_results") or {}).items()
+        if (verdict or {}).get("category") in {"malicious", "suspicious"}
+    ]
+    result.update({
+        "success": True,
+        "malicious": int(stats.get("malicious") or 0),
+        "suspicious": int(stats.get("suspicious") or 0),
+        "harmless": int(stats.get("harmless") or 0),
+        "undetected": int(stats.get("undetected") or 0),
+        "reputation": attributes.get("reputation"),
+        "flagged_by": sorted(flagged)[:20],
+    })
+    return result
+
+
 def collect_osint(domain):
     """Run all OSINT collectors and return a combined payload."""
     collectors = {
@@ -392,9 +457,10 @@ def collect_osint(domain):
         "threatfox": lambda: threatfox_lookup(domain),
         "urlhaus": lambda: urlhaus_lookup(domain),
         "otx": lambda: otx_lookup(domain),
+        "virustotal": lambda: virustotal_lookup(domain),
     }
     results = {}
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=7) as executor:
         futures = {executor.submit(fn): name for name, fn in collectors.items()}
         for future in as_completed(futures):
             name = futures[future]
@@ -407,7 +473,14 @@ def collect_osint(domain):
     tf = results.get("threatfox") or {}
     uh = results.get("urlhaus") or {}
     otx = results.get("otx") or {}
+    vt = results.get("virustotal") or {}
     threat_hits = int(tf.get("hit_count") or 0) + int(uh.get("url_count") or 0) + int(otx.get("pulses") or 0)
+    # VirusTotal is reported alongside the feed hits rather than folded into
+    # them: "N engines flag this" is a different claim from "it appears in a
+    # malware feed", and merging the two would make either number unreadable.
+    # measured is False when no key is set, so nothing can read a missing
+    # lookup as a clean verdict.
+    vt_measured = bool(vt.get("success")) and not vt.get("skipped")
 
     return {
         "success": True,
@@ -421,5 +494,9 @@ def collect_osint(domain):
             "asn": ((results.get("ip_context") or {}).get("geo") or {}).get("asn"),
             "country": ((results.get("ip_context") or {}).get("geo") or {}).get("country"),
             "listed_in_threat_feeds": threat_hits > 0,
+            "virustotal_measured": vt_measured,
+            "virustotal_malicious": int(vt.get("malicious") or 0) if vt_measured else None,
+            "virustotal_suspicious": int(vt.get("suspicious") or 0) if vt_measured else None,
+            "virustotal_reputation": vt.get("reputation") if vt_measured else None,
         },
     }

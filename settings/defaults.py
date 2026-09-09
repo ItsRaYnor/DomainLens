@@ -314,6 +314,7 @@ SECRET_ENV_KEYS = [
     "SPAMHAUS_DQS_KEY",
     "ABUSECH_AUTH_KEY",
     "OTX_API_KEY",
+    "VIRUSTOTAL_API_KEY",
     "OVH_APP_KEY",
     "OVH_APP_SECRET",
     "OVH_CONSUMER_KEY",
@@ -349,6 +350,13 @@ OPTIONAL_INTEGRATIONS = [
         "enables": "OTX threat-intelligence pulses in the OSINT tab",
         "without": "OTX is reported as not configured",
         "signup": "https://otx.alienvault.com/api",
+    },
+    {
+        "env": "VIRUSTOTAL_API_KEY",
+        "name": "VirusTotal",
+        "enables": "Multi-vendor domain reputation (detections + community score) in the OSINT tab",
+        "without": "VirusTotal is reported as not configured and no reputation verdict is claimed",
+        "signup": "https://www.virustotal.com/gui/my-apikey",
     },
 ]
 

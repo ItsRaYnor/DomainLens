@@ -2876,7 +2876,12 @@ def run_selected_checks(domain, checks, extra_dkim_selectors=None, progress_cb=N
     names = [n for n in selected if n in check_map]
     _run_checks(check_map, names, results, progress_cb)
 
-    if "ncsc_tls" in checks or "tls_deep" in results or "ncsc_tls" in selected:
+    # Only attach the NCSC assessment when it was actually selected. It used to
+    # be attached whenever tls_deep happened to run, so picking just "TLS Scan"
+    # returned a full NCSC verdict — including critical findings and a
+    # compliant=False conclusion — for a check the operator never asked for.
+    # The CDN detection it carries rode along the same way.
+    if "ncsc_tls" in checks:
         results = _attach_ncsc_tls(results, domain)
     return results
 
