@@ -66,10 +66,32 @@ class VerificationTests(unittest.TestCase):
         into the server's own network."""
         with mock.patch.object(self.own.socket, "getaddrinfo",
                                return_value=[(2, 1, 6, "", ("127.0.0.1", 443))]), \
-             mock.patch.object(self.own.requests, "get") as get:
+             mock.patch.object(self.own, "_fetch_pinned") as fetch:
             ok, _ = self.own._check_http("example.com", "tok")
         self.assertFalse(ok)
-        get.assert_not_called()
+        fetch.assert_not_called()
+
+    def test_the_https_file_is_fetched_from_the_address_that_was_checked(self):
+        """The check resolved the name, then the fetch resolved it again. A
+        name with a zero TTL can answer public first and 10.0.0.5 second
+        (DNS rebinding), and the fetch reached the internal host, its
+        status code echoed back in the error."""
+        import urllib3.util.connection as ul3conn
+        answers = iter([[(2, 1, 6, "", ("93.184.216.34", 443))]])
+        dialled = []
+
+        def rebinding(*args, **kwargs):
+            return next(answers, [(2, 1, 6, "", ("10.0.0.5", 443))])
+
+        def dial(address, *args, **kwargs):
+            dialled.append(address[0])
+            raise OSError("not connecting in a test")
+
+        with mock.patch.object(self.own.socket, "getaddrinfo", side_effect=rebinding), \
+             mock.patch.object(ul3conn, "create_connection", side_effect=dial):
+            ok, _ = self.own._check_http("example.com", "tok")
+        self.assertFalse(ok)
+        self.assertEqual(["93.184.216.34"], dialled)
 
     def test_verifying_the_zone_covers_its_subdomains(self):
         self.own.attest("example.com", "admin@example.com", "our zone")

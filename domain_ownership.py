@@ -32,6 +32,7 @@ from datetime import datetime, timedelta, timezone
 
 import dns.resolver
 import requests
+import urllib3
 
 import db
 
@@ -157,8 +158,8 @@ def _txt_values(name):
     return values, None
 
 
-def _public_addresses_only(host):
-    """Refuse to fetch from a name that resolves to a private address.
+def _public_addresses(host):
+    """The addresses `host` resolves to, or [] when any of them is private.
 
     The fetch goes wherever the DNS says, and a name pointed at 127.0.0.1 or
     a cloud metadata address would turn this into a request from the server
@@ -167,9 +168,36 @@ def _public_addresses_only(host):
     try:
         infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
     except OSError:
-        return False
-    addresses = {info[4][0] for info in infos}
-    return bool(addresses) and all(ipaddress.ip_address(a).is_global for a in addresses)
+        return []
+    addresses = sorted({info[4][0] for info in infos})
+    if addresses and all(ipaddress.ip_address(a).is_global for a in addresses):
+        return addresses
+    return []
+
+
+def _fetch_pinned(domain, address):
+    """GET the verification file from `address`, validating TLS for `domain`.
+
+    Connects to the address that was checked rather than resolving the name
+    again: a second lookup is free to answer differently (DNS rebinding) and
+    would carry the request past the check into the internal network.
+    Returns (status, first 4 KB of the body).
+    """
+    pool = urllib3.HTTPSConnectionPool(
+        address, 443, server_hostname=domain, assert_hostname=domain,
+        cert_reqs="CERT_REQUIRED", ca_certs=requests.certs.where(),
+        timeout=urllib3.Timeout(total=_TIMEOUT), retries=False)
+    try:
+        resp = pool.urlopen("GET", WELL_KNOWN_PATH, headers={"Host": domain},
+                            redirect=False, preload_content=False)
+        try:
+            # Only the first few KB: the file holds one token.
+            body = resp.read(4096, decode_content=True).decode("utf-8", "replace")
+        finally:
+            resp.release_conn()
+        return resp.status, body
+    finally:
+        pool.close()
 
 
 def _check_dns(domain, token):
@@ -180,18 +208,16 @@ def _check_dns(domain, token):
 
 
 def _check_http(domain, token):
-    if not _public_addresses_only(domain):
+    addresses = _public_addresses(domain)
+    if not addresses:
         return False, "The domain does not resolve to public addresses only"
     try:
-        with requests.get(f"https://{domain}{WELL_KNOWN_PATH}", timeout=_TIMEOUT,
-                          allow_redirects=False, stream=True) as resp:
-            # Only the first few KB: the file holds one token.
-            body = resp.raw.read(4096, decode_content=True).decode("utf-8", "replace")
-    except (requests.RequestException, OSError) as exc:
+        status, body = _fetch_pinned(domain, addresses[0])
+    except (urllib3.exceptions.HTTPError, OSError) as exc:
         return False, f"HTTPS fetch failed: {type(exc).__name__}"
-    if resp.status_code == 200 and token in body.split():
+    if status == 200 and token in body.split():
         return True, None
-    return False, f"{WELL_KNOWN_PATH} returned {resp.status_code} without the token"
+    return False, f"{WELL_KNOWN_PATH} returned {status} without the token"
 
 
 def check(domain, checked_by=None):
