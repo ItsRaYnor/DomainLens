@@ -152,7 +152,8 @@
       "appearance": "Weergave",
       "disclosure": "Responsible disclosure",
       "own_infra": "Tests op eigen infrastructuur",
-      "ownership": "Domeineigendom"
+      "ownership": "Domeineigendom",
+      "notifications": "Meldingen (webhook, Slack, Teams, e-mail)"
     },
     "general": {
       "locale": "Taal",
@@ -332,6 +333,16 @@
     },
     "ownership": {
       "max_age_days": "Dagen dat een DNS/HTTPS-eigendomsbewijs geldig blijft (0 = tot intrekken)"
+    },
+    "notifications": {
+      "enabled": "Monitormeldingen versturen",
+      "min_severity": "Minimale ernst om te versturen",
+      "send_digest": "Ook het periodieke overzicht versturen (zie Rapportage)",
+      "smtp_host": "SMTP-server (leeg = geen e-mail)",
+      "smtp_port": "SMTP-poort",
+      "smtp_security": "SMTP-beveiliging",
+      "smtp_from": "Afzenderadres",
+      "email_to": "Ontvangers (één per regel)"
     }
   },
   "rapid7_ui": {

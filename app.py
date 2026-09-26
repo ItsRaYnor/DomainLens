@@ -44,6 +44,7 @@ import ncsc_tls
 import api_tokens
 import audit_log
 import auth
+import notifications
 import domain_ownership
 from routes import admin_nav
 import roles
@@ -3491,9 +3492,11 @@ def _scan_monitor(monitor, progress_cb=None):
         summary=event["summary"],
         details=event["details"],
     )
-    sn_result = _notify_servicenow(event_id, event, monitor)
+    sn_result, channel_results = _notify_event(event_id, event, monitor, scan_id=scan_id)
     if sn_result:
         event["servicenow"] = sn_result
+    if channel_results:
+        event["notifications"] = channel_results
     updated = db.get_monitor(monitor["id"])
     return {
         "monitor": _serialize_monitor(updated),
@@ -3528,12 +3531,20 @@ def _notify_servicenow(event_id, event, monitor):
     return result
 
 
+def _notify_event(event_id, event, monitor, scan_id=None):
+    """Every outbound channel for one monitor event: ServiceNow, then the
+    webhook, Slack, Teams and email channels. Each fails on its own."""
+    sn_result = _notify_servicenow(event_id, event, monitor)
+    channel_results = notifications.dispatch(event, monitor, scan_id=scan_id)
+    return sn_result, channel_results
+
+
 def _process_due_monitors(limit=None):
     """Run all due monitors once (delegates to scheduler module)."""
     return monitor_scheduler.process_due_monitors(
         db=db,
         scan_monitor_fn=_scan_monitor,
-        notify_fn=_notify_servicenow,
+        notify_fn=_notify_event,
         safe_error_fn=_safe_error,
         run_lock=_monitor_run_lock,
         limit=limit,
@@ -3541,7 +3552,9 @@ def _process_due_monitors(limit=None):
 
 
 def _run_scheduler_digest():
-    monitor_scheduler.maybe_run_reporting_digest(db)
+    digest = monitor_scheduler.maybe_run_reporting_digest(db)
+    if digest:
+        notifications.send_digest(digest)
 
 
 def _scheduler_config():

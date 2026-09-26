@@ -189,7 +189,16 @@ KEY_TESTS = {
 # OAuth grant, which is provider-specific (Google/GitHub/generic OIDC don't
 # all support client_credentials the way Azure AD does) — a correct
 # implementation is a bigger scope than one test button covers honestly.
+def test_notifications():
+    """Unlike the others this one does send something: a message labelled
+    as a test, to every configured channel. That is the only way to know a
+    webhook URL or SMTP relay actually delivers."""
+    import notifications
+    return notifications.send_test()
+
+
 GROUP_TESTS = {
+    "Notifications": test_notifications,
     "ServiceNow": test_servicenow,
     "Rapid7": test_rapid7,
 }

@@ -152,7 +152,8 @@
       "appearance": "Appearance",
       "disclosure": "Responsible disclosure",
       "own_infra": "Own infrastructure tests",
-      "ownership": "Domain ownership"
+      "ownership": "Domain ownership",
+      "notifications": "Notifications (webhook, Slack, Teams, email)"
     },
     "general": {
       "locale": "Language",
@@ -332,6 +333,16 @@
     },
     "ownership": {
       "max_age_days": "Days a DNS/HTTPS ownership proof stays valid (0 = until revoked)"
+    },
+    "notifications": {
+      "enabled": "Send monitor alerts",
+      "min_severity": "Minimum severity to send",
+      "send_digest": "Also send the periodic digest (see Reporting)",
+      "smtp_host": "SMTP host (leave empty for no email)",
+      "smtp_port": "SMTP port",
+      "smtp_security": "SMTP security",
+      "smtp_from": "From address",
+      "email_to": "Recipients (one per line)"
     }
   },
   "rapid7_ui": {

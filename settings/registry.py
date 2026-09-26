@@ -153,6 +153,16 @@ FIELD_META = {
             "label": "settings.scim.default_role",
         },
     },
+    "notifications": {
+        "enabled": {"type": "bool", "label": "settings.notifications.enabled"},
+        "min_severity": {"type": "select", "options": ["critical", "high", "medium", "low", "info"], "label": "settings.notifications.min_severity"},
+        "send_digest": {"type": "bool", "label": "settings.notifications.send_digest"},
+        "smtp_host": {"type": "text", "label": "settings.notifications.smtp_host"},
+        "smtp_port": {"type": "int", "min": 1, "max": 65535, "label": "settings.notifications.smtp_port"},
+        "smtp_security": {"type": "select", "options": ["starttls", "ssl", "none"], "label": "settings.notifications.smtp_security"},
+        "smtp_from": {"type": "text", "label": "settings.notifications.smtp_from"},
+        "email_to": {"type": "lines", "label": "settings.notifications.email_to"},
+    },
     "servicenow": {
         "enabled": {"type": "bool", "label": "settings.servicenow.enabled"},
         "instance": {"type": "text", "label": "settings.servicenow.instance"},
@@ -228,7 +238,7 @@ SETTING_CATEGORIES = [
      "sections": ["scheduler", "reporting", "updates"]},
     {"key": "settings.categories.access",
      "sections": ["auth_local", "auth_oauth", "auth_saml", "scim"]},
-    {"key": "settings.categories.integrations", "sections": ["servicenow", "rapid7"]},
+    {"key": "settings.categories.integrations", "sections": ["notifications", "servicenow", "rapid7"]},
     {"key": "settings.categories.disclosure", "sections": ["disclosure"]},
 ]
 
@@ -249,6 +259,7 @@ ADMIN_SECTIONS = [
     "auth_oauth",
     "auth_saml",
     "scim",
+    "notifications",
     "servicenow",
     "rapid7",
 ]

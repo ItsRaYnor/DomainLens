@@ -236,6 +236,19 @@ DEFAULTS = {
         "auth_mode": "oauth",  # oauth (preferred) | bearer (legacy) | both
         "default_role": "user",
     },
+    "notifications": {
+        # Webhook, Slack and Teams URLs and SMTP credentials are managed
+        # credentials (Settings → Integration credentials), not settings:
+        # Slack and Teams URLs are secrets in their own right.
+        "enabled": False,
+        "min_severity": "high",
+        "send_digest": False,
+        "smtp_host": "",
+        "smtp_port": 587,
+        "smtp_security": "starttls",
+        "smtp_from": "",
+        "email_to": [],
+    },
     "servicenow": {
         "enabled": False,
         "instance": "",
@@ -356,6 +369,12 @@ SECRET_ENV_KEYS = [
     "RAPID7_USERNAME",
     "RAPID7_PASSWORD",
     "RAPID7_API_KEY",
+    "NOTIFY_WEBHOOK_URL",
+    "NOTIFY_WEBHOOK_SECRET",
+    "NOTIFY_SLACK_WEBHOOK_URL",
+    "NOTIFY_TEAMS_WEBHOOK_URL",
+    "SMTP_USERNAME",
+    "SMTP_PASSWORD",
 ]
 
 
@@ -424,6 +443,19 @@ MANAGED_CREDENTIALS = [
      "note": "Client secret for the OAuth login application."},
     {"env": "AZURE_CLIENT_SECRET", "name": "Azure client secret", "group": "OAuth / Entra ID",
      "note": "Entra ID client secret; takes precedence over the generic OAuth one."},
+
+    {"env": "NOTIFY_WEBHOOK_URL", "name": "Webhook URL", "group": "Notifications",
+     "note": "HTTPS endpoint that receives each alert as JSON."},
+    {"env": "NOTIFY_WEBHOOK_SECRET", "name": "Webhook signing secret", "group": "Notifications",
+     "note": "Signs the JSON body (X-DomainLens-Signature: sha256=HMAC)."},
+    {"env": "NOTIFY_SLACK_WEBHOOK_URL", "name": "Slack incoming webhook URL", "group": "Notifications",
+     "note": "From a Slack app's Incoming Webhooks page."},
+    {"env": "NOTIFY_TEAMS_WEBHOOK_URL", "name": "Teams Workflows webhook URL", "group": "Notifications",
+     "note": "From a Teams Workflow: 'Post to a channel when a webhook request is received'."},
+    {"env": "SMTP_USERNAME", "name": "SMTP user", "group": "Notifications",
+     "note": "Leave empty for a relay that needs no login."},
+    {"env": "SMTP_PASSWORD", "name": "SMTP password", "group": "Notifications",
+     "note": "Password for the SMTP user."},
 
     {"env": "SCIM_BEARER_TOKEN", "name": "SCIM bearer token", "group": "SCIM provisioning",
      "note": "Static bearer token for the SCIM endpoint (legacy auth mode)."},
