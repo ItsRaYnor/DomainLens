@@ -62,6 +62,11 @@ FIELD_META = {
         "enabled": {"type": "bool", "label": "settings.own_infra.enabled"},
         "domains": {"type": "lines", "label": "settings.own_infra.domains"},
     },
+    "retention": {
+        "scan_days": {"type": "int", "min": 0, "max": 3650, "label": "settings.retention.scan_days"},
+        "event_days": {"type": "int", "min": 0, "max": 3650, "label": "settings.retention.event_days"},
+        "audit_days": {"type": "int", "min": 0, "max": 3650, "label": "settings.retention.audit_days"},
+    },
     "reporting": {
         "retention_days": {"type": "int", "min": 7, "max": 3650, "label": "settings.reporting.retention_days"},
         "digest_enabled": {"type": "bool", "label": "settings.reporting.digest_enabled"},
@@ -235,7 +240,7 @@ SETTING_CATEGORIES = [
     {"key": "settings.categories.scanning",
      "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra"]},
     {"key": "settings.categories.automation",
-     "sections": ["scheduler", "reporting", "updates"]},
+     "sections": ["scheduler", "reporting", "retention", "updates"]},
     {"key": "settings.categories.access",
      "sections": ["auth_local", "auth_oauth", "auth_saml", "scim"]},
     {"key": "settings.categories.integrations", "sections": ["notifications", "servicenow", "rapid7"]},
@@ -251,6 +256,7 @@ ADMIN_SECTIONS = [
     "scheduler",
     "scan",
     "reporting",
+    "retention",
     "updates",
     "weak_auth",
     "active_scan",

@@ -234,12 +234,22 @@ def _deliver(cfg, message, channels=None):
         try:
             _SENDERS[channel](cfg, message)
             results[channel] = {"ok": True}
+            _count(channel, "ok")
         except Exception as exc:
+            _count(channel, "error")
             # The channel's failure is the channel's: logged, reported, and
             # never allowed to stop the next one.
             log.warning("Notification via %s failed: %s", channel, exc)
             results[channel] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"[:300]}
     return results
+
+
+def _count(channel, result):
+    try:
+        import metrics
+        metrics.inc("domainlens_notifications_total", channel=channel, result=result)
+    except Exception:
+        pass
 
 
 def dispatch(event, monitor, scan_id=None):

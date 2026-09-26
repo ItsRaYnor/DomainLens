@@ -203,6 +203,17 @@
             <button type="button" class="btn-ghost" id="settingsCheckUpdatesBtn">Check for updates</button>
         </section>
 
+        <section class="card settings-version-card" id="settingsBackupCard">
+            <h2>Backup</h2>
+            <p class="muted">
+                A consistent snapshot of the live database (safe while scans run). Stored
+                credentials inside it stay encrypted with <code>DOMAINLENS_SECRET_KEY</code>;
+                keep that key with the backup, or they cannot be read after a restore.
+                For scheduled backups run <code>python maintenance.py backup /data/backup.db</code>.
+            </p>
+            <a class="btn-ghost" href="/api/admin/backup">Download backup</a>
+        </section>
+
         <div class="settings-layout">
             <nav class="settings-nav" id="settingsNav"></nav>
             <div class="settings-panels" id="settingsPanels"></div>

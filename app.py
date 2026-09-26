@@ -44,6 +44,8 @@ import ncsc_tls
 import api_tokens
 import audit_log
 import auth
+import maintenance
+import metrics
 import notifications
 import domain_ownership
 from routes import admin_nav
@@ -3555,6 +3557,7 @@ def _run_scheduler_digest():
     digest = monitor_scheduler.maybe_run_reporting_digest(db)
     if digest:
         notifications.send_digest(digest)
+    maintenance.maybe_purge()
 
 
 def _scheduler_config():
@@ -4888,7 +4891,8 @@ def _scan_request_params():
 
 
 def _audit_scan_request(params):
-    """One entry per scan, flagging the ones that may send probes.
+    """One entry per scan, flagging the ones that may send probes. Also the
+    one place every started scan passes, so the metric is counted here.
 
     "Who pointed active tests at that domain, and when" is the question
     this log exists to answer; whether the probes then ran is decided by the
@@ -4899,6 +4903,7 @@ def _audit_scan_request(params):
         _OPT_IN_ACTIVE_CHECKS if "all" in checks else set(checks) & _OPT_IN_ACTIVE_CHECKS)
     audit_log.record("scan.start", target_type="domain", target_id=params["domain"],
                      details={"checks": checks, "active_checks_requested": requested_active})
+    metrics.inc("domainlens_scans_started_total")
 
 
 @app.route("/api/scan", methods=["POST"])

@@ -236,6 +236,14 @@ DEFAULTS = {
         "auth_mode": "oauth",  # oauth (preferred) | bearer (legacy) | both
         "default_role": "user",
     },
+    "retention": {
+        # Days to keep each kind of record; 0 keeps it forever. All 0 by
+        # default so an upgrade deletes nothing nobody asked it to. A
+        # monitor's current baseline scan is always kept.
+        "scan_days": 0,
+        "event_days": 0,
+        "audit_days": 0,
+    },
     "notifications": {
         # Webhook, Slack and Teams URLs and SMTP credentials are managed
         # credentials (Settings → Integration credentials), not settings:

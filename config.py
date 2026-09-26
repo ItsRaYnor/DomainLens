@@ -68,6 +68,9 @@ class Settings:
                 w[key] = str((self.config_dir / val).resolve())
         return w
 
+    def retention(self) -> dict:
+        return dict(self.raw.get("retention") or {})
+
     def ownership(self) -> dict:
         return dict(self.raw.get("ownership") or {})
 

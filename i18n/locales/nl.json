@@ -153,7 +153,8 @@
       "disclosure": "Responsible disclosure",
       "own_infra": "Tests op eigen infrastructuur",
       "ownership": "Domeineigendom",
-      "notifications": "Meldingen (webhook, Slack, Teams, e-mail)"
+      "notifications": "Meldingen (webhook, Slack, Teams, e-mail)",
+      "retention": "Bewaartermijnen"
     },
     "general": {
       "locale": "Taal",
@@ -343,6 +344,11 @@
       "smtp_security": "SMTP-beveiliging",
       "smtp_from": "Afzenderadres",
       "email_to": "Ontvangers (één per regel)"
+    },
+    "retention": {
+      "scan_days": "Scans ouder dan dit verwijderen (dagen, 0 = bewaren; basisscans van monitors blijven)",
+      "event_days": "Monitorgebeurtenissen ouder dan dit verwijderen (dagen, 0 = bewaren)",
+      "audit_days": "Auditlogregels ouder dan dit verwijderen (dagen, 0 = bewaren)"
     }
   },
   "rapid7_ui": {

@@ -833,7 +833,8 @@ def enforce_login_before_request():
             _audit_denied(roles.USER)
             return jsonify({"error": "Your role is read-only (Viewer)"}), 403
         return None
-    if request.path.startswith("/api/"):
+    # A scraper cannot follow a redirect to a login page; it needs the 401.
+    if request.path.startswith("/api/") or request.path == "/metrics":
         return jsonify({"error": "Authentication required", "login_url": "/login"}), 401
     next_url = request.full_path if request.query_string else request.path
     return redirect(url_for("login_page", next=next_url.rstrip("?")))

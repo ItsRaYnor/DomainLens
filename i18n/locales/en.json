@@ -153,7 +153,8 @@
       "disclosure": "Responsible disclosure",
       "own_infra": "Own infrastructure tests",
       "ownership": "Domain ownership",
-      "notifications": "Notifications (webhook, Slack, Teams, email)"
+      "notifications": "Notifications (webhook, Slack, Teams, email)",
+      "retention": "Retention"
     },
     "general": {
       "locale": "Language",
@@ -343,6 +344,11 @@
       "smtp_security": "SMTP security",
       "smtp_from": "From address",
       "email_to": "Recipients (one per line)"
+    },
+    "retention": {
+      "scan_days": "Delete scans older than (days, 0 = keep; monitor baselines are kept)",
+      "event_days": "Delete monitor events older than (days, 0 = keep)",
+      "audit_days": "Delete audit log entries older than (days, 0 = keep)"
     }
   },
   "rapid7_ui": {
