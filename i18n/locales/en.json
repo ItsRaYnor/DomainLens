@@ -30,7 +30,8 @@
     "admin_settings": "Settings",
     "admin_users": "Users",
     "admin_audit": "Audit log",
-    "admin_domains": "Verified domains"
+    "admin_domains": "Verified domains",
+    "admin_risks": "Accepted risks"
   },
   "search": {
     "placeholder": "Enter domain name (e.g. example.com)",
@@ -110,7 +111,10 @@
     "empty": "No open issues. Keep monitoring regularly.",
     "none_priority": "No prioritized advice items for this scan.",
     "action": "Action",
-    "evidence": "Evidence"
+    "evidence": "Evidence",
+    "accepted": "Accepted risk",
+    "accepted_by": "Owner",
+    "accepted_until": "until"
   },
   "common": {
     "pass": "Pass",
@@ -472,5 +476,27 @@
     "expired": "expired",
     "last_error": "Last check",
     "empty": "No domains yet."
+  },
+  "risks": {
+    "title": "Accepted risks",
+    "subtitle": "A finding the organisation has decided to live with, with a reason, an owner and an expiry date. It stays in reports, marked accepted, and leaves the severity counts until it expires.",
+    "pick_domain": "Domain",
+    "show": "Show findings",
+    "latest_scan": "Latest scan",
+    "no_scan": "No saved scan for this domain yet.",
+    "no_findings": "The latest scan has no open findings.",
+    "reason": "Reason",
+    "owner": "Risk owner",
+    "expires": "Until",
+    "accept": "Accept risk",
+    "accepted_until": "Accepted until {date}",
+    "revoke": "Revoke",
+    "empty": "No accepted risks.",
+    "col_domain": "Domain",
+    "col_finding": "Finding",
+    "col_by": "Accepted by",
+    "state_active": "active",
+    "state_expired": "expired",
+    "state_revoked": "revoked"
   }
 }

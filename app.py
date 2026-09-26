@@ -3378,7 +3378,7 @@ def _monitor_event_from_results(monitor, results, previous_record):
     current_hash = _monitor_state_hash(results)
     previous_hash = monitor.get("last_state_hash")
     warnings = len((results.get("tls_deep") or {}).get("warnings") or [])
-    recommendation_count = len(recommendations.generate(results))
+    recommendation_count = recommendations.open_count(recommendations.generate(results))
     blacklist_listed = bool((results.get("blacklist") or {}).get("is_listed"))
     tls_grade = (results.get("tls_deep") or {}).get("grade")
     watched = results.get("monitored_record") or {}
@@ -4858,7 +4858,7 @@ def _perform_scan(domain, checks, extra_dkim_selectors, save_history=True, progr
             "reference": rec.get("reference"),
         }
         for idx, rec in enumerate(recs)
-        if rec.get("severity") in ("critical", "high", "medium")
+        if rec.get("severity") in ("critical", "high", "medium") and not rec.get("accepted")
     ][:25]
 
     if save_history:

@@ -30,7 +30,8 @@
     "admin_settings": "Instellingen",
     "admin_users": "Gebruikers",
     "admin_audit": "Auditlog",
-    "admin_domains": "Geverifieerde domeinen"
+    "admin_domains": "Geverifieerde domeinen",
+    "admin_risks": "Geaccepteerde risico's"
   },
   "search": {
     "placeholder": "Voer een domeinnaam in (bijv. example.com)",
@@ -110,7 +111,10 @@
     "empty": "Geen openstaande issues. Blijf periodiek monitoren.",
     "none_priority": "Geen geprioriteerde advies-acties voor deze scan.",
     "action": "Actie",
-    "evidence": "Bewijs"
+    "evidence": "Bewijs",
+    "accepted": "Geaccepteerd risico",
+    "accepted_by": "Eigenaar",
+    "accepted_until": "tot"
   },
   "common": {
     "pass": "OK",
@@ -472,5 +476,27 @@
     "expired": "verlopen",
     "last_error": "Laatste controle",
     "empty": "Nog geen domeinen."
+  },
+  "risks": {
+    "title": "Geaccepteerde risico's",
+    "subtitle": "Een bevinding waarvan de organisatie heeft besloten ermee te leven, met reden, eigenaar en vervaldatum. Ze blijft in rapporten staan, gemarkeerd als geaccepteerd, en telt niet mee in de ernsttellingen tot ze verloopt.",
+    "pick_domain": "Domein",
+    "show": "Bevindingen tonen",
+    "latest_scan": "Laatste scan",
+    "no_scan": "Nog geen opgeslagen scan voor dit domein.",
+    "no_findings": "De laatste scan heeft geen openstaande bevindingen.",
+    "reason": "Reden",
+    "owner": "Risico-eigenaar",
+    "expires": "Tot",
+    "accept": "Risico accepteren",
+    "accepted_until": "Geaccepteerd tot {date}",
+    "revoke": "Intrekken",
+    "empty": "Geen geaccepteerde risico's.",
+    "col_domain": "Domein",
+    "col_finding": "Bevinding",
+    "col_by": "Geaccepteerd door",
+    "state_active": "actief",
+    "state_expired": "verlopen",
+    "state_revoked": "ingetrokken"
   }
 }

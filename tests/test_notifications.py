@@ -12,6 +12,30 @@ from unittest import mock
 
 import notifications
 
+# build_message reads the public URL from settings, which opens the
+# configured database. Without this it opens (and creates) domainlens.db in
+# the working copy.
+_tempdir = None
+_saved_db = None
+
+
+def setUpModule():
+    import os
+    import tempfile
+    global _tempdir, _saved_db
+    _tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    _saved_db = os.environ.get("DOMAINLENS_DB")
+    os.environ["DOMAINLENS_DB"] = os.path.join(_tempdir.name, "notifications.db")
+
+
+def tearDownModule():
+    import os
+    if _saved_db is None:
+        os.environ.pop("DOMAINLENS_DB", None)
+    else:
+        os.environ["DOMAINLENS_DB"] = _saved_db
+    _tempdir.cleanup()
+
 
 def _cfg(**overrides):
     base = {

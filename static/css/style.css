@@ -2287,3 +2287,22 @@ footer, .app-footer {
     word-break: break-word;
     max-width: 18rem;
 }
+
+/* Accepted risks stay visible but step back: still true, already decided. */
+.rec.rec-is-accepted {
+    opacity: 0.72;
+}
+
+.rec-accepted {
+    margin: 0 0 0.5rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    background: var(--orange-bg);
+    color: var(--text);
+    font-size: 0.88rem;
+}
+
+.rec-accepted-chip {
+    background: var(--orange-bg);
+    color: var(--orange);
+}

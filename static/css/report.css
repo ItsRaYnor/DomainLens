@@ -227,3 +227,15 @@ table.data tr { page-break-inside: avoid; }
     font-size: 0.78rem;
     background: var(--bg-subtle);
 }
+
+.rec.rec-is-accepted {
+    opacity: 0.72;
+}
+
+.rec-accepted {
+    margin: 0 0 0.5rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    background: var(--orange-bg);
+    font-size: 0.88rem;
+}

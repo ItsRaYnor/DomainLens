@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 _lock = threading.Lock()
 
 # Modules that keep their own tables and create them through init_schema(conn).
-FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens")
+FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens", "risk_acceptance")
 
 
 def _db_path():
@@ -405,7 +405,7 @@ def _extract_metrics(domain, results, issues_count, grade, header_score, monitor
     rec_count = issues_count
     try:
         import recommendations
-        rec_count = len(recommendations.generate(results) or [])
+        rec_count = recommendations.open_count(recommendations.generate(results))
     except Exception:
         pass
 

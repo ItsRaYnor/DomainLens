@@ -1610,17 +1610,39 @@ def generate(results):
             else:
                 _merge_duplicate(existing, item)
     recs.sort(key=lambda r: _SEVERITY_ORDER.get(r["severity"], 99))
+    try:
+        import risk_acceptance
+        risk_acceptance.apply(results, recs, _condition_key)
+    except Exception:
+        # An acceptance that cannot be read leaves the finding counted,
+        # which is the safe direction to fail in.
+        pass
     return recs
 
 
 def summarize_counts(recs):
+    """Severity counts of the open findings, plus how many are accepted.
+
+    An accepted risk is still reported but not counted by severity: it is a
+    decision already made, and counting it would keep scores and trends
+    alarming about something nobody is going to change before it expires.
+    """
     counts = {
         SEVERITY_CRITICAL: 0,
         SEVERITY_HIGH: 0,
         SEVERITY_MEDIUM: 0,
         SEVERITY_LOW: 0,
         SEVERITY_INFO: 0,
+        "accepted": 0,
     }
     for r in recs:
+        if r.get("accepted"):
+            counts["accepted"] += 1
+            continue
         counts[r["severity"]] = counts.get(r["severity"], 0) + 1
     return counts
+
+
+def open_count(recs):
+    """Findings not covered by an accepted risk."""
+    return sum(1 for r in recs or [] if not r.get("accepted"))
