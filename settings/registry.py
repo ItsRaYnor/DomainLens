@@ -146,7 +146,7 @@ FIELD_META = {
         },
         "default_role": {
             "type": "select",
-            "options": ["user", "admin"],
+            "options": ["viewer", "user", "admin"],
             "label": "settings.scim.default_role",
         },
     },

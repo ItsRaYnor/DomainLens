@@ -42,6 +42,7 @@ import osint
 import hubspot_cf
 import ncsc_tls
 import auth
+import roles
 import config as domainlens_config
 import weak_auth
 import js_scan
@@ -4238,10 +4239,8 @@ def admin_users_page():
 def admin_users_create():
     email = (request.form.get("email") or "").strip().lower()
     name = (request.form.get("name") or "").strip()
-    role = (request.form.get("role") or "user").strip().lower()
+    role = roles.normalize(request.form.get("role"))
     password = request.form.get("password") or ""
-    if role not in {"user", "admin"}:
-        role = "user"
     if not email:
         return redirect(url_for("admin_users_page", error="Email is required."))
     if db.get_user_by_email(email):
@@ -4269,6 +4268,23 @@ def admin_users_toggle(user_id):
     if not row:
         return redirect(url_for("admin_users_page", error="User not found."))
     db.update_user(user_id, enabled=not row.get("enabled"))
+    return redirect(url_for("admin_users_page", message="user_updated"))
+
+
+@app.route("/admin/users/<int:user_id>/role", methods=["POST"])
+@auth.require_admin
+def admin_users_set_role(user_id):
+    role = roles.normalize(request.form.get("role"), default=None)
+    if role is None:
+        return redirect(url_for("admin_users_page", error="Unknown role."))
+    me = auth.current_user()
+    if me and str(me.get("id")) == str(user_id) and role != roles.ADMIN:
+        # The last step before nobody can reach this page to undo it.
+        return redirect(url_for("admin_users_page", error="You cannot remove your own admin role."))
+    row = db.get_user(user_id)
+    if not row:
+        return redirect(url_for("admin_users_page", error="User not found."))
+    db.update_user(user_id, role=role)
     return redirect(url_for("admin_users_page", message="user_updated"))
 
 
@@ -5272,6 +5288,7 @@ def api_history_delete(scan_id):
 
 
 @app.route("/api/history", methods=["DELETE"])
+@auth.require_admin
 def api_history_clear():
     db.clear_history()
     return jsonify({"cleared": True})

@@ -34,8 +34,9 @@
                 <label>Name <input type="text" name="name"></label>
                 <label>Role
                     <select name="role">
-                        <option value="user">user</option>
-                        <option value="admin">admin</option>
+                        <option value="viewer">Viewer (read-only)</option>
+                        <option value="user" selected>Analyst (scans and monitors)</option>
+                        <option value="admin">Admin</option>
                     </select>
                 </label>
                 <label>Temporary password <input type="password" name="password" required autocomplete="new-password"></label>
@@ -64,7 +65,16 @@
                                 <strong>{{ u.email }}</strong>
                                 {% if u.name %}<div class="muted">{{ u.name }}</div>{% endif %}
                             </td>
-                            <td>{{ u.role }}</td>
+                            <td>
+                                <form method="post" action="{{ url_for('admin_users_set_role', user_id=u.id) }}" class="inline-role">
+                                    <select name="role" aria-label="Role for {{ u.email }}">
+                                        {% for value, label in (('viewer', 'Viewer'), ('user', 'Analyst'), ('admin', 'Admin')) %}
+                                        <option value="{{ value }}"{% if (u.role or 'user') == value %} selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn-ghost-sm">Save</button>
+                                </form>
+                            </td>
                             <td>{{ 'enabled' if u.enabled else 'disabled' }}</td>
                             <td>{{ 'on' if u.mfa_enabled else 'off' }}</td>
                             {# Never signed in is a measured fact, not a blank:

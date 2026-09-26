@@ -201,3 +201,9 @@
     color: var(--text-muted);
     font-size: 0.8rem;
 }
+
+.inline-role {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+}

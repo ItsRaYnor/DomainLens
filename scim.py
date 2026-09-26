@@ -16,6 +16,7 @@ from urllib.parse import unquote
 from flask import Flask, jsonify, request
 
 import db
+import roles
 
 log = logging.getLogger("domainlens.scim")
 
@@ -89,8 +90,7 @@ def scim_config() -> dict:
     if auth_mode not in {"oauth", "bearer", "both"}:
         auth_mode = "oauth"
     default_role = (raw.get("default_role") or os.environ.get("SCIM_DEFAULT_ROLE") or "user").strip().lower()
-    if default_role not in {"user", "admin"}:
-        default_role = "user"
+    default_role = roles.normalize(default_role)
     return {
         "enabled": enabled,
         "auth_mode": auth_mode,  # oauth preferred; bearer = legacy static token; both = accept either
@@ -192,9 +192,10 @@ def _primary_email(payload: dict, user_name: str) -> str:
 
 
 def _role_from_payload(payload: dict, default_role: str) -> str:
-    roles = payload.get("roles") or []
-    if isinstance(roles, list):
-        for item in roles:
+    requested = payload.get("roles") or []
+    found = set()
+    if isinstance(requested, list):
+        for item in requested:
             value = ""
             if isinstance(item, dict):
                 value = str(item.get("value") or item.get("display") or "").lower()
@@ -202,7 +203,15 @@ def _role_from_payload(payload: dict, default_role: str) -> str:
                 value = str(item).lower()
             if "admin" in value:
                 return "admin"
-    return default_role if default_role in {"user", "admin"} else "user"
+            found.add(value.strip())
+    # Most privileged role the directory sent wins, and an explicit analyst
+    # outranks an explicit viewer. A group named "viewer" must never land
+    # someone on the default role, which is usually analyst.
+    if "user" in found or "analyst" in found:
+        return roles.USER
+    if "viewer" in found or "read-only" in found or "readonly" in found:
+        return roles.VIEWER
+    return roles.normalize(default_role)
 
 
 def _enterprise_block(payload: dict) -> dict:
