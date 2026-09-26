@@ -91,6 +91,37 @@ After repeated scan failures, a monitor is **backed off** for `failure_backoff_m
 
 Scheduler status: `GET /api/reporting/scheduler` and `GET /health`.
 
+### `retention`
+
+Enforced once a day; `0` keeps everything (the default for all three).
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `scan_days` | `0` | Delete scans older than N days; a monitor's baseline is kept |
+| `event_days` | `0` | Delete monitor events older than N days |
+| `audit_days` | `0` | Delete audit log entries older than N days |
+
+### `ownership`
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `max_age_days` | `365` | Days a DNS/HTTPS ownership proof stays valid; `0` = until revoked |
+
+### `notifications`
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enabled` | `false` | Send monitor alerts |
+| `min_severity` | `high` | Lowest severity sent |
+| `send_digest` | `false` | Also deliver the reporting digest |
+| `smtp_host` / `smtp_port` / `smtp_security` / `smtp_from` | `""` / `587` / `starttls` / `""` | Email transport |
+| `email_to` | `[]` | Recipients |
+
+Webhook, Slack and Teams URLs and SMTP login are integration credentials:
+`NOTIFY_WEBHOOK_URL`, `NOTIFY_WEBHOOK_SECRET`, `NOTIFY_SLACK_WEBHOOK_URL`,
+`NOTIFY_TEAMS_WEBHOOK_URL`, `SMTP_USERNAME`, `SMTP_PASSWORD`. See
+[ENTERPRISE.md](ENTERPRISE.md#notifications).
+
 ### `weak_auth` (credential testing)
 
 **Disabled by default.** Only enable for systems you own or are explicitly authorized to test.
@@ -165,6 +196,8 @@ On startup, monitors in config are **upserted** into the database (matched by do
 | `GET /api/config` | Non-secret effective configuration |
 | `GET /health` | Liveness + scheduler state |
 | `GET /api/reporting/scheduler` | Scheduler + 7-day reporting snapshot |
+| `GET /api/openapi.json` | OpenAPI 3.1 description of the automation API |
+| `GET /metrics` | Prometheus metrics (API token or session when auth is on) |
 
 ## Integrations (environment only)
 

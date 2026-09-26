@@ -26,7 +26,7 @@ Domain Intelligence Toolkit — a local web tool for fast domain analysis, simil
   - *DNS & mail gaps* — AXFR zone transfer, missing CAA, DANE/TLSA, SPF lookup limit (>10), weak DMARC subdomain policy, wildcard DNS
   - *Info disclosure* — version leakage and tech-stack fingerprinting
 - **JS Dependency &amp; Secrets scan** — Passive, always safe: detects vulnerable JS libraries (CVE database), accidentally leaked API keys/secrets in client-side code, and missing Subresource Integrity (SRI) on third-party scripts
-- **Active Vulnerability Scan** — Optional, off by default: sends live reflected-XSS, open-redirect, and error-based SQL injection test requests to your own site to confirm real vulnerabilities — only for domains you control yourself
+- **Active Vulnerability Scan** — Optional, off by default: sends live reflected-XSS, open-redirect, and error-based SQL injection test requests to your own site to confirm real vulnerabilities — runs only against domains you have verified (DNS TXT, `/.well-known/` file, or admin attestation)
 - **Security Score Overview** — Visual overview of all checks with pass/fail status
 - **Scan history** — Local SQLite database (no extra dependencies); view, reload, or delete previous scans
 - **DNS Monitoring** — Manage recurring monitors for websites, subdomains, CNAMEs, MX/NS/TXT/SRV/CAA/PTR records
@@ -44,15 +44,30 @@ Domain Intelligence Toolkit — a local web tool for fast domain analysis, simil
 - **Recommendations** — Concrete fixes per finding with severity level (critical → info) and references
 - **Printable report** — HTML report per scan (`/report/<id>`), printable or savable as PDF via the browser
 
+### For organisations
+
+- **Roles** — Viewer (read-only), Analyst and Admin; changes apply on the next request
+- **Audit log** — every sign-in, change and scan, hash-chained, with CSV export
+- **Verified domains** — login attempts and attack probes only against domains proven to be yours
+- **API tokens + OpenAPI** — scoped, expiring tokens for scripts; `/api/openapi.json`; a CI gate script
+- **Notifications** — monitor alerts to a signed webhook, Slack, Teams and email
+- **Accepted risks** — accept a finding with reason, owner and expiry; it stays visible but stops counting
+- **Discovered hostnames** — Certificate Transparency names under monitored zones, one click to monitor
+- **Operations** — Prometheus `/metrics`, enforced retention, consistent online backups
+
+See [docs/ENTERPRISE.md](docs/ENTERPRISE.md).
+
 ## Documentation
 
 - **[Usage](docs/USAGE.md)** — scans, monitors, scheduling, weak-auth, Advice
 - **[Configuration](docs/CONFIGURATION.md)** — `config/domainlens.json`, scheduler, reporting, credentials
 - **[Docker & updates](docs/DOCKER_AND_UPDATES.md)** — version, compose, `./scripts/docker-update.sh`, in-app update check
+- **[Running it for an organisation](docs/ENTERPRISE.md)** — roles, audit log, verified domains, tokens, notifications, metrics, retention, backups
+- **[Upgrading to 0.1.0](docs/UPGRADING_0.1.0.md)** — verify domains before active checks run again
 
 ## Version
 
-The app version is in [`VERSION`](VERSION) (currently **0.0.1**). Runtime: `GET /api/version` / `/health`.
+The app version is in [`VERSION`](VERSION) (currently **0.1.0**). Runtime: `GET /api/version` / `/health`.
 
 ## Requirements
 
