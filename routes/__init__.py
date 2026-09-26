@@ -5,7 +5,7 @@ from __future__ import annotations
 
 def register_routes(app, *, db, auth, recommendations, servicenow, domainlens_config, scheduler_config_fn):
     """Attach modular blueprints / route handlers to the Flask app."""
-    from routes import reports, system
+    from routes import audit, reports, system
 
     system.register(
         app,
@@ -16,3 +16,4 @@ def register_routes(app, *, db, auth, recommendations, servicenow, domainlens_co
         scheduler_config_fn=scheduler_config_fn,
     )
     reports.register(app, db=db, recommendations=recommendations)
+    audit.register(app, auth=auth)

@@ -26,7 +26,10 @@
     "tools_dns": "DNS record",
     "tools_impersonation": "Impersonation",
     "tools_disclosure": "Responsible disclosure",
-    "reports_compare": "Compare"
+    "reports_compare": "Compare",
+    "admin_settings": "Settings",
+    "admin_users": "Users",
+    "admin_audit": "Audit log"
   },
   "search": {
     "placeholder": "Enter domain name (e.g. example.com)",
@@ -402,5 +405,29 @@
     "auto": "Follow system",
     "light": "Light",
     "dark": "Dark"
+  },
+  "audit": {
+    "title": "Audit log",
+    "subtitle": "Every sign-in, change and scan, with who did it. Entries are append-only and chained by hash.",
+    "filter_action": "Action (prefix)",
+    "filter_actor": "Actor email",
+    "filter_outcome": "Outcome",
+    "filter_since": "From",
+    "filter_until": "Until",
+    "apply": "Filter",
+    "export_csv": "Export CSV",
+    "col_time": "Time",
+    "col_actor": "Actor",
+    "col_action": "Action",
+    "col_target": "Target",
+    "col_outcome": "Outcome",
+    "col_ip": "Address",
+    "col_details": "Details",
+    "chain_intact": "Hash chain intact across {count} entries.",
+    "chain_broken": "Hash chain broken at entry #{id}: {reason}.",
+    "empty": "No entries match.",
+    "older": "Older",
+    "newer": "Newer",
+    "any": "Any"
   }
 }

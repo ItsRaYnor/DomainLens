@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('audit.title') }} · {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main" class="account-main account-main-wide">
+        <section class="account-section">
+            <h2>{{ t('audit.title') }}</h2>
+            <p class="muted">{{ t('audit.subtitle') }}</p>
+
+            {# The chain check runs on every page view: an auditor should not
+               have to know there is a verify button to find out. #}
+            {% if chain.intact %}
+            <div class="login-info">{{ t('audit.chain_intact', count=chain.checked) }}</div>
+            {% else %}
+            <div class="login-error">{{ t('audit.chain_broken', id=chain.broken_at, reason=chain.reason) }}</div>
+            {% endif %}
+
+            <form class="audit-filters" method="get" action="/admin/audit">
+                <label>{{ t('audit.filter_action') }}
+                    <input type="text" name="action" value="{{ filters.action or '' }}" placeholder="auth.">
+                </label>
+                <label>{{ t('audit.filter_actor') }}
+                    <input type="text" name="actor" value="{{ filters.actor or '' }}">
+                </label>
+                <label>{{ t('audit.filter_outcome') }}
+                    <select name="outcome">
+                        <option value="">{{ t('audit.any') }}</option>
+                        {% for value in ('success', 'failure', 'denied') %}
+                        <option value="{{ value }}"{% if filters.outcome == value %} selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>{{ t('audit.filter_since') }}
+                    <input type="date" name="since" value="{{ filters.since or '' }}">
+                </label>
+                <label>{{ t('audit.filter_until') }}
+                    <input type="date" name="until" value="{{ filters.until or '' }}">
+                </label>
+                <button type="submit" class="btn-primary-lite">{{ t('audit.apply') }}</button>
+                <a class="btn-ghost-sm" href="/api/admin/audit.csv?{{ query_string }}">{{ t('audit.export_csv') }}</a>
+            </form>
+
+            <div class="users-table-wrap">
+                <table class="users-table audit-table">
+                    <thead>
+                        <tr>
+                            <th>{{ t('audit.col_time') }}</th>
+                            <th>{{ t('audit.col_actor') }}</th>
+                            <th>{{ t('audit.col_action') }}</th>
+                            <th>{{ t('audit.col_target') }}</th>
+                            <th>{{ t('audit.col_outcome') }}</th>
+                            <th>{{ t('audit.col_ip') }}</th>
+                            <th>{{ t('audit.col_details') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in entries %}
+                        <tr>
+                            <td class="nowrap">{{ e.created_at|last_login }}</td>
+                            <td>
+                                {{ e.actor_email or '—' }}
+                                {% if e.actor_role %}<div class="muted">{{ e.actor_role }} · {{ e.auth_method }}</div>
+                                {% else %}<div class="muted">{{ e.auth_method }}</div>{% endif %}
+                            </td>
+                            <td><code>{{ e.action }}</code></td>
+                            <td>{% if e.target_id %}{{ e.target_type }}: {{ e.target_id }}{% else %}—{% endif %}</td>
+                            <td><span class="audit-outcome audit-outcome-{{ e.outcome }}">{{ e.outcome }}</span></td>
+                            <td>{{ e.ip or '—' }}</td>
+                            <td>{% if e.details %}<code class="audit-details">{{ e.details|tojson }}</code>{% endif %}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" class="muted">{{ t('audit.empty') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <nav class="audit-pager">
+                {% if page > 1 %}<a class="btn-ghost-sm" href="?{{ query_string }}&amp;page={{ page - 1 }}">{{ t('audit.newer') }}</a>{% endif %}
+                <span class="muted">{{ page }} / {{ pages }}</span>
+                {% if page < pages %}<a class="btn-ghost-sm" href="?{{ query_string }}&amp;page={{ page + 1 }}">{{ t('audit.older') }}</a>{% endif %}
+            </nav>
+        </section>
+    </main>
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/page_boot.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

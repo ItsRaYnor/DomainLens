@@ -207,3 +207,50 @@
     gap: 0.35rem;
     align-items: center;
 }
+
+.account-main-wide {
+    max-width: 1200px;
+}
+
+.audit-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+    margin: 1rem 0;
+}
+
+.audit-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.audit-table code {
+    font-size: 0.8rem;
+}
+
+.audit-details {
+    display: block;
+    max-width: 28rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.audit-outcome-failure,
+.audit-outcome-denied {
+    color: var(--red);
+    font-weight: 600;
+}
+
+.audit-pager {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.nowrap {
+    white-space: nowrap;
+}

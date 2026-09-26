@@ -739,6 +739,8 @@ def require_role(minimum: str):
                 return view(*args, **kwargs)
             user = current_user()
             if not user or not roles.at_least(user.get("role"), minimum):
+                if user:
+                    _audit_denied(minimum)
                 if request.path.startswith("/api/"):
                     label = "Admin" if minimum == roles.ADMIN else roles.LABELS.get(minimum, minimum)
                     return jsonify({"error": f"{label} required"}), 403
@@ -748,6 +750,14 @@ def require_role(minimum: str):
         return wrapped
 
     return decorator
+
+
+def _audit_denied(required: str) -> None:
+    """A signed-in caller refused for their role -- the attempt is the event."""
+    import audit_log
+    audit_log.record("access.denied", target_type="path",
+                     target_id=f"{request.method} {request.path}",
+                     outcome="denied", details={"required_role": required})
 
 
 def require_admin(view):
@@ -787,6 +797,7 @@ def enforce_login_before_request():
         # to remember to say so.
         if (roles.normalize(user.get("role")) == roles.VIEWER
                 and not _viewer_may(request.path, request.method)):
+            _audit_denied(roles.USER)
             return jsonify({"error": "Your role is read-only (Viewer)"}), 403
         return None
     if request.path.startswith("/api/"):

@@ -15,8 +15,17 @@ from urllib.parse import unquote
 
 from flask import Flask, jsonify, request
 
+import audit_log
 import db
 import roles
+
+_SCIM_ACTOR = {"email": "scim-directory", "role": "system"}
+
+
+def _audit(action, user, details=None):
+    """Directory changes carry the directory as actor, not whoever is signed in."""
+    audit_log.record(action, target_type="user", target_id=(user or {}).get("email"),
+                     details=details, actor=_SCIM_ACTOR, auth_method="scim")
 
 log = logging.getLogger("domainlens.scim")
 
@@ -718,6 +727,7 @@ def register_routes(app: Flask) -> None:
         )
         user = db.get_user(user_id)
         log.info("SCIM provisioned user %s (id=%s)", email, user_id)
+        _audit("scim.user_create", user, {"role": user.get("role"), "enabled": user.get("enabled")})
         return _scim_json(user_to_scim(user), status=201)
 
     @app.get("/scim/v2/Users/<user_id>")
@@ -763,6 +773,10 @@ def register_routes(app: Flask) -> None:
             profile["scim_profile"] = merged
         updates.update(profile)
         updated = db.update_user(uid, **updates)
+        _audit("scim.user_replace", updated, {
+            "role": {"from": user.get("role"), "to": updated.get("role")},
+            "enabled": {"from": user.get("enabled"), "to": updated.get("enabled")},
+        })
         return _scim_json(user_to_scim(updated))
 
     @app.patch("/scim/v2/Users/<user_id>")
@@ -787,6 +801,7 @@ def register_routes(app: Flask) -> None:
             updates["scim_profile"] = merged
         if updates:
             user = db.update_user(uid, **updates)
+            _audit("scim.user_patch", user, {"fields": sorted(updates)})
         return _scim_json(user_to_scim(user))
 
     @app.delete("/scim/v2/Users/<user_id>")
@@ -802,6 +817,8 @@ def register_routes(app: Flask) -> None:
         # Soft-delete preferred for audit; hard-delete if already disabled + query
         if request.args.get("hard") == "1":
             db.delete_user(uid)
+            _audit("scim.user_delete", user)
         else:
             db.update_user(uid, enabled=False)
+            _audit("scim.user_disable", user)
         return ("", 204)

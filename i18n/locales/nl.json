@@ -26,7 +26,10 @@
     "tools_dns": "DNS-record",
     "tools_impersonation": "Impersonatie",
     "tools_disclosure": "Responsible disclosure",
-    "reports_compare": "Vergelijken"
+    "reports_compare": "Vergelijken",
+    "admin_settings": "Instellingen",
+    "admin_users": "Gebruikers",
+    "admin_audit": "Auditlog"
   },
   "search": {
     "placeholder": "Voer een domeinnaam in (bijv. example.com)",
@@ -402,5 +405,29 @@
     "auto": "Systeem volgen",
     "light": "Licht",
     "dark": "Donker"
+  },
+  "audit": {
+    "title": "Auditlog",
+    "subtitle": "Elke aanmelding, wijziging en scan, met wie het deed. Regels worden alleen toegevoegd en zijn met een hash aan elkaar gekoppeld.",
+    "filter_action": "Actie (begin)",
+    "filter_actor": "E-mail van gebruiker",
+    "filter_outcome": "Uitkomst",
+    "filter_since": "Vanaf",
+    "filter_until": "Tot",
+    "apply": "Filteren",
+    "export_csv": "CSV exporteren",
+    "col_time": "Tijd",
+    "col_actor": "Gebruiker",
+    "col_action": "Actie",
+    "col_target": "Doel",
+    "col_outcome": "Uitkomst",
+    "col_ip": "Adres",
+    "col_details": "Details",
+    "chain_intact": "Hash-keten intact over {count} regels.",
+    "chain_broken": "Hash-keten verbroken bij regel #{id}: {reason}.",
+    "empty": "Geen regels gevonden.",
+    "older": "Ouder",
+    "newer": "Nieuwer",
+    "any": "Alle"
   }
 }
