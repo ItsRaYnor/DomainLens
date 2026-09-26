@@ -63,6 +63,26 @@ class AcceptanceTests(EnterpriseAppTestCase):
         self._accept()
         self.assertIn("accepted", self._spf_now({**_RESULTS, "domain": "www.example.com"}))
 
+    def test_an_apex_acceptance_does_not_hide_a_web_finding_on_a_subdomain(self):
+        """Finding keys name no host. Accepting a missing HSTS header on the
+        apex silenced it on every subdomain scanned, so a new shop host
+        without HSTS never counted and never failed the CI gate."""
+        import risk_acceptance
+        web = {"severity": "high", "category": "Web", "title": "HSTS missing"}
+        key = self.rec._condition_key(web)
+        risk_acceptance.create(
+            domain="example.com", finding_key=key, title=web["title"], severity="high",
+            reason="legacy apex host", owner="CISO", created_by="admin@example.com",
+            expires_on=(date.today() + timedelta(days=30)).isoformat())
+        on_sub = risk_acceptance.apply(
+            {"domain": "shop.example.com", "apex_domain": "example.com"}, [dict(web)],
+            self.rec._condition_key)
+        on_apex = risk_acceptance.apply(
+            {"domain": "example.com", "apex_domain": "example.com"}, [dict(web)],
+            self.rec._condition_key)
+        self.assertNotIn("accepted", on_sub[0])
+        self.assertIn("accepted", on_apex[0])
+
     def test_no_longer_than_a_year(self):
         with self.assertRaises(ValueError):
             self._accept(days=400)

@@ -140,14 +140,33 @@ def _active_for(domains):
     return out
 
 
+# Categories whose findings describe the zone rather than the scanned host.
+_APEX_CATEGORIES = {"email", "dns", "whois"}
+
+
+def _apex_level(rec):
+    return (str(rec.get("category") or "").lower() in _APEX_CATEGORIES
+            or str(rec.get("finding_key") or "").startswith("email:"))
+
+
 def apply(results, recs, key_fn):
-    """Mark accepted findings in place. Email and DNS findings live at the
-    apex, so an acceptance on the apex covers them when a subdomain is
-    scanned."""
-    accepted = _active_for([results.get("domain"), results.get("apex_domain")])
+    """Mark accepted findings in place.
+
+    An acceptance on the scanned host covers its findings. One on the apex
+    covers a subdomain scan only for email, DNS and WHOIS findings, which
+    describe the zone: finding keys name no host, so letting it cover a web
+    or TLS finding would hide an expired certificate on every subdomain
+    because one legacy host at the apex was accepted.
+    """
+    domain = (results.get("domain") or "").strip().lower()
+    apex = (results.get("apex_domain") or "").strip().lower()
+    own = _active_for([domain])
+    inherited = _active_for([apex]) if apex and apex != domain else {}
     for rec in recs:
         rec["finding_key"] = key_fn(rec)
-        match = accepted.get(rec["finding_key"])
+        match = own.get(rec["finding_key"])
+        if not match and _apex_level(rec):
+            match = inherited.get(rec["finding_key"])
         if match:
             rec["accepted"] = {
                 "id": match["id"],
