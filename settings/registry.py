@@ -68,7 +68,6 @@ FIELD_META = {
         "audit_days": {"type": "int", "min": 0, "max": 3650, "label": "settings.retention.audit_days"},
     },
     "reporting": {
-        "retention_days": {"type": "int", "min": 7, "max": 3650, "label": "settings.reporting.retention_days"},
         "digest_enabled": {"type": "bool", "label": "settings.reporting.digest_enabled"},
         "digest_interval_hours": {"type": "int", "min": 1, "max": 168, "label": "settings.reporting.digest_interval_hours"},
     },

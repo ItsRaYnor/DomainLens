@@ -230,7 +230,6 @@ deliveries by channel and result. No domain names are exposed.
 | `audit_days` | Audit entries older than N days | `0` (keep) |
 
 All default to keep, so upgrading deletes nothing. Each purge is audited.
-`reporting.retention_days` is unrelated and still only a documented target.
 
 ## Backup and restore
 

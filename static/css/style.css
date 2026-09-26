@@ -2198,11 +2198,20 @@ footer, .app-footer {
 
 /* The key block lives inside the disclosure settings panel, under that
    section's own Save button, so one feature reads as one thing. */
-.disclosure-key-block {
+.disclosure-key-block,
+.cred-in-panel,
+.settings-panel-extra {
     margin-top: 1.25rem;
     padding-top: 1.25rem;
     border-top: 1px solid var(--border);
 }
+.cred-group-note { margin-top: 0.75rem; }
+/* The tabs are drawn after the translations load. Holding their space keeps
+   the cards below from showing at the top and then jumping down; if the
+   script never runs, those cards are still there, just lower. */
+.settings-main > .settings-layout { min-height: 70vh; }
+.settings-main > .settings-panel-extra { display: none; }
+.api-key-msg:empty { display: none; }
 
 /* The validators take pasted files and keys; a narrow box makes them
    unreadable and hides where a line actually ends. */

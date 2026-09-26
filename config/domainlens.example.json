@@ -29,7 +29,6 @@
     "thread_pool_workers": 14
   },
   "reporting": {
-    "retention_days": 365,
     "digest_enabled": true,
     "digest_interval_hours": 24
   },

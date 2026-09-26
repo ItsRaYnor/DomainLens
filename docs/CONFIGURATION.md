@@ -85,7 +85,6 @@ After repeated scan failures, a monitor is **backed off** for `failure_backoff_m
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `retention_days` | `365` | Documented retention target |
 | `digest_enabled` | `false` | Periodic scheduler summary |
 | `digest_interval_hours` | `24` | Digest interval |
 

@@ -132,6 +132,13 @@
     font-size: 1.15rem;
 }
 
+.account-section h3 {
+    margin: 1.25rem 0 0.4rem;
+    font-size: 1rem;
+}
+
+.account-section > h3:first-child { margin-top: 0; }
+
 .otpauth-uri {
     display: block;
     word-break: break-all;

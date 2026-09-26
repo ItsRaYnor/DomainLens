@@ -19,6 +19,9 @@
         <section class="account-section">
             <h2>{{ t('ownership.title') }}</h2>
             <p class="muted">{{ t('ownership.subtitle') }}</p>
+            {% if is_admin %}
+            <p class="muted"><a href="/admin/settings#ownership">{{ t('ownership.max_age_note') }}</a></p>
+            {% endif %}
             <form class="audit-filters" method="post" action="/admin/domains">
                 <label>{{ t('ownership.domain') }}
                     <input type="text" name="domain" required placeholder="example.com" autocomplete="off">

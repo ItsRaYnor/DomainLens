@@ -294,6 +294,18 @@ def _mask(value):
     return "•" * 8 + value[-4:]
 
 
+# The settings tab each credential group belongs to. The admin page shows a
+# group's credentials inside that tab, beside the switches they serve: kept
+# in a separate card they sat 2000px away from their own "enabled" box.
+GROUP_SECTIONS = {
+    "Notifications": "notifications",
+    "OAuth / Entra ID": "auth_oauth",
+    "Rapid7": "rapid7",
+    "SCIM provisioning": "scim",
+    "ServiceNow": "servicenow",
+}
+
+
 def credential_status(db=None):
     """Managed credentials grouped by integration. Contains no secret values."""
     db = db or _db_module()
@@ -302,7 +314,7 @@ def credential_status(db=None):
         row = _status_row(item, db)
         groups.setdefault(item["group"], []).append(row)
     return [
-        {"group": name, "items": rows,
+        {"group": name, "items": rows, "section": GROUP_SECTIONS.get(name),
          "configured": any(r["configured"] for r in rows)}
         for name, rows in groups.items()
     ]

@@ -130,7 +130,6 @@ DEFAULTS = {
         "pgp_generated_at": "",
     },
     "reporting": {
-        "retention_days": 365,
         "digest_enabled": False,
         "digest_interval_hours": 24,
     },

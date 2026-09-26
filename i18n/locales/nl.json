@@ -9,6 +9,7 @@
     "account": "Account",
     "users": "Gebruikers",
     "settings": "Instellingen",
+    "admin": "Beheer",
     "scan": "Scannen",
     "lookup": "Opzoeken",
     "reports": "Rapportages",
@@ -136,6 +137,7 @@
     "invalid_domain": "Ongeldige domeinnaam"
   },
   "settings": {
+    "ownership_link": "Verificaties aanvragen en controleren doe je op de pagina Geverifieerde domeinen.",
     "title": "Instellingen",
     "subtitle": "Configureer DomainLens via de webinterface",
     "sections": {
@@ -191,7 +193,6 @@
       "dns_lookup_rate_limit_window": "DNS-lookup venster (seconden)"
     },
     "reporting": {
-      "retention_days": "Bewaartermijn (dagen)",
       "digest_enabled": "Planner-samenvatting ingeschakeld",
       "digest_interval_hours": "Samenvatting-interval (uren)"
     },
@@ -308,7 +309,7 @@
       "max_advies_items": "Max Advies-items van Rapid7 per scan"
     },
     "env_locked": "Vergrendeld door omgevingsvariabele",
-    "secrets_hint": "Geheimen (wachtwoorden, API-sleutels) blijven alleen in omgevingsvariabelen.",
+    "credentials": "Inloggegevens",
     "appearance": {
       "theme": "Standaardthema voor nieuwe bezoekers",
       "accent": "Accentkleur",
@@ -457,6 +458,7 @@
     "any": "Alle"
   },
   "ownership": {
+    "max_age_note": "Een DNS- of HTTPS-bewijs verloopt na het aantal dagen onder Instellingen → Domeineigendom.",
     "title": "Geverifieerde domeinen",
     "subtitle": "Inlogpogingen en aanvalsprobes (weak-auth, actieve scan) draaien alleen op domeinen waarvan bewezen is dat ze van jou zijn. Een geverifieerd domein dekt ook de subdomeinen.",
     "add": "Verificatie starten",
@@ -478,6 +480,9 @@
     "empty": "Nog geen domeinen."
   },
   "risks": {
+    "accept_heading": "Een finding accepteren",
+    "accept_hint": "Vul een domein in om de findings uit de laatste scan te tonen, en accepteer er dan een met een reden, een risico-eigenaar en een einddatum.",
+    "list_heading": "Huidige en eerdere acceptaties",
     "title": "Geaccepteerde risico's",
     "subtitle": "Een bevinding waarvan de organisatie heeft besloten ermee te leven, met reden, eigenaar en vervaldatum. Ze blijft in rapporten staan, gemarkeerd als geaccepteerd, en telt niet mee in de ernsttellingen tot ze verloopt.",
     "pick_domain": "Domein",

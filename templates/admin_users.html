@@ -20,30 +20,8 @@
         {% elif message == 'user_deleted' %}<div class="login-info">{{ t('common.success') }}</div>
         {% elif message %}<div class="login-info">{{ message }}</div>{% endif %}
 
-        <section class="account-section">
-            <h2 data-i18n="admin.create_user">{{ t('admin.create_user') }}</h2>
-            <p class="login-hint">
-                Password min {{ password_policy.min_length }} chars
-                {% if password_policy.require_upper %}+ upper{% endif %}
-                {% if password_policy.require_lower %}+ lower{% endif %}
-                {% if password_policy.require_digit %}+ digit{% endif %}
-                {% if password_policy.require_special %}+ special{% endif %}.
-            </p>
-            <form class="login-form admin-create" method="post" action="{{ url_for('admin_users_create') }}">
-                <label>Email <input type="email" name="email" required></label>
-                <label>Name <input type="text" name="name"></label>
-                <label>Role
-                    <select name="role">
-                        <option value="viewer">Viewer (read-only)</option>
-                        <option value="user" selected>Analyst (scans and monitors)</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                </label>
-                <label>Temporary password <input type="password" name="password" required autocomplete="new-password"></label>
-                <button type="submit" class="btn-primary-lite" data-i18n="admin.create_user">{{ t('admin.create_user') }}</button>
-            </form>
-        </section>
-
+        {# Who has access is what this page is opened for far more often than
+           adding someone, so the list comes first. #}
         <section class="account-section">
             <h2 data-i18n="admin.existing_users">{{ t('admin.existing_users') }}</h2>
             <div class="users-table-wrap">
@@ -106,6 +84,30 @@
                     </tbody>
                 </table>
             </div>
+        </section>
+
+        <section class="account-section">
+            <h2 data-i18n="admin.create_user">{{ t('admin.create_user') }}</h2>
+            <p class="login-hint">
+                Password min {{ password_policy.min_length }} chars
+                {% if password_policy.require_upper %}+ upper{% endif %}
+                {% if password_policy.require_lower %}+ lower{% endif %}
+                {% if password_policy.require_digit %}+ digit{% endif %}
+                {% if password_policy.require_special %}+ special{% endif %}.
+            </p>
+            <form class="login-form admin-create" method="post" action="{{ url_for('admin_users_create') }}">
+                <label>Email <input type="email" name="email" required></label>
+                <label>Name <input type="text" name="name"></label>
+                <label>Role
+                    <select name="role">
+                        <option value="viewer">Viewer (read-only)</option>
+                        <option value="user" selected>Analyst (scans and monitors)</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </label>
+                <label>Temporary password <input type="password" name="password" required autocomplete="new-password"></label>
+                <button type="submit" class="btn-primary-lite" data-i18n="admin.create_user">{{ t('admin.create_user') }}</button>
+            </form>
         </section>
 
         {% if all_tokens %}

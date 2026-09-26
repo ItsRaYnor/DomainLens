@@ -9,6 +9,7 @@
     "account": "Account",
     "users": "Users",
     "settings": "Settings",
+    "admin": "Admin",
     "scan": "Scan",
     "lookup": "Lookup",
     "reports": "Reports",
@@ -136,6 +137,7 @@
     "invalid_domain": "Invalid domain name"
   },
   "settings": {
+    "ownership_link": "Request and check verifications on the Verified domains page.",
     "title": "Settings",
     "subtitle": "Configure DomainLens from the web interface",
     "sections": {
@@ -191,7 +193,6 @@
       "dns_lookup_rate_limit_window": "DNS lookup window (seconds)"
     },
     "reporting": {
-      "retention_days": "Retention (days)",
       "digest_enabled": "Scheduler digest enabled",
       "digest_interval_hours": "Digest interval (hours)"
     },
@@ -308,7 +309,7 @@
       "max_advies_items": "Max Advice items from Rapid7 per scan"
     },
     "env_locked": "Locked by environment variable",
-    "secrets_hint": "Secrets (passwords, API keys) remain in environment variables only.",
+    "credentials": "Credentials",
     "appearance": {
       "theme": "Default theme for new visitors",
       "accent": "Accent colour",
@@ -457,6 +458,7 @@
     "any": "Any"
   },
   "ownership": {
+    "max_age_note": "A DNS or HTTPS proof expires after the number of days set under Settings → Domain ownership.",
     "title": "Verified domains",
     "subtitle": "Login attempts and attack probes (weak-auth, active scan) run only against domains proven to be yours. Verifying a domain covers its subdomains.",
     "add": "Start verification",
@@ -478,6 +480,9 @@
     "empty": "No domains yet."
   },
   "risks": {
+    "accept_heading": "Accept a finding",
+    "accept_hint": "Enter a domain to list the findings from its latest scan, then accept one with a reason, a risk owner and an expiry date.",
+    "list_heading": "Current and past acceptances",
     "title": "Accepted risks",
     "subtitle": "A finding the organisation has decided to live with, with a reason, an owner and an expiry date. It stays in reports, marked accepted, and leaves the severity counts until it expires.",
     "pick_domain": "Domain",
