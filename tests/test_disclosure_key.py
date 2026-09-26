@@ -458,9 +458,13 @@ class PassphraseTests(unittest.TestCase):
                 subprocess.run(base + ["--import"], input=result["private_key"],
                                env={**os.environ, "GNUPGHOME": home},
                                capture_output=True, text=True, timeout=60)
+                # Not os.devnull: gpg writes its output to a temporary file
+                # and renames it into place, so run as root (a container) it
+                # replaced the /dev/null device with a regular file and
+                # broke every later command that redirects to it.
                 signed = subprocess.run(
                     base + ["--local-user", result["fingerprint"], "--sign",
-                            "--output", os.devnull],
+                            "--output", os.path.join(home, "signed.gpg")],
                     input="x", env={**os.environ, "GNUPGHOME": home},
                     capture_output=True, text=True, timeout=60)
                 return signed.returncode == 0
