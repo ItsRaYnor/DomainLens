@@ -44,6 +44,7 @@ import ncsc_tls
 import api_tokens
 import audit_log
 import auth
+import discovery
 import maintenance
 import metrics
 import notifications
@@ -3743,7 +3744,39 @@ def lookup_impersonation_view_legacy():
 
 @app.route("/monitoring")
 def monitoring_view():
-    return render_template("monitoring.html", section="monitoring")
+    return render_template(
+        "monitoring.html", section="monitoring",
+        discovered=discovery.suggestions(db),
+        can_add_monitors=(not auth.config().get("enabled"))
+        or roles.at_least(auth.current_role(), roles.USER),
+        message=request.args.get("message"),
+    )
+
+
+@app.route("/api/monitors/discovered", methods=["GET"])
+def api_monitors_discovered():
+    return jsonify({"suggestions": discovery.suggestions(db)})
+
+
+@app.route("/monitoring/discovered", methods=["POST"])
+@auth.require_role(roles.USER)
+def monitoring_add_discovered():
+    """Turn a hostname seen in Certificate Transparency into a monitor."""
+    host = _normalize_domain(request.form.get("host") or "")
+    zone = _normalize_domain(request.form.get("zone") or "")
+    known = {(s["host"], s["zone"]) for s in discovery.suggestions(db)}
+    if (host, zone) not in known:
+        # Only a name the scans actually saw, under a zone already monitored.
+        return redirect(url_for("monitoring_view", message="That hostname is not a current suggestion."))
+    checks = ["all"]
+    monitor_id = db.create_monitor(
+        name=f"{host} (A)", domain=zone, target=host, record_type="A", record_value=None,
+        source_type="discovery", source_label="Certificate Transparency",
+        provider="discovery", schedule_minutes=1440, checks=checks, enabled=True, metadata={},
+    )
+    audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
+                     details={"target": host, "checks": checks, "source": "discovery"})
+    return redirect(url_for("monitoring_view", message=f"Now monitoring {host}.") + "#discovered")
 
 
 @app.route("/reports")

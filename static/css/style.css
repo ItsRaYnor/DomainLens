@@ -2306,3 +2306,26 @@ footer, .app-footer {
     background: var(--orange-bg);
     color: var(--orange);
 }
+
+.discovered-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.discovered-list li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    word-break: break-all;
+}
+
+.inline-role {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+}

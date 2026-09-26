@@ -129,6 +129,9 @@ def spec():
             "Run a monitor now, in the background", "Monitoring",
             {"202": {"description": "Job accepted"}}, role="user",
             params=[_param("monitor_id", "path", {"type": "integer"})])},
+        "/api/monitors/discovered": {"get": _op(
+            "Hostnames seen in Certificate Transparency that no monitor watches", "Monitoring",
+            _ok("Suggestions from the latest saved scan of each monitored zone"))},
         "/api/monitor-events": {"get": _op(
             "Monitor events: baselines, changes, regressions", "Monitoring", _ok("Events"),
             params=[_param("monitor_id", schema={"type": "integer"}),
