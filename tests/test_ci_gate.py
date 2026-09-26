@@ -61,6 +61,30 @@ class GateDecisionTests(EnterpriseAppTestCase):
         self.assertEqual(0, code)
         self.assertIn("1 accepted risk(s) not counted", output)
 
+    def test_a_scan_already_running_is_waited_out_not_adopted(self):
+        """On 409 the gate judged the running job's result, but that scan
+        was someone else's, with their choice of checks: a DNS-only UI scan
+        passed a pipeline that asked for every check."""
+        high = {"severity": "high", "category": "TLS", "title": "TLS 1.0 enabled"}
+        calls = []
+
+        def call(base, token, method, path, body=None, timeout=60):
+            calls.append((method, path))
+            if method == "POST":
+                if sum(1 for m, _ in calls if m == "POST") == 1:
+                    return 409, {"job_id": "theirs", "already_running": True}
+                return 202, {"job_id": "ours"}
+            if path.endswith("/theirs"):
+                return 200, {"status": "done", "result": {"recommendations": []}}
+            return 200, {"status": "done", "result": {"recommendations": [high]}}
+
+        out = io.StringIO()
+        with mock.patch.object(ci_gate, "_call", side_effect=call):
+            code = ci_gate.run("example.com", base="http://dl", token="dlk_x", fail_on="high",
+                               checks=["all"], timeout=30, poll=0, out=out)
+        self.assertEqual(1, code)
+        self.assertEqual(2, sum(1 for m, _ in calls if m == "POST"))
+
     def test_an_unreachable_or_refusing_server_is_not_a_pass(self):
         """Exit 2, not 0: the gate did not look, so it cannot say 'clean'."""
         out = io.StringIO()

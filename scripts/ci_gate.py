@@ -57,28 +57,45 @@ def _call(base, token, method, path, body=None, timeout=60):
         return exc.code, payload
 
 
-def run(domain, *, base, token, fail_on, checks, timeout, poll=5, out=sys.stdout):
-    status, job = _call(base, token, "POST", "/api/scan/start",
-                        {"domain": domain, "checks": checks})
-    if status not in (202, 409):
-        print(f"Could not start the scan: HTTP {status} {job.get('error', '')}", file=out)
-        return 2
-    job_id = job.get("job_id")
-    deadline = time.monotonic() + timeout
+def _wait(base, token, job_id, deadline, timeout, poll, out):
+    """Poll a job until it ends. Returns (final state, None) or (None, exit code)."""
     while True:
         status, state = _call(base, token, "GET", f"/api/scan/status/{job_id}")
         if status != 200:
             print(f"Could not read the scan: HTTP {status} {state.get('error', '')}", file=out)
-            return 2
-        if state.get("status") == "done":
-            break
-        if state.get("status") == "error":
-            print(f"The scan failed: {state.get('error', 'unknown error')}", file=out)
-            return 2
+            return None, 2
+        if state.get("status") in ("done", "error"):
+            return state, None
         if time.monotonic() > deadline:
             print(f"The scan did not finish within {timeout}s", file=out)
-            return 2
+            return None, 2
         time.sleep(poll)
+
+
+def run(domain, *, base, token, fail_on, checks, timeout, poll=5, out=sys.stdout):
+    deadline = time.monotonic() + timeout
+    while True:
+        status, job = _call(base, token, "POST", "/api/scan/start",
+                            {"domain": domain, "checks": checks})
+        if status == 202:
+            break
+        if status == 409 and job.get("job_id"):
+            # Someone else's scan of this domain, with whatever checks they
+            # picked. Its result is not an answer to this gate's question:
+            # wait for it to end, then start our own.
+            _, code = _wait(base, token, job["job_id"], deadline, timeout, poll, out)
+            if code is not None:
+                return code
+            continue
+        print(f"Could not start the scan: HTTP {status} {job.get('error', '')}", file=out)
+        return 2
+
+    state, code = _wait(base, token, job.get("job_id"), deadline, timeout, poll, out)
+    if code is not None:
+        return code
+    if state.get("status") == "error":
+        print(f"The scan failed: {state.get('error', 'unknown error')}", file=out)
+        return 2
 
     result = state.get("result") or {}
     recs = result.get("recommendations") or []
