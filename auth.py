@@ -784,7 +784,40 @@ def _viewer_may(path: str, method: str) -> bool:
     return any(path == p or path.startswith(p) for p in _VIEWER_WRITABLE_PREFIXES)
 
 
+_TOKEN_PATHS = ("/api/", "/metrics")
+
+
+def authenticate_api_token():
+    """Resolve an `Authorization: Bearer dlk_...` header for this request.
+
+    Returns an error response for a token that is presented but not valid:
+    falling back to the session cookie would make a revoked token look like
+    it still works whenever the same browser is signed in. Other bearer
+    tokens (SCIM's) are left alone for their own endpoints.
+    """
+    from flask import g
+    import api_tokens
+
+    header = request.headers.get("Authorization") or ""
+    if not header.lower().startswith("bearer "):
+        return None
+    raw = header[7:].strip()
+    if not raw.startswith(api_tokens.PREFIX):
+        return None
+    if not any(request.path == p or request.path.startswith(p) for p in _TOKEN_PATHS):
+        return jsonify({"error": "API tokens are accepted on /api/ endpoints only"}), 403
+    user = api_tokens.authenticate(raw, ip=request.remote_addr)
+    if user is None:
+        return jsonify({"error": "Invalid, expired or revoked API token"}), 401
+    g.api_token_user = user
+    g.pop("domainlens_user", None)
+    return None
+
+
 def enforce_login_before_request():
+    token_error = authenticate_api_token()
+    if token_error is not None:
+        return token_error
     cfg = config()
     if not (cfg["enabled"] and cfg["require_login"]):
         return None

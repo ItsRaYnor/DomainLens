@@ -41,6 +41,7 @@ import servicenow
 import osint
 import hubspot_cf
 import ncsc_tls
+import api_tokens
 import audit_log
 import auth
 import domain_ownership
@@ -4007,16 +4008,32 @@ def logout():
     return redirect(url_for("login_page") if auth.config()["enabled"] and auth.config()["require_login"] else "/")
 
 
+def _account_tokens_context(user):
+    """Token list for the account page; None when there is no row to hold them."""
+    from routes.tokens import SESSION_NEW_TOKEN
+    new_token = session.pop(SESSION_NEW_TOKEN, None)
+    tokens = None
+    if user.get("db_user") or user.get("provider") == "local":
+        try:
+            tokens = api_tokens.list_for_user(int(user["id"]))
+        except (TypeError, ValueError):
+            tokens = None
+    return {"api_tokens": tokens, "new_api_token": new_token,
+            "token_max_days": api_tokens.MAX_DAYS}
+
+
 @app.route("/account")
 @app.route("/account/security")
 def account_security():
     user = auth.current_user()
     if not user:
         return redirect(url_for("login_page", next="/account"))
+    tokens_ctx = _account_tokens_context(user)
     if user.get("provider") != "local":
         return render_template(
             "account.html",
         section="admin",
+            **tokens_ctx,
             user=user,
             local_only=False,
             message=request.args.get("message"),
@@ -4039,6 +4056,7 @@ def account_security():
     return render_template(
         "account.html",
         section="admin",
+        **tokens_ctx,
         user=db_user or user,
         local_only=True,
         message=request.args.get("message"),
@@ -4276,6 +4294,7 @@ def admin_users_page():
         section="admin",
         subnav=admin_nav.subnav("/admin/users"),
         users=db.list_users(),
+        all_tokens=api_tokens.list_all(),
         password_policy=auth.password_policy(),
         message=request.args.get("message"),
         error=request.args.get("error"),

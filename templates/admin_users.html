@@ -107,6 +107,37 @@
                 </table>
             </div>
         </section>
+
+        {% if all_tokens %}
+        <section class="account-section" id="api-tokens">
+            <h2>API tokens</h2>
+            <p class="login-hint">Every token on this instance. Revoking one takes effect on its next request.</p>
+            <div class="users-table-wrap">
+                <table class="users-table">
+                    <thead><tr><th>Owner</th><th>Name</th><th>Token</th><th>Role</th><th>Expires</th><th>Last used</th><th></th></tr></thead>
+                    <tbody>
+                    {% for tok in all_tokens %}
+                    <tr>
+                        <td>{{ tok.owner_email or '—' }}</td>
+                        <td>{{ tok.name }}</td>
+                        <td><code>{{ tok.display_prefix }}…</code></td>
+                        <td>{{ tok.role }}</td>
+                        <td>{{ tok.expires_at|last_login }}</td>
+                        <td>{% if tok.last_used_at %}{{ tok.last_used_at|last_login }}{% if tok.last_used_ip %}<div class="muted">{{ tok.last_used_ip }}</div>{% endif %}{% else %}<span class="muted">Never</span>{% endif %}</td>
+                        <td>
+                            {% if tok.active %}
+                            <form method="post" action="/admin/tokens/{{ tok.id }}/revoke">
+                                <button type="submit" class="btn-ghost-sm danger">Revoke</button>
+                            </form>
+                            {% else %}<span class="muted">{{ 'revoked' if tok.revoked_at else 'expired' }}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
     </main>
 
     <script src="/static/js/i18n.js?v={{ asset_token }}"></script>

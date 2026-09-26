@@ -13,6 +13,11 @@ def register(app, *, db, auth, servicenow, domainlens_config, scheduler_config_f
     def api_version():
         return jsonify(app_version.info())
 
+    @app.route("/api/openapi.json")
+    def api_openapi():
+        import openapi
+        return jsonify(openapi.spec())
+
     @app.route("/api/updates/check")
     def api_updates_check():
         """Admins (or open when auth disabled) can check for newer releases."""
