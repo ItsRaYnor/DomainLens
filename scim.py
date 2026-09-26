@@ -214,11 +214,14 @@ def _role_from_payload(payload: dict, default_role: str) -> str:
                 return "admin"
             found.add(value.strip())
     # Most privileged role the directory sent wins, and an explicit analyst
-    # outranks an explicit viewer. A group named "viewer" must never land
-    # someone on the default role, which is usually analyst.
-    if "user" in found or "analyst" in found:
+    # outranks an explicit viewer. Matched as loosely as "admin" above: a
+    # group named "DomainLens Viewers" must never land someone on the
+    # default role, which is usually analyst. "user" stays exact, because
+    # "Users" is the name of half the groups in any directory.
+    if "user" in found or any("analyst" in v for v in found):
         return roles.USER
-    if "viewer" in found or "read-only" in found or "readonly" in found:
+    if any(marker in v for v in found
+           for marker in ("viewer", "read-only", "readonly", "read only")):
         return roles.VIEWER
     return roles.normalize(default_role)
 
