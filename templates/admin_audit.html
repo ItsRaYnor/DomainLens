@@ -47,7 +47,7 @@
                     <input type="date" name="until" value="{{ filters.until or '' }}">
                 </label>
                 <button type="submit" class="btn-primary-lite">{{ t('audit.apply') }}</button>
-                <a class="btn-ghost-sm" href="/api/admin/audit.csv?{{ query_string }}">{{ t('audit.export_csv') }}</a>
+                <a class="btn-ghost" href="/api/admin/audit.csv?{{ query_string }}">{{ t('audit.export_csv') }}</a>
             </form>
 
             <div class="users-table-wrap">

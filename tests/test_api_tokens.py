@@ -139,5 +139,16 @@ class OpenApiTests(EnterpriseAppTestCase):
         self.assertEqual("3.1.0", body["openapi"])
 
 
+
+class TokenFormDefaultTests(EnterpriseAppTestCase):
+    def test_an_admin_is_not_offered_admin_by_default(self):
+        """A pipeline token should not carry admin rights because nobody
+        touched the dropdown."""
+        self.login_as("admin")
+        page = self.client.get("/account").get_data(as_text=True)
+        selected = re.search(r'<option value="(\w+)" selected>', page.split('id="api-tokens"', 1)[1])
+        self.assertEqual("user", selected.group(1))
+
+
 if __name__ == "__main__":
     unittest.main()

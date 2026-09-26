@@ -130,8 +130,11 @@
                 <label>Name <input type="text" name="name" required maxlength="80" placeholder="ci-pipeline"></label>
                 <label>Role
                     <select name="role">
-                        {% for value, label in token_roles|reverse %}
-                        <option value="{{ value }}">{{ label }}</option>
+                        {# Analyst preselected, not the highest role on offer: a
+                           pipeline that only scans should not carry admin by
+                           default because nobody changed a dropdown. #}
+                        {% for value, label in token_roles %}
+                        <option value="{{ value }}"{% if value == 'user' or token_roles|length == 1 %} selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </label>
