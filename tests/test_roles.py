@@ -66,6 +66,22 @@ class ClearingHistoryIsAdminOnlyTests(EnterpriseAppTestCase):
         self.assertEqual(200, self.client.delete("/api/history").status_code)
 
 
+class RoleRefusedPageTests(EnterpriseAppTestCase):
+    def test_a_signed_in_caller_without_the_role_gets_403_not_a_login_loop(self):
+        """The refusal redirected to /login?next=<page>, and the login page
+        sends a signed-in caller straight back to next: a Viewer opening
+        /admin/domains bounced until the browser gave up, writing an
+        access.denied audit row on every hop."""
+        self.login_as("viewer")
+        resp = self.client.get("/admin/domains")
+        self.assertEqual(403, resp.status_code)
+
+    def test_an_anonymous_caller_is_still_sent_to_sign_in(self):
+        resp = self.client.get("/admin/audit")
+        self.assertEqual(302, resp.status_code)
+        self.assertIn("/login", resp.headers["Location"])
+
+
 class RoleChangesTakeEffectImmediatelyTests(EnterpriseAppTestCase):
     """The session used to keep its role until it expired, twelve hours by
     default -- so disabling an account left it working until tomorrow."""
@@ -118,6 +134,16 @@ class ScimViewerMappingTests(unittest.TestCase):
         import scim
         self.assertEqual("viewer", scim._role_from_payload(
             {"roles": [{"value": "Viewer"}]}, "user"))
+
+    def test_a_named_viewer_group_is_not_promoted_to_analyst(self):
+        """Admin matched anywhere in the name, viewer only exactly: a group
+        called "DomainLens-Viewers" fell through to the default role and
+        gave read-only staff the right to scan and delete."""
+        import scim
+        for name in ("DomainLens-Viewers", "domainlens viewer", "DL Read-Only"):
+            with self.subTest(name=name):
+                self.assertEqual("viewer", scim._role_from_payload(
+                    {"roles": [{"value": name}]}, "user"))
 
     def test_admin_still_wins_over_viewer(self):
         import scim

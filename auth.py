@@ -739,11 +739,16 @@ def require_role(minimum: str):
                 return view(*args, **kwargs)
             user = current_user()
             if not user or not roles.at_least(user.get("role"), minimum):
+                label = "Admin" if minimum == roles.ADMIN else roles.LABELS.get(minimum, minimum)
                 if user:
                     _audit_denied(minimum)
                 if request.path.startswith("/api/"):
-                    label = "Admin" if minimum == roles.ADMIN else roles.LABELS.get(minimum, minimum)
                     return jsonify({"error": f"{label} required"}), 403
+                if user:
+                    # Not to the login page: it sends a signed-in caller
+                    # straight back to `next`, and the two bounce forever.
+                    return (f"{label} role required for this page.", 403,
+                            {"Content-Type": "text/plain; charset=utf-8"})
                 return redirect(url_for("login_page", next=request.path))
             return view(*args, **kwargs)
 
