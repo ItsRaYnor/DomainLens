@@ -55,6 +55,9 @@ FIELD_META = {
         "preferred_languages": {"type": "text", "label": "settings.disclosure.preferred_languages"},
         "canonical_url": {"type": "text", "label": "settings.disclosure.canonical_url"},
     },
+    "ownership": {
+        "max_age_days": {"type": "int", "min": 0, "max": 3650, "label": "settings.ownership.max_age_days"},
+    },
     "own_infra": {
         "enabled": {"type": "bool", "label": "settings.own_infra.enabled"},
         "domains": {"type": "lines", "label": "settings.own_infra.domains"},
@@ -220,7 +223,7 @@ FIELD_META = {
 SETTING_CATEGORIES = [
     {"key": "settings.categories.appearance", "sections": ["appearance", "general"]},
     {"key": "settings.categories.scanning",
-     "sections": ["scan", "weak_auth", "active_scan", "js_scan", "own_infra"]},
+     "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra"]},
     {"key": "settings.categories.automation",
      "sections": ["scheduler", "reporting", "updates"]},
     {"key": "settings.categories.access",
@@ -232,6 +235,7 @@ SETTING_CATEGORIES = [
 ADMIN_SECTIONS = [
     "disclosure",
     "own_infra",
+    "ownership",
     "appearance",
     "general",
     "scheduler",

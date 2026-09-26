@@ -254,3 +254,42 @@
 .nowrap {
     white-space: nowrap;
 }
+
+.ownership-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.ownership-verified {
+    background: var(--green-bg);
+    color: var(--green);
+}
+
+.ownership-pending,
+.ownership-expired {
+    background: var(--orange-bg);
+    color: var(--orange);
+}
+
+.ownership-instructions dt {
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.ownership-instructions dd {
+    margin: 0.25rem 0 0;
+    word-break: break-all;
+}
+
+.ownership-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.75rem;
+}

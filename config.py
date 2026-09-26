@@ -68,6 +68,9 @@ class Settings:
                 w[key] = str((self.config_dir / val).resolve())
         return w
 
+    def ownership(self) -> dict:
+        return dict(self.raw.get("ownership") or {})
+
     def active_scan(self) -> dict:
         return dict(self.raw.get("active_scan") or {})
 

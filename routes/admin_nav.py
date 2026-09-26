@@ -8,6 +8,7 @@ carry, so they share one row of tabs, defined here once.
 ADMIN_SUBNAV = [
     ("nav.admin_settings", "/admin/settings"),
     ("nav.admin_users", "/admin/users"),
+    ("nav.admin_domains", "/admin/domains"),
     ("nav.admin_audit", "/admin/audit"),
 ]
 

@@ -29,7 +29,8 @@
     "reports_compare": "Vergelijken",
     "admin_settings": "Instellingen",
     "admin_users": "Gebruikers",
-    "admin_audit": "Auditlog"
+    "admin_audit": "Auditlog",
+    "admin_domains": "Geverifieerde domeinen"
   },
   "search": {
     "placeholder": "Voer een domeinnaam in (bijv. example.com)",
@@ -150,7 +151,8 @@
       "rapid7": "Rapid7 InsightVM",
       "appearance": "Weergave",
       "disclosure": "Responsible disclosure",
-      "own_infra": "Tests op eigen infrastructuur"
+      "own_infra": "Tests op eigen infrastructuur",
+      "ownership": "Domeineigendom"
     },
     "general": {
       "locale": "Taal",
@@ -327,6 +329,9 @@
     "own_infra": {
       "enabled": "Open relay- en open resolver-tests inschakelen",
       "domains": "Domeinen die je zelf beheert (één per regel; alleen deze worden getest)"
+    },
+    "ownership": {
+      "max_age_days": "Dagen dat een DNS/HTTPS-eigendomsbewijs geldig blijft (0 = tot intrekken)"
     }
   },
   "rapid7_ui": {
@@ -429,5 +434,26 @@
     "older": "Ouder",
     "newer": "Nieuwer",
     "any": "Alle"
+  },
+  "ownership": {
+    "title": "Geverifieerde domeinen",
+    "subtitle": "Inlogpogingen en aanvalsprobes (weak-auth, actieve scan) draaien alleen op domeinen waarvan bewezen is dat ze van jou zijn. Een geverifieerd domein dekt ook de subdomeinen.",
+    "add": "Verificatie starten",
+    "domain": "Domein",
+    "how": "Publiceer een van deze twee en klik daarna op Controleren:",
+    "dns_option": "DNS TXT-record",
+    "http_option": "Of een bestand via HTTPS",
+    "check": "Nu controleren",
+    "attest": "Bevestigen als admin",
+    "attest_reason": "Reden (verplicht, komt in het auditlog)",
+    "revoke": "Intrekken",
+    "status": "Status",
+    "method": "Methode",
+    "verified_at": "Geverifieerd",
+    "pending": "in afwachting",
+    "verified": "geverifieerd",
+    "expired": "verlopen",
+    "last_error": "Laatste controle",
+    "empty": "Nog geen domeinen."
   }
 }

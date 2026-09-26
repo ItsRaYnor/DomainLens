@@ -178,6 +178,12 @@ DEFAULTS = {
         "enabled": False,
         "domains": [],
     },
+    "ownership": {
+        # How long a DNS or HTTPS proof of ownership stays valid before the
+        # domain has to be checked again. Domains are sold and delegations
+        # change; 0 keeps a proof until someone revokes it.
+        "max_age_days": 365,
+    },
     "js_scan": {
         # Passive — always safe to run: fetches the homepage's JS/CSS and
         # checks for known-vulnerable library versions and leaked secrets.

@@ -43,6 +43,7 @@ import hubspot_cf
 import ncsc_tls
 import audit_log
 import auth
+import domain_ownership
 from routes import admin_nav
 import roles
 import config as domainlens_config
@@ -2870,8 +2871,15 @@ def _attach_rapid7_findings(results, domain):
 
 
 def check_weak_auth(domain):
-    """Optional weak/default credential probe (config weak_auth.enabled)."""
+    """Optional weak/default credential probe (config weak_auth.enabled).
+
+    Runs only against a domain whose ownership has been verified: a login
+    attempt against someone else's server is an intrusion attempt, whoever
+    typed the domain.
+    """
     settings = domainlens_config.load_settings().weak_auth()
+    if settings.get("enabled") and not domain_ownership.is_verified(domain):
+        return domain_ownership.not_verified_result(domain, enabled=True)
     return weak_auth.scan(domain, settings)
 
 
@@ -2888,6 +2896,8 @@ def check_js_scan(domain):
 def check_active_scan(domain):
     """Optional active vulnerability probe (config active_scan.enabled)."""
     settings = domainlens_config.load_settings().active_scan()
+    if settings.get("enabled") and not domain_ownership.is_verified(domain):
+        return domain_ownership.not_verified_result(domain, enabled=True)
     result = active_scan.scan(domain, settings)
     result["findings_graded"] = active_scan.findings_from_scan(result)
     return result
@@ -3010,10 +3020,12 @@ def full_scan(domain, extra_dkim_selectors=None, progress_cb=None, force_refresh
         domain, apex, extra_dkim_selectors=extra_dkim_selectors,
         force_refresh=force_refresh)
     settings = domainlens_config.load_settings()
-    weak_enabled = settings.weak_auth().get("enabled")
-    active_enabled = settings.active_scan().get("enabled")
-    # Both gates here too: an allowlisted domain is the only one a full scan
-    # will probe, so scanning someone else's domain never reaches these.
+    # Active checks join a full scan only for a verified domain; asked for
+    # by name they still run, and explain why they sent nothing.
+    verified = domain_ownership.is_verified(domain)
+    weak_enabled = settings.weak_auth().get("enabled") and verified
+    active_enabled = settings.active_scan().get("enabled") and verified
+    # Open relay/resolver: only for domains on the own-infrastructure list.
     infra_enabled = own_infra.is_allowed(domain, settings.own_infra())
     names = [
         n for n in check_map
@@ -5731,6 +5743,8 @@ route_modules.register_routes(
     servicenow=servicenow,
     domainlens_config=domainlens_config,
     scheduler_config_fn=_scheduler_config,
+    normalize_domain=_normalize_domain,
+    is_valid_domain=_is_valid_domain,
 )
 
 _start_scheduler_once()

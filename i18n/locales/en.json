@@ -29,7 +29,8 @@
     "reports_compare": "Compare",
     "admin_settings": "Settings",
     "admin_users": "Users",
-    "admin_audit": "Audit log"
+    "admin_audit": "Audit log",
+    "admin_domains": "Verified domains"
   },
   "search": {
     "placeholder": "Enter domain name (e.g. example.com)",
@@ -150,7 +151,8 @@
       "rapid7": "Rapid7 InsightVM",
       "appearance": "Appearance",
       "disclosure": "Responsible disclosure",
-      "own_infra": "Own infrastructure tests"
+      "own_infra": "Own infrastructure tests",
+      "ownership": "Domain ownership"
     },
     "general": {
       "locale": "Language",
@@ -327,6 +329,9 @@
     "own_infra": {
       "enabled": "Enable open relay and open resolver tests",
       "domains": "Domains you run yourself (one per line; only these are tested)"
+    },
+    "ownership": {
+      "max_age_days": "Days a DNS/HTTPS ownership proof stays valid (0 = until revoked)"
     }
   },
   "rapid7_ui": {
@@ -429,5 +434,26 @@
     "older": "Older",
     "newer": "Newer",
     "any": "Any"
+  },
+  "ownership": {
+    "title": "Verified domains",
+    "subtitle": "Login attempts and attack probes (weak-auth, active scan) run only against domains proven to be yours. Verifying a domain covers its subdomains.",
+    "add": "Start verification",
+    "domain": "Domain",
+    "how": "Publish either of these, then press Check:",
+    "dns_option": "DNS TXT record",
+    "http_option": "Or a file over HTTPS",
+    "check": "Check now",
+    "attest": "Attest as admin",
+    "attest_reason": "Reason (required, goes into the audit log)",
+    "revoke": "Revoke",
+    "status": "Status",
+    "method": "Method",
+    "verified_at": "Verified",
+    "pending": "pending",
+    "verified": "verified",
+    "expired": "expired",
+    "last_error": "Last check",
+    "empty": "No domains yet."
   }
 }
