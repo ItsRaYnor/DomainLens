@@ -111,7 +111,7 @@
         {% else %}
             <ol class="remediation-steps">
             {% for r in recommendations %}
-                {% if r.severity in ['critical', 'high', 'medium'] %}
+                {% if r.severity in ['critical', 'high', 'medium'] and not r.accepted %}
                 <li class="sev-{{ r.severity }}">
                     <strong>{{ r.title }}</strong>
                     <span class="muted"> — {{ r.fix }}</span>
@@ -120,13 +120,16 @@
             {% endfor %}
             </ol>
             {% for r in recommendations %}
-            <article class="rec sev-{{ r.severity }}">
+            <article class="rec sev-{{ r.severity }}{% if r.accepted %} rec-is-accepted{% endif %}">
                 <div class="rec-head">
                     <span class="sev-badge sev-{{ r.severity }}">{{ r.severity|upper }}</span>
                     <span class="rec-category">{{ r.category }}</span>
                     <h3>{{ r.title }}</h3>
                 </div>
                 <div class="rec-body">
+                    {% if r.accepted %}
+                    <p class="rec-accepted"><strong>{{ t('advies.accepted') }}</strong> {{ t('advies.accepted_until') }} {{ r.accepted.expires_on }} · {{ t('advies.accepted_by') }}: {{ r.accepted.owner }} — {{ r.accepted.reason }}</p>
+                    {% endif %}
                     <p class="rec-problem"><strong>{{ t('report.problem') }}:</strong> {{ r.problem }}</p>
                     <p class="rec-fix"><strong>{{ t('report.fix') }}:</strong> {{ r.fix }}</p>
                     {% if r.retest %}

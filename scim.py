@@ -15,7 +15,17 @@ from urllib.parse import unquote
 
 from flask import Flask, jsonify, request
 
+import audit_log
 import db
+import roles
+
+_SCIM_ACTOR = {"email": "scim-directory", "role": "system"}
+
+
+def _audit(action, user, details=None):
+    """Directory changes carry the directory as actor, not whoever is signed in."""
+    audit_log.record(action, target_type="user", target_id=(user or {}).get("email"),
+                     details=details, actor=_SCIM_ACTOR, auth_method="scim")
 
 log = logging.getLogger("domainlens.scim")
 
@@ -89,8 +99,7 @@ def scim_config() -> dict:
     if auth_mode not in {"oauth", "bearer", "both"}:
         auth_mode = "oauth"
     default_role = (raw.get("default_role") or os.environ.get("SCIM_DEFAULT_ROLE") or "user").strip().lower()
-    if default_role not in {"user", "admin"}:
-        default_role = "user"
+    default_role = roles.normalize(default_role)
     return {
         "enabled": enabled,
         "auth_mode": auth_mode,  # oauth preferred; bearer = legacy static token; both = accept either
@@ -192,9 +201,10 @@ def _primary_email(payload: dict, user_name: str) -> str:
 
 
 def _role_from_payload(payload: dict, default_role: str) -> str:
-    roles = payload.get("roles") or []
-    if isinstance(roles, list):
-        for item in roles:
+    requested = payload.get("roles") or []
+    found = set()
+    if isinstance(requested, list):
+        for item in requested:
             value = ""
             if isinstance(item, dict):
                 value = str(item.get("value") or item.get("display") or "").lower()
@@ -202,7 +212,18 @@ def _role_from_payload(payload: dict, default_role: str) -> str:
                 value = str(item).lower()
             if "admin" in value:
                 return "admin"
-    return default_role if default_role in {"user", "admin"} else "user"
+            found.add(value.strip())
+    # Most privileged role the directory sent wins, and an explicit analyst
+    # outranks an explicit viewer. Matched as loosely as "admin" above: a
+    # group named "DomainLens Viewers" must never land someone on the
+    # default role, which is usually analyst. "user" stays exact, because
+    # "Users" is the name of half the groups in any directory.
+    if "user" in found or any("analyst" in v for v in found):
+        return roles.USER
+    if any(marker in v for v in found
+           for marker in ("viewer", "read-only", "readonly", "read only")):
+        return roles.VIEWER
+    return roles.normalize(default_role)
 
 
 def _enterprise_block(payload: dict) -> dict:
@@ -709,6 +730,7 @@ def register_routes(app: Flask) -> None:
         )
         user = db.get_user(user_id)
         log.info("SCIM provisioned user %s (id=%s)", email, user_id)
+        _audit("scim.user_create", user, {"role": user.get("role"), "enabled": user.get("enabled")})
         return _scim_json(user_to_scim(user), status=201)
 
     @app.get("/scim/v2/Users/<user_id>")
@@ -754,6 +776,10 @@ def register_routes(app: Flask) -> None:
             profile["scim_profile"] = merged
         updates.update(profile)
         updated = db.update_user(uid, **updates)
+        _audit("scim.user_replace", updated, {
+            "role": {"from": user.get("role"), "to": updated.get("role")},
+            "enabled": {"from": user.get("enabled"), "to": updated.get("enabled")},
+        })
         return _scim_json(user_to_scim(updated))
 
     @app.patch("/scim/v2/Users/<user_id>")
@@ -778,6 +804,7 @@ def register_routes(app: Flask) -> None:
             updates["scim_profile"] = merged
         if updates:
             user = db.update_user(uid, **updates)
+            _audit("scim.user_patch", user, {"fields": sorted(updates)})
         return _scim_json(user_to_scim(user))
 
     @app.delete("/scim/v2/Users/<user_id>")
@@ -793,6 +820,8 @@ def register_routes(app: Flask) -> None:
         # Soft-delete preferred for audit; hard-delete if already disabled + query
         if request.args.get("hard") == "1":
             db.delete_user(uid)
+            _audit("scim.user_delete", user)
         else:
             db.update_user(uid, enabled=False)
+            _audit("scim.user_disable", user)
         return ("", 204)

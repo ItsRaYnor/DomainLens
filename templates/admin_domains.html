@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('ownership.title') }} · {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main" class="account-main account-main-wide">
+        {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
+        {% if message %}<div class="login-info">{{ message }}</div>{% endif %}
+
+        <section class="account-section">
+            <h2>{{ t('ownership.title') }}</h2>
+            <p class="muted">{{ t('ownership.subtitle') }}</p>
+            {% if is_admin %}
+            <p class="muted"><a href="/admin/settings#ownership">{{ t('ownership.max_age_note') }}</a></p>
+            {% endif %}
+            <form class="audit-filters" method="post" action="/admin/domains">
+                <label>{{ t('ownership.domain') }}
+                    <input type="text" name="domain" required placeholder="example.com" autocomplete="off">
+                </label>
+                <button type="submit" class="btn-primary-lite">{{ t('ownership.add') }}</button>
+            </form>
+        </section>
+
+        {% for d in domains %}
+        {% set state = 'expired' if d.expired else d.status %}
+        <section class="account-section ownership-entry" id="d-{{ d.domain }}">
+            <h2>
+                {{ d.domain }}
+                <span class="ownership-badge ownership-{{ state }}">{{ t('ownership.' ~ state) }}</span>
+            </h2>
+            <p class="muted">
+                {% if d.status == 'verified' %}
+                    {{ t('ownership.method') }}: <strong>{{ d.method }}</strong>
+                    · {{ t('ownership.verified_at') }}: {{ d.verified_at|last_login }}
+                    {% if d.verified_by %}· {{ d.verified_by }}{% endif %}
+                    {% if d.note %}<br>“{{ d.note }}”{% endif %}
+                {% endif %}
+                {% if d.last_error %}<br>{{ t('ownership.last_error') }}: {{ d.last_error }}{% endif %}
+            </p>
+
+            {% if d.status != 'verified' or d.expired %}
+            <p>{{ t('ownership.how') }}</p>
+            <dl class="ownership-instructions">
+                <dt>{{ t('ownership.dns_option') }}</dt>
+                <dd><code>{{ d.instructions.dns.name }}</code> TXT <code>{{ d.instructions.dns.value }}</code></dd>
+                <dt>{{ t('ownership.http_option') }}</dt>
+                <dd><code>{{ d.instructions.http.url }}</code> → <code>{{ d.instructions.http.body }}</code></dd>
+            </dl>
+            {% endif %}
+
+            <div class="ownership-actions">
+                <form method="post" action="/admin/domains/{{ d.domain }}/check">
+                    <button type="submit" class="btn-primary-lite">{{ t('ownership.check') }}</button>
+                </form>
+                {% if is_admin %}
+                {% if d.status != 'verified' or d.expired %}
+                <form method="post" action="/admin/domains/{{ d.domain }}/attest" class="inline-reset">
+                    <input type="text" name="note" required placeholder="{{ t('ownership.attest_reason') }}">
+                    <button type="submit" class="btn-ghost-sm">{{ t('ownership.attest') }}</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/admin/domains/{{ d.domain }}/revoke">
+                    <button type="submit" class="btn-ghost-sm danger">{{ t('ownership.revoke') }}</button>
+                </form>
+                {% endif %}
+            </div>
+        </section>
+        {% else %}
+        <section class="account-section"><p class="muted">{{ t('ownership.empty') }}</p></section>
+        {% endfor %}
+    </main>
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/page_boot.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

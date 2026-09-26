@@ -1890,10 +1890,13 @@ function renderRecommendations(data) {
         : generateRecommendations(data);
     const badge = $('recBadge');
 
+    // Accepted risks are listed but not counted: that decision is made and
+    // dated, and counting it would keep the badge alarming about it.
     const counts = {critical:0,high:0,medium:0,low:0,info:0};
-    recs.forEach(r => { counts[r.severity]++; });
+    let acceptedCount = 0;
+    recs.forEach(r => { if (r.accepted) acceptedCount++; else counts[r.severity]++; });
 
-    const total = recs.length;
+    const total = recs.length - acceptedCount;
     if (total === 0) {
         badge.textContent = '0';
         badge.className = 'tab-badge ok';
@@ -1913,18 +1916,25 @@ function renderRecommendations(data) {
             summary += `<span class="chip sev-${s}"><span class="chip-count">${counts[s]}</span> ${escapeHtml(s)}</span>`;
         }
     });
+    if (acceptedCount > 0) {
+        summary += `<span class="chip rec-accepted-chip"><span class="chip-count">${acceptedCount}</span> ${escapeHtml(t('advies.accepted'))}</span>`;
+    }
     summary += '</div>';
 
     let html = summary;
     recs.forEach(r => {
         const retest = r.retest || defaultRetest(r.category, r.title, data.domain);
-        html += `<article class="rec sev-${escapeHtml(r.severity)}">
+        const accepted = r.accepted
+            ? `<p class="rec-accepted"><strong>${escapeHtml(t('advies.accepted'))}</strong> ${escapeHtml(t('advies.accepted_until'))} ${escapeHtml(r.accepted.expires_on || '')} · ${escapeHtml(t('advies.accepted_by'))}: ${escapeHtml(r.accepted.owner || '')} — ${escapeHtml(r.accepted.reason || '')}</p>`
+            : '';
+        html += `<article class="rec sev-${escapeHtml(r.severity)}${r.accepted ? ' rec-is-accepted' : ''}">
             <div class="rec-head">
                 <span class="rec-badge sev-${escapeHtml(r.severity)}">${escapeHtml(r.severity.toUpperCase())}</span>
                 <span class="rec-category">${escapeHtml(r.category)}</span>
                 <h4>${escapeHtml(r.title)}</h4>
             </div>
             <div class="rec-body">
+                ${accepted}
                 <p><strong>${escapeHtml(t('advies.problem'))}:</strong> ${escapeHtml(r.problem)}</p>
                 <div class="rec-advies">
                     <p><strong>${escapeHtml(t('advies.fix'))}:</strong> ${escapeHtml(r.fix)}</p>

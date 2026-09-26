@@ -130,7 +130,6 @@ DEFAULTS = {
         "pgp_generated_at": "",
     },
     "reporting": {
-        "retention_days": 365,
         "digest_enabled": False,
         "digest_interval_hours": 24,
     },
@@ -177,6 +176,12 @@ DEFAULTS = {
         # infrastructure" into "test everything I happen to scan".
         "enabled": False,
         "domains": [],
+    },
+    "ownership": {
+        # How long a DNS or HTTPS proof of ownership stays valid before the
+        # domain has to be checked again. Domains are sold and delegations
+        # change; 0 keeps a proof until someone revokes it.
+        "max_age_days": 365,
     },
     "js_scan": {
         # Passive — always safe to run: fetches the homepage's JS/CSS and
@@ -229,6 +234,27 @@ DEFAULTS = {
         "enabled": False,
         "auth_mode": "oauth",  # oauth (preferred) | bearer (legacy) | both
         "default_role": "user",
+    },
+    "retention": {
+        # Days to keep each kind of record; 0 keeps it forever. All 0 by
+        # default so an upgrade deletes nothing nobody asked it to. A
+        # monitor's current baseline scan is always kept.
+        "scan_days": 0,
+        "event_days": 0,
+        "audit_days": 0,
+    },
+    "notifications": {
+        # Webhook, Slack and Teams URLs and SMTP credentials are managed
+        # credentials (Settings → Integration credentials), not settings:
+        # Slack and Teams URLs are secrets in their own right.
+        "enabled": False,
+        "min_severity": "high",
+        "send_digest": False,
+        "smtp_host": "",
+        "smtp_port": 587,
+        "smtp_security": "starttls",
+        "smtp_from": "",
+        "email_to": [],
     },
     "servicenow": {
         "enabled": False,
@@ -350,6 +376,12 @@ SECRET_ENV_KEYS = [
     "RAPID7_USERNAME",
     "RAPID7_PASSWORD",
     "RAPID7_API_KEY",
+    "NOTIFY_WEBHOOK_URL",
+    "NOTIFY_WEBHOOK_SECRET",
+    "NOTIFY_SLACK_WEBHOOK_URL",
+    "NOTIFY_TEAMS_WEBHOOK_URL",
+    "SMTP_USERNAME",
+    "SMTP_PASSWORD",
 ]
 
 
@@ -418,6 +450,19 @@ MANAGED_CREDENTIALS = [
      "note": "Client secret for the OAuth login application."},
     {"env": "AZURE_CLIENT_SECRET", "name": "Azure client secret", "group": "OAuth / Entra ID",
      "note": "Entra ID client secret; takes precedence over the generic OAuth one."},
+
+    {"env": "NOTIFY_WEBHOOK_URL", "name": "Webhook URL", "group": "Notifications",
+     "note": "HTTPS endpoint that receives each alert as JSON."},
+    {"env": "NOTIFY_WEBHOOK_SECRET", "name": "Webhook signing secret", "group": "Notifications",
+     "note": "Signs the JSON body (X-DomainLens-Signature: sha256=HMAC)."},
+    {"env": "NOTIFY_SLACK_WEBHOOK_URL", "name": "Slack incoming webhook URL", "group": "Notifications",
+     "note": "From a Slack app's Incoming Webhooks page."},
+    {"env": "NOTIFY_TEAMS_WEBHOOK_URL", "name": "Teams Workflows webhook URL", "group": "Notifications",
+     "note": "From a Teams Workflow: 'Post to a channel when a webhook request is received'."},
+    {"env": "SMTP_USERNAME", "name": "SMTP user", "group": "Notifications",
+     "note": "Leave empty for a relay that needs no login."},
+    {"env": "SMTP_PASSWORD", "name": "SMTP password", "group": "Notifications",
+     "note": "Password for the SMTP user."},
 
     {"env": "SCIM_BEARER_TOKEN", "name": "SCIM bearer token", "group": "SCIM provisioning",
      "note": "Static bearer token for the SCIM endpoint (legacy auth mode)."},

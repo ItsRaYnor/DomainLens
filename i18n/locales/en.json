@@ -9,6 +9,7 @@
     "account": "Account",
     "users": "Users",
     "settings": "Settings",
+    "admin": "Admin",
     "scan": "Scan",
     "lookup": "Lookup",
     "reports": "Reports",
@@ -26,7 +27,12 @@
     "tools_dns": "DNS record",
     "tools_impersonation": "Impersonation",
     "tools_disclosure": "Responsible disclosure",
-    "reports_compare": "Compare"
+    "reports_compare": "Compare",
+    "admin_settings": "Settings",
+    "admin_users": "Users",
+    "admin_audit": "Audit log",
+    "admin_domains": "Verified domains",
+    "admin_risks": "Accepted risks"
   },
   "search": {
     "placeholder": "Enter domain name (e.g. example.com)",
@@ -106,7 +112,10 @@
     "empty": "No open issues. Keep monitoring regularly.",
     "none_priority": "No prioritized advice items for this scan.",
     "action": "Action",
-    "evidence": "Evidence"
+    "evidence": "Evidence",
+    "accepted": "Accepted risk",
+    "accepted_by": "Owner",
+    "accepted_until": "until"
   },
   "common": {
     "pass": "Pass",
@@ -128,6 +137,7 @@
     "invalid_domain": "Invalid domain name"
   },
   "settings": {
+    "ownership_link": "Request and check verifications on the Verified domains page.",
     "title": "Settings",
     "subtitle": "Configure DomainLens from the web interface",
     "sections": {
@@ -147,7 +157,10 @@
       "rapid7": "Rapid7 InsightVM",
       "appearance": "Appearance",
       "disclosure": "Responsible disclosure",
-      "own_infra": "Own infrastructure tests"
+      "own_infra": "Own infrastructure tests",
+      "ownership": "Domain ownership",
+      "notifications": "Notifications (webhook, Slack, Teams, email)",
+      "retention": "Retention"
     },
     "general": {
       "locale": "Language",
@@ -180,7 +193,6 @@
       "dns_lookup_rate_limit_window": "DNS lookup window (seconds)"
     },
     "reporting": {
-      "retention_days": "Retention (days)",
       "digest_enabled": "Scheduler digest enabled",
       "digest_interval_hours": "Digest interval (hours)"
     },
@@ -297,7 +309,7 @@
       "max_advies_items": "Max Advice items from Rapid7 per scan"
     },
     "env_locked": "Locked by environment variable",
-    "secrets_hint": "Secrets (passwords, API keys) remain in environment variables only.",
+    "credentials": "Credentials",
     "appearance": {
       "theme": "Default theme for new visitors",
       "accent": "Accent colour",
@@ -324,6 +336,24 @@
     "own_infra": {
       "enabled": "Enable open relay and open resolver tests",
       "domains": "Domains you run yourself (one per line; only these are tested)"
+    },
+    "ownership": {
+      "max_age_days": "Days a DNS/HTTPS ownership proof stays valid (0 = until revoked)"
+    },
+    "notifications": {
+      "enabled": "Send monitor alerts",
+      "min_severity": "Minimum severity to send",
+      "send_digest": "Also send the periodic digest (see Reporting)",
+      "smtp_host": "SMTP host (leave empty for no email)",
+      "smtp_port": "SMTP port",
+      "smtp_security": "SMTP security",
+      "smtp_from": "From address",
+      "email_to": "Recipients (one per line)"
+    },
+    "retention": {
+      "scan_days": "Delete scans older than (days, 0 = keep; monitor baselines are kept)",
+      "event_days": "Delete monitor events older than (days, 0 = keep)",
+      "audit_days": "Delete audit log entries older than (days, 0 = keep)"
     }
   },
   "rapid7_ui": {
@@ -402,5 +432,76 @@
     "auto": "Follow system",
     "light": "Light",
     "dark": "Dark"
+  },
+  "audit": {
+    "title": "Audit log",
+    "subtitle": "Every sign-in, change and scan, with who did it. Entries are append-only and chained by hash.",
+    "filter_action": "Action (prefix)",
+    "filter_actor": "Actor email",
+    "filter_outcome": "Outcome",
+    "filter_since": "From",
+    "filter_until": "Until",
+    "apply": "Filter",
+    "export_csv": "Export CSV",
+    "col_time": "Time",
+    "col_actor": "Actor",
+    "col_action": "Action",
+    "col_target": "Target",
+    "col_outcome": "Outcome",
+    "col_ip": "Address",
+    "col_details": "Details",
+    "chain_intact": "Hash chain intact across {count} entries.",
+    "chain_broken": "Hash chain broken at entry #{id}: {reason}.",
+    "empty": "No entries match.",
+    "older": "Older",
+    "newer": "Newer",
+    "any": "Any"
+  },
+  "ownership": {
+    "max_age_note": "A DNS or HTTPS proof expires after the number of days set under Settings → Domain ownership.",
+    "title": "Verified domains",
+    "subtitle": "Login attempts and attack probes (weak-auth, active scan) run only against domains proven to be yours. Verifying a domain covers its subdomains.",
+    "add": "Start verification",
+    "domain": "Domain",
+    "how": "Publish either of these, then press Check:",
+    "dns_option": "DNS TXT record",
+    "http_option": "Or a file over HTTPS",
+    "check": "Check now",
+    "attest": "Attest as admin",
+    "attest_reason": "Reason (required, goes into the audit log)",
+    "revoke": "Revoke",
+    "status": "Status",
+    "method": "Method",
+    "verified_at": "Verified",
+    "pending": "pending",
+    "verified": "verified",
+    "expired": "expired",
+    "last_error": "Last check",
+    "empty": "No domains yet."
+  },
+  "risks": {
+    "accept_heading": "Accept a finding",
+    "accept_hint": "Enter a domain to list the findings from its latest scan, then accept one with a reason, a risk owner and an expiry date.",
+    "list_heading": "Current and past acceptances",
+    "title": "Accepted risks",
+    "subtitle": "A finding the organisation has decided to live with, with a reason, an owner and an expiry date. It stays in reports, marked accepted, and leaves the severity counts until it expires.",
+    "pick_domain": "Domain",
+    "show": "Show findings",
+    "latest_scan": "Latest scan",
+    "no_scan": "No saved scan for this domain yet.",
+    "no_findings": "The latest scan has no open findings.",
+    "reason": "Reason",
+    "owner": "Risk owner",
+    "expires": "Until",
+    "accept": "Accept risk",
+    "accepted_until": "Accepted until {date}",
+    "revoke": "Revoke",
+    "empty": "No accepted risks.",
+    "col_domain": "Domain",
+    "col_finding": "Finding",
+    "col_by": "Accepted by",
+    "state_active": "active",
+    "state_expired": "expired",
+    "state_revoked": "revoked"
   }
 }

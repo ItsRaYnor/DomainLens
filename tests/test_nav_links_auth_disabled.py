@@ -39,17 +39,20 @@ class NavLinksWhenAuthDisabledTests(unittest.TestCase):
                     "AUTH_LOCAL_ENABLED", "OAUTH_ENABLED", "DOMAINLENS_SECRET_KEY"):
             os.environ.pop(key, None)
 
+    def _assert_users_reachable_from(self, path):
+        """The header carries one Admin entry; Users is one step further,
+        in the admin sub-navigation. Discoverable either way, which is what
+        this guards -- not a second header button repeating that subnav."""
+        body = self.client.get(path).data.decode()
+        self.assertIn('href="/admin/settings"', body, path)
+        admin = self.client.get("/admin/settings").data.decode()
+        self.assertIn('href="/admin/users"', admin)
+
     def test_index_shows_admin_links_when_auth_disabled(self):
-        resp = self.client.get("/")
-        body = resp.data.decode()
-        self.assertIn('href="/admin/settings"', body)
-        self.assertIn('href="/admin/users"', body)
+        self._assert_users_reachable_from("/")
 
     def test_trends_shows_admin_links_when_auth_disabled(self):
-        resp = self.client.get("/trends")
-        body = resp.data.decode()
-        self.assertIn('href="/admin/settings"', body)
-        self.assertIn('href="/admin/users"', body)
+        self._assert_users_reachable_from("/trends")
 
     def test_admin_pages_are_actually_reachable(self):
         for path in ("/admin/settings", "/admin/users"):
@@ -112,7 +115,8 @@ class NavLinksWhenAuthEnabledTests(unittest.TestCase):
             resp = self.client.get(path)
             body = resp.data.decode()
             self.assertIn('href="/admin/settings"', body, path)
-            self.assertIn('href="/admin/users"', body, path)
+        admin = self.client.get("/admin/settings").data.decode()
+        self.assertIn('href="/admin/users"', admin)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ import requests
 from flask import Flask, jsonify, redirect, request, session, url_for
 
 import db
+import roles
 
 log = logging.getLogger("domainlens.auth")
 
@@ -551,9 +552,66 @@ def bootstrap_admin() -> Optional[dict]:
     return db.get_user(user_id, include_secrets=True)
 
 
+def _is_db_backed(user: dict) -> bool:
+    """Whether the session names a row in the users table.
+
+    Only then is the id a users.id. An OAuth-only session carries the
+    provider's id instead -- GitHub's is a plain integer -- so treating every
+    numeric id as a row would hand one person another account's role.
+    """
+    return bool(user.get("db_user")) or user.get("provider") == "local"
+
+
+def _refresh_from_db(user: dict) -> Optional[dict]:
+    """Re-read role and enabled for an account that has a row.
+
+    The session used to keep whatever role it was issued with until it
+    expired, twelve hours by default. Disabling an account or demoting an
+    admin therefore took effect at some point tomorrow, which is not what
+    anyone pressing that button means.
+    """
+    if not _is_db_backed(user):
+        return user
+    try:
+        row = db.get_user(int(user["id"]))
+    except (KeyError, TypeError, ValueError):
+        return user
+    except Exception:
+        # The database being briefly unavailable must not log everyone out.
+        log.warning("Could not refresh the session user", exc_info=True)
+        return user
+    if not row or not row.get("enabled"):
+        session.pop(SESSION_USER_KEY, None)
+        return None
+    role = roles.normalize(row.get("role"))
+    if user.get("role") != role:
+        user = {**user, "role": role}
+        session[SESSION_USER_KEY] = user
+    return user
+
+
 def current_user() -> Optional[dict]:
-    user = session.get(SESSION_USER_KEY)
-    return user if isinstance(user, dict) else None
+    """The authenticated caller: an API token first, then the session."""
+    try:
+        from flask import g
+        if "domainlens_user" in g:
+            return g.domainlens_user
+    except RuntimeError:
+        # Outside a request (scheduler thread): nobody is signed in.
+        return None
+    token_user = getattr(g, "api_token_user", None)
+    if token_user is not None:
+        user = token_user
+    else:
+        user = session.get(SESSION_USER_KEY)
+        user = _refresh_from_db(user) if isinstance(user, dict) else None
+    g.domainlens_user = user
+    return user
+
+
+def current_role() -> Optional[str]:
+    user = current_user()
+    return roles.normalize(user.get("role")) if user else None
 
 
 def login_user(user: dict) -> None:
@@ -564,10 +622,20 @@ def login_user(user: dict) -> None:
         "name": user.get("name") or user.get("login") or user.get("email"),
         "picture": user.get("picture") or user.get("avatar_url"),
         "provider": user.get("provider"),
-        "role": user.get("role") or "user",
+        "role": roles.normalize(user.get("role")),
         "mfa_enabled": bool(user.get("mfa_enabled")),
+        "db_user": bool(user.get("db_user")),
     }
     session.permanent = True
+    _forget_request_user()
+
+
+def _forget_request_user() -> None:
+    try:
+        from flask import g
+        g.pop("domainlens_user", None)
+    except RuntimeError:
+        pass
 
 
 def login_local_user_record(row: dict) -> None:
@@ -576,7 +644,7 @@ def login_local_user_record(row: dict) -> None:
             "id": row["id"],
             "email": row.get("email"),
             "name": row.get("name") or row.get("email"),
-            "role": row.get("role") or "user",
+            "role": roles.normalize(row.get("role")),
             "provider": "local",
             "mfa_enabled": bool(row.get("mfa_enabled")),
         }
@@ -586,6 +654,7 @@ def login_local_user_record(row: dict) -> None:
 
 def logout_user() -> None:
     session.clear()
+    _forget_request_user()
 
 
 def mfa_pending_user_id() -> Optional[int]:
@@ -656,31 +725,121 @@ def require_login(view=None, *, api=False):
     return decorator
 
 
-def require_admin(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        cfg = config()
-        if not cfg.get("enabled"):
-            return view(*args, **kwargs)
-        user = current_user()
-        if not user or user.get("role") != "admin":
-            if request.path.startswith("/api/"):
-                return jsonify({"error": "Admin required"}), 403
-            return redirect(url_for("login_page", next=request.path))
-        return view(*args, **kwargs)
+def require_role(minimum: str):
+    """Allow the view for callers holding at least `minimum`.
 
-    return wrapped
+    With authentication switched off there are no roles to hold: that mode is
+    a single trusted operator, and every view stays open as it always was.
+    """
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            cfg = config()
+            if not cfg.get("enabled"):
+                return view(*args, **kwargs)
+            user = current_user()
+            if not user or not roles.at_least(user.get("role"), minimum):
+                label = "Admin" if minimum == roles.ADMIN else roles.LABELS.get(minimum, minimum)
+                if user:
+                    _audit_denied(minimum)
+                if request.path.startswith("/api/"):
+                    return jsonify({"error": f"{label} required"}), 403
+                if user:
+                    # Not to the login page: it sends a signed-in caller
+                    # straight back to `next`, and the two bounce forever.
+                    return (f"{label} role required for this page.", 403,
+                            {"Content-Type": "text/plain; charset=utf-8"})
+                return redirect(url_for("login_page", next=request.path))
+            return view(*args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+def _audit_denied(required: str) -> None:
+    """A signed-in caller refused for their role -- the attempt is the event."""
+    import audit_log
+    audit_log.record("access.denied", target_type="path",
+                     target_id=f"{request.method} {request.path}",
+                     outcome="denied", details={"required_role": required})
+
+
+def require_admin(view):
+    return require_role(roles.ADMIN)(view)
+
+
+# Writes a viewer may still make: their own session, password, MFA and
+# display preferences. Everything else that changes state -- a scan, a
+# monitor, a deletion, an import -- needs at least the analyst role.
+_VIEWER_WRITABLE_PREFIXES = (
+    "/logout",
+    "/auth/",
+    "/account/",
+    "/api/locale",
+    "/api/preferences/",
+)
+
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def _viewer_may(path: str, method: str) -> bool:
+    if method in _SAFE_METHODS:
+        return True
+    return any(path == p or path.startswith(p) for p in _VIEWER_WRITABLE_PREFIXES)
+
+
+_TOKEN_PATHS = ("/api/", "/metrics")
+
+
+def authenticate_api_token():
+    """Resolve an `Authorization: Bearer dlk_...` header for this request.
+
+    Returns an error response for a token that is presented but not valid:
+    falling back to the session cookie would make a revoked token look like
+    it still works whenever the same browser is signed in. Other bearer
+    tokens (SCIM's) are left alone for their own endpoints.
+    """
+    from flask import g
+    import api_tokens
+
+    header = request.headers.get("Authorization") or ""
+    if not header.lower().startswith("bearer "):
+        return None
+    raw = header[7:].strip()
+    if not raw.startswith(api_tokens.PREFIX):
+        return None
+    if not any(request.path == p or request.path.startswith(p) for p in _TOKEN_PATHS):
+        return jsonify({"error": "API tokens are accepted on /api/ endpoints only"}), 403
+    user = api_tokens.authenticate(raw, ip=request.remote_addr)
+    if user is None:
+        return jsonify({"error": "Invalid, expired or revoked API token"}), 401
+    g.api_token_user = user
+    g.pop("domainlens_user", None)
+    return None
 
 
 def enforce_login_before_request():
+    token_error = authenticate_api_token()
+    if token_error is not None:
+        return token_error
     cfg = config()
     if not (cfg["enabled"] and cfg["require_login"]):
         return None
     if _public_path(request.path):
         return None
-    if current_user():
+    user = current_user()
+    if user:
+        # Enforced here, once, rather than on each of a hundred routes: a
+        # route added later is read-only for viewers without anyone having
+        # to remember to say so.
+        if (roles.normalize(user.get("role")) == roles.VIEWER
+                and not _viewer_may(request.path, request.method)):
+            _audit_denied(roles.USER)
+            return jsonify({"error": "Your role is read-only (Viewer)"}), 403
         return None
-    if request.path.startswith("/api/"):
+    # A scraper cannot follow a redirect to a login page; it needs the 401.
+    if request.path.startswith("/api/") or request.path == "/metrics":
         return jsonify({"error": "Authentication required", "login_url": "/login"}), 401
     next_url = request.full_path if request.query_string else request.path
     return redirect(url_for("login_page", next=next_url.rstrip("?")))
@@ -762,7 +921,7 @@ def resolve_federated_user(profile: dict) -> dict:
         "name": row.get("name") or profile.get("name") or email,
         "picture": profile.get("picture"),
         "provider": profile.get("provider") or row.get("provider") or "oauth",
-        "role": row.get("role") or "user",
+        "role": roles.normalize(row.get("role")),
         "mfa_enabled": bool(row.get("mfa_enabled")),
         "db_user": True,
     }

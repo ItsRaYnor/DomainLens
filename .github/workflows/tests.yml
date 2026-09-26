@@ -1,0 +1,68 @@
+name: Tests
+
+# Runs on every pull request and branch push, and is called by
+# docker-publish.yml before anything is built. An image used to be published
+# to `latest` without a single test having run, so a broken commit on main
+# reached everyone who pulls `latest` before anyone noticed.
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          # The image runs python:3.12; test on the same interpreter.
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system tools the checks shell out to
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends whois gnupg
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Run tests
+        run: python -m pytest -q
+
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # A security scanner that ships a known-vulnerable dependency is the
+      # first thing a customer's own scanner will flag.
+      - name: Audit pinned Python dependencies
+        run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r requirements.txt --strict
+
+      # The container image rather than a pinned action version: the image
+      # tag is the scanner release, with nothing in between to go stale.
+      # tests/ is skipped because the secret-detection tests carry fake keys
+      # on purpose.
+      - name: Scan the repository for vulnerable packages and committed secrets
+        run: |
+          docker run --rm -v "$PWD:/src:ro" aquasec/trivy:latest fs \
+            --scanners vuln,secret --severity HIGH,CRITICAL \
+            --ignore-unfixed --exit-code 1 --skip-dirs /src/tests /src

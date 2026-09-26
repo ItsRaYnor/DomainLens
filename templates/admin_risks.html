@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('risks.title') }} · {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main" class="account-main account-main-wide">
+        {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
+        {% if message %}<div class="login-info">{{ message }}</div>{% endif %}
+
+        <section class="account-section">
+            <h2>{{ t('risks.title') }}</h2>
+            <p class="muted">{{ t('risks.subtitle') }}</p>
+
+            {# Accepting comes first: it is what an admin opens this page to do,
+               and the form used to sit under the table with nothing saying
+               that this was how a risk gets accepted. #}
+            {% if is_admin %}
+            <h3>{{ t('risks.accept_heading') }}</h3>
+            <p class="muted">{{ t('risks.accept_hint') }}</p>
+            <form class="audit-filters" method="get" action="/admin/risks">
+                <label>{{ t('risks.pick_domain') }}
+                    <input type="text" name="domain" value="{{ domain }}" placeholder="example.com" required>
+                </label>
+                <button type="submit" class="btn-primary-lite">{{ t('risks.show') }}</button>
+            </form>
+
+            {% if domain %}
+                {% if not scan %}
+                <p class="muted">{{ t('risks.no_scan') }}</p>
+                {% elif not findings %}
+                <p class="muted">{{ t('risks.no_findings') }}</p>
+                {% else %}
+                <p class="muted">{{ t('risks.latest_scan') }}: <a href="/report/{{ scan.id }}">#{{ scan.id }}</a> · {{ scan.created_at|last_login }}</p>
+                {% for f in findings %}
+                <article class="rec sev-{{ f.severity }}">
+                    <div class="rec-head">
+                        <span class="rec-badge sev-{{ f.severity }}">{{ f.severity|upper }}</span>
+                        <span class="rec-category">{{ f.category }}</span>
+                        <h4>{{ f.title }}</h4>
+                    </div>
+                    <div class="rec-body">
+                        {% if f.accepted %}
+                        <p class="muted">{{ t('risks.accepted_until', date=f.accepted.expires_on) }} · {{ f.accepted.owner }} — {{ f.accepted.reason }}</p>
+                        {% else %}
+                        <form class="audit-filters" method="post" action="/admin/risks">
+                            <input type="hidden" name="domain" value="{{ domain }}">
+                            <input type="hidden" name="finding_key" value="{{ f.finding_key }}">
+                            <label>{{ t('risks.reason') }} <input type="text" name="reason" required></label>
+                            <label>{{ t('risks.owner') }} <input type="text" name="owner" required></label>
+                            <label>{{ t('risks.expires') }} <input type="date" name="expires_on" value="{{ default_expiry }}" max="{{ max_expiry }}" required></label>
+                            <button type="submit" class="btn-ghost-sm">{{ t('risks.accept') }}</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+                {% endif %}
+            {% endif %}
+            {% endif %}
+        </section>
+
+        <section class="account-section">
+            <h3>{{ t('risks.list_heading') }}</h3>
+            <div class="users-table-wrap">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>{{ t('risks.col_domain') }}</th>
+                            <th>{{ t('risks.col_finding') }}</th>
+                            <th>{{ t('risks.reason') }}</th>
+                            <th>{{ t('risks.owner') }}</th>
+                            <th>{{ t('risks.expires') }}</th>
+                            <th>{{ t('risks.col_by') }}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for e in exceptions %}
+                        {% set state = 'revoked' if e.revoked_at else ('active' if e.active else 'expired') %}
+                        <tr>
+                            <td>{{ e.domain }}</td>
+                            <td><span class="rec-badge sev-{{ e.severity }}">{{ (e.severity or '')|upper }}</span> {{ e.title }}</td>
+                            <td>{{ e.reason }}</td>
+                            <td>{{ e.owner }}</td>
+                            <td class="nowrap">{{ e.expires_on }}</td>
+                            <td>{{ e.created_by or '—' }}</td>
+                            <td>
+                                {% if state == 'active' and is_admin %}
+                                <form method="post" action="/admin/risks/{{ e.id }}/revoke">
+                                    <button type="submit" class="btn-ghost-sm danger">{{ t('risks.revoke') }}</button>
+                                </form>
+                                {% else %}
+                                <span class="ownership-badge ownership-{{ 'verified' if state == 'active' else 'expired' }}">{{ t('risks.state_' ~ state) }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="7" class="muted">{{ t('risks.empty') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/page_boot.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

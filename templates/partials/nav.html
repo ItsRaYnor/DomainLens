@@ -85,12 +85,15 @@
             {% set show_admin = (not (auth_status and auth_status.enabled))
                                 or (current_user and current_user.role == 'admin') %}
             {% if show_admin %}
+            {# One entry: the admin pages share a sub-navigation of their own.
+               A second "Users" button here repeated it, and "Settings" looked
+               selected on every admin page, Users and Audit log included. #}
             <a class="btn-ghost nav-admin{% if section == 'admin' %} current{% endif %}"
-               href="/admin/settings">
+               href="/admin/settings"
+               {% if section == 'admin' %}aria-current="true"{% endif %}>
                 <svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>
-                <span data-i18n="nav.settings">{{ t('nav.settings') }}</span>
+                <span data-i18n="nav.admin">{{ t('nav.admin') }}</span>
             </a>
-            <a class="btn-ghost" href="/admin/users" ><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg><span data-i18n="nav.users">{{ t('nav.users') }}</span></a>
             {% endif %}
 
             {% if auth_status and auth_status.enabled %}

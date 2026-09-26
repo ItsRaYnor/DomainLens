@@ -96,6 +96,36 @@ mail 3600 IN MX 10 mx1.mailhost.tld."></textarea>
                     <h4 style="margin-top:1rem" data-i18n="rapid7_ui.imports">{{ t('rapid7_ui.imports') }}</h4>
                     <div id="rapid7ImportList" class="event-list"></div>
                 </section>
+                {% if as_page and discovered is defined %}
+                <section class="monitor-section" id="discovered">
+                    <h4>Discovered hostnames</h4>
+                    {% if message %}<div class="login-info">{{ message }}</div>{% endif %}
+                    <p class="login-hint">
+                        Names in Certificate Transparency under a zone you monitor, from its latest
+                        saved scan, that no monitor watches yet. A certificate was issued for each;
+                        whether the host still answers is what monitoring it will tell you.
+                    </p>
+                    {% if discovered %}
+                    <ul class="discovered-list">
+                        {% for s in discovered %}
+                        <li>
+                            <code>{{ s.host }}</code>
+                            <span class="muted">· {{ s.zone }} · <a href="/report/{{ s.scan_id }}">scan #{{ s.scan_id }}</a></span>
+                            {% if can_add_monitors %}
+                            <form method="post" action="/monitoring/discovered" class="inline-role">
+                                <input type="hidden" name="host" value="{{ s.host }}">
+                                <input type="hidden" name="zone" value="{{ s.zone }}">
+                                <button type="submit" class="btn-ghost-sm">Monitor</button>
+                            </form>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="muted">Nothing new: every hostname the latest scans saw is already monitored.</p>
+                    {% endif %}
+                </section>
+                {% endif %}
                 <section class="monitor-section">
                     <h4>Saved monitors</h4>
                     <div id="monitorList" class="monitor-list"></div>

@@ -73,6 +73,12 @@ def public_view(job, include_result=False):
     return view
 
 
+def count_running():
+    """Jobs currently running, for /metrics."""
+    with _lock:
+        return sum(1 for job in _jobs.values() if job["status"] == "running" and not _is_stuck(job))
+
+
 def find_active(domain):
     """Return the running job for a domain, if there is one."""
     with _lock:

@@ -4,6 +4,7 @@ Uses only stdlib sqlite3 — no external dependencies.
 """
 
 import contextlib
+import importlib
 import json
 import os
 import sqlite3
@@ -11,6 +12,9 @@ import threading
 from datetime import datetime, timezone
 
 _lock = threading.Lock()
+
+# Modules that keep their own tables and create them through init_schema(conn).
+FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens", "risk_acceptance")
 
 
 def _db_path():
@@ -328,6 +332,11 @@ def init_db():
             "CREATE INDEX IF NOT EXISTS idx_external_cache_kind ON external_cache(kind, domain)"
         )
 
+        # Tables owned by feature modules. Imported here rather than at the
+        # top because each of them imports this module.
+        for module_name in FEATURE_SCHEMAS:
+            importlib.import_module(module_name).init_schema(conn)
+
 
 def _summarize(results):
     """Extract grade, score and issue count from scan results."""
@@ -396,7 +405,7 @@ def _extract_metrics(domain, results, issues_count, grade, header_score, monitor
     rec_count = issues_count
     try:
         import recommendations
-        rec_count = len(recommendations.generate(results) or [])
+        rec_count = recommendations.open_count(recommendations.generate(results))
     except Exception:
         pass
 

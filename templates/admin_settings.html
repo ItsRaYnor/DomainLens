@@ -16,7 +16,18 @@
         {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
         {% if message %}<div class="login-info">{{ message }}</div>{% endif %}
 
-        <p class="login-hint" data-i18n="settings.secrets_hint">{{ t('settings.secrets_hint') }}</p>
+        {# The settings are what an admin comes here for, so they come first.
+           They used to start ~3000px down, under every credential card. #}
+        <div class="settings-layout">
+            <nav class="settings-nav" id="settingsNav"></nav>
+            <div class="settings-panels" id="settingsPanels"></div>
+        </div>
+
+        {# Shown inside the Domain ownership tab: its only setting is how long a
+           proof lasts, and the proofs themselves live on another page. #}
+        <p class="muted settings-panel-extra" data-section="ownership">
+            <a href="/admin/domains">{{ t('settings.ownership_link') }}</a>
+        </p>
 
         {% if integrations %}
         <section class="card integrations-card">
@@ -24,9 +35,8 @@
             <p class="muted">
                 These unlock extra read-only data sources. You can set them here, or
                 keep using environment variables — an environment variable always wins
-                and locks the field. Only these low-privilege keys are editable from the
-                UI; credentials that grant access to other systems (ServiceNow, OAuth,
-                SAML, SCIM, Rapid7) stay environment-only by design.
+                and locks the field. Credentials for ServiceNow, Rapid7, OAuth, SCIM and
+                notifications are set in their own tab above.
             </p>
 
             <p class="key-protection {{ 'protection-weak' if key_protection.mode != 'encrypted' else '' }}">
@@ -83,7 +93,7 @@
         {% endif %}
 
         {% if credential_groups %}
-        <section class="card integrations-card">
+        <section class="card integrations-card" id="credentialsCard">
             <h2>Integration credentials</h2>
             <p class="muted">
                 Credentials for the outbound integrations. Setting them here keeps them
@@ -99,8 +109,9 @@
                 {{ key_protection.detail }}
             </p>
 
-            <div class="api-key-list" id="credentialList">
             {% for group in credential_groups %}
+            <div class="api-key-list cred-group-block" data-section="{{ group.section or '' }}"
+                 data-group="{{ group.group }}">
                 <div class="cred-group-head">
                     <h3 class="cred-group">{{ group.group }}</h3>
                     {% if group.group in testable_groups %}
@@ -139,8 +150,13 @@
                     {% endif %}
                 </div>
                 {% endfor %}
-            {% endfor %}
+                <p class="muted cred-group-note">
+                    Write-only: a value can be replaced or removed here, never read back.
+                    Stored {{ 'encrypted' if key_protection.mode == 'encrypted' else 'obfuscated only' }};
+                    an environment variable wins and locks the field.
+                </p>
             </div>
+            {% endfor %}
         </section>
         {% endif %}
 
@@ -203,10 +219,17 @@
             <button type="button" class="btn-ghost" id="settingsCheckUpdatesBtn">Check for updates</button>
         </section>
 
-        <div class="settings-layout">
-            <nav class="settings-nav" id="settingsNav"></nav>
-            <div class="settings-panels" id="settingsPanels"></div>
-        </div>
+        <section class="card settings-version-card" id="settingsBackupCard">
+            <h2>Backup</h2>
+            <p class="muted">
+                A consistent snapshot of the live database (safe while scans run). Stored
+                credentials inside it stay encrypted with <code>DOMAINLENS_SECRET_KEY</code>;
+                keep that key with the backup, or they cannot be read after a restore.
+                For scheduled backups run <code>python maintenance.py backup /data/backup.db</code>.
+            </p>
+            <a class="btn-ghost" href="/api/admin/backup">Download backup</a>
+        </section>
+
     </main>
 
     {# Data blocks, not executable script: the app serves a strict CSP

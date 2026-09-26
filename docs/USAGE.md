@@ -387,10 +387,14 @@ correct behaviour, and a timeout is recorded as unknown rather than clean.
 "weak_auth": { "enabled": true }
 ```
 
-2. Customize paths and credential lists (see [CONFIGURATION.md](CONFIGURATION.md)).
-3. Run check `weak_auth` (alone or with other web checks).
-4. If weak credentials are found, **Advies** shows critical remediation steps.
-5. After fixing passwords, re-run the scan to confirm `weak_credentials_found: false`.
+2. **Verify the domain** under **Admin → Verified domains** (DNS TXT record,
+   a `/.well-known/` file, or an admin attestation). Unverified domains get no
+   login attempts; the check reports *not applicable*. The same applies to the
+   active scan. See [ENTERPRISE.md](ENTERPRISE.md#verified-domains).
+3. Customize paths and credential lists (see [CONFIGURATION.md](CONFIGURATION.md)).
+4. Run check `weak_auth` (alone or with other web checks).
+5. If weak credentials are found, **Advies** shows critical remediation steps.
+6. After fixing passwords, re-run the scan to confirm `weak_credentials_found: false`.
 
 ---
 

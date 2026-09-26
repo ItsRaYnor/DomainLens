@@ -13,6 +13,42 @@ def register(app, *, db, auth, servicenow, domainlens_config, scheduler_config_f
     def api_version():
         return jsonify(app_version.info())
 
+    @app.route("/metrics")
+    def prometheus_metrics():
+        """Prometheus text format. Behind login like the rest of the app when
+        authentication is on: scrape with an API token (any role)."""
+        import metrics
+        import scan_jobs
+        import scheduler as monitor_scheduler
+        body = metrics.render(db=db, scheduler_state=monitor_scheduler.state_snapshot(),
+                              running_jobs=scan_jobs.count_running(),
+                              version=app_version.get_version())
+        return app.response_class(body, mimetype="text/plain; version=0.0.4; charset=utf-8")
+
+    @app.route("/api/admin/backup")
+    @auth.require_admin
+    def api_admin_backup():
+        """A consistent snapshot of the live database, as a download.
+
+        It contains credentials encrypted with DOMAINLENS_SECRET_KEY; a
+        restore needs the same key to read them back.
+        """
+        import os
+        import audit_log
+        import maintenance
+        from flask import send_file
+        path = maintenance.backup_to_tempfile()
+        audit_log.record("backup.download")
+        response = send_file(path, mimetype="application/vnd.sqlite3", as_attachment=True,
+                             download_name=maintenance.backup_filename())
+        response.call_on_close(lambda: os.path.exists(path) and os.remove(path))
+        return response
+
+    @app.route("/api/openapi.json")
+    def api_openapi():
+        import openapi
+        return jsonify(openapi.spec())
+
     @app.route("/api/updates/check")
     def api_updates_check():
         """Admins (or open when auth disabled) can check for newer releases."""

@@ -132,6 +132,13 @@
     font-size: 1.15rem;
 }
 
+.account-section h3 {
+    margin: 1.25rem 0 0.4rem;
+    font-size: 1rem;
+}
+
+.account-section > h3:first-child { margin-top: 0; }
+
 .otpauth-uri {
     display: block;
     word-break: break-all;
@@ -200,4 +207,96 @@
 .muted {
     color: var(--text-muted);
     font-size: 0.8rem;
+}
+
+.inline-role {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.account-main-wide {
+    max-width: 1200px;
+}
+
+.audit-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+    margin: 1rem 0;
+}
+
+.audit-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.audit-table code {
+    font-size: 0.8rem;
+}
+
+.audit-details {
+    display: block;
+    max-width: 28rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.audit-outcome-failure,
+.audit-outcome-denied {
+    color: var(--red);
+    font-weight: 600;
+}
+
+.audit-pager {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.ownership-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.ownership-verified {
+    background: var(--green-bg);
+    color: var(--green);
+}
+
+.ownership-pending,
+.ownership-expired {
+    background: var(--orange-bg);
+    color: var(--orange);
+}
+
+.ownership-instructions dt {
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.ownership-instructions dd {
+    margin: 0.25rem 0 0;
+    word-break: break-all;
+}
+
+.ownership-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.75rem;
 }

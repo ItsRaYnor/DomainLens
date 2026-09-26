@@ -7,7 +7,12 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # Nothing is published unless the test suite and the dependency audit pass.
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   build-and-push:
+    needs: tests
     runs-on: ubuntu-latest
     permissions:
       # write, not read: the release step below creates the tag that the
@@ -59,6 +64,11 @@ jobs:
             DOMAINLENS_BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # An SBOM and build provenance travel with the image, so a customer's
+          # own tooling (docker scout, grype, trivy) can check what is inside
+          # without pulling it apart.
+          sbom: true
+          provenance: mode=max
 
       # Registry push needs write; the repo-description API needs read/write/delete
       # on the PAT (Docker Hub treats that as admin). A write-only token pushes fine

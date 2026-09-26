@@ -111,14 +111,24 @@
     // Write-only: the page can send a key but never receives one back, so a
     // stored key cannot be recovered through the admin HTML or via XSS.
     function initApiKeys() {
-        const lists = ['apiKeyList', 'credentialList'].map($).filter(Boolean);
+        // The optional-keys list plus one list per credential group. The
+        // groups are moved into their settings tab later; the listeners go
+        // with them.
+        const lists = Array.from(document.querySelectorAll('.api-key-list'));
         if (!lists.length) return;
-        const msg = $('apiKeysMsg');
 
-        function notify(text, ok) {
-            if (!msg) return;
+        // Next to the list that was used: a credential group now sits inside
+        // its settings tab, and a message in the optional-keys card at the
+        // other end of the page went unseen.
+        function notify(list, text, ok) {
+            let msg = list.id === 'apiKeyList' ? $('apiKeysMsg') : list.querySelector('.api-key-msg');
+            if (!msg) {
+                msg = document.createElement('div');
+                msg.className = 'api-key-msg';
+                list.prepend(msg);
+            }
             msg.textContent = text;
-            msg.className = ok ? 'login-info' : 'login-error';
+            msg.className = (ok ? 'login-info' : 'login-error') + (msg.id ? '' : ' api-key-msg');
         }
 
         async function send(env, method, value) {
@@ -248,23 +258,23 @@
                 if (saveBtn) {
                     const input = row.querySelector('.api-key-input');
                     const value = (input.value || '').trim();
-                    if (!value) { notify('Enter a key first.', false); return; }
+                    if (!value) { notify(list, 'Enter a key first.', false); return; }
                     btn.disabled = true;
                     btn.textContent = 'Saving…';
                     data = await send(env, 'PUT', value);
                     input.value = '';
-                    notify(env + ' saved.', true);
+                    notify(list, env + ' saved.', true);
                 } else {
                     if (!confirm('Remove the stored ' + env + '?')) return;
                     btn.disabled = true;
                     btn.textContent = 'Removing…';
                     data = await send(env, 'DELETE');
-                    notify(env + ' removed.', true);
+                    notify(list, env + ' removed.', true);
                 }
                 const item = findItem(env, data);
                 if (item) applyStatus(list.id, row, item);
             } catch (err) {
-                notify(err.message || 'Could not update the key', false);
+                notify(list, err.message || 'Could not update the key', false);
             } finally {
                 if (btn.isConnected) {
                     btn.disabled = false;
@@ -331,15 +341,26 @@
             </section>`;
         }).join('');
 
+        function openTab(sec) {
+            if (!/^[a-z0-9_]+$/.test(sec || '')) return false;
+            const btn = nav.querySelector('.settings-tab[data-section="' + sec + '"]');
+            if (!btn) return false;
+            nav.querySelectorAll('.settings-tab').forEach(b => b.classList.remove('active'));
+            panels.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            $('panel-' + sec).classList.add('active');
+            return true;
+        }
         nav.querySelectorAll('.settings-tab').forEach(btn => {
             btn.addEventListener('click', () => {
-                nav.querySelectorAll('.settings-tab').forEach(b => b.classList.remove('active'));
-                panels.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
-                btn.classList.add('active');
                 const sec = btn.getAttribute('data-section');
-                $('panel-' + sec).classList.add('active');
+                openTab(sec);
+                // Linkable, so another page can send an admin straight to it.
+                history.replaceState(null, '', '#' + sec);
             });
         });
+        openTab(decodeURIComponent(location.hash.slice(1)));
+        window.addEventListener('hashchange', () => openTab(decodeURIComponent(location.hash.slice(1))));
 
         // The key card ships in the template as a standalone section, but it
         // belongs to the disclosure settings and nowhere else: left at the
@@ -352,6 +373,10 @@
             keyCard.classList.add('disclosure-key-block');
             disclosurePanel.appendChild(keyCard);
         }
+
+        // Same for each integration's credentials: they belong beside the
+        // switches in their own tab, not in a card 2000px up the page.
+        moveCredentialGroups();
 
         panels.querySelectorAll('.settings-form').forEach(form => {
             form.addEventListener('submit', async (e) => {
@@ -378,6 +403,26 @@
             });
         });
     };
+
+    function moveCredentialGroups() {
+        document.querySelectorAll('.settings-panel-extra[data-section]').forEach(el => {
+            const panel = $('panel-' + el.getAttribute('data-section'));
+            if (panel) panel.appendChild(el);
+            else el.remove();
+        });
+        const card = $('credentialsCard');
+        if (!card) return;
+        card.querySelectorAll('.cred-group-block').forEach(block => {
+            const panel = $('panel-' + block.getAttribute('data-section'));
+            if (!panel) return;
+            const heading = block.querySelector('.cred-group');
+            if (heading) heading.textContent = t('settings.credentials') || 'Credentials';
+            block.classList.add('cred-in-panel');
+            panel.appendChild(block);
+        });
+        // A group without a tab stays in the card; an empty card goes.
+        if (!card.querySelector('.cred-group-block')) card.remove();
+    }
 
     // --- Bootstrap ---------------------------------------------------------
     // This lives here rather than in an inline <script> in the template

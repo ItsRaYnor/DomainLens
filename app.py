@@ -41,7 +41,16 @@ import servicenow
 import osint
 import hubspot_cf
 import ncsc_tls
+import api_tokens
+import audit_log
 import auth
+import discovery
+import maintenance
+import metrics
+import notifications
+import domain_ownership
+from routes import admin_nav
+import roles
 import config as domainlens_config
 import weak_auth
 import js_scan
@@ -2867,8 +2876,15 @@ def _attach_rapid7_findings(results, domain):
 
 
 def check_weak_auth(domain):
-    """Optional weak/default credential probe (config weak_auth.enabled)."""
+    """Optional weak/default credential probe (config weak_auth.enabled).
+
+    Runs only against a domain whose ownership has been verified: a login
+    attempt against someone else's server is an intrusion attempt, whoever
+    typed the domain.
+    """
     settings = domainlens_config.load_settings().weak_auth()
+    if settings.get("enabled") and not domain_ownership.is_verified(domain):
+        return domain_ownership.not_verified_result(domain, enabled=True)
     return weak_auth.scan(domain, settings)
 
 
@@ -2885,6 +2901,8 @@ def check_js_scan(domain):
 def check_active_scan(domain):
     """Optional active vulnerability probe (config active_scan.enabled)."""
     settings = domainlens_config.load_settings().active_scan()
+    if settings.get("enabled") and not domain_ownership.is_verified(domain):
+        return domain_ownership.not_verified_result(domain, enabled=True)
     result = active_scan.scan(domain, settings)
     result["findings_graded"] = active_scan.findings_from_scan(result)
     return result
@@ -3007,10 +3025,12 @@ def full_scan(domain, extra_dkim_selectors=None, progress_cb=None, force_refresh
         domain, apex, extra_dkim_selectors=extra_dkim_selectors,
         force_refresh=force_refresh)
     settings = domainlens_config.load_settings()
-    weak_enabled = settings.weak_auth().get("enabled")
-    active_enabled = settings.active_scan().get("enabled")
-    # Both gates here too: an allowlisted domain is the only one a full scan
-    # will probe, so scanning someone else's domain never reaches these.
+    # Active checks join a full scan only for a verified domain; asked for
+    # by name they still run, and explain why they sent nothing.
+    verified = domain_ownership.is_verified(domain)
+    weak_enabled = settings.weak_auth().get("enabled") and verified
+    active_enabled = settings.active_scan().get("enabled") and verified
+    # Open relay/resolver: only for domains on the own-infrastructure list.
     infra_enabled = own_infra.is_allowed(domain, settings.own_infra())
     names = [
         n for n in check_map
@@ -3359,7 +3379,7 @@ def _monitor_event_from_results(monitor, results, previous_record):
     current_hash = _monitor_state_hash(results)
     previous_hash = monitor.get("last_state_hash")
     warnings = len((results.get("tls_deep") or {}).get("warnings") or [])
-    recommendation_count = len(recommendations.generate(results))
+    recommendation_count = recommendations.open_count(recommendations.generate(results))
     blacklist_listed = bool((results.get("blacklist") or {}).get("is_listed"))
     tls_grade = (results.get("tls_deep") or {}).get("grade")
     watched = results.get("monitored_record") or {}
@@ -3475,9 +3495,11 @@ def _scan_monitor(monitor, progress_cb=None):
         summary=event["summary"],
         details=event["details"],
     )
-    sn_result = _notify_servicenow(event_id, event, monitor)
+    sn_result, channel_results = _notify_event(event_id, event, monitor, scan_id=scan_id)
     if sn_result:
         event["servicenow"] = sn_result
+    if channel_results:
+        event["notifications"] = channel_results
     updated = db.get_monitor(monitor["id"])
     return {
         "monitor": _serialize_monitor(updated),
@@ -3512,12 +3534,20 @@ def _notify_servicenow(event_id, event, monitor):
     return result
 
 
+def _notify_event(event_id, event, monitor, scan_id=None):
+    """Every outbound channel for one monitor event: ServiceNow, then the
+    webhook, Slack, Teams and email channels. Each fails on its own."""
+    sn_result = _notify_servicenow(event_id, event, monitor)
+    channel_results = notifications.dispatch(event, monitor, scan_id=scan_id)
+    return sn_result, channel_results
+
+
 def _process_due_monitors(limit=None):
     """Run all due monitors once (delegates to scheduler module)."""
     return monitor_scheduler.process_due_monitors(
         db=db,
         scan_monitor_fn=_scan_monitor,
-        notify_fn=_notify_servicenow,
+        notify_fn=_notify_event,
         safe_error_fn=_safe_error,
         run_lock=_monitor_run_lock,
         limit=limit,
@@ -3525,7 +3555,10 @@ def _process_due_monitors(limit=None):
 
 
 def _run_scheduler_digest():
-    monitor_scheduler.maybe_run_reporting_digest(db)
+    digest = monitor_scheduler.maybe_run_reporting_digest(db)
+    if digest:
+        notifications.send_digest(digest)
+    maintenance.maybe_purge()
 
 
 def _scheduler_config():
@@ -3711,7 +3744,39 @@ def lookup_impersonation_view_legacy():
 
 @app.route("/monitoring")
 def monitoring_view():
-    return render_template("monitoring.html", section="monitoring")
+    return render_template(
+        "monitoring.html", section="monitoring",
+        discovered=discovery.suggestions(db),
+        can_add_monitors=(not auth.config().get("enabled"))
+        or roles.at_least(auth.current_role(), roles.USER),
+        message=request.args.get("message"),
+    )
+
+
+@app.route("/api/monitors/discovered", methods=["GET"])
+def api_monitors_discovered():
+    return jsonify({"suggestions": discovery.suggestions(db)})
+
+
+@app.route("/monitoring/discovered", methods=["POST"])
+@auth.require_role(roles.USER)
+def monitoring_add_discovered():
+    """Turn a hostname seen in Certificate Transparency into a monitor."""
+    host = _normalize_domain(request.form.get("host") or "")
+    zone = _normalize_domain(request.form.get("zone") or "")
+    known = {(s["host"], s["zone"]) for s in discovery.suggestions(db)}
+    if (host, zone) not in known:
+        # Only a name the scans actually saw, under a zone already monitored.
+        return redirect(url_for("monitoring_view", message="That hostname is not a current suggestion."))
+    checks = ["all"]
+    monitor_id = db.create_monitor(
+        name=f"{host} (A)", domain=zone, target=host, record_type="A", record_value=None,
+        source_type="discovery", source_label="Certificate Transparency",
+        provider="discovery", schedule_minutes=1440, checks=checks, enabled=True, metadata={},
+    )
+    audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
+                     details={"target": host, "checks": checks, "source": "discovery"})
+    return redirect(url_for("monitoring_view", message=f"Now monitoring {host}.") + "#discovered")
 
 
 @app.route("/reports")
@@ -3790,20 +3855,27 @@ def auth_callback():
         profile = auth.exchange_code(code, redirect_uri)
     except Exception as exc:
         log.warning("OAuth callback failed: %s", exc)
+        audit_log.record("auth.login", outcome="failure",
+                         details={"method": "oauth", "reason": "token_exchange_failed"})
         return redirect(url_for("login_page", error="token_exchange_failed"))
 
     if not auth.user_allowed(profile):
         auth.logout_user()
+        audit_log.record("auth.login", outcome="denied", actor={"email": profile.get("email")},
+                         details={"method": "oauth", "reason": "not on the allowlist"})
         return redirect(url_for("login_page", error="access_denied"))
 
     try:
         profile = auth.resolve_federated_user(profile)
-    except PermissionError:
+    except PermissionError as exc:
         auth.logout_user()
+        audit_log.record("auth.login", outcome="denied", actor={"email": profile.get("email")},
+                         details={"method": "oauth", "reason": str(exc)})
         return redirect(url_for("login_page", error="access_denied"))
 
     next_url = session.pop("oauth_next", "/")
     auth.login_user(profile)
+    audit_log.record("auth.login", details={"method": "oauth", "provider": profile.get("provider")})
     if profile.get("db_user"):
         try:
             db.update_user(profile["id"], last_login_at=datetime.now(timezone.utc).isoformat())
@@ -3871,17 +3943,24 @@ def auth_saml_acs():
         profile = saml_sp.parse_saml_response(saml_response, cfg)
     except Exception as exc:
         log.warning("SAML ACS rejected: %s", exc)
+        audit_log.record("auth.login", outcome="failure",
+                         details={"method": "saml", "reason": "assertion rejected"})
         return redirect(url_for("login_page", error="saml_failed"))
     if not auth.user_allowed(profile):
         auth.logout_user()
+        audit_log.record("auth.login", outcome="denied", actor={"email": profile.get("email")},
+                         details={"method": "saml", "reason": "not on the allowlist"})
         return redirect(url_for("login_page", error="access_denied"))
     try:
         profile = auth.resolve_federated_user(profile)
-    except PermissionError:
+    except PermissionError as exc:
         auth.logout_user()
+        audit_log.record("auth.login", outcome="denied", actor={"email": profile.get("email")},
+                         details={"method": "saml", "reason": str(exc)})
         return redirect(url_for("login_page", error="access_denied"))
     next_url = session.pop("oauth_next", "/")
     auth.login_user(profile)
+    audit_log.record("auth.login", details={"method": "saml"})
     if profile.get("db_user"):
         try:
             db.update_user(profile["id"], last_login_at=datetime.now(timezone.utc).isoformat())
@@ -3901,12 +3980,16 @@ def auth_local_login():
     password = request.form.get("password") or ""
     user, error, needs_mfa = auth.attempt_local_login(email, password)
     if error:
+        audit_log.record("auth.login", outcome="failure",
+                         actor={"email": (email or "").strip().lower() or None},
+                         details={"method": "local", "reason": error})
         return redirect(url_for("login_page", error=error, next=next_url))
     if needs_mfa:
         auth.set_mfa_pending(user["id"])
         session["oauth_next"] = next_url
         return redirect(url_for("auth_mfa_page", next=next_url))
     auth.login_local_user_record(user)
+    audit_log.record("auth.login", details={"method": "local"})
     local = auth.local_config()
     if local["mfa_required"] and local["mfa_available"] and not user.get("mfa_enabled"):
         return redirect(url_for("account_security", message="mfa_required"))
@@ -3953,6 +4036,8 @@ def auth_mfa_verify():
         ok = True
     if not ok:
         locked = auth.register_mfa_failure(user)
+        audit_log.record("auth.mfa", outcome="failure", actor=user,
+                         details={"locked": bool(locked)})
         if locked:
             auth.logout_user()
             return redirect(url_for("login_page", error="account_locked"))
@@ -3960,13 +4045,30 @@ def auth_mfa_verify():
 
     auth.clear_login_failures(user["id"])
     auth.login_local_user_record(user)
+    audit_log.record("auth.login", details={"method": "local", "mfa": True})
     return redirect(next_url)
 
 
 @app.route("/logout")
 def logout():
+    if auth.current_user():
+        audit_log.record("auth.logout")
     auth.logout_user()
     return redirect(url_for("login_page") if auth.config()["enabled"] and auth.config()["require_login"] else "/")
+
+
+def _account_tokens_context(user):
+    """Token list for the account page; None when there is no row to hold them."""
+    from routes.tokens import SESSION_NEW_TOKEN
+    new_token = session.pop(SESSION_NEW_TOKEN, None)
+    tokens = None
+    if user.get("db_user") or user.get("provider") == "local":
+        try:
+            tokens = api_tokens.list_for_user(int(user["id"]))
+        except (TypeError, ValueError):
+            tokens = None
+    return {"api_tokens": tokens, "new_api_token": new_token,
+            "token_max_days": api_tokens.MAX_DAYS}
 
 
 @app.route("/account")
@@ -3975,10 +4077,12 @@ def account_security():
     user = auth.current_user()
     if not user:
         return redirect(url_for("login_page", next="/account"))
+    tokens_ctx = _account_tokens_context(user)
     if user.get("provider") != "local":
         return render_template(
             "account.html",
         section="admin",
+            **tokens_ctx,
             user=user,
             local_only=False,
             message=request.args.get("message"),
@@ -4001,6 +4105,7 @@ def account_security():
     return render_template(
         "account.html",
         section="admin",
+        **tokens_ctx,
         user=db_user or user,
         local_only=True,
         message=request.args.get("message"),
@@ -4033,6 +4138,7 @@ def account_change_password():
         password_hash=auth.hash_password(new_password),
         password_changed_at=datetime.now(timezone.utc).isoformat(),
     )
+    audit_log.record("account.password_change", target_type="user", target_id=row["id"])
     return redirect(url_for("account_security", message="password_updated"))
 
 
@@ -4065,6 +4171,7 @@ def account_mfa_confirm():
     )
     session.pop(auth.SESSION_MFA_SETUP_SECRET, None)
     session["mfa_backup_codes_once"] = backup
+    audit_log.record("account.mfa_enable", target_type="user", target_id=user["id"])
     # refresh session flag
     sess = auth.current_user() or {}
     sess["mfa_enabled"] = True
@@ -4089,6 +4196,7 @@ def account_mfa_disable():
     ):
         return redirect(url_for("account_security", error="Valid MFA code required to disable."))
     db.update_user(user["id"], mfa_enabled=False, mfa_secret=None, mfa_backup_codes=[])
+    audit_log.record("account.mfa_disable", target_type="user", target_id=user["id"])
     sess = auth.current_user() or {}
     sess["mfa_enabled"] = False
     session[auth.SESSION_USER_KEY] = sess
@@ -4111,6 +4219,7 @@ def admin_settings_page():
     return render_template(
         "admin_settings.html",
         section="admin",
+        subnav=admin_nav.subnav("/admin/settings"),
         schema=schema,
         integrations=_optional_integration_status(),
         credential_groups=api_keys.credential_status(db=db),
@@ -4158,6 +4267,9 @@ def api_admin_api_key_update(env_name):
                 return jsonify({"error": "Invalid JSON body"}), 400
             api_keys.set_key(env_name, data.get("value"), user_id=user_id, db=db)
         _reload_settings()
+        # The name of the credential, never its value.
+        audit_log.record("credential.clear" if request.method == "DELETE" else "credential.set",
+                         target_type="credential", target_id=env_name)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception:
@@ -4192,6 +4304,9 @@ def api_admin_settings_patch(section):
     try:
         updated = _settings_store.update_section(section, data, user_id=user_id)
         _reload_settings()
+        # Which keys, not their values: weak_auth.passwords is a setting too.
+        audit_log.record("settings.update", target_type="settings", target_id=section,
+                         details={"keys": sorted(data.keys())})
         return jsonify({"section": section, "values": updated})
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -4226,7 +4341,9 @@ def admin_users_page():
     return render_template(
         "admin_users.html",
         section="admin",
+        subnav=admin_nav.subnav("/admin/users"),
         users=db.list_users(),
+        all_tokens=api_tokens.list_all(),
         password_policy=auth.password_policy(),
         message=request.args.get("message"),
         error=request.args.get("error"),
@@ -4238,10 +4355,8 @@ def admin_users_page():
 def admin_users_create():
     email = (request.form.get("email") or "").strip().lower()
     name = (request.form.get("name") or "").strip()
-    role = (request.form.get("role") or "user").strip().lower()
+    role = roles.normalize(request.form.get("role"))
     password = request.form.get("password") or ""
-    if role not in {"user", "admin"}:
-        role = "user"
     if not email:
         return redirect(url_for("admin_users_page", error="Email is required."))
     if db.get_user_by_email(email):
@@ -4256,6 +4371,7 @@ def admin_users_create():
         role=role,
         enabled=True,
     )
+    audit_log.record("user.create", target_type="user", target_id=email, details={"role": role})
     return redirect(url_for("admin_users_page", message="user_created"))
 
 
@@ -4269,6 +4385,27 @@ def admin_users_toggle(user_id):
     if not row:
         return redirect(url_for("admin_users_page", error="User not found."))
     db.update_user(user_id, enabled=not row.get("enabled"))
+    audit_log.record("user.disable" if row.get("enabled") else "user.enable",
+                     target_type="user", target_id=row.get("email"))
+    return redirect(url_for("admin_users_page", message="user_updated"))
+
+
+@app.route("/admin/users/<int:user_id>/role", methods=["POST"])
+@auth.require_admin
+def admin_users_set_role(user_id):
+    role = roles.normalize(request.form.get("role"), default=None)
+    if role is None:
+        return redirect(url_for("admin_users_page", error="Unknown role."))
+    me = auth.current_user()
+    if me and str(me.get("id")) == str(user_id) and role != roles.ADMIN:
+        # The last step before nobody can reach this page to undo it.
+        return redirect(url_for("admin_users_page", error="You cannot remove your own admin role."))
+    row = db.get_user(user_id)
+    if not row:
+        return redirect(url_for("admin_users_page", error="User not found."))
+    db.update_user(user_id, role=role)
+    audit_log.record("user.role_change", target_type="user", target_id=row.get("email"),
+                     details={"from": row.get("role"), "to": role})
     return redirect(url_for("admin_users_page", message="user_updated"))
 
 
@@ -4289,6 +4426,7 @@ def admin_users_reset_password(user_id):
         failed_logins=0,
         locked_until=None,
     )
+    audit_log.record("user.password_reset", target_type="user", target_id=row.get("email"))
     return redirect(url_for("admin_users_page", message="password_reset"))
 
 
@@ -4298,7 +4436,10 @@ def admin_users_delete(user_id):
     me = auth.current_user()
     if me and int(me.get("id") or 0) == user_id:
         return redirect(url_for("admin_users_page", error="You cannot delete your own account."))
+    row = db.get_user(user_id)
     db.delete_user(user_id)
+    if row:
+        audit_log.record("user.delete", target_type="user", target_id=row.get("email"))
     return redirect(url_for("admin_users_page", message="user_deleted"))
 
 
@@ -4587,6 +4728,9 @@ def api_vuln_imports_create():
         log.exception("Rapid7 import parse failed")
         return jsonify({"error": _safe_error(exc)}), 500
 
+    audit_log.record("vuln_import.create", target_type="vuln_import",
+                     target_id=(result.get("import") or {}).get("id"),
+                     details={"filename": upload.filename, "push_cmdb": push})
     return jsonify({
         "import": result.get("import"),
         "summary": result.get("summary"),
@@ -4611,7 +4755,9 @@ def api_vuln_imports_sync():
         result = vuln_bridge.run_api_sync(push_cmdb=push, imported_by=user_id)
     except Exception as exc:
         log.exception("InsightVM API sync failed")
+        audit_log.record("vuln_import.sync", outcome="failure")
         return jsonify({"error": _safe_error(exc)}), 500
+    audit_log.record("vuln_import.sync", outcome="success" if result.get("ok") else "failure")
     status = 200 if result.get("ok") else 400
     result["stats"] = db.vuln_import_stats()
     return jsonify(result), status
@@ -4686,6 +4832,7 @@ def api_vuln_import_detail(import_id):
 def api_vuln_import_delete(import_id):
     if not db.delete_vuln_import(import_id):
         return jsonify({"error": "Import not found"}), 404
+    audit_log.record("vuln_import.delete", target_type="vuln_import", target_id=import_id)
     return jsonify({"ok": True, "stats": db.vuln_import_stats()})
 
 
@@ -4744,7 +4891,7 @@ def _perform_scan(domain, checks, extra_dkim_selectors, save_history=True, progr
             "reference": rec.get("reference"),
         }
         for idx, rec in enumerate(recs)
-        if rec.get("severity") in ("critical", "high", "medium")
+        if rec.get("severity") in ("critical", "high", "medium") and not rec.get("accepted")
     ][:25]
 
     if save_history:
@@ -4776,6 +4923,22 @@ def _scan_request_params():
     }, None
 
 
+def _audit_scan_request(params):
+    """One entry per scan, flagging the ones that may send probes. Also the
+    one place every started scan passes, so the metric is counted here.
+
+    "Who pointed active tests at that domain, and when" is the question
+    this log exists to answer; whether the probes then ran is decided by the
+    gates in the checks themselves.
+    """
+    checks = list(params.get("checks") or [])
+    requested_active = sorted(
+        _OPT_IN_ACTIVE_CHECKS if "all" in checks else set(checks) & _OPT_IN_ACTIVE_CHECKS)
+    audit_log.record("scan.start", target_type="domain", target_id=params["domain"],
+                     details={"checks": checks, "active_checks_requested": requested_active})
+    metrics.inc("domainlens_scans_started_total")
+
+
 @app.route("/api/scan", methods=["POST"])
 def api_scan():
     """Synchronous scan, kept for API consumers and scripts."""
@@ -4784,6 +4947,7 @@ def api_scan():
     params, error = _scan_request_params()
     if error:
         return error
+    _audit_scan_request(params)
     return jsonify(_perform_scan(
         params["domain"], params["checks"], params["extra_dkim_selectors"],
         save_history=params["save_history"], force_refresh=params["force_refresh"],
@@ -4808,6 +4972,7 @@ def api_scan_start():
     existing = scan_jobs.find_active(params["domain"])
     if existing:
         return jsonify({**existing, "already_running": True}), 409
+    _audit_scan_request(params)
 
     def runner(progress_cb):
         return _perform_scan(
@@ -5060,6 +5225,8 @@ def api_admin_pgp_generate():
     }, user_id=(auth.current_user() or {}).get("id"))
     log.info("Generated disclosure PGP key %s (private half not stored)",
              result["fingerprint"])
+    audit_log.record("disclosure.pgp_generate", target_type="pgp_key",
+                     target_id=result["fingerprint"])
 
     return jsonify({
         "fingerprint": result["fingerprint"],
@@ -5266,14 +5433,20 @@ def api_history_delete(scan_id):
     # Collect this first: the delete clears the reference, so afterwards there
     # is no way to tell which monitors just lost their baseline.
     affected = db.monitors_using_scan(scan_id)
+    record = db.get_scan(scan_id)
     if not db.delete_scan(scan_id):
         return jsonify({"error": "Scan not found"}), 404
+    audit_log.record("scan.delete", target_type="scan", target_id=scan_id,
+                     details={"domain": (record or {}).get("domain")})
     return jsonify({"deleted": True, "monitors_affected": affected})
 
 
 @app.route("/api/history", methods=["DELETE"])
+@auth.require_admin
 def api_history_clear():
+    removed = db.history_stats().get("total_scans")
     db.clear_history()
+    audit_log.record("history.clear", details={"scans_removed": removed})
     return jsonify({"cleared": True})
 
 
@@ -5373,6 +5546,8 @@ def api_monitors_create():
         enabled=enabled,
         metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
     )
+    audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
+                     details={"target": target, "checks": checks})
     return jsonify({"monitor": _serialize_monitor(db.get_monitor(monitor_id))}), 201
 
 
@@ -5438,6 +5613,9 @@ def api_monitors_import():
             checks=checks,
             enabled=enabled,
         )
+        audit_log.record("monitor.import", target_type="zone", target_id=(
+            data.get("domain") or data.get("zone_name")),
+            details={"mode": mode, "imported": len(stored), "checks": checks})
         return jsonify({"imported": len(stored), "monitors": stored}), 201
     except Exception as exc:
         return jsonify({"error": _safe_error(exc)}), 400
@@ -5445,6 +5623,7 @@ def api_monitors_import():
 
 @app.route("/api/monitors/run-due", methods=["POST"])
 def api_monitors_run_due():
+    audit_log.record("monitor.run_due")
     return jsonify(_process_due_monitors())
 
 
@@ -5484,13 +5663,18 @@ def api_monitors_update(monitor_id):
         updates["next_scan_at"] = datetime.now(timezone.utc).isoformat() if updates["enabled"] else None
 
     updated = db.update_monitor(monitor_id, **updates)
+    audit_log.record("monitor.update", target_type="monitor", target_id=monitor_id,
+                     details={"fields": sorted(k for k in updates if k != "next_scan_at")})
     return jsonify({"monitor": _serialize_monitor(updated)})
 
 
 @app.route("/api/monitors/<int:monitor_id>", methods=["DELETE"])
 def api_monitors_delete(monitor_id):
+    monitor = db.get_monitor(monitor_id)
     if not db.delete_monitor(monitor_id):
         return jsonify({"error": "Monitor not found"}), 404
+    audit_log.record("monitor.delete", target_type="monitor", target_id=monitor_id,
+                     details={"target": (monitor or {}).get("target")})
     return jsonify({"deleted": True})
 
 
@@ -5499,6 +5683,8 @@ def api_monitors_scan(monitor_id):
     monitor = db.get_monitor(monitor_id)
     if not monitor:
         return jsonify({"error": "Monitor not found"}), 404
+    audit_log.record("monitor.scan", target_type="monitor", target_id=monitor_id,
+                     details={"target": monitor.get("target")})
     try:
         outcome = _scan_monitor(monitor)
         return jsonify(outcome)
@@ -5525,6 +5711,8 @@ def api_monitors_scan_start(monitor_id):
     existing = scan_jobs.find_active(target)
     if existing:
         return jsonify({**existing, "already_running": True}), 409
+    audit_log.record("monitor.scan", target_type="monitor", target_id=monitor_id,
+                     details={"target": target})
 
     def runner(progress_cb):
         return _scan_monitor(monitor, progress_cb=progress_cb)
@@ -5625,6 +5813,8 @@ route_modules.register_routes(
     servicenow=servicenow,
     domainlens_config=domainlens_config,
     scheduler_config_fn=_scheduler_config,
+    normalize_domain=_normalize_domain,
+    is_valid_domain=_is_valid_domain,
 )
 
 _start_scheduler_once()
