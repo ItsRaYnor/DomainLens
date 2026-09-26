@@ -19,6 +19,7 @@ docs/
 
 # Tests and Python debris
 tests/
+pytest.ini
 __pycache__/
 **/__pycache__/
 *.py[cod]
