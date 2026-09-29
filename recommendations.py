@@ -1593,8 +1593,36 @@ def _merge_duplicate(primary, duplicate):
     return primary
 
 
+def _not_delegated(results):
+    """The one thing to say about a name that is not in DNS."""
+    info = results.get("not_delegated") or {}
+    name = info.get("name") or results.get("domain")
+    status = ", ".join(info.get("registry_status") or [])
+    if info.get("reason") == "registry_status":
+        problem = f"{name} does not exist in DNS: the registry reports it as \"{status}\"."
+        if str(name).endswith(".nl") and "pending delete" in status:
+            problem += (" This is SIDN's quarantine: the domain has no name servers and is "
+                        "released after 40 days unless the holder restores it.")
+        fix = ("If the domain is still wanted, ask the registrar to restore it from quarantine "
+               "before it is released. Nothing else can be checked until it is back in DNS.")
+    elif info.get("reason") == "not_registered":
+        problem = f"{name} is not registered and does not exist in DNS."
+        fix = "Nothing to check. Register the domain first if it is meant to be used."
+    else:
+        problem = (f"{name} does not exist in DNS (NXDOMAIN)"
+                   + (f"; the registry reports \"{status}\"." if status else "."))
+        fix = ("Check the delegation at the registrar: the name servers or the zone itself are "
+               "missing. Mail, web and DNS checks were not run, as there is nothing to measure.")
+    return [_r(SEVERITY_INFO, "DNS", "Domain is not in DNS", problem, fix,
+               retest=f"Scan `{name}` again once it resolves.")]
+
+
 def generate(results):
     """Return a sorted list of advies items (problem / fix / retest) for a scan."""
+    if results.get("not_delegated"):
+        # Every other check was deliberately not run; each would otherwise
+        # turn "nothing there" into a finding about a domain with no DNS.
+        return _not_delegated(results)
     domain = results.get("domain")
     recs = []
     for fn in (

@@ -637,6 +637,18 @@ function renderResults(data) {
         }
     }
     $('resultTimestamp').textContent = new Date(data.timestamp).toLocaleString();
+    // A name that is not in DNS was not scanned; say so above everything else.
+    const nd = $('notDelegatedNote');
+    if (nd) {
+        const info = data.not_delegated;
+        nd.classList.toggle('hidden', !info);
+        if (info) {
+            const status = (info.registry_status || []).join(', ');
+            nd.textContent = `${info.name} does not exist in DNS`
+                + (status ? ` (registry status: ${status})` : '')
+                + '. Only the registration was looked up; mail, web and DNS checks were not run.';
+        }
+    }
 
     renderScoreOverview(data);
     renderRecommendations(data);

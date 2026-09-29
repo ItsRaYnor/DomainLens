@@ -3084,9 +3084,74 @@ def full_scan(domain, extra_dkim_selectors=None, progress_cb=None, force_refresh
     return _attach_ncsc_tls(results, domain)
 
 
+# Registry statuses under which a domain is not in DNS on purpose. SIDN's
+# quarantine is "pending delete"; the hold statuses are a registrar's or the
+# registry's suspension.
+_NOT_DELEGATED_STATUSES = {"pending delete", "redemption period", "client hold",
+                           "server hold", "inactive"}
+
+
+def _name_exists(domain):
+    """True, False (NXDOMAIN: DNS says the name does not exist) or None.
+
+    Only an NXDOMAIN answer is "does not exist". A timeout or SERVFAIL says
+    nothing about the name, so it is None and the scan runs as usual.
+    """
+    nx = 0
+    for rdtype in ("A", "NS"):
+        try:
+            dns.resolver.resolve(domain, rdtype, lifetime=8)
+            return True
+        except dns.resolver.NoAnswer:
+            return True
+        except dns.resolver.NXDOMAIN:
+            nx += 1
+        except Exception:
+            return None
+    return False if nx == 2 else None
+
+
+def _not_delegated_results(domain, progress_cb=None):
+    """What a scan of a name that is not in DNS can honestly report.
+
+    A domain in quarantine (SIDN: "pending delete") has no nameservers, so
+    every check found nothing and each "nothing" became a finding: no SPF,
+    no DMARC, no HTTPS -- sixteen of them for a domain that has no mail, web
+    or DNS to judge. Only the registration is looked up; the rest is
+    deliberately not applicable, and the result says why.
+    """
+    apex = _get_apex_domain(domain)
+    if progress_cb:
+        progress_cb(0, 1, None)
+    whois_result = lookup_whois(apex)
+    if progress_cb:
+        progress_cb(1, 1, "whois")
+    rdap_result = whois_result.get("rdap") or {}
+    statuses = [str(s).lower() for s in rdap_result.get("status") or []]
+    registered = rdap_result.get("success") is True
+    if any(s in _NOT_DELEGATED_STATUSES for s in statuses):
+        reason = "registry_status"
+    elif rdap_result.get("registered") is False:
+        reason = "not_registered"
+    else:
+        reason = "not_in_dns"
+    return {
+        "apex_domain": apex,
+        "whois": whois_result,
+        "not_delegated": {
+            "name": domain,
+            "reason": reason,
+            "registered": registered if rdap_result.get("state") != "unmeasured" else None,
+            "registry_status": rdap_result.get("status") or [],
+        },
+    }
+
+
 def run_selected_checks(domain, checks, extra_dkim_selectors=None, progress_cb=None,
                         force_refresh=False):
     """Run a selected set of checks for a normalized domain."""
+    if _name_exists(domain) is False:
+        return _not_delegated_results(domain, progress_cb)
     if "all" in checks:
         return full_scan(
             domain, extra_dkim_selectors=extra_dkim_selectors, progress_cb=progress_cb,
