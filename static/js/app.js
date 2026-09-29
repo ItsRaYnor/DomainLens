@@ -726,7 +726,12 @@ function renderScoreOverview(data) {
         not_tested: ['badge-info', 'Not tested'],
     };
 
-    checks.forEach(c => {
+    // Tiles that explain themselves are twice as wide; placed last, the plain
+    // tiles stay one unbroken grid and the explanations sit together below.
+    const explained = c => !!(c.note && c.state && c.state !== 'pass');
+    const ordered = checks.filter(c => !explained(c)).concat(checks.filter(explained));
+
+    ordered.forEach(c => {
         if (!c.state && c.pass === undefined && !c.warn) return;
         const div = document.createElement('div');
         div.className = 'score-item';
@@ -748,6 +753,15 @@ function renderScoreOverview(data) {
 
         div.appendChild(labelDiv);
         div.appendChild(span);
+        // Visible, not only a tooltip: a phone has no hover, and an orange
+        // tile without its reason reads as a vaguer red one.
+        if (c.note && c.state && c.state !== 'pass') {
+            const note = document.createElement('p');
+            note.className = 'score-note';
+            note.textContent = c.note;
+            div.appendChild(note);
+            div.classList.add('has-note');
+        }
         grid.appendChild(div);
     });
 

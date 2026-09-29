@@ -1101,20 +1101,32 @@ def _ipv6(results):
 
 
 def _blacklist(results):
-    out = []
+    """Same verdict as the overview tile, so the two never disagree.
+
+    The tile and this finding used to be decided apart: the tile said Fail,
+    the finding said "requires context", and neither knew the address was a
+    shared CDN edge or that CBL and ZEN were one XBL listing.
+    """
+    import overview
     bl = results.get("blacklist")
-    if not bl:
-        return out
-    if bl.get("is_listed"):
-        listed = ", ".join(bl.get("listed") or [])
-        out.append(_r(
+    tile = overview.blacklist(results)
+    if not bl or not tile or tile["state"] == "pass":
+        return []
+    listed = ", ".join(overview.distinct_listings(bl))
+    if tile["state"] == "context":
+        return [_r(
             SEVERITY_INFO, "Network", "IP reputation listing requires context",
-            f"The resolved server IP is listed on: {listed}. This scan does not establish "
-            "that the address sends mail or is controlled exclusively by this domain.",
-            "Confirm whether this is the domain's outbound-mail IP. If it is, investigate "
-            "spam or compromise before requesting delisting; otherwise ask the hosting provider.",
-        ))
-    return out
+            tile["note"],
+            "Nothing to change on this domain. If the listing matters to you, raise it with "
+            "the provider that operates the address.",
+        )]
+    return [_r(
+        SEVERITY_INFO, "Network", "IP reputation listing requires context",
+        f"The resolved server IP is listed on: {listed}. This scan does not establish "
+        "that the address sends mail or is controlled exclusively by this domain.",
+        "Confirm whether this is the domain's outbound-mail IP. If it is, investigate "
+        "spam or compromise before requesting delisting; otherwise ask the hosting provider.",
+    )]
 
 
 RISKY_PORTS = {

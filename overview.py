@@ -63,22 +63,25 @@ def _only_pbl(blacklist, listed):
 
 def blacklist(results):
     data = results.get("blacklist")
-    if not isinstance(data, dict) or data.get("error") or not data.get("ip"):
+    if not isinstance(data, dict) or data.get("error"):
         return None
     if not data.get("is_listed"):
-        return _tile("pass")
+        return _tile("pass") if data.get("ip") else None
     listed = distinct_listings(data)
     names = ", ".join(listed)
+    # A listing without the address it was for is still a listing: it is
+    # reported, never dropped for want of context.
+    address = data.get("ip") or "The address"
     if _only_pbl(data, listed):
-        return _tile("context", f"{data['ip']} is only on the Spamhaus PBL, a list of ranges that "
+        return _tile("context", f"{address} is only on the Spamhaus PBL, a list of ranges that "
                                 "should not send mail directly. It is not a reputation listing.")
     cdn = results.get("cdn") or {}
     a_records = ((results.get("dns") or {}).get("A") or [])
-    if cdn.get("id") and data["ip"] in a_records:
-        return _tile("context", f"{data['ip']} is a shared {cdn.get('name') or 'CDN'} edge address, "
+    if cdn.get("id") and data.get("ip") and data["ip"] in a_records:
+        return _tile("context", f"{address} is a shared {cdn.get('name') or 'CDN'} edge address, "
                                 f"listed on {names}. Other sites use it too; it is not this "
                                 "domain's mail server, and only the CDN can have it delisted.")
-    return _tile("fail", f"{data['ip']} is listed on {names}.")
+    return _tile("fail", f"{address} is listed on {names}.")
 
 
 def _mx_hosts(results):

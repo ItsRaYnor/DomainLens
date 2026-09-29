@@ -77,11 +77,30 @@ class BlacklistTileTests(unittest.TestCase):
             ["zen.dq.spamhaus.net"], {"zen.dq.spamhaus.net": "127.0.0.11"}))
         self.assertEqual("context", tile["state"])
 
+    def test_a_listing_without_its_address_is_still_shown(self):
+        """Missing context is no reason to drop a listing from view."""
+        tile = overview.blacklist({"blacklist": {"is_listed": True, "listed": ["x.invalid"]}})
+        self.assertEqual("fail", tile["state"])
+
     def test_not_listed_passes_and_a_failed_lookup_shows_nothing(self):
         self.assertEqual("pass", overview.blacklist(
             _scan(blacklist={"ip": _EDGE, "is_listed": False}))["state"])
         self.assertIsNone(overview.blacklist(
             _scan(blacklist={"error": "timeout", "is_listed": False})))
+
+
+class BlacklistFindingTests(unittest.TestCase):
+    def test_the_finding_says_what_the_tile_says(self):
+        """The tile named the shared CDN edge; the finding still listed
+        cbl.abuseat.org and zen as two listings with no mention of the CDN."""
+        import recommendations
+        results = _scan(cdn={"id": "bunny", "name": "BunnyCDN"}, blacklist={
+            "ip": _EDGE, "is_listed": True,
+            "listed": ["cbl.abuseat.org", "zen.dq.spamhaus.net"],
+            "codes": {"cbl.abuseat.org": "127.0.0.2", "zen.dq.spamhaus.net": "127.0.0.4"}})
+        finding = next(r for r in recommendations.generate(results) if r["category"] == "Network")
+        self.assertEqual(overview.blacklist(results)["note"], finding["problem"])
+        self.assertNotIn("cbl.abuseat.org", finding["problem"])
 
 
 class Ipv6MailTileTests(unittest.TestCase):
@@ -101,6 +120,20 @@ class Ipv6MailTileTests(unittest.TestCase):
 
     def test_ipv6_on_the_mx_passes(self):
         self.assertEqual("pass", overview.ipv6_mail(_scan(ipv6={"mail_pass": True}))["state"])
+
+
+class TileNoteRenderingTests(unittest.TestCase):
+    """No JS runtime here, so this reads the source, like test_ui_buttons."""
+
+    def test_the_reason_is_in_the_tile_not_only_in_a_tooltip(self):
+        """A phone has no hover: the orange tiles showed "Context" and no
+        reason, which reads as a vaguer red."""
+        import pathlib
+        src = pathlib.Path(__file__).resolve().parent.parent.joinpath(
+            "static", "js", "app.js").read_text(encoding="utf-8")
+        body = src[src.index("function renderScoreOverview"):src.index("// ===== WHOIS")]
+        self.assertIn("note.className = 'score-note'", body)
+        self.assertIn("note.textContent = c.note", body)
 
 
 class ChecksRecordWhatTheTilesNeedTests(EnterpriseAppTestCase):
