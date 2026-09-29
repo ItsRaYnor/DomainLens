@@ -32,6 +32,8 @@ class NoCustomerIdentifiersInSourceTests(unittest.TestCase):
         "microsoft.de",         # appears in published Microsoft IP/host ranges
         "microsoftonline.de",   # idem
         "example.nl",           # RFC 2606 style placeholder
+        "sidn.nl",              # .nl registry's public WHOIS page (rdap.py)
+        "dnsbelgium.be",        # .be registry's public WHOIS page (rdap.py)
     }
 
     HOST_RE = re.compile(r"\b[a-z0-9][a-z0-9-]{1,40}\.(?:nl|be|fr|lu|dk|se|no|fi|it|es|pl)\b")

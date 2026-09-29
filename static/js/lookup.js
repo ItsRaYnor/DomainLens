@@ -747,6 +747,42 @@ function initPgpLookupPage() {
     bind('genBtn', generateThrowawayKey);
 }
 
+// ===== WHOIS =====
+async function whoisLookup() {
+    const input = $('whoisLookupName');
+    const out = $('whoisLookupResult');
+    const btn = $('whoisLookupBtn');
+    const name = (input.value || '').trim();
+    if (!name) { toast('Enter a domain first.'); return; }
+    btn.disabled = true;
+    out.innerHTML = '<p class="ct-desc">Looking up&hellip;</p>';
+    try {
+        const data = await requestJson('/api/whois?domain=' + encodeURIComponent(name));
+        const apexNote = data.apex_domain && data.apex_domain !== data.domain
+            ? `<p class="ct-desc">Registration is held at <strong>${esc(data.apex_domain)}</strong>.</p>` : '';
+        out.innerHTML = apexNote + DomainLensWhois.render(data.whois);
+        // Shareable: the address now names the domain that was looked up.
+        history.replaceState(null, '', '?domain=' + encodeURIComponent(name));
+    } catch (err) {
+        out.innerHTML = '';
+        toast(err.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function initWhoisLookupPage() {
+    const btn = $('whoisLookupBtn');
+    if (!btn) return;
+    btn.addEventListener('click', whoisLookup);
+    $('whoisLookupName').addEventListener('keydown', e => { if (e.key === 'Enter') whoisLookup(); });
+    const handed = new URLSearchParams(window.location.search).get('domain');
+    if (handed) {
+        $('whoisLookupName').value = handed;
+        whoisLookup();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     if (window.DomainLensI18n) {
         try { await DomainLensI18n.init(DomainLensI18n.pageLocale()); }
@@ -769,6 +805,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         impBtn.addEventListener('click', buildDossier);
         $('impProtected').addEventListener('keydown', e => { if (e.key === 'Enter') buildDossier(); });
     }
+    initWhoisLookupPage();
     initDnsLookupPage();
     initPgpLookupPage();
     initRemediate();

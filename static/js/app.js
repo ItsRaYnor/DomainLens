@@ -665,41 +665,78 @@ function renderResults(data) {
     renderJsScan(data.js_scan);
     renderActiveScan(data.active_scan);
     renderRapid7(data.rapid7);
+    hideChecksNotRun(data);
 
     document.querySelectorAll('.tab')[0].click();
     $('results').classList.remove('hidden');
 }
 
+// A check that was not part of this scan has nothing to show. Its card used
+// to render the missing result as a failure ("WHOIS lookup failed"), and a
+// WHOIS-only scan showed every tab. Each card names its result key in
+// data-source; a card without a result is hidden, and so is a tab (and a tab
+// group) left with no card.
+function checkRan(data, key) {
+    const value = data[key];
+    if (value === undefined || value === null) return false;
+    // Rapid7 correlation is attached to every scan: it has something to show
+    // only when enabled and something has ever been imported.
+    if (key === 'rapid7' && (value.disabled || (value.import_stats && !value.import_stats.imports))) return false;
+    return true;
+}
+
+function hideChecksNotRun(data) {
+    document.querySelectorAll('[data-source]').forEach(el => {
+        const card = el.closest('.card') || el;
+        card.classList.toggle('not-run', !checkRan(data, el.getAttribute('data-source')));
+    });
+    document.querySelectorAll('.tab[data-tab]').forEach(tab => {
+        const panel = $('tab-' + tab.getAttribute('data-tab'));
+        const sources = panel ? panel.querySelectorAll('[data-source]') : [];
+        if (!sources.length) return;  // Advice always has something to say
+        const shown = Array.from(sources).some(el => !(el.closest('.card') || el).classList.contains('not-run'));
+        tab.classList.toggle('not-run', !shown);
+    });
+    document.querySelectorAll('.tab-group').forEach(group => {
+        const tabs = Array.from(group.querySelectorAll('.tab'));
+        group.classList.toggle('not-run', tabs.length > 0 && tabs.every(t => t.classList.contains('not-run')));
+    });
+}
+
 // ===== Score Overview =====
+// The result key behind each server-decided tile; a tile whose check did not
+// run has no verdict to show.
+const OVERVIEW_SOURCES = { ipv6_mail: 'ipv6', blacklist: 'blacklist', weak_auth: 'weak_auth' };
+
 function renderScoreOverview(data) {
     const grid = $('scoreGrid');
     grid.innerHTML = '';
 
     const checks = [
-        { label: 'DNSSEC', pass: data.dnssec?.signed },
-        { label: 'SPF', pass: data.spf?.pass },
-        { label: 'DMARC', pass: data.dmarc?.pass },
-        { label: 'DKIM', pass: data.dkim?.pass },
-        { label: 'MTA-STS', pass: data.mta_sts?.pass },
-        { label: 'TLS-RPT', pass: data.tlsrpt?.pass },
-        { label: 'HTTPS', pass: data.https_redirect?.pass === true, warn: data.https_redirect?.pass === null || data.https_redirect?.blocked },
-        { label: 'SSL Valid', pass: data.ssl?.success && !data.ssl?.expired },
-        { label: 'TLS Grade', pass: data.tls_deep?.grade && ['A+', 'A'].includes(data.tls_deep.grade), warn: data.tls_deep?.grade === 'B' },
-        { label: 'NCSC TLS', pass: data.ncsc_tls?.pass === true, warn: data.ncsc_tls?.success && data.ncsc_tls?.overall_level === 'phased_out' },
+        { label: 'DNSSEC', src: 'dnssec', pass: data.dnssec?.signed },
+        { label: 'SPF', src: 'spf', pass: data.spf?.pass },
+        { label: 'DMARC', src: 'dmarc', pass: data.dmarc?.pass },
+        { label: 'DKIM', src: 'dkim', pass: data.dkim?.pass },
+        { label: 'MTA-STS', src: 'mta_sts', pass: data.mta_sts?.pass },
+        { label: 'TLS-RPT', src: 'tlsrpt', pass: data.tlsrpt?.pass },
+        { label: 'HTTPS', src: 'https_redirect', pass: data.https_redirect?.pass === true, warn: data.https_redirect?.pass === null || data.https_redirect?.blocked },
+        { label: 'SSL Valid', src: 'ssl', pass: data.ssl?.success && !data.ssl?.expired },
+        { label: 'TLS Grade', src: 'tls_deep', pass: data.tls_deep?.grade && ['A+', 'A'].includes(data.tls_deep.grade), warn: data.tls_deep?.grade === 'B' },
+        { label: 'NCSC TLS', src: 'ncsc_tls', pass: data.ncsc_tls?.pass === true, warn: data.ncsc_tls?.success && data.ncsc_tls?.overall_level === 'phased_out' },
         {
-            label: 'Cipher order',
+            label: 'Cipher order', src: 'tls_deep',
             pass: !data.tls_deep?.cipher_order ? undefined :
                 (data.tls_deep.cipher_order.applicable === false || data.tls_deep.cipher_order.pass === true),
             warn: !!(data.tls_deep?.cipher_order?.applicable && data.tls_deep.cipher_order.pass == null),
         },
-        { label: 'HSTS', pass: data.tls_deep?.hsts?.enabled === true, warn: data.tls_deep?.hsts?.enabled == null || data.tls_deep?.hsts?.blocked },
-        { label: 'Fwd Secrecy', pass: data.tls_deep?.cipher_summary?.forward_secrecy > 0 },
-        { label: 'Headers', pass: data.http_headers?.score >= 50, warn: data.http_headers?.blocked || (data.http_headers?.score >= 25 && data.http_headers?.score < 50) },
-        { label: 'IPv6 Web', pass: data.ipv6?.web_pass },
+        { label: 'HSTS', src: 'tls_deep', pass: data.tls_deep?.hsts?.enabled === true, warn: data.tls_deep?.hsts?.enabled == null || data.tls_deep?.hsts?.blocked },
+        { label: 'Fwd Secrecy', src: 'tls_deep', pass: data.tls_deep?.cipher_summary?.forward_secrecy > 0 },
+        { label: 'Headers', src: 'http_headers', pass: data.http_headers?.score >= 50, warn: data.http_headers?.blocked || (data.http_headers?.score >= 25 && data.http_headers?.score < 50) },
+        { label: 'IPv6 Web', src: 'ipv6', pass: data.ipv6?.web_pass },
         fromOverview('IPv6 Mail', 'ipv6_mail', { pass: data.ipv6?.mail_pass }),
         fromOverview('Blacklist', 'blacklist', { pass: data.blacklist && !data.blacklist?.is_listed }),
-        { label: 'OSINT Clean', pass: data.osint?.summary && !data.osint.summary.listed_in_threat_feeds },
-        { label: 'HubSpot/CF', pass: data.hubspot_cf?.success && data.hubspot_cf?.pass !== false, warn: data.hubspot_cf?.success && data.hubspot_cf?.pass === false },
+        { label: 'OSINT Clean', src: 'osint', pass: data.osint?.summary && !data.osint.summary.listed_in_threat_feeds },
+        { label: 'HubSpot/CF', src: 'hubspot_cf', pass: data.hubspot_cf?.success && data.hubspot_cf?.pass !== false, warn: data.hubspot_cf?.success && data.hubspot_cf?.pass === false },
         fromOverview('Weak auth', 'weak_auth', {
             // Only when the scan carries no server verdict. A scan that never
             // ran weak-auth has no tile: absent is not a failure.
@@ -713,7 +750,7 @@ function renderScoreOverview(data) {
     // shared CDN address, a mail provider's MX, a check that did not run.
     function fromOverview(label, key, fallback) {
         const ov = data.overview;
-        if (!ov || !(key in ov)) return { label, ...fallback };
+        if (!ov || !(key in ov)) return { label, src: OVERVIEW_SOURCES[key], ...fallback };
         const tile = ov[key];
         if (!tile) return { label, pass: undefined };
         return { label, state: tile.state, note: tile.note };
@@ -732,6 +769,7 @@ function renderScoreOverview(data) {
     const ordered = checks.filter(c => !explained(c)).concat(checks.filter(explained));
 
     ordered.forEach(c => {
+        if (c.src && !checkRan(data, c.src)) return;
         if (!c.state && c.pass === undefined && !c.warn) return;
         const div = document.createElement('div');
         div.className = 'score-item';
@@ -770,31 +808,8 @@ function renderScoreOverview(data) {
 
 // ===== WHOIS =====
 function renderWhois(data) {
-    const el = $('whoisContent');
-    if (!data || !data.success) {
-        el.innerHTML = `<p class="status status-fail">${escapeHtml(data?.error || 'WHOIS lookup failed')}</p>`;
-        return;
-    }
-    const d = data.data;
-    let rows = '';
-    const labels = {
-        domain_name: 'Domain', registrar: 'Registrar', whois_server: 'WHOIS Server',
-        creation_date: 'Created', expiration_date: 'Expires', updated_date: 'Updated',
-        name_servers: 'Name Servers', status: 'Status', emails: 'Contact',
-        dnssec: 'DNSSEC', org: 'Organization', country: 'Country',
-    };
-    for (const [key, label] of Object.entries(labels)) {
-        if (d[key] !== undefined && d[key] !== null) {
-            let val = d[key];
-            if (Array.isArray(val)) {
-                val = val.map(v => escapeHtml(v)).join('<br>');
-            } else {
-                val = escapeHtml(val);
-            }
-            rows += `<tr><th>${escapeHtml(label)}</th><td>${val}</td></tr>`;
-        }
-    }
-    el.innerHTML = `<table class="data-table">${rows}</table>`;
+    // Shared with Tools -> WHOIS (whois_view.js): RDAP first, port 43 after.
+    $('whoisContent').innerHTML = DomainLensWhois.render(data);
 }
 
 // ===== DNS =====

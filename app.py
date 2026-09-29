@@ -46,6 +46,7 @@ import audit_log
 import auth
 import discovery
 import overview
+import rdap
 import maintenance
 import metrics
 import notifications
@@ -416,8 +417,14 @@ def _get_apex_domain(domain):
     for i in range(len(parts) - 2):
         candidate = ".".join(parts[i:])
         try:
-            dns.resolver.resolve(candidate, "SOA")
-            return candidate
+            answer = dns.resolver.resolve(candidate, "SOA")
+            # A CNAME is followed: www -> cname.provider.example answers
+            # with the provider's SOA, which made every CNAME'd host its
+            # own apex -- email and WHOIS were then checked on www.
+            owner = answer.rrset.name.to_text().rstrip(".").lower()
+            if owner == candidate.lower():
+                return candidate
+            continue
         except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer,
                 dns.resolver.NoNameservers):
             continue
@@ -456,7 +463,21 @@ def _dns_measurement(records):
 # ---------------------------------------------------------------------------
 
 def lookup_whois(domain):
-    """Return parsed WHOIS data."""
+    """WHOIS over port 43, plus the same registration through RDAP.
+
+    The port-43 parser missed most of a .nl record (reseller, DNSSEC,
+    registrar address); RDAP returns those as structured data for every
+    registry. Either one succeeding is a result.
+    """
+    result = _lookup_whois_text(domain)
+    result["rdap"] = rdap.lookup(domain)
+    if not result["success"] and result["rdap"].get("success"):
+        result["success"] = True
+        result.setdefault("data", {})
+    return result
+
+
+def _lookup_whois_text(domain):
     try:
         w = whois.whois(domain)
         data = {}
@@ -3703,6 +3724,7 @@ def _check_rate_limit(ip, bucket="scan"):
 # /lookup/* paths still resolve -- see the redirects below -- because they
 # have been linked and bookmarked.
 _TOOLS_SUBNAV = [
+    ("nav.tools_whois", "/tools/whois"),
     ("nav.tools_ip", "/tools/ip"),
     ("nav.tools_dns", "/tools/dns"),
     ("nav.tools_impersonation", "/tools/impersonation"),
@@ -3723,6 +3745,26 @@ def _subnav(items, current):
 @app.route("/")
 def index():
     return render_template("index.html", section="scan")
+
+
+@app.route("/tools/whois")
+def lookup_whois_view():
+    return render_template(
+        "lookup_whois.html", section="tools",
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/whois"))
+
+
+@app.route("/api/whois", methods=["GET"])
+def api_whois():
+    """Registration data for one domain, without running a scan."""
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    domain = _normalize_domain(request.args.get("domain") or "")
+    if not _is_valid_domain(domain):
+        return jsonify({"error": "Invalid domain name. Use format: example.com"}), 400
+    # Registration lives at the registrable domain, not at www or a subdomain.
+    apex = _get_apex_domain(domain)
+    return jsonify({"domain": domain, "apex_domain": apex, "whois": lookup_whois(apex)})
 
 
 @app.route("/tools/ip")

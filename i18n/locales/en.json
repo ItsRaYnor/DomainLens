@@ -23,6 +23,7 @@
     "skip_to_content": "Skip to content",
     "lookup_pgp": "PGP & security.txt",
     "tools": "Tools",
+    "tools_whois": "WHOIS",
     "tools_ip": "IP address",
     "tools_dns": "DNS record",
     "tools_impersonation": "Impersonation",

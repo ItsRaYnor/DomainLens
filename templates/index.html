@@ -217,7 +217,7 @@
             <div class="tab-content" id="tab-whois">
                 <div class="card">
                     <h3>WHOIS Information</h3>
-                    <div id="whoisContent"></div>
+                    <div id="whoisContent" data-source="whois"></div>
                 </div>
             </div>
 
@@ -225,11 +225,11 @@
             <div class="tab-content" id="tab-dns">
                 <div class="card">
                     <h3>DNS Records</h3>
-                    <div id="dnsContent"></div>
+                    <div id="dnsContent" data-source="dns"></div>
                 </div>
                 <div class="card">
                     <h3>DNSSEC</h3>
-                    <div id="dnssecContent"></div>
+                    <div id="dnssecContent" data-source="dnssec"></div>
                 </div>
             </div>
 
@@ -237,29 +237,29 @@
             <div class="tab-content" id="tab-email">
                 <div class="card">
                     <h3>SPF (Sender Policy Framework)</h3>
-                    <div id="spfContent"></div>
+                    <div id="spfContent" data-source="spf"></div>
                 </div>
                 <div class="card">
                     <h3>DMARC (Domain-based Message Authentication)</h3>
-                    <div id="dmarcContent"></div>
+                    <div id="dmarcContent" data-source="dmarc"></div>
                 </div>
                 <div class="card">
                     <h3>DKIM (DomainKeys Identified Mail)</h3>
-                    <div id="dkimContent"></div>
+                    <div id="dkimContent" data-source="dkim"></div>
                 </div>
                 <div class="card">
                     <h3>MTA-STS (Mail Transfer Agent Strict Transport Security)</h3>
-                    <div id="mtaStsContent"></div>
+                    <div id="mtaStsContent" data-source="mta_sts"></div>
                 </div>
                 <div class="card">
                     <h3>TLS-RPT (TLS Reporting)</h3>
-                    <div id="tlsrptContent"></div>
+                    <div id="tlsrptContent" data-source="tlsrpt"></div>
                 </div>
             </div>
 
             <!-- SSL / TLS Deep Scan Tab -->
             <div class="tab-content" id="tab-ssl">
-                <div class="card" id="tlsGradeCard" style="display:none">
+                <div class="card" id="tlsGradeCard" data-source="tls_deep" style="display:none">
                     <div class="tls-grade-section">
                         <div class="tls-grade-circle" id="tlsGradeCircle">-</div>
                         <div class="tls-grade-details">
@@ -268,57 +268,57 @@
                         </div>
                     </div>
                 </div>
-                <div class="card" id="ncscTlsCard">
+                <div class="card" id="ncscTlsCard" data-source="ncsc_tls">
                     <h3>NCSC TLS Guidelines 2025-05</h3>
                     <div id="ncscTlsContent"></div>
                 </div>
                 <div class="card">
                     <h3>Protocol Support</h3>
-                    <div id="tlsProtocolsContent"></div>
+                    <div id="tlsProtocolsContent" data-source="tls_deep"></div>
                 </div>
                 <div class="card">
                     <h3>Cipher Suites</h3>
-                    <div id="tlsCipherSummary"></div>
+                    <div id="tlsCipherSummary" data-source="tls_deep"></div>
                     <div id="tlsCiphersContent"></div>
                 </div>
                 <div class="card">
                     <h3>Certificate Details</h3>
-                    <div id="sslContent"></div>
+                    <div id="sslContent" data-source="ssl"></div>
                 </div>
                 <div class="card">
                     <h3>TLS Features</h3>
-                    <div id="tlsFeaturesContent"></div>
+                    <div id="tlsFeaturesContent" data-source="tls_deep"></div>
                 </div>
             </div>
 
             <!-- Web Security Tab -->
             <div class="tab-content" id="tab-web">
-                <div class="card" id="httpDeepCard">
+                <div class="card" id="httpDeepCard" data-source="http_deep">
                     <h3>HTTP Analysis &amp; Infrastructure</h3>
                     <div id="httpDeepContent"></div>
                 </div>
                 <div class="card">
                     <h3>HTTPS Redirect</h3>
-                    <div id="httpsContent"></div>
+                    <div id="httpsContent" data-source="https_redirect"></div>
                 </div>
                 <div class="card">
                     <h3>HTTP Security Headers</h3>
-                    <div id="headersContent"></div>
+                    <div id="headersContent" data-source="http_headers"></div>
                 </div>
                 <div class="card">
                     <h3 data-i18n="weak_auth_ui.title">{{ t('weak_auth_ui.title') }}</h3>
                     <p class="login-hint" data-i18n="weak_auth_ui.hint">{{ t('weak_auth_ui.hint') }}</p>
-                    <div id="weakAuthContent"></div>
+                    <div id="weakAuthContent" data-source="weak_auth"></div>
                 </div>
                 <div class="card">
                     <h3>JS Dependencies &amp; Secrets</h3>
                     <p class="login-hint">Passive scan of client-side JavaScript for known-vulnerable libraries, leaked secrets, and missing Subresource Integrity.</p>
-                    <div id="jsScanContent"></div>
+                    <div id="jsScanContent" data-source="js_scan"></div>
                 </div>
                 <div class="card">
                     <h3>Active Vulnerability Scan</h3>
                     <p class="login-hint">Sends live XSS/open-redirect/SQL-injection probes. Off by default &mdash; only enable for domains you own or are authorized to test.</p>
-                    <div id="activeScanContent"></div>
+                    <div id="activeScanContent" data-source="active_scan"></div>
                 </div>
             </div>
 
@@ -326,15 +326,15 @@
             <div class="tab-content" id="tab-network">
                 <div class="card">
                     <h3>IPv6 Support</h3>
-                    <div id="ipv6Content"></div>
+                    <div id="ipv6Content" data-source="ipv6"></div>
                 </div>
                 <div class="card">
                     <h3>Blacklist Check (DNSBL)</h3>
-                    <div id="blacklistContent"></div>
+                    <div id="blacklistContent" data-source="blacklist"></div>
                 </div>
                 <div class="card">
                     <h3>Open Ports</h3>
-                    <div id="portsContent"></div>
+                    <div id="portsContent" data-source="ports"></div>
                 </div>
             </div>
 
@@ -342,23 +342,23 @@
             <div class="tab-content" id="tab-osint">
                 <div class="card">
                     <h3>OSINT Summary</h3>
-                    <div id="osintSummary"></div>
+                    <div id="osintSummary" data-source="osint"></div>
                 </div>
                 <div class="card">
                     <h3>Certificate Transparency (crt.sh)</h3>
-                    <div id="osintCt"></div>
+                    <div id="osintCt" data-source="osint"></div>
                 </div>
                 <div class="card">
                     <h3>IP / ASN Context</h3>
-                    <div id="osintIp"></div>
+                    <div id="osintIp" data-source="osint"></div>
                 </div>
                 <div class="card">
                     <h3>Wayback History</h3>
-                    <div id="osintWayback"></div>
+                    <div id="osintWayback" data-source="osint"></div>
                 </div>
                 <div class="card">
                     <h3>Threat Intel Feeds</h3>
-                    <div id="osintThreats"></div>
+                    <div id="osintThreats" data-source="osint"></div>
                 </div>
             </div>
 
@@ -366,23 +366,23 @@
             <div class="tab-content" id="tab-security">
                 <div class="card">
                     <h3>Security Findings</h3>
-                    <div id="secFindingsContent"></div>
+                    <div id="secFindingsContent" data-source="security"></div>
                 </div>
                 <div class="card">
                     <h3>Subdomain Takeover &amp; Enumeration</h3>
-                    <div id="secSubdomainsContent"></div>
+                    <div id="secSubdomainsContent" data-source="security"></div>
                 </div>
                 <div class="card">
                     <h3>Web-app Exposures</h3>
-                    <div id="secWebContent"></div>
+                    <div id="secWebContent" data-source="security"></div>
                 </div>
                 <div class="card">
                     <h3>DNS &amp; Mail Gaps</h3>
-                    <div id="secDnsContent"></div>
+                    <div id="secDnsContent" data-source="security"></div>
                 </div>
                 <div class="card">
                     <h3>Tech Fingerprint &amp; Info Disclosure</h3>
-                    <div id="secInfoContent"></div>
+                    <div id="secInfoContent" data-source="security"></div>
                 </div>
             </div>
 
@@ -390,11 +390,11 @@
             <div class="tab-content" id="tab-hubspot">
                 <div class="card">
                     <h3>HubSpot behind Cloudflare</h3>
-                    <div id="hubspotSummary"></div>
+                    <div id="hubspotSummary" data-source="hubspot_cf"></div>
                 </div>
                 <div class="card">
                     <h3>Findings &amp; remediation</h3>
-                    <div id="hubspotFindings"></div>
+                    <div id="hubspotFindings" data-source="hubspot_cf"></div>
                 </div>
             </div>
 
@@ -403,11 +403,11 @@
                 <div class="card">
                     <h3 data-i18n="rapid7_ui.title">{{ t('rapid7_ui.title') }}</h3>
                     <p class="login-hint" data-i18n="rapid7_ui.intro">{{ t('rapid7_ui.intro') }}</p>
-                    <div id="rapid7Summary"></div>
+                    <div id="rapid7Summary" data-source="rapid7"></div>
                 </div>
                 <div class="card">
                     <h3 data-i18n="rapid7_ui.findings">{{ t('rapid7_ui.findings') }}</h3>
-                    <div id="rapid7Findings"></div>
+                    <div id="rapid7Findings" data-source="rapid7"></div>
                 </div>
             </div>
         </div>
@@ -423,6 +423,7 @@
        blocks inline <script>. #}
     <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
     <script src="/static/js/system.js?v={{ asset_token }}"></script>
+    <script src="/static/js/whois_view.js?v={{ asset_token }}"></script>
     <script src="/static/js/app.js?v={{ asset_token }}"></script>
     <script src="/static/js/theme.js?v={{ asset_token }}"></script>
 </body>

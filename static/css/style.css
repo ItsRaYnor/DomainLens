@@ -10,6 +10,8 @@
 
 .fade-in { animation: fadeIn 0.35s ease-out; }
 .hidden { display: none !important; }
+/* A card, tab or tile for a check this scan did not run. */
+.not-run { display: none !important; }
 
 /* ===== Header ===== */
 header {
