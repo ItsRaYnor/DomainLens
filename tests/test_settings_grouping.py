@@ -7,7 +7,7 @@ page while still existing, still having values, and still being saved.
 
 import unittest
 
-from settings.registry import ADMIN_SECTIONS, SETTING_CATEGORIES, FIELD_META
+from settings.registry import ADMIN_SECTIONS, PAGE_PANELS, SETTING_CATEGORIES, FIELD_META
 
 
 class CategoryCoverageTests(unittest.TestCase):
@@ -22,7 +22,12 @@ class CategoryCoverageTests(unittest.TestCase):
         self.assertEqual(sorted(set(ADMIN_SECTIONS) - set(self._grouped())), [])
 
     def test_no_category_lists_a_section_that_does_not_exist(self):
-        self.assertEqual(sorted(set(self._grouped()) - set(ADMIN_SECTIONS)), [])
+        # A page panel (the API keys) is a tab without settings fields; any
+        # other unknown name is a typo that renders nothing.
+        self.assertEqual(sorted(set(self._grouped()) - set(ADMIN_SECTIONS) - set(PAGE_PANELS)), [])
+
+    def test_every_page_panel_is_in_a_category(self):
+        self.assertEqual(sorted(set(PAGE_PANELS) - set(self._grouped())), [])
 
     def test_a_section_appears_exactly_once(self):
         grouped = self._grouped()

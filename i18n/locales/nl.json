@@ -141,6 +141,7 @@
     "title": "Instellingen",
     "subtitle": "Configureer DomainLens via de webinterface",
     "sections": {
+      "api_keys": "API-sleutels (databronnen)",
       "general": "Algemeen",
       "scheduler": "Planner",
       "scan": "Scannen",
@@ -150,8 +151,8 @@
       "active_scan": "Actieve kwetsbaarhedenscan",
       "js_scan": "JS-dependency- en secrets-scan",
       "auth_local": "Lokale authenticatie",
-      "auth_oauth": "OAuth / OIDC (voorkeur-SSO)",
-      "auth_saml": "SAML (legacy-SSO)",
+      "auth_oauth": "OAuth / OIDC",
+      "auth_saml": "SAML",
       "scim": "SCIM-provisioning",
       "servicenow": "ServiceNow",
       "rapid7": "Rapid7 InsightVM",
@@ -159,8 +160,8 @@
       "disclosure": "Responsible disclosure",
       "own_infra": "Tests op eigen infrastructuur",
       "ownership": "Domeineigendom",
-      "notifications": "Meldingen (webhook, Slack, Teams, e-mail)",
-      "retention": "Bewaartermijnen"
+      "notifications": "Meldingen",
+      "retention": "Bewaartermijnen & backup"
     },
     "general": {
       "locale": "Taal",
@@ -316,6 +317,8 @@
       "allow_user_override": "Laat elke gebruiker een eigen thema en accentkleur kiezen"
     },
     "categories": {
+      "general": "Algemeen",
+      "system": "Systeem",
       "appearance": "Weergave",
       "scanning": "Scannen",
       "automation": "Automatisering",

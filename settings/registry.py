@@ -228,23 +228,29 @@ FIELD_META = {
 # Fourteen sections in one flat row put "Scheduler" beside "SCIM" beside
 # "Rapid7" with nothing to say they are different kinds of thing. The
 # categories below are ordered by how often someone opens them on purpose:
-# appearance and scanning are daily, integrations are set once.
+# appearance and scanning are daily, integrations and system upkeep are set
+# once.
 #
 # ADMIN_SECTIONS stays the flat list — it is what the schema iterates and what
-# the save endpoint validates against — and a test asserts the two agree, so a
-# section added to one and forgotten in the other fails rather than vanishing
-# from the page.
+# the save endpoint validates against — and a test asserts the two agree
+# (allowing only PAGE_PANELS extra), so a section added to one and forgotten in
+# the other fails rather than vanishing from the page.
 SETTING_CATEGORIES = [
-    {"key": "settings.categories.appearance", "sections": ["appearance", "general"]},
+    {"key": "settings.categories.general", "sections": ["appearance", "general"]},
     {"key": "settings.categories.scanning",
      "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra"]},
-    {"key": "settings.categories.automation",
-     "sections": ["scheduler", "reporting", "retention", "updates"]},
+    {"key": "settings.categories.automation", "sections": ["scheduler", "reporting"]},
+    {"key": "settings.categories.integrations",
+     "sections": ["api_keys", "notifications", "servicenow", "rapid7"]},
     {"key": "settings.categories.access",
      "sections": ["auth_local", "auth_oauth", "auth_saml", "scim"]},
-    {"key": "settings.categories.integrations", "sections": ["notifications", "servicenow", "rapid7"]},
-    {"key": "settings.categories.disclosure", "sections": ["disclosure"]},
+    {"key": "settings.categories.system", "sections": ["updates", "retention", "disclosure"]},
 ]
+
+# Tabs that hold page content rather than settings fields: the API keys are
+# stored credentials with their own write-only endpoint, not a settings
+# section, but an admin looks for them beside the other integrations.
+PAGE_PANELS = ["api_keys"]
 
 ADMIN_SECTIONS = [
     "disclosure",

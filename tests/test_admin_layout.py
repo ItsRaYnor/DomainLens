@@ -19,7 +19,8 @@ class SettingsPageTests(EnterpriseAppTestCase):
     def test_the_settings_come_before_the_credential_cards(self):
         """The tabs were rendered under API keys, credentials, version and
         backup, so the page opened on none of the settings themselves."""
-        self.assertLess(self.html.index('id="settingsNav"'), self.html.index("Optional API keys"))
+        self.assertLess(self.html.index('id="settingsNav"'),
+                        self.html.index('data-section="api_keys"'))
 
     def test_every_credential_group_has_a_settings_tab_to_live_in(self):
         """A group without a tab stays behind in the separate card, far from
@@ -35,6 +36,24 @@ class SettingsPageTests(EnterpriseAppTestCase):
         """It said so at the top of a page whose next card stores them."""
         self.assertNotIn("remain in environment variables only", self.html)
         self.assertNotIn("stay environment-only by design", self.html)
+
+    def test_every_loose_block_has_a_tab_to_move_into(self):
+        """API keys, version and backup sat as cards under the tabs, so the
+        page had a second, unlabelled menu below the first. Each is now
+        tagged for a tab; a tag naming no tab would drop it from the page."""
+        import re
+        from settings.registry import SETTING_CATEGORIES
+        tabs = {s for c in SETTING_CATEGORIES for s in c["sections"]}
+        tagged = re.findall(r'class="[^"]*settings-panel-extra[^"]*"[^>]*data-section="([a-z_]+)"',
+                            " ".join(self.html.split()))
+        self.assertTrue({"api_keys", "updates", "retention"} <= set(tagged), tagged)
+        self.assertEqual(sorted(set(tagged) - tabs), [])
+
+    def test_the_api_keys_are_a_tab_under_integrations(self):
+        from settings.registry import SETTING_CATEGORIES
+        integrations = next(c for c in SETTING_CATEGORIES
+                            if c["key"] == "settings.categories.integrations")
+        self.assertIn("api_keys", integrations["sections"])
 
     def test_the_ownership_tab_links_to_the_verified_domains_page(self):
         self.assertIn('<a href="/admin/domains">', self.html)

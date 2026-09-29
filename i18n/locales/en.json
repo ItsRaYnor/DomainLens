@@ -141,6 +141,7 @@
     "title": "Settings",
     "subtitle": "Configure DomainLens from the web interface",
     "sections": {
+      "api_keys": "API keys (data sources)",
       "general": "General",
       "scheduler": "Scheduler",
       "scan": "Scanning",
@@ -150,8 +151,8 @@
       "active_scan": "Active vulnerability scan",
       "js_scan": "JS dependency & secret scan",
       "auth_local": "Local authentication",
-      "auth_oauth": "OAuth / OIDC (preferred SSO)",
-      "auth_saml": "SAML (legacy SSO)",
+      "auth_oauth": "OAuth / OIDC",
+      "auth_saml": "SAML",
       "scim": "SCIM provisioning",
       "servicenow": "ServiceNow",
       "rapid7": "Rapid7 InsightVM",
@@ -159,8 +160,8 @@
       "disclosure": "Responsible disclosure",
       "own_infra": "Own infrastructure tests",
       "ownership": "Domain ownership",
-      "notifications": "Notifications (webhook, Slack, Teams, email)",
-      "retention": "Retention"
+      "notifications": "Notifications",
+      "retention": "Retention & backup"
     },
     "general": {
       "locale": "Language",
@@ -316,6 +317,8 @@
       "allow_user_override": "Let each user choose their own theme and accent"
     },
     "categories": {
+      "general": "General",
+      "system": "System",
       "appearance": "Appearance",
       "scanning": "Scanning",
       "automation": "Automation",

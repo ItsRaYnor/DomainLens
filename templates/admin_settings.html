@@ -30,13 +30,15 @@
         </p>
 
         {% if integrations %}
-        <section class="card integrations-card">
-            <h2>Optional API keys</h2>
+        {# Each block below is moved into its tab by admin_settings.js, so the
+           page is the tabs and nothing else: API keys under Integrations,
+           version under Updates, backup under Retention. #}
+        <section class="card integrations-card settings-panel-extra" data-section="api_keys">
             <p class="muted">
                 These unlock extra read-only data sources. You can set them here, or
                 keep using environment variables — an environment variable always wins
                 and locks the field. Credentials for ServiceNow, Rapid7, OAuth, SCIM and
-                notifications are set in their own tab above.
+                notifications are in their own tabs.
             </p>
 
             <p class="key-protection {{ 'protection-weak' if key_protection.mode != 'encrypted' else '' }}">
@@ -161,7 +163,7 @@
         {% endif %}
 
         <section class="card integrations-card" id="disclosure">
-            <h2>Responsible disclosure key</h2>
+            <h3>Responsible disclosure key</h3>
             <p class="ct-desc">
                 Generate an OpenPGP keypair for your security contact. DomainLens keeps
                 the <strong>public</strong> half and publishes it at
@@ -200,8 +202,9 @@
             </p>
         </section>
 
-        <section class="card settings-version-card" id="settingsVersionCard">
-            <h2>DomainLens <span class="version-chip">v{{ app_version }}</span></h2>
+        <section class="card settings-version-card settings-panel-extra" id="settingsVersionCard"
+                 data-section="updates">
+            <h3>DomainLens <span class="version-chip">v{{ app_version }}</span></h3>
             <p class="muted build-line">
                 {% if app_version_info and app_version_info.git_revision %}
                 Build:
@@ -219,8 +222,9 @@
             <button type="button" class="btn-ghost" id="settingsCheckUpdatesBtn">Check for updates</button>
         </section>
 
-        <section class="card settings-version-card" id="settingsBackupCard">
-            <h2>Backup</h2>
+        <section class="card settings-version-card settings-panel-extra" id="settingsBackupCard"
+                 data-section="retention">
+            <h3>Backup</h3>
             <p class="muted">
                 A consistent snapshot of the live database (safe while scans run). Stored
                 credentials inside it stay encrypted with <code>DOMAINLENS_SECRET_KEY</code>;

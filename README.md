@@ -67,7 +67,7 @@ See [docs/ENTERPRISE.md](docs/ENTERPRISE.md).
 
 ## Version
 
-The app version is in [`VERSION`](VERSION) (currently **0.1.0**). Runtime: `GET /api/version` / `/health`.
+The app version is in [`VERSION`](VERSION) (currently **0.1.1**). Runtime: `GET /api/version` / `/health`.
 
 ## Requirements
 

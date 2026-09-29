@@ -273,7 +273,7 @@ class SettingsStore:
 
     def admin_form_schema(self) -> dict:
         from settings.registry import (
-            ADMIN_SECTIONS, FIELD_META, SETTING_CATEGORIES, section_defaults)
+            ADMIN_SECTIONS, FIELD_META, PAGE_PANELS, SETTING_CATEGORIES, section_defaults)
 
         schema = {}
         merged = self.merged()
@@ -304,6 +304,7 @@ class SettingsStore:
         return {
             "sections": schema,
             "categories": [dict(category) for category in SETTING_CATEGORIES],
+            "panels": list(PAGE_PANELS),
         }
 
 

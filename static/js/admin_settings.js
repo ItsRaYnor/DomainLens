@@ -295,6 +295,8 @@
         const payload = DomainLensI18n.pageData('settingsSchema', {}) || {};
         const schema = payload.sections || {};
         const categories = payload.categories || [];
+        // Tabs whose content is page markup (the API keys), not a settings form.
+        const pagePanels = new Set(payload.panels || []);
         const nav = $('settingsNav');
         const panels = $('settingsPanels');
         if (!nav || !panels) return;
@@ -309,7 +311,7 @@
         const groups = categories
             .map(c => ({
                 label: t(c.key) || c.key,
-                sections: (c.sections || []).filter(s => schema[s]),
+                sections: (c.sections || []).filter(s => schema[s] || pagePanels.has(s)),
             }))
             .filter(g => g.sections.length);
         if (orphans.length) {
@@ -328,6 +330,9 @@
 
         panels.innerHTML = sections.map((s, i) => {
             const sec = schema[s];
+            if (!sec) {
+                return `<section class="settings-panel${i === 0 ? ' active' : ''}" id="panel-${escapeHtml(s)}"></section>`;
+            }
             const fields = sec.fields || {};
             // sec.order is the order the registry declares; Object.keys is
             // alphabetical here because the schema is serialised sorted.
@@ -407,8 +412,10 @@
     function moveCredentialGroups() {
         document.querySelectorAll('.settings-panel-extra[data-section]').forEach(el => {
             const panel = $('panel-' + el.getAttribute('data-section'));
-            if (panel) panel.appendChild(el);
-            else el.remove();
+            if (!panel) { el.remove(); return; }
+            // Inside a tab it is part of that panel, not a card of its own.
+            el.classList.remove('card', 'integrations-card', 'settings-version-card');
+            panel.appendChild(el);
         });
         const card = $('credentialsCard');
         if (!card) return;
