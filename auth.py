@@ -166,7 +166,7 @@ def _dummy_password_verify(password: str) -> None:
 def _settings_section(name: str) -> dict:
     try:
         from settings.store import get_store
-        return dict(get_store().section(name, force_reload=True))
+        return dict(get_store().section(name))
     except Exception:
         return {}
 

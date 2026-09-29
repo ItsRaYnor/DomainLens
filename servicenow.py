@@ -64,7 +64,7 @@ def config():
     raw = {}
     try:
         from settings.store import get_store
-        raw = dict(get_store().section("servicenow", force_reload=True))
+        raw = dict(get_store().section("servicenow"))
     except Exception:
         pass
     instance = (raw.get("instance") or os.environ.get("SERVICENOW_INSTANCE") or "").strip().rstrip("/")

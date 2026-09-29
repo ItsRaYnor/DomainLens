@@ -49,7 +49,7 @@ def _secret(name):
 def config():
     try:
         from settings.store import get_store
-        raw = dict(get_store().section("notifications", force_reload=True))
+        raw = dict(get_store().section("notifications"))
     except Exception:
         raw = {}
     min_severity = str(raw.get("min_severity") or "high").lower()

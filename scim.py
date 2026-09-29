@@ -81,7 +81,7 @@ _FILTER_EXTERNAL_ID = re.compile(
 def _settings() -> dict:
     try:
         from settings.store import get_store
-        return dict(get_store().section("scim", force_reload=True))
+        return dict(get_store().section("scim"))
     except Exception:
         return {}
 

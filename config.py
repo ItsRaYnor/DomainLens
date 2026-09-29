@@ -23,7 +23,11 @@ class Settings:
         self.config_dir = store.config_path.parent if store.config_path.is_file() else _ROOT / "config"
 
     def reload(self):
-        self.raw = self._store.merged(force_reload=True)
+        # The store's cache, not a rebuild: every write goes through the store
+        # (or _reload_settings) and invalidates it. Rebuilding here re-read
+        # every settings row and decrypted every stored key on each call, and
+        # load_settings() is called several times per request.
+        self.raw = self._store.merged()
         return self
 
     @property

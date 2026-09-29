@@ -59,7 +59,7 @@ NS = {
 def _settings() -> dict:
     try:
         from settings.store import get_store
-        return dict(get_store().section("auth_saml", force_reload=True))
+        return dict(get_store().section("auth_saml"))
     except Exception:
         return {}
 

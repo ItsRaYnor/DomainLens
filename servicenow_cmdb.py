@@ -51,7 +51,7 @@ def cmdb_config(base_cfg: dict | None = None) -> dict:
     raw = {}
     try:
         from settings.store import get_store
-        raw = dict(get_store().section("servicenow", force_reload=True))
+        raw = dict(get_store().section("servicenow"))
     except Exception:
         pass
 

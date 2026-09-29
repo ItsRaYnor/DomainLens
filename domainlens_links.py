@@ -18,7 +18,7 @@ def public_base_url() -> str:
         return env
     try:
         from settings.store import get_store
-        raw = get_store().section("general", force_reload=True)
+        raw = get_store().section("general")
         configured = (raw.get("public_url") or "").strip().rstrip("/")
         if configured:
             return configured

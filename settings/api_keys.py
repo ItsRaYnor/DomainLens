@@ -252,6 +252,15 @@ def is_env_locked(env_name):
     return bool((os.environ.get(env_name) or "").strip())
 
 
+def _invalidate_settings():
+    """The merged settings cache carries which keys are configured."""
+    try:
+        from settings.store import get_store
+        get_store().invalidate()
+    except Exception:
+        pass
+
+
 def set_key(env_name, value, user_id=None, db=None):
     if not is_managed(env_name):
         raise ValueError(f"Unknown API key: {env_name}")
@@ -266,6 +275,7 @@ def set_key(env_name, value, user_id=None, db=None):
     current = _load(db)
     current[_STORAGE_KEYS[env_name]] = _encrypt(value, db)
     db.set_setting_section(SECTION, current, user_id=user_id)
+    _invalidate_settings()
     # Never log the value itself.
     log.info("API key %s updated by user %s", env_name, user_id)
 
@@ -279,6 +289,7 @@ def clear_key(env_name, user_id=None, db=None):
     current = _load(db)
     current.pop(_STORAGE_KEYS[env_name], None)
     db.set_setting_section(SECTION, current, user_id=user_id)
+    _invalidate_settings()
     log.info("API key %s cleared by user %s", env_name, user_id)
 
 

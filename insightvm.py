@@ -58,7 +58,7 @@ def config(settings: dict | None = None) -> dict:
     if not raw:
         try:
             from settings.store import get_store
-            raw = dict(get_store().section("rapid7", force_reload=True))
+            raw = dict(get_store().section("rapid7"))
         except Exception:
             pass
 

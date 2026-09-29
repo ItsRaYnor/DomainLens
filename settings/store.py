@@ -145,6 +145,18 @@ def _integration_flags() -> dict:
     }
 
 
+# Every environment variable the merged settings are built from. They are part
+# of the cache key, so the cache never outlives a change to one of them.
+_ENV_INPUTS = tuple(sorted(
+    set(ENV_OVERRIDES) | set(SECRET_ENV_KEYS)
+    | {"SPAMHAUS_DQS_KEY", "ABUSECH_AUTH_KEY", "OTX_API_KEY", "VIRUSTOTAL_API_KEY",
+       "OVH_APP_KEY", "OVH_APP_SECRET", "OVH_CONSUMER_KEY", "DOMAINLENS_CONFIG"}))
+
+
+def _env_fingerprint() -> tuple:
+    return tuple(os.environ.get(name) for name in _ENV_INPUTS)
+
+
 class SettingsStore:
     def __init__(self, config_path: Path | None = None, db_module=None):
         if config_path is not None and not isinstance(config_path, Path):
@@ -152,6 +164,7 @@ class SettingsStore:
         self.config_path = config_path or self._resolve_config_path()
         self.db = db_module
         self._cache: dict | None = None
+        self._cache_env: tuple | None = None
         self._env_locked: list[str] = []
 
     @staticmethod
@@ -165,9 +178,13 @@ class SettingsStore:
     def invalidate(self):
         self._cache = None
 
+    def _fresh(self) -> bool:
+        return self._cache is not None and self._cache_env == _env_fingerprint()
+
     def merged(self, force_reload: bool = False) -> dict:
-        if self._cache is not None and not force_reload:
+        if self._fresh() and not force_reload:
             return deepcopy(self._cache)
+        env_seen = _env_fingerprint()
 
         base = deepcopy(DEFAULTS)
         file_data = _load_file_config(self.config_path)
@@ -194,11 +211,16 @@ class SettingsStore:
             },
         }
         self._cache = merged
+        self._cache_env = env_seen
         self._env_locked = locked
         return deepcopy(merged)
 
     def section(self, name: str, force_reload: bool = False) -> dict:
-        return dict(self.merged(force_reload).get(name) or {})
+        if force_reload or not self._fresh():
+            self.merged(force_reload=True)
+        # A copy of the one section, not of the whole configuration: auth
+        # alone asks for seven sections on every request.
+        return deepcopy(self._cache.get(name) or {})
 
     def update_section(self, name: str, patch: dict, user_id: int | None = None) -> dict:
         if name not in DEFAULTS or name == "integrations":
