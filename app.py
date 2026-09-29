@@ -47,6 +47,7 @@ import auth
 import discovery
 import overview
 import rdap
+import whois_batch
 import maintenance
 import metrics
 import notifications
@@ -3765,6 +3766,50 @@ def api_whois():
     # Registration lives at the registrable domain, not at www or a subdomain.
     apex = _get_apex_domain(domain)
     return jsonify({"domain": domain, "apex_domain": apex, "whois": lookup_whois(apex)})
+
+
+@app.route("/api/whois/batch", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_whois_batch_start():
+    """Queue registration lookups for a pasted list or CSV, paced per registry."""
+    data = request.get_json(silent=True) or {}
+    domains, rejected = whois_batch.parse_domains(str(data.get("text") or ""))
+    try:
+        job = whois_batch.start(domains, text_lookup=_lookup_whois_text,
+                                owner=(auth.current_user() or {}).get("email"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "rejected": rejected[:50]}), 400
+    audit_log.record("whois.batch", target_type="whois_batch", target_id=job["id"],
+                     details={"domains": len(domains), "rejected": len(rejected)})
+    return jsonify({**job, "rejected": rejected[:50],
+                    "min_interval_seconds": whois_batch.MIN_INTERVAL}), 202
+
+
+@app.route("/api/whois/batch/<job_id>", methods=["GET"])
+def api_whois_batch_status(job_id):
+    job = whois_batch.view(job_id)
+    if not job:
+        return jsonify({"error": "Unknown or expired batch"}), 404
+    return jsonify(job)
+
+
+@app.route("/api/whois/batch/<job_id>", methods=["DELETE"])
+@auth.require_role(roles.USER)
+def api_whois_batch_cancel(job_id):
+    job = whois_batch.cancel(job_id)
+    if not job:
+        return jsonify({"error": "Unknown or expired batch"}), 404
+    return jsonify(job)
+
+
+@app.route("/api/whois/batch/<job_id>/csv", methods=["GET"])
+def api_whois_batch_csv(job_id):
+    body = whois_batch.to_csv(job_id)
+    if body is None:
+        return jsonify({"error": "Unknown or expired batch"}), 404
+    # Flask adds the charset itself; naming it here as well sent it twice.
+    return Response(body, mimetype="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=domainlens-whois-{job_id[:8]}.csv"})
 
 
 @app.route("/tools/ip")

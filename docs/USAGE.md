@@ -111,6 +111,24 @@ Configure ServiceNow env vars to auto-create incidents for high/critical events.
 
 ---
 
+## WHOIS and registration data
+
+**Tools &rarr; WHOIS** looks up one domain without a scan; a subdomain is looked up at
+its registered domain. The data comes from RDAP (the registry's structured record, found
+through IANA) with port-43 WHOIS as a fallback. For `.nl` that shows status, registrar,
+reseller, DNSSEC, name servers and dates. Holder and contacts are withheld by most
+registries; the page says so and links to the registry's own lookup (SIDN for `.nl`).
+
+**Batch lookup** on the same page takes a pasted list or a CSV/text file (every cell that
+is a domain name, at most 500) and runs in the background. It is paced so no registry
+blocks this server: one request per two seconds per registry, a `429` honoured for as long
+as the registry asks, and no port-43 retry against a registry that is throttling. Each
+domain ends as *registered*, *not registered* or *not measured* (with the reason); the
+result downloads as CSV. Starting a batch needs the Analyst role and is audited.
+
+API: `GET /api/whois?domain=`, `POST /api/whois/batch` with `{"text": "..."}`, then
+`GET /api/whois/batch/{job_id}` and `/api/whois/batch/{job_id}/csv`.
+
 ## DNS propagation check
 
 **Tools &rarr; DNS record** asks one resolver a question; the propagation panel below it

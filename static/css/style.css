@@ -2467,3 +2467,9 @@ footer, .app-footer {
 .api-key-controls .api-key-test {
     margin-left: auto;
 }
+
+/* Tools -> WHOIS batch: a box wide enough to paste into, dates on one line. */
+#whoisBatchInput { width: 100%; margin: 0.5rem 0; }
+.whois-batch-table td:nth-child(5),
+.whois-batch-table td:nth-child(6) { white-space: nowrap; }
+.whois-raw { margin-top: 0.75rem; }

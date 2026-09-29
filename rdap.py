@@ -162,6 +162,15 @@ def lookup(domain):
     except requests.RequestException as exc:
         return {"success": False, "state": "unmeasured",
                 "error": f"RDAP request failed: {type(exc).__name__}"}
+    if resp.status_code == 429:
+        # Throttled: not an answer about the domain. The caller waits this
+        # long before asking this server anything again.
+        try:
+            retry_after = float(resp.headers.get("Retry-After") or 10)
+        except (TypeError, ValueError):
+            retry_after = 10.0
+        return {"success": False, "state": "unmeasured", "retry_after": retry_after,
+                "error": "The registry is rate limiting lookups (HTTP 429)"}
     if resp.status_code == 404:
         return {"success": False, "state": "measured", "registered": False,
                 "error": "The registry has no registration for this domain"}

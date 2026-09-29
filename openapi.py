@@ -144,6 +144,25 @@ def spec():
                                              _ok("Deltas"), params=[_DAYS, _DOMAIN_FILTER])},
         "/api/reporting/trends": {"get": _op("Time series", "Reporting", _ok("Trends"),
                                              params=[_DAYS, _DOMAIN_FILTER])},
+        "/api/whois": {"get": _op(
+            "Registration data (RDAP, then port-43 WHOIS) for one domain", "WHOIS",
+            _ok("Registration data; a subdomain is looked up at its registered domain"),
+            params=[_param("domain", required=True)])},
+        "/api/whois/batch": {"post": _op(
+            "Look up a list of domains in the background, paced per registry", "WHOIS",
+            {"202": {"description": "Batch accepted; poll /api/whois/batch/{job_id}"}},
+            role="user", body=_body({"type": "object", "required": ["text"], "properties": {
+                "text": {"type": "string",
+                         "description": "Domain names, one per line or as CSV; at most 500"}}}))},
+        "/api/whois/batch/{job_id}": {
+            "get": _op("Progress and rows of a batch", "WHOIS", _ok("Batch state"),
+                       params=[_param("job_id", "path")]),
+            "delete": _op("Stop a batch", "WHOIS", _ok("Batch state"), role="user",
+                          params=[_param("job_id", "path")]),
+        },
+        "/api/whois/batch/{job_id}/csv": {"get": _op(
+            "A batch as CSV", "WHOIS", {"200": {"description": "CSV file"}},
+            params=[_param("job_id", "path")])},
         "/api/ownership": {
             "get": _op("Domains and their verification state", "Ownership", _ok("Domains"), role="user"),
             "post": _op("Start verifying a domain", "Ownership",

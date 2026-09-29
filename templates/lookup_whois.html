@@ -21,6 +21,21 @@
             <p class="ct-desc">Most registries withhold the holder and contact details under the GDPR. Where they do, this page says so and links to the registry's own lookup, which may show more.</p>
             <div id="whoisLookupResult"></div>
         </section>
+
+        <section class="card">
+            <h2>Batch lookup</h2>
+            <p class="ct-desc">Paste domain names (one per line, or separated by commas or spaces) or choose a CSV or text file &mdash; every cell that is a domain name is used. At most 500 per batch.</p>
+            <textarea id="whoisBatchInput" rows="8" class="mono" placeholder="example.nl&#10;example.com&#10;example.org" spellcheck="false"></textarea>
+            <div class="dns-lookup-form">
+                <input type="file" id="whoisBatchFile" accept=".csv,.txt,text/csv,text/plain">
+                <button class="btn-primary-lite" id="whoisBatchStartBtn" type="button">Start batch</button>
+                <button class="btn-ghost hidden" id="whoisBatchCancelBtn" type="button">Stop</button>
+                <a class="btn-ghost hidden" id="whoisBatchCsvBtn" href="#">Download CSV</a>
+            </div>
+            <p class="ct-desc">Paced so no registry blocks this server: at most one request every two seconds per registry, and a registry that asks us to slow down is left alone for as long as it asks. Different registries run side by side, so a mixed list goes faster than one of a single extension. A lookup that could not be made is marked as such, never as &ldquo;not registered&rdquo;.</p>
+            <p class="ct-desc" id="whoisBatchStatus"></p>
+            <div class="users-table-wrap"><table class="data-table whois-batch-table" id="whoisBatchTable"></table></div>
+        </section>
     </main>
     <div id="errorToast" class="toast hidden"></div>
     {% include "partials/footer.html" %}

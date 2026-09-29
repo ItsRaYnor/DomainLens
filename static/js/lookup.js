@@ -771,6 +771,103 @@ async function whoisLookup() {
     }
 }
 
+// ===== WHOIS batch =====
+const WHOIS_STATE_LABELS = {
+    registered: 'Registered', not_registered: 'Not registered', unmeasured: 'Not measured',
+};
+let whoisBatchId = null;
+let whoisBatchTimer = null;
+
+function whoisBatchRows(rows) {
+    const head = '<tr><th>Domain</th><th>State</th><th>Registrar</th><th>Reseller</th>'
+        + '<th>Registered</th><th>Expires</th><th>DNSSEC</th><th>Holder</th></tr>';
+    const body = rows.map(r => {
+        const cls = r.state === 'registered' ? 'status-pass'
+            : r.state === 'not_registered' ? 'status-warn' : 'muted';
+        const state = `<span class="${cls}">${esc(WHOIS_STATE_LABELS[r.state] || r.state)}</span>`
+            + (r.detail ? `<div class="muted">${esc(r.detail)}</div>` : '');
+        return `<tr><td>${esc(r.domain)}</td><td>${state}</td><td>${esc(r.registrar)}</td>`
+            + `<td>${esc(r.reseller)}</td><td>${esc(r.registered)}</td><td>${esc(r.expires)}</td>`
+            + `<td>${esc(r.dnssec)}</td><td>${esc(r.holder)}</td></tr>`;
+    }).join('');
+    return head + body;
+}
+
+async function pollWhoisBatch() {
+    if (!whoisBatchId) return;
+    let job;
+    try {
+        job = await requestJson('/api/whois/batch/' + encodeURIComponent(whoisBatchId));
+    } catch (err) {
+        $('whoisBatchStatus').textContent = err.message;
+        return;
+    }
+    $('whoisBatchTable').innerHTML = whoisBatchRows(job.rows || []);
+    const remaining = job.total - job.done;
+    if (job.status === 'running') {
+        // Worst case: every remaining domain at the same registry.
+        const minutes = Math.ceil(remaining * 2 / 60);
+        $('whoisBatchStatus').textContent = `${job.done} of ${job.total} done`
+            + (remaining ? ` — at most ${minutes} min to go` : '');
+        whoisBatchTimer = setTimeout(pollWhoisBatch, 2000);
+    } else {
+        $('whoisBatchStatus').textContent = job.status === 'cancelled'
+            ? `Stopped after ${job.done} of ${job.total}.`
+            : job.status === 'error' ? `The batch stopped: ${job.error}` : `Done: ${job.total} domains.`;
+        $('whoisBatchCancelBtn').classList.add('hidden');
+        $('whoisBatchStartBtn').disabled = false;
+    }
+}
+
+async function startWhoisBatch() {
+    const text = $('whoisBatchInput').value || '';
+    if (!text.trim()) { toast('Paste domain names or choose a file first.'); return; }
+    clearTimeout(whoisBatchTimer);
+    $('whoisBatchStartBtn').disabled = true;
+    try {
+        const job = await requestJson('/api/whois/batch', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+        });
+        whoisBatchId = job.id;
+        const csv = $('whoisBatchCsvBtn');
+        csv.href = '/api/whois/batch/' + encodeURIComponent(job.id) + '/csv';
+        csv.classList.remove('hidden');
+        $('whoisBatchCancelBtn').classList.remove('hidden');
+        if (job.rejected && job.rejected.length) {
+            toast('Skipped, not a domain name: ' + job.rejected.slice(0, 10).join(', ')
+                + (job.rejected.length > 10 ? ' …' : ''));
+        }
+        pollWhoisBatch();
+    } catch (err) {
+        $('whoisBatchStartBtn').disabled = false;
+        toast(err.message);
+    }
+}
+
+function initWhoisBatch() {
+    const start = $('whoisBatchStartBtn');
+    if (!start) return;
+    start.addEventListener('click', startWhoisBatch);
+    $('whoisBatchCancelBtn').addEventListener('click', async () => {
+        if (!whoisBatchId) return;
+        try {
+            await requestJson('/api/whois/batch/' + encodeURIComponent(whoisBatchId), { method: 'DELETE' });
+        } catch (err) { toast(err.message); }
+    });
+    // Read in the browser and added to the box: what is sent is what is shown.
+    $('whoisBatchFile').addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const box = $('whoisBatchInput');
+            box.value = (box.value.trim() ? box.value.trim() + '\n' : '') + String(reader.result || '');
+        };
+        reader.readAsText(file);
+    });
+}
+
 function initWhoisLookupPage() {
     const btn = $('whoisLookupBtn');
     if (!btn) return;
@@ -806,6 +903,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('impProtected').addEventListener('keydown', e => { if (e.key === 'Enter') buildDossier(); });
     }
     initWhoisLookupPage();
+    initWhoisBatch();
     initDnsLookupPage();
     initPgpLookupPage();
     initRemediate();
