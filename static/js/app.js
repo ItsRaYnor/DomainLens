@@ -696,24 +696,45 @@ function renderScoreOverview(data) {
         { label: 'Fwd Secrecy', pass: data.tls_deep?.cipher_summary?.forward_secrecy > 0 },
         { label: 'Headers', pass: data.http_headers?.score >= 50, warn: data.http_headers?.blocked || (data.http_headers?.score >= 25 && data.http_headers?.score < 50) },
         { label: 'IPv6 Web', pass: data.ipv6?.web_pass },
-        { label: 'IPv6 Mail', pass: data.ipv6?.mail_pass },
-        { label: 'Blacklist', pass: data.blacklist && !data.blacklist?.is_listed },
+        fromOverview('IPv6 Mail', 'ipv6_mail', { pass: data.ipv6?.mail_pass }),
+        fromOverview('Blacklist', 'blacklist', { pass: data.blacklist && !data.blacklist?.is_listed }),
         { label: 'OSINT Clean', pass: data.osint?.summary && !data.osint.summary.listed_in_threat_feeds },
         { label: 'HubSpot/CF', pass: data.hubspot_cf?.success && data.hubspot_cf?.pass !== false, warn: data.hubspot_cf?.success && data.hubspot_cf?.pass === false },
-        {
-            label: 'Weak auth',
-            pass: data.weak_auth?.skipped ? undefined : (data.weak_auth?.weak_credentials_found === false),
+        fromOverview('Weak auth', 'weak_auth', {
+            // Only when the scan carries no server verdict. A scan that never
+            // ran weak-auth has no tile: absent is not a failure.
+            pass: !data.weak_auth || data.weak_auth.skipped ? undefined
+                : data.weak_auth.weak_credentials_found === false,
             warn: data.weak_auth?.skipped,
-        },
+        }),
     ];
 
+    // The server decides these from more than one field (overview.py): a
+    // shared CDN address, a mail provider's MX, a check that did not run.
+    function fromOverview(label, key, fallback) {
+        const ov = data.overview;
+        if (!ov || !(key in ov)) return { label, ...fallback };
+        const tile = ov[key];
+        if (!tile) return { label, pass: undefined };
+        return { label, state: tile.state, note: tile.note };
+    }
+
+    const STATES = {
+        pass: ['badge-pass', 'Pass'],
+        fail: ['badge-fail', 'Fail'],
+        context: ['badge-warn', 'Context'],
+        not_tested: ['badge-info', 'Not tested'],
+    };
+
     checks.forEach(c => {
-        if (c.pass === undefined && !c.warn) return;
+        if (!c.state && c.pass === undefined && !c.warn) return;
         const div = document.createElement('div');
         div.className = 'score-item';
+        if (c.note) div.title = c.note;
 
         let badgeClass, badgeText;
-        if (c.pass) { badgeClass = 'badge-pass'; badgeText = 'Pass'; }
+        if (c.state && STATES[c.state]) { [badgeClass, badgeText] = STATES[c.state]; }
+        else if (c.pass) { badgeClass = 'badge-pass'; badgeText = 'Pass'; }
         else if (c.warn) { badgeClass = 'badge-warn'; badgeText = 'Partial'; }
         else { badgeClass = 'badge-fail'; badgeText = 'Fail'; }
 

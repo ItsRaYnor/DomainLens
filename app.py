@@ -45,6 +45,7 @@ import api_tokens
 import audit_log
 import auth
 import discovery
+import overview
 import maintenance
 import metrics
 import notifications
@@ -2646,8 +2647,12 @@ def check_ipv6(domain):
     aaaa = _resolve(domain, "AAAA")
     mx_records = _resolve(domain, "MX")
     mx_ipv6 = {}
+    mx_hosts = []
     for mx in mx_records:
         mx_host = mx.split()[-1].rstrip(".")
+        if not mx_host:
+            continue  # null MX ("0 ."): this domain accepts no mail
+        mx_hosts.append(mx_host.lower())
         mx_aaaa = _resolve(mx_host, "AAAA")
         if mx_aaaa:
             mx_ipv6[mx_host] = mx_aaaa
@@ -2664,6 +2669,9 @@ def check_ipv6(domain):
         "has_ipv6": len(aaaa) > 0,
         "aaaa_records": aaaa,
         "mx_ipv6": mx_ipv6,
+        # Which hosts were checked, so the overview can tell a provider's MX
+        # without IPv6 from the domain's own.
+        "mx_hosts": mx_hosts,
         "ns_ipv6": ns_ipv6,
         "web_pass": len(aaaa) > 0,
         "mail_pass": len(mx_ipv6) > 0,
@@ -2765,6 +2773,9 @@ def check_blacklist(domain):
     results = {
         "listed": [], "clean": [], "errors": [], "ip": None,
         "spamhaus_dqs": bool(_spamhaus_dqs_key()),
+        # The answer per listed zone: Spamhaus ZEN says which sub-list
+        # (SBL, XBL, PBL) by the address it returns.
+        "codes": {},
     }
     try:
         # A bare address has no hostname to offer a domain list, so those
@@ -2786,6 +2797,7 @@ def check_blacklist(domain):
                 answers = dns.resolver.resolve(query, "A")
                 if _dnsbl_is_real_hit(answers):
                     results["listed"].append(label)
+                    results["codes"][label] = answers[0].to_text()
                 else:
                     results["errors"].append(label)
                     results["clean"].append(label)
@@ -4894,6 +4906,8 @@ def _perform_scan(domain, checks, extra_dkim_selectors, save_history=True, progr
         if rec.get("severity") in ("critical", "high", "medium") and not rec.get("accepted")
     ][:25]
 
+    results["overview"] = overview.tile_states(results)
+
     if save_history:
         try:
             results["scan_id"] = db.save_scan(domain, results)
@@ -5425,6 +5439,10 @@ def api_history_get(scan_id):
     record = db.get_scan(scan_id)
     if not record:
         return jsonify({"error": "Scan not found"}), 404
+    # Recomputed on read, so a scan saved before these states existed shows
+    # the same tiles as a new one.
+    if isinstance(record.get("data"), dict):
+        record["data"]["overview"] = overview.tile_states(record["data"])
     return jsonify(record)
 
 
