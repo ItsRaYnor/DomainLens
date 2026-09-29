@@ -121,6 +121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // selector you've discovered for one domain (e.g. "zmail" for Zoho) is
     // still there next time without needing an admin-settings change.
     initCustomDkimSelectors();
+    initDiscovered();
 
     // Export menu
     const exportBtn = $('exportBtn');
@@ -572,6 +573,52 @@ function getCustomDkimSelectors() {
     const el = $('customDkimSelectors');
     if (!el || !el.value.trim()) return [];
     return el.value.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// Monitoring -> Discovered hostnames: filter, tick a group at once, and
+// only offer the actions once something is ticked.
+function initDiscovered() {
+    const box = $('discovered');
+    if (!box) return;
+    const forms = Array.from(box.querySelectorAll('.discovered-form'));
+
+    function refresh(form) {
+        const picked = form.querySelectorAll('input[name="host"]:checked').length;
+        form.querySelectorAll('.discovered-actions button').forEach(b => { b.disabled = picked === 0; });
+        const count = form.querySelector('.discovered-count');
+        if (count) count.textContent = picked ? `${picked} selected` : 'Tick hostnames to act on them';
+    }
+
+    forms.forEach(form => {
+        form.addEventListener('change', e => {
+            if (e.target.classList.contains('discovered-all')) {
+                const part = e.target.closest('.discovered-part');
+                part.querySelectorAll('li:not(.hidden) input[name="host"]').forEach(cb => { cb.checked = e.target.checked; });
+            }
+            refresh(form);
+        });
+        refresh(form);
+    });
+
+    const filter = $('discoveredFilter');
+    if (filter) {
+        filter.addEventListener('input', () => {
+            const q = filter.value.trim().toLowerCase();
+            box.querySelectorAll('.discovered-zone').forEach(zone => {
+                let shown = 0;
+                zone.querySelectorAll('li[data-host]').forEach(li => {
+                    const hit = !q || li.getAttribute('data-host').includes(q);
+                    li.classList.toggle('hidden', !hit);
+                    if (hit) shown += 1;
+                });
+                zone.querySelectorAll('.discovered-part').forEach(part => {
+                    part.classList.toggle('hidden', !part.querySelector('li[data-host]:not(.hidden)'));
+                });
+                zone.classList.toggle('hidden', shown === 0);
+                if (q && shown) zone.open = true;
+            });
+        });
+    }
 }
 
 function initCustomDkimSelectors() {

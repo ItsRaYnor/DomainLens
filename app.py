@@ -3917,7 +3917,8 @@ def lookup_impersonation_view_legacy():
 def monitoring_view():
     return render_template(
         "monitoring.html", section="monitoring",
-        discovered=discovery.suggestions(db),
+        discovered_groups=discovery.grouped(db, show_hidden=request.args.get("hidden") == "1"),
+        show_hidden=request.args.get("hidden") == "1",
         can_add_monitors=(not auth.config().get("enabled"))
         or roles.at_least(auth.current_role(), roles.USER),
         message=request.args.get("message"),
@@ -3932,22 +3933,40 @@ def api_monitors_discovered():
 @app.route("/monitoring/discovered", methods=["POST"])
 @auth.require_role(roles.USER)
 def monitoring_add_discovered():
-    """Turn a hostname seen in Certificate Transparency into a monitor."""
-    host = _normalize_domain(request.form.get("host") or "")
+    """Monitor, hide or unhide hostnames seen in Certificate Transparency.
+
+    Takes one or many `host` values for one zone, so a zone with hundreds of
+    names is handled with a few ticks instead of a button per name.
+    """
     zone = _normalize_domain(request.form.get("zone") or "")
-    known = {(s["host"], s["zone"]) for s in discovery.suggestions(db)}
-    if (host, zone) not in known:
-        # Only a name the scans actually saw, under a zone already monitored.
-        return redirect(url_for("monitoring_view", message="That hostname is not a current suggestion."))
-    checks = ["all"]
-    monitor_id = db.create_monitor(
-        name=f"{host} (A)", domain=zone, target=host, record_type="A", record_value=None,
-        source_type="discovery", source_label="Certificate Transparency",
-        provider="discovery", schedule_minutes=1440, checks=checks, enabled=True, metadata={},
-    )
-    audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
-                     details={"target": host, "checks": checks, "source": "discovery"})
-    return redirect(url_for("monitoring_view", message=f"Now monitoring {host}.") + "#discovered")
+    action = request.form.get("action") or "monitor"
+    hosts = sorted({_normalize_domain(h) for h in request.form.getlist("host") if h})
+    # Only names the scans actually saw, under a zone already monitored: the
+    # form must not become a way to monitor arbitrary domains.
+    known = {s["host"] for s in discovery.suggestions(db) if s["zone"] == zone}
+    chosen = [h for h in hosts if h in known]
+    if not chosen or action not in {"monitor", "hide", "unhide"}:
+        return redirect(url_for("monitoring_view", message="Select one or more current suggestions first.")
+                        + "#discovered")
+    if action == "monitor":
+        checks = ["all"]
+        for host in chosen:
+            monitor_id = db.create_monitor(
+                name=f"{host} (A)", domain=zone, target=host, record_type="A", record_value=None,
+                source_type="discovery", source_label="Certificate Transparency",
+                provider="discovery", schedule_minutes=1440, checks=checks, enabled=True, metadata={},
+            )
+            audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
+                             details={"target": host, "checks": checks, "source": "discovery"})
+        text = f"Now monitoring {chosen[0]}." if len(chosen) == 1 else f"Now monitoring {len(chosen)} hostnames."
+    else:
+        user = auth.current_user() or {}
+        discovery.set_hidden(db, zone, chosen, hide=(action == "hide"), user_id=user.get("id"))
+        audit_log.record(f"discovery.{action}", target_type="zone", target_id=zone,
+                         details={"hosts": chosen})
+        verb = "Hidden" if action == "hide" else "Shown again"
+        text = f"{verb}: {len(chosen)} hostname{'s' if len(chosen) != 1 else ''} under {zone}."
+    return redirect(url_for("monitoring_view", message=text) + "#discovered")
 
 
 @app.route("/reports")

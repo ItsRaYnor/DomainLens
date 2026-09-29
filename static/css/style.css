@@ -2473,3 +2473,52 @@ footer, .app-footer {
 .whois-batch-table td:nth-child(5),
 .whois-batch-table td:nth-child(6) { white-space: nowrap; }
 .whois-raw { margin-top: 0.75rem; }
+
+/* Monitoring: the daily view first, set-up folded away below it. */
+.monitor-subhead { margin: 1.75rem 0 0.25rem; font-size: 1rem; }
+.monitor-fold > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.monitor-fold > summary::-webkit-details-marker { display: none; }
+.monitor-fold > summary::before { content: "\25B8"; color: var(--text-muted); }
+.monitor-fold[open] > summary::before { content: "\25BE"; }
+.monitor-fold > summary h4 { margin: 0; }
+
+/* Discovered hostnames: per zone, checkboxes in a grid, actions that stay
+   in reach while a long list scrolls. */
+.discovered-tools { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; margin: 0.5rem 0; }
+.discovered-tools input[type="search"] { flex: 1 1 240px; }
+.discovered-zone {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.8rem;
+    margin: 0.5rem 0;
+}
+.discovered-zone > summary { cursor: pointer; }
+.discovered-part { border: 0; padding: 0; margin: 0.75rem 0 0; min-width: 0; }
+.discovered-part legend { font-size: 0.85rem; font-weight: 600; padding: 0; }
+.discovered-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0.4rem 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0.2rem 0.9rem;
+}
+.discovered-grid label { display: flex; gap: 0.4rem; align-items: baseline; cursor: pointer; }
+.discovered-grid code { font-size: 0.82rem; word-break: break-all; }
+.discovered-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 0.75rem;
+    padding: 0.5rem 0;
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-card);
+}
