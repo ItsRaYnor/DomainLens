@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 _lock = threading.Lock()
 
 # Modules that keep their own tables and create them through init_schema(conn).
-FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens", "risk_acceptance")
+FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens", "risk_acceptance",
+                   "domain_watch")
 
 
 def _db_path():

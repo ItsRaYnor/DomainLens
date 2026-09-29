@@ -20,6 +20,22 @@
             </div>
             <p class="ct-desc">Most registries withhold the holder and contact details under the GDPR. Where they do, this page says so and links to the registry's own lookup, which may show more.</p>
             <div id="whoisLookupResult"></div>
+            <div class="dns-lookup-form hidden" id="whoisWatchRow">
+                <button class="btn-ghost" id="whoisWatchBtn" type="button">Watch this domain</button>
+            </div>
+        </section>
+
+        <section class="card" id="watchlist">
+            <h2>Watchlist</h2>
+            <p class="ct-desc">Domains you want once they come free. DomainLens looks each one up at the registry &mdash; every six hours, hourly while it is being deleted, and every minute in the hour a .nl domain leaves quarantine &mdash; and sends every change through your notification channels (Settings &rarr; Notifications). It cannot register a domain for you: when one is available, register it at your registrar straight away, or have a backorder service catch it.</p>
+            <textarea id="watchInput" rows="3" class="mono" placeholder="example.nl" spellcheck="false"></textarea>
+            <div class="dns-lookup-form">
+                <input type="text" id="watchNote" placeholder="Note (optional)" autocomplete="off">
+                <button class="btn-primary-lite" id="watchAddBtn" type="button">Add to watchlist</button>
+            </div>
+            <div class="users-table-wrap"><table class="data-table" id="watchTable"></table></div>
+            <h3 class="monitor-subhead">Recent changes</h3>
+            <div id="watchEvents" class="ct-desc"></div>
         </section>
 
         <section class="card">

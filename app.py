@@ -48,6 +48,7 @@ import discovery
 import overview
 import rdap
 import whois_batch
+import domain_watch
 import maintenance
 import metrics
 import notifications
@@ -3665,6 +3666,10 @@ def _run_scheduler_digest():
     if digest:
         notifications.send_digest(digest)
     maintenance.maybe_purge()
+    # Its own thread: a round of paced registry lookups must not hold up the
+    # monitor scans that share this loop. maybe_run skips if one is running.
+    threading.Thread(target=domain_watch.maybe_run, daemon=True,
+                     name="domain-watch").start()
 
 
 def _scheduler_config():
@@ -3875,6 +3880,49 @@ def api_whois_batch_csv(job_id):
     # Flask adds the charset itself; naming it here as well sent it twice.
     return Response(body, mimetype="text/csv", headers={
         "Content-Disposition": f"attachment; filename=domainlens-whois-{job_id[:8]}.csv"})
+
+
+@app.route("/api/watchlist", methods=["GET"])
+def api_watchlist():
+    return jsonify({"domains": domain_watch.list_all(), "events": domain_watch.events(30),
+                    "max": domain_watch.MAX_WATCHED})
+
+
+@app.route("/api/watchlist", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_watchlist_add():
+    """Watch domains until they become available, from a pasted list."""
+    data = request.get_json(silent=True) or {}
+    domains, rejected = whois_batch.parse_domains(str(data.get("text") or ""))
+    if not domains:
+        return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
+    try:
+        added, existing = domain_watch.add(domains, note=data.get("note"),
+                                           created_by=(auth.current_user() or {}).get("email"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    audit_log.record("watchlist.add", target_type="watchlist", details={"domains": added})
+    return jsonify({"added": added, "already_watched": existing, "rejected": rejected[:50]}), 201
+
+
+@app.route("/api/watchlist/<int:watch_id>", methods=["DELETE"])
+@auth.require_role(roles.USER)
+def api_watchlist_remove(watch_id):
+    watch = domain_watch.get(watch_id)
+    if not watch or not domain_watch.remove(watch_id):
+        return jsonify({"error": "Not on the watchlist"}), 404
+    audit_log.record("watchlist.remove", target_type="watchlist", target_id=watch["domain"])
+    return jsonify({"removed": True})
+
+
+@app.route("/api/watchlist/<int:watch_id>/check", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_watchlist_check(watch_id):
+    watch = domain_watch.get(watch_id)
+    if not watch:
+        return jsonify({"error": "Not on the watchlist"}), 404
+    domain_watch.check(watch)
+    return jsonify(domain_watch.get(watch_id))
 
 
 @app.route("/tools/ip")

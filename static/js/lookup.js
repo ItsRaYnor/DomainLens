@@ -761,6 +761,11 @@ async function whoisLookup() {
         const apexNote = data.apex_domain && data.apex_domain !== data.domain
             ? `<p class="ct-desc">Registration is held at <strong>${esc(data.apex_domain)}</strong>.</p>` : '';
         out.innerHTML = apexNote + DomainLensWhois.render(data.whois);
+        const watchRow = $('whoisWatchRow');
+        if (watchRow) {
+            $('whoisWatchBtn').dataset.domain = data.apex_domain || data.domain;
+            watchRow.classList.remove('hidden');
+        }
         // Shareable: the address now names the domain that was looked up.
         history.replaceState(null, '', '?domain=' + encodeURIComponent(name));
     } catch (err) {
@@ -785,6 +790,8 @@ function whoisBatchRows(rows) {
         const cls = r.state === 'registered' ? 'status-pass'
             : r.state === 'not_registered' ? 'status-warn' : 'muted';
         const state = `<span class="${cls}">${esc(WHOIS_STATE_LABELS[r.state] || r.state)}</span>`
+            + (r.status ? `<div class="muted">${esc(r.status)}</div>` : '')
+            + (r.released_from ? `<div class="status-warn">Released from ${esc(new Date(r.released_from).toLocaleString())}</div>` : '')
             + (r.detail ? `<div class="muted">${esc(r.detail)}</div>` : '');
         return `<tr><td>${esc(r.domain)}</td><td>${state}</td><td>${esc(r.registrar)}</td>`
             + `<td>${esc(r.reseller)}</td><td>${esc(r.registered)}</td><td>${esc(r.expires)}</td>`
@@ -868,6 +875,90 @@ function initWhoisBatch() {
     });
 }
 
+// ===== Watchlist =====
+const WATCH_PHASE_CLASS = {
+    available: 'status-pass', quarantine: 'status-warn', pending_delete: 'status-warn',
+    redemption: 'status-warn', not_in_dns: 'status-warn',
+};
+
+function watchWhen(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+async function loadWatchlist() {
+    const table = $('watchTable');
+    if (!table) return;
+    let data;
+    try {
+        data = await requestJson('/api/watchlist');
+    } catch (err) { toast(err.message); return; }
+    const rows = (data.domains || []).map(w => {
+        const cls = WATCH_PHASE_CLASS[w.phase] || '';
+        const release = w.released_from
+            ? `<div class="muted">Released from ${esc(watchWhen(w.released_from))}</div>` : '';
+        const err = w.last_error ? `<div class="muted">Last lookup: ${esc(w.last_error)}</div>` : '';
+        return `<tr data-id="${w.id}"><td><code>${esc(w.domain)}</code>`
+            + (w.note ? `<div class="muted">${esc(w.note)}</div>` : '') + '</td>'
+            + `<td><span class="${cls}">${esc(w.phase_text)}</span>${release}${err}</td>`
+            + `<td class="nowrap">${w.last_checked_at ? esc(watchWhen(w.last_checked_at)) : '&mdash;'}</td>`
+            + `<td class="nowrap"><button class="btn-ghost-sm watch-check" type="button">Check now</button> `
+            + `<button class="btn-ghost-sm danger watch-remove" type="button">Remove</button></td></tr>`;
+    }).join('');
+    table.innerHTML = rows
+        ? '<tr><th>Domain</th><th>Phase</th><th>Last looked up</th><th></th></tr>' + rows
+        : '<tr><td class="muted">Nothing on the watchlist yet.</td></tr>';
+    const ev = $('watchEvents');
+    if (ev) {
+        ev.innerHTML = (data.events || []).slice(0, 10)
+            .map(e => `<div>${esc(watchWhen(e.at))} &mdash; ${esc(e.detail)}</div>`).join('')
+            || '<span class="muted">No changes yet.</span>';
+    }
+}
+
+async function addToWatchlist(text) {
+    try {
+        const res = await requestJson('/api/watchlist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, note: ($('watchNote') && $('watchNote').value) || '' }),
+        });
+        toast(res.added.length ? `Watching ${res.added.join(', ')}` : 'Already on the watchlist.');
+        await loadWatchlist();
+    } catch (err) { toast(err.message); }
+}
+
+function initWatchlist() {
+    const table = $('watchTable');
+    if (!table) return;
+    $('watchAddBtn').addEventListener('click', async () => {
+        const box = $('watchInput');
+        if (!box.value.trim()) { toast('Enter a domain first.'); return; }
+        await addToWatchlist(box.value);
+        box.value = '';
+    });
+    table.addEventListener('click', async e => {
+        const row = e.target.closest('tr[data-id]');
+        if (!row) return;
+        const id = row.getAttribute('data-id');
+        try {
+            if (e.target.classList.contains('watch-remove')) {
+                await requestJson('/api/watchlist/' + id, { method: 'DELETE' });
+            } else if (e.target.classList.contains('watch-check')) {
+                e.target.disabled = true;
+                await requestJson('/api/watchlist/' + id + '/check', { method: 'POST' });
+            } else {
+                return;
+            }
+        } catch (err) { toast(err.message); }
+        loadWatchlist();
+    });
+    const watchBtn = $('whoisWatchBtn');
+    if (watchBtn) {
+        watchBtn.addEventListener('click', () => addToWatchlist(watchBtn.dataset.domain || ''));
+    }
+    loadWatchlist();
+}
+
 function initWhoisLookupPage() {
     const btn = $('whoisLookupBtn');
     if (!btn) return;
@@ -904,6 +995,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     initWhoisLookupPage();
     initWhoisBatch();
+    initWatchlist();
     initDnsLookupPage();
     initPgpLookupPage();
     initRemediate();

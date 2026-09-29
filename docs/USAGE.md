@@ -129,6 +129,22 @@ result downloads as CSV. Starting a batch needs the Analyst role and is audited.
 API: `GET /api/whois?domain=`, `POST /api/whois/batch` with `{"text": "..."}`, then
 `GET /api/whois/batch/{job_id}` and `/api/whois/batch/{job_id}/csv`.
 
+The registry status is shown in words. A `.nl` domain in SIDN's quarantine (*pending
+delete*) shows when it is released: at a random moment within the hour after the published
+time. SIDN shows holder and contacts only on its own website, behind bot protection; this
+tool links there rather than scraping it.
+
+### Watchlist
+
+**Tools &rarr; WHOIS &rarr; Watchlist** follows domains you want until they come free:
+every six hours, hourly while one is being deleted, and every minute in the hour a `.nl`
+domain leaves quarantine. Each change (into quarantine, restored, available, registered by
+someone else) is recorded and sent through the notification channels
+(Settings &rarr; Notifications). A failed lookup never counts as available. DomainLens is not
+a registrar: register the domain yourself, or use a backorder service. Changing the list
+needs the Analyst role and is audited. API: `GET/POST /api/watchlist`,
+`DELETE /api/watchlist/{id}`, `POST /api/watchlist/{id}/check`.
+
 ## DNS propagation check
 
 **Tools &rarr; DNS record** asks one resolver a question; the propagation panel below it

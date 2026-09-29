@@ -113,6 +113,51 @@ def _date(value):
     return str(value)[:10] if value else None
 
 
+# What a registry status means for someone who wants the domain. RDAP uses
+# the EPP names; the reader should not need to know them.
+STATUS_TEXT = {
+    "active": "Active",
+    "pending delete": "Being deleted",
+    "redemption period": "Redemption period: the holder can still restore it",
+    "client hold": "Suspended by the registrar (not in DNS)",
+    "server hold": "Suspended by the registry (not in DNS)",
+    "inactive": "Registered but not in DNS",
+    "client transfer prohibited": "Transfer locked by the registrar",
+    "server transfer prohibited": "Transfer locked by the registry",
+    "client delete prohibited": "Delete locked by the registrar",
+    "client update prohibited": "Update locked by the registrar",
+    "pending transfer": "Transfer in progress",
+}
+
+
+def lifecycle(domain, status, events):
+    """Where the domain is in its life, in the words that matter to a buyer.
+
+    For .nl SIDN publishes no registration expiry; an "expiration" event
+    appears only while a domain is in quarantine and is the moment it is
+    released -- at a random time within the hour after it. For other
+    registries "expiration" is the end of the paid registration term.
+    """
+    status = [str(s).lower() for s in status or []]
+    tld = domain.rsplit(".", 1)[-1].lower()
+    expiration = events.get("expiration")
+    if "pending delete" in status and tld == "nl":
+        # SIDN's RDAP does not always include the events: the phase is still
+        # quarantine, only the release moment is missing from that answer.
+        return {"phase": "quarantine", "since": _date(events.get("deletion")),
+                "released_from": expiration, "release_window_minutes": 60,
+                "text": "In quarantine: only the previous holder can restore it until it is released."
+                        + ("" if expiration else " The release time was not in this answer; look again.")}
+    if "pending delete" in status:
+        return {"phase": "pending_delete", "released_from": expiration,
+                "text": "Being deleted: it becomes available once the registry releases it."}
+    if "redemption period" in status:
+        return {"phase": "redemption", "text": STATUS_TEXT["redemption period"]}
+    if {"client hold", "server hold", "inactive"} & set(status):
+        return {"phase": "not_in_dns", "text": "Registered, but not published in DNS."}
+    return {"phase": "registered", "expires": _date(expiration) if tld != "nl" else None}
+
+
 def parse(data, domain, server=None):
     """Normalise an RDAP domain object to the fields the pages show."""
     events = {e.get("eventAction"): e.get("eventDate") for e in data.get("events") or []}
@@ -127,12 +172,17 @@ def parse(data, domain, server=None):
         "server": server,
         "domain": data.get("ldhName") or domain,
         "status": data.get("status") or [],
+        "status_text": [STATUS_TEXT.get(str(st).lower(), st) for st in data.get("status") or []],
+        "lifecycle": lifecycle(data.get("ldhName") or domain, data.get("status"), events),
         "dnssec": bool(secure.get("delegationSigned")) if "delegationSigned" in secure else None,
         "nameservers": [n.get("ldhName", "").lower() for n in data.get("nameservers") or []
                         if n.get("ldhName")],
         "registered": _date(events.get("registration")),
         "updated": _date(events.get("last changed")),
-        "expires": _date(events.get("expiration")),
+        # For .nl the "expiration" event is the quarantine release, not the end
+        # of a paid term (SIDN publishes none); it is shown as the release.
+        "expires": (None if (data.get("ldhName") or domain).lower().endswith(".nl")
+                    else _date(events.get("expiration"))),
         "registrar": parties.get("registrar"),
         "reseller": parties.get("reseller"),
         # Always present: a registry that returns no holder at all has not

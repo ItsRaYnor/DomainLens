@@ -97,7 +97,7 @@ def _row(domain, result):
     """One flat row per domain, for the table and the CSV."""
     base = {"domain": domain, "state": "", "detail": "", "registrar": "", "reseller": "",
             "registered": "", "updated": "", "expires": "", "dnssec": "", "nameservers": "",
-            "holder": "", "source": ""}
+            "holder": "", "source": "", "status": "", "phase": "", "released_from": ""}
     if result.get("success"):
         registrant = result.get("registrant") or {}
         base.update(
@@ -111,6 +111,9 @@ def _row(domain, result):
             nameservers=" ".join(result.get("nameservers") or []),
             holder="withheld" if registrant.get("withheld") else registrant.get("name", ""),
             source=result.get("source", ""),
+            status="; ".join(result.get("status_text") or result.get("status") or []),
+            phase=(result.get("lifecycle") or {}).get("phase", ""),
+            released_from=(result.get("lifecycle") or {}).get("released_from") or "",
         )
     elif result.get("registered") is False:
         base.update(state="not_registered", detail=result.get("error", ""), source="rdap")
@@ -225,8 +228,9 @@ def cancel(job_id):
     return view(job_id)
 
 
-CSV_COLUMNS = ["domain", "state", "detail", "registrar", "reseller", "registered", "updated",
-               "expires", "dnssec", "nameservers", "holder", "source"]
+CSV_COLUMNS = ["domain", "state", "phase", "status", "released_from", "detail", "registrar",
+               "reseller", "registered", "updated", "expires", "dnssec", "nameservers", "holder",
+               "source"]
 
 
 def _csv_safe(value):

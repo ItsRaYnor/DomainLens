@@ -163,6 +163,19 @@ def spec():
         "/api/whois/batch/{job_id}/csv": {"get": _op(
             "A batch as CSV", "WHOIS", {"200": {"description": "CSV file"}},
             params=[_param("job_id", "path")])},
+        "/api/watchlist": {
+            "get": _op("Watched domains and recent changes", "WHOIS", _ok("Watchlist")),
+            "post": _op("Watch domains until they become available", "WHOIS",
+                        {"201": {"description": "Added"}}, role="user",
+                        body=_body({"type": "object", "required": ["text"], "properties": {
+                            "text": {"type": "string"}, "note": {"type": "string"}}})),
+        },
+        "/api/watchlist/{watch_id}": {"delete": _op(
+            "Stop watching a domain", "WHOIS", _ok("Removed"), role="user",
+            params=[_param("watch_id", "path", {"type": "integer"})])},
+        "/api/watchlist/{watch_id}/check": {"post": _op(
+            "Look a watched domain up now", "WHOIS", _ok("Updated entry"), role="user",
+            params=[_param("watch_id", "path", {"type": "integer"})])},
         "/api/ownership": {
             "get": _op("Domains and their verification state", "Ownership", _ok("Domains"), role="user"),
             "post": _op("Start verifying a domain", "Ownership",
