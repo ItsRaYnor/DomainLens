@@ -3952,7 +3952,7 @@ def monitoring_add_discovered():
         checks = ["all"]
         for host in chosen:
             monitor_id = db.create_monitor(
-                name=f"{host} (A)", domain=zone, target=host, record_type="A", record_value=None,
+                name=host, domain=zone, target=host, record_type="A", record_value=None,
                 source_type="discovery", source_label="Certificate Transparency",
                 provider="discovery", schedule_minutes=1440, checks=checks, enabled=True, metadata={},
             )
@@ -5725,7 +5725,9 @@ def api_monitors_create():
         return jsonify({"error": "Invalid domain or target"}), 400
 
     record_type = str(data.get("record_type") or "A").upper()
-    name = (data.get("name") or f"{target} ({record_type})").strip()
+    # The hostname, not "host (A)": the record type named a monitor that
+    # runs a full scan as if it only watched an A record.
+    name = (data.get("name") or target).strip()
     schedule_minutes = _parse_positive_int(data.get("schedule_minutes"), 1440)
     checks = _prepare_checks(data.get("checks", ["all"]))
     enabled = bool(data.get("enabled", True))

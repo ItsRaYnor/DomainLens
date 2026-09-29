@@ -27,7 +27,7 @@
                 <h3 class="monitor-subhead">Add monitors</h3>
                 <details class="monitor-section monitor-fold">
                     <summary><h4>Add one monitor</h4></summary>
-                    <p class="login-hint">Monitors periodically re-scan one specific hostname/record and alert you when something changes.</p>
+                    <p class="login-hint">A monitor re-runs the checks you choose on a schedule and reports what changed since the last run &mdash; mail, web, TLS, DNS, as chosen below. It also watches one DNS record, so a record that changes or disappears is reported too.</p>
                     <div class="stack-form">
                         <input type="text" id="monitorDomainInput" placeholder="Domain / hostname (e.g. app.example.com)">
                         <input type="text" id="monitorNameInput" placeholder="Label (optional)">
@@ -42,6 +42,18 @@
                                 <option value="10080">Weekly</option>
                                 <option value="custom">Custom&hellip;</option>
                             </select>
+                        </div>
+                        <input type="number" id="monitorScheduleInput" min="1" value="1440" placeholder="Custom frequency (minutes)" class="hidden">
+                        <p class="monitor-field-label">Checks on each run</p>
+                        <div class="monitor-checks">
+                            <label class="monitor-checks-all">
+                                <input type="checkbox" id="monitorChecksAll" checked> Monitor everything
+                            </label>
+                            <button type="button" class="btn-icon-sm" id="monitorChecksToggle"
+                                    aria-expanded="false" title="Choose which checks to monitor">Choose checks&hellip;</button>
+                            <div id="monitorChecksGroups" class="monitor-checks-groups hidden"></div>
+                        </div>
+                        <label class="monitor-field-label" for="monitorTypeInput">Also watch one DNS record for changes</label>
                             <select id="monitorTypeInput">
                                 <option value="A">A / website (IPv4)</option>
                                 <option value="AAAA">AAAA (IPv6)</option>
@@ -60,16 +72,7 @@
                                 <option value="NAPTR">NAPTR</option>
                                 <option value="SOA">SOA</option>
                             </select>
-                        </div>
-                        <input type="number" id="monitorScheduleInput" min="1" value="1440" placeholder="Custom frequency (minutes)" class="hidden">
-                        <div class="monitor-checks">
-                            <label class="monitor-checks-all">
-                                <input type="checkbox" id="monitorChecksAll" checked> Monitor everything
-                            </label>
-                            <button type="button" class="btn-icon-sm" id="monitorChecksToggle"
-                                    aria-expanded="false" title="Choose which checks to monitor">Choose checks&hellip;</button>
-                            <div id="monitorChecksGroups" class="monitor-checks-groups hidden"></div>
-                        </div>
+                        <p class="login-hint">Compared on every run: a changed value or a name that no longer exists (NXDOMAIN) raises an event &mdash; the signal for a dangling record. A for a website, MX for mail, CNAME for a host that points elsewhere.</p>
                         <button class="btn-primary-lite" id="createMonitorBtn">Create monitor</button>
                     </div>
                 </details>

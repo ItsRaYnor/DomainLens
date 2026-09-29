@@ -2522,3 +2522,7 @@ footer, .app-footer {
     bottom: 0;
     background: var(--bg-card);
 }
+
+/* Add-monitor form: a heading per decision, so "what runs" and "which
+   record is watched" read as two separate choices. */
+.monitor-field-label { margin: 0.6rem 0 0; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }

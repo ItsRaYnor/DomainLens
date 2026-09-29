@@ -2428,8 +2428,8 @@ function renderMonitorList(monitors) {
 
         const main = document.createElement('div');
         main.className = 'monitor-main';
-        main.innerHTML = `<div class="monitor-name">${escapeHtml(m.name)}</div>
-            <div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(m.record_type)} · ${escapeHtml(formatFrequency(m.schedule_minutes))} · ${escapeHtml(monitorScopeLabel(m.checks))}</div>
+        main.innerHTML = `<div class="monitor-name">${escapeHtml(monitorDisplayName(m))}</div>
+            <div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(formatFrequency(m.schedule_minutes))} · ${escapeHtml(monitorScopeLabel(m.checks))} · watches ${escapeHtml(m.record_type || 'A')} record</div>
             <div class="monitor-meta">${escapeHtml(m.source_label || m.source_type)}${m.next_scan_at ? ' · next: ' + escapeHtml(new Date(m.next_scan_at).toLocaleString()) : ''}</div>
             <div class="monitor-meta">${monitorReportLinks(m)}</div>`;
         item.appendChild(main);
@@ -2508,8 +2508,16 @@ async function initMonitorChecks() {
     });
 }
 
+// Monitors used to be named "host (A)" by default, which read as if they only
+// watched an A record while each run was a full scan. That generated name is
+// shown as the host; a name someone chose is shown as they wrote it.
+function monitorDisplayName(m) {
+    const generated = `${m.target} (${m.record_type})`;
+    return m.name === generated ? m.target : m.name;
+}
+
 function monitorScopeLabel(checks) {
-    if (!Array.isArray(checks) || checks.length === 0 || checks.includes('all')) return 'all checks';
+    if (!Array.isArray(checks) || checks.length === 0 || checks.includes('all')) return 'full scan';
     return checks.length === 1 ? '1 check' : `${checks.length} checks`;
 }
 
