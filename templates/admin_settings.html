@@ -241,6 +241,8 @@
        Putting the bootstrap in an inline block meant initAdminSettings() was
        never called and every button on this page silently did nothing. #}
     <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    {# The strings themselves, so the tabs draw without waiting for a fetch. #}
+    <script type="application/json" id="pageStrings">{{ i18n_strings|tojson }}</script>
     <script type="application/json" id="settingsSchema">{{ schema|tojson }}</script>
 
     <script src="/static/js/i18n.js?v={{ asset_token }}"></script>

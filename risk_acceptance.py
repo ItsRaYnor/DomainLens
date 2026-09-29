@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from datetime import date, datetime, timedelta, timezone
 
 import db
@@ -29,6 +30,19 @@ import db
 log = logging.getLogger("domainlens.risk")
 
 MAX_DAYS = 366
+
+# Active acceptances, for the day and database they were read for. Findings
+# are generated per scan, and the report and trend pages generate them for
+# every scan in a list: one query each, where the answer changes only when an
+# acceptance is created or revoked -- both of which empty this -- or when a
+# day passes, which the key covers.
+_active_cache = {"key": None, "rows": ()}
+_cache_lock = threading.Lock()
+
+
+def _invalidate():
+    with _cache_lock:
+        _active_cache["key"] = None
 
 
 def init_schema(conn):
@@ -85,14 +99,18 @@ def create(*, domain, finding_key, title, severity, reason, owner, expires_on, c
             (domain.strip().lower(), finding_key, title, severity, reason, owner, created_by,
              datetime.now(timezone.utc).isoformat(), expiry.isoformat()),
         )
-        return cursor.lastrowid
+        exception_id = cursor.lastrowid
+    _invalidate()
+    return exception_id
 
 
 def revoke(exception_id):
     with db._lock, db._connect() as conn:
-        return conn.execute(
+        revoked = conn.execute(
             "UPDATE finding_exceptions SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL",
             (datetime.now(timezone.utc).isoformat(), int(exception_id))).rowcount > 0
+    _invalidate()
+    return revoked
 
 
 def get(exception_id):
@@ -122,22 +140,33 @@ def _active_for(domains):
     database file where none was configured, which sqlite would do on
     connect.
     """
-    domains = [d for d in {(d or "").strip().lower() for d in domains} if d]
+    domains = {d for d in {(d or "").strip().lower() for d in domains} if d}
     if not domains or not os.path.exists(db._db_path()):
         return {}
+    out = {}
+    for row in _all_active():
+        if row["domain"] in domains:
+            out.setdefault(row["finding_key"], row)
+    return out
+
+
+def _all_active():
+    key = (db._db_path(), _today().isoformat())
+    with _cache_lock:
+        if _active_cache["key"] == key:
+            return _active_cache["rows"]
     try:
         with db._connect() as conn:
-            rows = conn.execute(
-                f"SELECT * FROM finding_exceptions WHERE revoked_at IS NULL AND expires_on >= ? "
-                f"AND domain IN ({', '.join('?' for _ in domains)}) ORDER BY expires_on DESC",
-                [_today().isoformat(), *domains]).fetchall()
+            rows = tuple(dict(r) for r in conn.execute(
+                "SELECT * FROM finding_exceptions WHERE revoked_at IS NULL AND expires_on >= ? "
+                "ORDER BY expires_on DESC", (key[1],)).fetchall())
     except Exception:
         log.debug("Risk acceptances unavailable", exc_info=True)
-        return {}
-    out = {}
-    for row in rows:
-        out.setdefault(row["finding_key"], dict(row))
-    return out
+        return ()
+    with _cache_lock:
+        _active_cache["key"] = key
+        _active_cache["rows"] = rows
+    return rows
 
 
 # Categories whose findings describe the zone rather than the scanned host.

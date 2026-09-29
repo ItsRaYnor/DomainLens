@@ -190,6 +190,19 @@ def _decrypt(stored, db=None):
 # Storage
 # ---------------------------------------------------------------------------
 
+# Decrypted values per database. The auth config resolves the OAuth and SCIM
+# secrets on every request, which read this section and decrypted it each
+# time. Only set_key and clear_key write it, and both empty this; the
+# database path and DOMAINLENS_SECRET_KEY are part of the key, so another
+# database or a changed secret key never reads a stale value.
+_value_cache = {}
+
+
+def _cache_key(db, env_name):
+    path = getattr(db, "_db_path", lambda: None)()
+    return (path, os.environ.get("DOMAINLENS_SECRET_KEY"), env_name)
+
+
 def _load(db):
     if db is None:
         return {}
@@ -213,8 +226,14 @@ def stored_value(env_name, db=None):
     if not is_managed(env_name):
         return ""
     db = db or _db_module()
+    key = _cache_key(db, env_name)
+    if key[0] is not None and key in _value_cache:
+        return _value_cache[key]
     raw = _load(db).get(_STORAGE_KEYS[env_name])
-    return _decrypt(raw, db) if raw else ""
+    value = _decrypt(raw, db) if raw else ""
+    if key[0] is not None:
+        _value_cache[key] = value
+    return value
 
 
 def resolve(env_name, db=None):
@@ -254,6 +273,7 @@ def is_env_locked(env_name):
 
 def _invalidate_settings():
     """The merged settings cache carries which keys are configured."""
+    _value_cache.clear()
     try:
         from settings.store import get_store
         get_store().invalidate()

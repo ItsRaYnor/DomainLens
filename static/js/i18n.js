@@ -12,13 +12,20 @@
         async init(locale) {
             const loc = SUPPORTED.includes(locale) ? locale : DEFAULT_LOCALE;
             this.locale = loc;
-            try {
-                const resp = await fetch('/api/i18n/' + encodeURIComponent(loc) + '.json');
-                if (resp.ok) {
-                    this.strings = await resp.json();
+            // A page that ships its strings needs no round trip: the
+            // settings page drew nothing until this fetch came back.
+            const shipped = DomainLensI18n.pageData('pageStrings', null);
+            if (shipped && typeof shipped === 'object') {
+                this.strings = shipped;
+            } else {
+                try {
+                    const resp = await fetch('/api/i18n/' + encodeURIComponent(loc) + '.json');
+                    if (resp.ok) {
+                        this.strings = await resp.json();
+                    }
+                } catch (e) {
+                    console.warn('i18n load failed', e);
                 }
-            } catch (e) {
-                console.warn('i18n load failed', e);
             }
             this.ready = true;
             document.documentElement.lang = loc;

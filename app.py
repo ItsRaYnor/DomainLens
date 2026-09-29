@@ -138,8 +138,15 @@ def _reload_settings():
     return _settings
 
 
+def _current_settings():
+    """Settings for reading. _reload_settings() replaced the whole store, so
+    calling it on every page render (the i18n context processor did) threw
+    the settings cache away on every request; it is for after a write."""
+    return domainlens_config.load_settings(db_module=db)
+
+
 def _scan_config():
-    return _reload_settings().scan()
+    return _current_settings().scan()
 
 
 def _scan_ports_map():
@@ -229,7 +236,7 @@ def _format_time_ago(value):
 def inject_i18n():
     from flask import has_request_context
     user = auth.current_user()
-    general = _reload_settings().general()
+    general = _current_settings().general()
     locale = i18n_mod.resolve_locale(request if has_request_context() else None, user, general)
     return {
         "t": lambda k, **kw: i18n_mod.t(k, locale, **kw),
@@ -257,7 +264,7 @@ def _inject_theme(user, general):
     resolved = theming.resolve(
         user=user,
         cookies=cookies,
-        defaults=_reload_settings().appearance(),
+        defaults=_current_settings().appearance(),
     )
     return {
         "theme": resolved["theme"],
@@ -4232,6 +4239,8 @@ def admin_settings_page():
         "admin_settings.html",
         section="admin",
         subnav=admin_nav.subnav("/admin/settings"),
+        i18n_strings=i18n_mod.load_locale(i18n_mod.resolve_locale(
+            request, auth.current_user(), _current_settings().general())),
         schema=schema,
         integrations=_optional_integration_status(),
         credential_groups=api_keys.credential_status(db=db),
@@ -4469,7 +4478,7 @@ def api_preferences_appearance():
     authentication switched off is a supported configuration, and there is no
     record to write to in that case.
     """
-    appearance = _reload_settings().appearance()
+    appearance = _current_settings().appearance()
     if not appearance.get("allow_user_override", True):
         return jsonify({"error": "Appearance is set centrally on this instance"}), 403
 
@@ -5139,13 +5148,13 @@ def _custom_resolvers():
 
 
 def _disclosure_config():
-    return _reload_settings().disclosure()
+    return _current_settings().disclosure()
 
 
 def _public_base_url():
     """Prefer the configured public URL: behind a reverse proxy the request
     host is the internal one, and a Canonical: pointing at it is useless."""
-    configured = (_reload_settings().general().get("public_url") or "").strip()
+    configured = (_current_settings().general().get("public_url") or "").strip()
     return configured or request.url_root
 
 

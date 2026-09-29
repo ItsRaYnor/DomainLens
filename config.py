@@ -27,6 +27,8 @@ class Settings:
         # (or _reload_settings) and invalidates it. Rebuilding here re-read
         # every settings row and decrypted every stored key on each call, and
         # load_settings() is called several times per request.
+        # The current store, which a write may have replaced since.
+        self._store = get_store()
         self.raw = self._store.merged()
         return self
 

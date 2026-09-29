@@ -83,6 +83,27 @@ class AcceptanceTests(EnterpriseAppTestCase):
         self.assertNotIn("accepted", on_sub[0])
         self.assertIn("accepted", on_apex[0])
 
+    def test_findings_for_many_scans_read_the_acceptances_once(self):
+        """Report and trend pages generate findings for every scan in a list,
+        and each generation opened the database for the acceptances."""
+        from unittest import mock
+        import risk_acceptance
+        self._accept()
+        self._spf_now()
+        with mock.patch.object(risk_acceptance.db, "_connect",
+                               wraps=risk_acceptance.db._connect) as connect:
+            for _ in range(5):
+                self.assertIn("accepted", self._spf_now())
+        self.assertEqual(0, connect.call_count)
+
+    def test_a_revoked_acceptance_stops_counting_at_once(self):
+        """The cache is only safe if a revocation empties it."""
+        import risk_acceptance
+        exception_id = self._accept()
+        self.assertIn("accepted", self._spf_now())
+        risk_acceptance.revoke(exception_id)
+        self.assertNotIn("accepted", self._spf_now())
+
     def test_no_longer_than_a_year(self):
         with self.assertRaises(ValueError):
             self._accept(days=400)

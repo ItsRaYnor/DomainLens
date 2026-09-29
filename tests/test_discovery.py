@@ -26,6 +26,22 @@ class DiscoveryTests(EnterpriseAppTestCase):
         import discovery
         return [s["host"] for s in discovery.suggestions(self.db)]
 
+    def test_a_saved_scan_is_read_once_not_on_every_page_load(self):
+        """The Monitoring page parsed the full latest scan of every monitored
+        zone on each load; a saved scan never changes, so once is enough."""
+        from unittest import mock
+        self.db.save_scan("example.com", _scan_with_ct(["new-portal.example.com"]))
+        with mock.patch.object(self.db, "get_scan", wraps=self.db.get_scan) as get_scan:
+            for _ in range(3):
+                self.assertEqual(["new-portal.example.com"], self._suggested())
+        self.assertEqual(1, get_scan.call_count)
+
+    def test_a_newer_scan_is_picked_up(self):
+        self.db.save_scan("example.com", _scan_with_ct(["one.example.com"]))
+        self.assertEqual(["one.example.com"], self._suggested())
+        self.db.save_scan("example.com", _scan_with_ct(["two.example.com"]))
+        self.assertEqual(["two.example.com"], self._suggested())
+
     def test_an_unmonitored_ct_name_is_suggested(self):
         self.db.save_scan("example.com", _scan_with_ct(["new-portal.example.com"]))
         self.assertEqual(["new-portal.example.com"], self._suggested())
