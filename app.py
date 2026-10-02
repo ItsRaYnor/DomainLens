@@ -3955,23 +3955,42 @@ def api_portfolio_csv():
         "Content-Disposition": "attachment; filename=domainlens-portfolio.csv"})
 
 
+_PORTFOLIO_SHEET_MAX = 5 * 1024 * 1024
+
+
 @app.route("/api/portfolio/import", methods=["POST"])
 @auth.require_role(roles.USER)
 def api_portfolio_import():
-    """Add domains from a paste or CSV, each optionally with its group."""
-    data = request.get_json(silent=True) or {}
-    entries, rejected = domain_portfolio.parse_import(str(data.get("text") or ""))
+    """Add domains from a paste, a CSV or an Excel sheet, each optionally
+    with its group. A subdomain is added as its registered domain."""
+    upload = request.files.get("file")
+    if upload is not None:
+        if not (upload.filename or "").lower().endswith(".xlsx"):
+            return jsonify({"error": "Upload an .xlsx workbook; paste CSV or text instead"}), 400
+        body = upload.read(_PORTFOLIO_SHEET_MAX + 1)
+        if len(body) > _PORTFOLIO_SHEET_MAX:
+            return jsonify({"error": "The workbook is larger than 5 MB"}), 400
+        try:
+            text = domain_portfolio.sheet_to_text(body)
+        except Exception:
+            return jsonify({"error": "This file could not be read as an Excel workbook"}), 400
+        group = request.form.get("group")
+    else:
+        data = request.get_json(silent=True) or {}
+        text, group = str(data.get("text") or ""), data.get("group")
+    entries, rejected, converted = domain_portfolio.parse_import(text)
     if not entries:
         return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
     try:
         result = domain_portfolio.import_domains(
-            entries, default_group=(data.get("group") or "").strip() or None,
+            entries, default_group=(group or "").strip() or None,
             created_by=(auth.current_user() or {}).get("email"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     audit_log.record("portfolio.import", target_type="portfolio",
                      details={"added": len(result["added"]), "moved": len(result["moved"])})
-    return jsonify({**result, "rejected": rejected[:50]}), 201
+    return jsonify({**result, "rejected": rejected[:50],
+                    "converted": [{"from": k, "to": v} for k, v in list(converted.items())[:50]]}), 201
 
 
 @app.route("/api/portfolio/groups", methods=["POST"])

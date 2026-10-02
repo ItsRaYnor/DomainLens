@@ -175,7 +175,36 @@ def delete_group(group_id):
 
 # ---------------------------------------------------------------- import
 
-_SPLIT = re.compile(r"[\t;,]")
+# Registries that register names at the third level under these. Not the
+# whole Public Suffix List: every conversion is reported back by the import,
+# so a name this misses is visible and can be corrected by hand.
+_SECOND_LEVEL = {
+    "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk", "ac.uk", "gov.uk",
+    "com.au", "net.au", "org.au", "edu.au", "gov.au", "co.nz", "net.nz", "org.nz",
+    "co.za", "org.za", "com.br", "net.br", "org.br", "co.jp", "ne.jp", "or.jp",
+    "com.tr", "com.cn", "net.cn", "org.cn", "com.mx", "co.in", "net.in", "org.in",
+    "com.sg", "com.hk", "co.il", "co.kr", "com.ar", "com.pl", "co.at", "or.at",
+    "com.es", "com.pt",
+}
+
+# Header names that say which column holds the domain and which the group.
+_DOMAIN_HEADERS = {"domain", "domein", "domains", "domeinen", "domeinnaam", "domain name",
+                   "hostname", "host", "url", "website"}
+_GROUP_HEADERS = {"group", "groep", "company", "bedrijf", "afdeling", "department",
+                  "business unit", "bedrijfsonderdeel", "bu", "organisation",
+                  "organization", "organisatie", "entity", "entiteit", "customer", "klant",
+                  "label"}
+
+
+def registrable(domain):
+    """The name a registry registers: example.nl for shop.example.nl.
+
+    RDAP has no record of a subdomain, so looking one up answers "not
+    registered" -- which the portfolio would report as a lost domain.
+    """
+    parts = domain.split(".")
+    keep = 3 if len(parts) >= 3 and ".".join(parts[-2:]) in _SECOND_LEVEL else 2
+    return ".".join(parts[-keep:])
 
 
 def _domain_of(token):
@@ -183,43 +212,105 @@ def _domain_of(token):
     return found[0] if len(found) == 1 and "." in token else None
 
 
-def parse_import(text):
-    """[(domain, group or None)] and rejected tokens from a paste or a CSV.
+def _header(cells):
+    """(domain column, group column) when this row is a header, else None."""
+    names = [" ".join(c.lower().replace("_", " ").split()) for c in cells]
+    if any(_domain_of(c) for c in cells if c):
+        return None
+    domain_col = next((i for i, n in enumerate(names) if n in _DOMAIN_HEADERS), None)
+    group_col = next((i for i, n in enumerate(names) if n in _GROUP_HEADERS), None)
+    if domain_col is None and group_col is None:
+        return None
+    return domain_col, group_col
 
-    One domain per line, optionally followed by its group in the next column
-    (comma, semicolon or tab): "example.nl;Sales". A line with several names
-    and no group ("example.nl example.com") adds them all. A first line that
-    is a header is skipped, and a dotted token that is not a domain name is
-    rejected rather than guessed.
+
+def parse_import(text):
+    """Domains and their groups from a paste, a CSV or a converted sheet.
+
+    Returns (entries, rejected, converted): entries are (domain, group or
+    None); converted maps what was given to the registered domain used
+    instead (shop.example.nl -> example.nl).
+
+    Without a header: one or more domains per line, the group in the first
+    cell that is not a domain ("example.nl;Sales"). With a header row that
+    names the columns ("Domain;Company;Notes"), only those columns are read,
+    so a notes column is never taken for the group. A dotted token that is
+    not a domain name is rejected rather than guessed.
     """
-    entries, rejected, seen = [], [], set()
+    entries, rejected, converted, seen = [], [], {}, set()
+    columns = None
     for line in (text or "").splitlines():
         if not line.strip():
             continue
-        cells = next(csv.reader([line], delimiter=_delimiter(line)), [])
-        cells = [c.strip().strip('"\'') for c in cells if c.strip()]
+        raw = [c.strip().strip('"\'') for c in next(csv.reader([line], delimiter=_delimiter(line)), [])]
+        if columns is None and not entries:
+            header = _header(raw)
+            if header:
+                columns = header
+                continue
+        cells = [c for c in raw if c]
         names, others = [], []
-        for cell in cells:
+        if columns and columns[0] is not None:
+            cell = raw[columns[0]] if columns[0] < len(raw) else ""
             domain = _domain_of(cell)
             if domain:
                 names.append(domain)
             elif " " in cell and all(_domain_of(t) for t in cell.split()):
                 names.extend(_domain_of(t) for t in cell.split())
-            else:
-                others.append(cell)
+            elif "." in cell:
+                rejected.append(cell)
+        else:
+            for cell in cells:
+                domain = _domain_of(cell)
+                if domain:
+                    names.append(domain)
+                elif " " in cell and all(_domain_of(t) for t in cell.split()):
+                    names.extend(_domain_of(t) for t in cell.split())
+                else:
+                    others.append(cell)
         if not names:
-            if cells and "." in cells[0] and " " not in cells[0]:
+            if not columns and cells and "." in cells[0] and " " not in cells[0]:
                 rejected.append(cells[0])
             continue          # a header, or a line without a domain
-        # "example.nl;Sales" names its group; "example.nl, example.com" is
-        # just a list. The group is the first cell that is not a domain.
-        group = others[0] if others else None
-        pairs = [(n, group) for n in names]
-        for domain, group in pairs:
+        if columns and columns[1] is not None:
+            group = raw[columns[1]] if columns[1] < len(raw) else ""
+            # "example.com, example.org" under a header is a list on one
+            # line, not a domain in a group called example.org.
+            if _domain_of(group):
+                names.append(_domain_of(group))
+                group = None
+        else:
+            # "example.nl;Sales" names its group; "example.nl, example.com"
+            # is just a list. The group is the first cell that is not a domain.
+            group = others[0] if others else None
+        for name in names:
+            domain = registrable(name)
+            if domain != name:
+                converted.setdefault(name, domain)
             if domain not in seen:
                 seen.add(domain)
                 entries.append((domain, " ".join(group.split())[:80] if group else None))
-    return entries, rejected
+    return entries, rejected, converted
+
+
+MAX_SHEET_ROWS = 10000
+
+
+def sheet_to_text(data):
+    """An .xlsx workbook's first sheet as tab-separated lines for parse_import.
+
+    Read-only and values only: formulas are not evaluated, macros not run.
+    """
+    import openpyxl
+    book = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    try:
+        sheet = book.worksheets[0]
+        lines = []
+        for row in sheet.iter_rows(values_only=True, max_row=MAX_SHEET_ROWS):
+            lines.append("\t".join("" if v is None else str(v).replace("\t", " ").strip() for v in row))
+        return "\n".join(lines)
+    finally:
+        book.close()
 
 
 def _delimiter(line):

@@ -34,6 +34,8 @@ class NoCustomerIdentifiersInSourceTests(unittest.TestCase):
         "example.nl",           # RFC 2606 style placeholder
         "sidn.nl",              # .nl registry's public WHOIS page (rdap.py)
         "dnsbelgium.be",        # .be registry's public WHOIS page (rdap.py)
+        "com.pl",               # registry second-level suffix (domain_portfolio.py)
+        "com.es",               # idem
     }
 
     HOST_RE = re.compile(r"\b[a-z0-9][a-z0-9-]{1,40}\.(?:nl|be|fr|lu|dk|se|no|fi|it|es|pl)\b")

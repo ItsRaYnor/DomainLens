@@ -148,8 +148,12 @@ needs the Analyst role and is audited. API: `GET/POST /api/watchlist`,
 ## Domain portfolio
 
 **Monitoring &rarr; Domain portfolio** keeps the domains you hold, grouped per company or
-department. Paste or upload a list (`example.nl;Sales`, or a CSV with a domain and a group
-column); a domain imported again moves to the group named for it. Each group can name the
+department. Paste a list (`example.nl;Sales`), or upload a CSV, text or Excel (.xlsx) file.
+With a header row naming the columns (`Domain`/`Domein` and `Company`/`Bedrijf`/`Group`/
+`Afdeling`), only those columns are read. A subdomain or URL is added as its registered
+domain (`https://shop.example.nl/x` becomes `example.nl`; common second-level suffixes such
+as `co.uk` are kept), and the import lists what it converted. A domain imported again moves
+to the group named for it. Each group can name the
 registrar its domains belong at (matched against the registrar and the reseller, several
 names separated by commas); a domain registered elsewhere is marked **to move**.
 
@@ -164,7 +168,7 @@ failed lookup keeps the previous answer and says so. Lookups run with the schedu
 the scheduler off use "Check now".
 
 Changing the portfolio needs the Analyst role and is audited. API: `GET /api/portfolio`,
-`GET /api/portfolio/csv`, `POST /api/portfolio/import`, `POST /api/portfolio/groups`,
+`GET /api/portfolio/csv`, `POST /api/portfolio/import` (JSON `text`, or a multipart `file` .xlsx), `POST /api/portfolio/groups`,
 `PUT/DELETE /api/portfolio/groups/{id}`, `POST /api/portfolio/domains` (move or remove),
 `POST /api/portfolio/domains/{id}/check`.
 

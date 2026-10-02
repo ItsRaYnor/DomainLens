@@ -46,10 +46,10 @@
         <section class="card">
             <details class="monitor-fold" id="pfImportFold">
                 <summary><h4>Add domains</h4></summary>
-                <p class="ct-desc">One domain per line, optionally followed by its group: <code>example.nl;Sales</code> or a CSV with a domain and a group column (comma, semicolon or tab). A domain already in the portfolio moves to the group named for it. Lines without a group go to the group chosen below. At most 2,000 domains in all.</p>
+                <p class="ct-desc">Paste one domain per line, optionally followed by its group (<code>example.nl;Sales</code>), or choose a CSV, text or Excel (.xlsx) file. With a header row that names the columns &mdash; for example <code>Domain</code> and <code>Company</code>, or <code>Domein</code> and <code>Bedrijf</code> &mdash; only those columns are used and the others are ignored. A subdomain or web address is added as its registered domain (<code>https://shop.example.nl/x</code> becomes <code>example.nl</code>), and the result lists what was converted. A domain already in the portfolio moves to the group named for it; lines without a group go to the group chosen below. At most 2,000 domains in all.</p>
                 <textarea id="pfImportInput" rows="8" class="mono" placeholder="example.nl;Sales&#10;example.com;Holding&#10;example.org" spellcheck="false"></textarea>
                 <div class="dns-lookup-form">
-                    <input type="file" id="pfImportFile" accept=".csv,.txt,text/csv,text/plain">
+                    <input type="file" id="pfImportFile" accept=".csv,.txt,.xlsx,text/csv,text/plain">
                     <input type="text" id="pfImportGroup" list="pfGroupNames" placeholder="Group for lines without one (optional)" autocomplete="off">
                     <datalist id="pfGroupNames"></datalist>
                     <button class="btn-primary-lite" id="pfImportBtn" type="button">Add to portfolio</button>

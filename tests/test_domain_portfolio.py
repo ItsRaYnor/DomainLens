@@ -32,7 +32,7 @@ def _answer(registrar="Example Registrar", reseller=None, expires=None, phase="r
 class ParseImportTests(unittest.TestCase):
     def test_a_group_column_is_read_and_a_list_on_one_line_is_not_a_group(self):
         """"example.com, example.org" is two domains, not a domain in group "example.org"."""
-        entries, rejected = domain_portfolio.parse_import("\n".join([
+        entries, rejected, _ = domain_portfolio.parse_import("\n".join([
             "domain;group",
             "example.nl;Sales",
             "example.com, example.org",
@@ -46,9 +46,26 @@ class ParseImportTests(unittest.TestCase):
         self.assertEqual(["bad..example"], rejected)
 
 
+class ImportConversionTests(unittest.TestCase):
+    def test_a_subdomain_is_added_as_its_registered_domain_and_reported(self):
+        """RDAP has no record of a subdomain: it would show as "not registered",
+        a critical alert for a domain that is fine."""
+        entries, _, converted = domain_portfolio.parse_import(
+            "\n".join(["shop.example.nl;Sales", "https://mail.example.co.uk/login", "example.nl"]))
+        self.assertEqual([("example.nl", "Sales"), ("example.co.uk", None)], entries)
+        self.assertEqual({"shop.example.nl": "example.nl", "mail.example.co.uk": "example.co.uk"},
+                         converted)
+
+    def test_a_header_row_decides_which_columns_are_read(self):
+        """A notes column before the company column was taken for the group."""
+        entries, _, _ = domain_portfolio.parse_import(
+            "\n".join(["Notities;Domein;Bedrijf", "see mail;example.nl;Sales", ";example.com;"]))
+        self.assertEqual([("example.nl", "Sales"), ("example.com", None)], entries)
+
+
 class PortfolioDbTestCase(EnterpriseAppTestCase):
     def add(self, text, group=None):
-        entries, _ = domain_portfolio.parse_import(text)
+        entries, _, _ = domain_portfolio.parse_import(text)
         return domain_portfolio.import_domains(entries, default_group=group)
 
     def row(self, domain):
@@ -73,7 +90,7 @@ class ImportTests(PortfolioDbTestCase):
     def test_more_than_the_cap_is_refused_not_truncated(self):
         with mock.patch.object(domain_portfolio, "MAX_DOMAINS", 2):
             with self.assertRaises(ValueError):
-                self.add("a.example.com\nb.example.com\nc.example.com")
+                self.add("a.example\nb.example\nc.example")
         self.assertEqual([], domain_portfolio.list_all())
 
     def test_deleting_a_group_keeps_its_domains(self):
@@ -175,7 +192,7 @@ class CheckTests(PortfolioDbTestCase):
         self.assertEqual(3, notify.call_count)
 
     def test_a_round_looks_up_the_longest_unchecked_first_and_stops_at_its_cap(self):
-        self.add("\n".join(f"d{i}.example.com" for i in range(5)))
+        self.add("\n".join(f"d{i}.example" for i in range(5)))
         seen = []
         with mock.patch.object(domain_portfolio, "_PER_RUN", 3):
             domain_portfolio.maybe_run(_NOW, fetch=lambda d: seen.append(d) or _answer())
@@ -194,6 +211,31 @@ class ApiTests(PortfolioDbTestCase):
         self.assertEqual(2, data["summary"]["total"]["total"])
         csv_body = self.client.get("/api/portfolio/csv").get_data(as_text=True)
         self.assertIn("example.nl,Sales", csv_body)
+
+    def test_an_excel_sheet_is_imported_by_its_header(self):
+        import io
+        import openpyxl
+        book = openpyxl.Workbook()
+        sheet = book.active
+        sheet.append(["Domain", "Company", "Notes"])
+        sheet.append(["www.example.nl", "Sales", "x"])
+        sheet.append(["example.com", None, None])
+        buf = io.BytesIO()
+        book.save(buf)
+        self.login_as("user")
+        resp = self.client.post("/api/portfolio/import", content_type="multipart/form-data",
+                                data={"file": (io.BytesIO(buf.getvalue()), "domains.xlsx"),
+                                      "group": "Holding"})
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+        domains = {d["domain"]: d["group"] for d in self.client.get("/api/portfolio").get_json()["domains"]}
+        self.assertEqual({"example.nl": "Sales", "example.com": "Holding"}, domains)
+
+    def test_a_file_that_is_not_a_workbook_is_refused(self):
+        import io
+        self.login_as("user")
+        resp = self.client.post("/api/portfolio/import", content_type="multipart/form-data",
+                                data={"file": (io.BytesIO(b"not a zip"), "domains.xlsx")})
+        self.assertEqual(400, resp.status_code)
 
     def test_bulk_move_and_remove(self):
         self.login_as("user")

@@ -158,6 +158,18 @@ async function pfPost(url, body, method) {
     });
 }
 
+function pfShowImport(res) {
+    const parts = [`${res.added.length} added, ${res.moved.length} moved to another group, `
+        + `${res.unchanged.length} already there.`];
+    if (res.converted && res.converted.length) {
+        parts.push('Subdomains replaced by their registered domain: '
+            + res.converted.map(c => `${c.from} → ${c.to}`).join(', ') + '.');
+    }
+    if (res.rejected.length) parts.push(`Not a domain name: ${res.rejected.join(', ')}.`);
+    if (res.added.length) parts.push('New domains are looked up within a few minutes.');
+    $('pfImportResult').textContent = parts.join(' ');
+}
+
 async function pfBulk(action) {
     if (!pf.selected.size) { toast('Select domains first.'); return; }
     const body = { action, ids: [...pf.selected] };
@@ -205,20 +217,39 @@ function initPortfolio() {
         $('pfRemoveBtn').addEventListener('click', () => pfBulk('remove'));
         $('pfImportBtn').addEventListener('click', async () => {
             const text = $('pfImportInput').value;
-            if (!text.trim()) { toast('Paste domains or choose a file first.'); return; }
+            const sheet = pf.sheet;
+            if (!text.trim() && !sheet) { toast('Paste domains or choose a file first.'); return; }
             try {
-                const res = await pfPost('/api/portfolio/import', { text, group: $('pfImportGroup').value });
-                $('pfImportResult').textContent = `${res.added.length} added, ${res.moved.length} moved to another group, `
-                    + `${res.unchanged.length} already there.`
-                    + (res.rejected.length ? ` Not a domain name: ${res.rejected.join(', ')}` : '')
-                    + (res.added.length ? ' New domains are looked up within a few minutes.' : '');
+                let res;
+                if (sheet) {
+                    // A workbook is read on the server; the browser cannot.
+                    const form = new FormData();
+                    form.append('file', sheet);
+                    form.append('group', $('pfImportGroup').value);
+                    res = await requestJson('/api/portfolio/import', { method: 'POST', body: form });
+                } else {
+                    res = await pfPost('/api/portfolio/import', { text, group: $('pfImportGroup').value });
+                }
+                pfShowImport(res);
                 $('pfImportInput').value = '';
+                pf.sheet = null;
+                $('pfImportFile').value = '';
+                $('pfImportInput').disabled = false;
             } catch (err) { toast(err.message); }
             pfLoad();
         });
         $('pfImportFile').addEventListener('change', e => {
             const file = e.target.files && e.target.files[0];
             if (!file) return;
+            if (/\.xlsx$/i.test(file.name)) {
+                pf.sheet = file;
+                $('pfImportInput').value = '';
+                $('pfImportInput').disabled = true;
+                $('pfImportResult').textContent = `${file.name} is ready; press "Add to portfolio".`;
+                return;
+            }
+            pf.sheet = null;
+            $('pfImportInput').disabled = false;
             const reader = new FileReader();
             reader.onload = () => {
                 const box = $('pfImportInput');
