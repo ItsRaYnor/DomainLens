@@ -2553,3 +2553,55 @@ footer, .app-footer {
 .portfolio-table td:nth-child(2) code { white-space: nowrap; }
 #pfGroupTable th { width: auto; }
 #pfGroupTable td:last-child { white-space: nowrap; width: 1%; }
+
+/* Reports -> Dashboard: the management view. Reads on a screen and on paper. */
+.mgmt-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1rem; }
+.mgmt-head h2 { margin: 0 0 0.25rem; }
+.mgmt-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.mgmt .range-group { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.mgmt .range-btn { background: transparent; border: none; color: var(--text-muted); padding: 0.5rem 0.85rem; cursor: pointer; font: inherit; }
+.mgmt .range-btn.active, .mgmt .range-btn:hover { background: var(--bg-card); color: var(--text); }
+.mgmt .chart-sub { margin: -0.35rem 0 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+.mgmt-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.mgmt-kpi { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; }
+.mgmt-kpi .value { font-size: 1.75rem; font-weight: 700; line-height: 1.1; }
+.mgmt-kpi .label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem; }
+.mgmt-kpi .sub { font-size: 0.75rem; color: var(--text-faint); margin-top: 0.15rem; }
+.mgmt-kpi.good .value { color: var(--green); }
+.mgmt-kpi.bad .value { color: var(--red); }
+.mgmt-kpi.warn .value { color: var(--orange); }
+.mgmt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 1rem; }
+.mgmt-grid > .card { margin-bottom: 1rem; }
+.mgmt h3 { margin-top: 0; }
+.mgmt-donut-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; }
+.mgmt-legend { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
+.mgmt-legend li { display: flex; gap: 0.5rem; align-items: baseline; margin: 0.3rem 0; }
+.mgmt-swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; flex: none; transform: translateY(1px); }
+.mgmt-bar-row { display: grid; grid-template-columns: minmax(7rem, 42%) 1fr 3rem; gap: 0.75rem; align-items: center; margin: 0.45rem 0; font-size: 0.88rem; }
+.mgmt-bar { display: flex; height: 0.85rem; border-radius: 999px; overflow: hidden; background: var(--bg-subtle); }
+.mgmt-bar > span { display: block; height: 100%; }
+.mgmt-bar-value { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mgmt-list { list-style: none; margin: 0; padding: 0; }
+.mgmt-list li { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.45rem 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.mgmt-list li:last-child { border-bottom: none; }
+.mgmt-rating { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 6px; font-weight: 700; color: var(--text-on-solid); flex: none; }
+.mgmt svg text { fill: var(--text-muted); font-size: 11px; }
+.mgmt-method li { margin: 0.3rem 0; font-size: 0.88rem; color: var(--text-muted); }
+@media (max-width: 600px) { .mgmt-bar-row { grid-template-columns: 1fr 3rem; } .mgmt-bar-row .mgmt-bar { grid-column: 1 / -1; grid-row: 2; } }
+@media print {
+    .app-header, .no-print, footer, .toast { display: none !important; }
+    .mgmt .card, .mgmt-kpi { break-inside: avoid; box-shadow: none; }
+    .mgmt-grid { grid-template-columns: 1fr 1fr; }
+    body { background: var(--bg); }
+}
+.mgmt-table th { width: auto; }
+.mgmt-table td { word-break: normal; }
+.mgmt-table td:not(:first-child), .mgmt-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Scan page: recent scans and the overviews, under the search box. */
+.home-start { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.home-start h3 { margin-top: 0; }
+.home-links { list-style: none; margin: 0; padding: 0; }
+.home-links a { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.55rem 0.7rem; margin: 0 -0.7rem; border-radius: var(--radius-sm); text-decoration: none; color: var(--text); }
+.home-links a:hover { background: var(--bg-card-hover); }
+.home-links .muted { font-size: 0.82rem; }

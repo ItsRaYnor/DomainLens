@@ -455,9 +455,27 @@ correct behaviour, and a timeout is recorded as unknown rather than clean.
 
 ---
 
+## Management dashboard
+
+**Reports &rarr; Dashboard** shows how all domains stand, for people who do not read scan
+reports: how many are in order, the open critical and high findings, which baseline
+controls are in place (DMARC enforcing, strict SPF, DNSSEC, TLS rated A or B, HSTS, HTTPS
+redirect, no blocklist listing), the risks that affect the most domains, which domains need
+attention first, what got better or worse, and, with a domain portfolio, registrations at
+risk or expiring. Choose 30 days, 90 days or a year, and narrow it to one portfolio group;
+the address keeps the choice, so a link opens the same view. **Print / PDF** prints it as a
+light, two-column report.
+
+Each domain is judged on its latest scan in the period and rated on its open findings:
+A no finding of medium severity or worse, B only medium, C one or two high, D three or more
+high, F any critical. This is not the stored TLS grade, which only describes TLS. Accepted
+risks are not counted as open. A control that could not be measured is shown apart and
+counts neither as in place nor as missing. A domain not scanned in the period is left out
+and listed by name. API: `GET /api/reporting/dashboard?days=90&group={id}`.
+
 ## Trends & reporting
 
-- **Trends** page: `/trends` — KPIs and time series from `scan_metrics`.
+- **Trends** page: `/trends` — scan activity and scores from `scan_metrics`, for whoever runs the scans.
 - `GET /api/reporting/overview?days=30`
 - `GET /api/reporting/trends?days=30&domain=example.com`
 

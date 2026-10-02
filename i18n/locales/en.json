@@ -19,6 +19,7 @@
     "lookup_dns": "DNS record",
     "lookup_impersonation": "Impersonation",
     "reports_history": "Scan history",
+    "reports_dashboard": "Dashboard",
     "reports_trends": "Trends",
     "skip_to_content": "Skip to content",
     "lookup_pgp": "PGP & security.txt",

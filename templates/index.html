@@ -116,6 +116,25 @@
             </div>
         </section>
 
+        {# What a returning user came for is usually not a new scan: the
+           last results, or one of the overviews. Hidden while a scan runs. #}
+        <section class="home-start" id="homeStart">
+            <article class="card">
+                <h3>Recent scans</h3>
+                <ul class="mgmt-list" id="homeRecent"><li class="muted">Loading&hellip;</li></ul>
+                <p class="muted"><a href="/reports">All scans</a></p>
+            </article>
+            <article class="card">
+                <h3>Overviews</h3>
+                <ul class="home-links">
+                    <li><a href="/reports/dashboard"><strong>Dashboard</strong><span class="muted">How all domains stand, for management</span></a></li>
+                    <li><a href="/monitoring/domains"><strong>Domain portfolio</strong><span class="muted">Registrars, expiry and quarantine per group</span></a></li>
+                    <li><a href="/monitoring"><strong>Monitors</strong><span class="muted">Scheduled scans and what changed</span></a></li>
+                    <li><a href="/remediate"><strong>Remediation</strong><span class="muted">What to fix, per domain</span></a></li>
+                </ul>
+            </article>
+        </section>
+
         <!-- Error toast -->
         <div id="errorToast" class="toast hidden"></div>
 

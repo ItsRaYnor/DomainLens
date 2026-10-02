@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // still there next time without needing an admin-settings change.
     initCustomDkimSelectors();
     initDiscovered();
+    initHomeStart();
 
     // Export menu
     const exportBtn = $('exportBtn');
@@ -444,6 +445,8 @@ function readJob() {
 // optional: an unguarded lookup threw a TypeError that runMonitorScan's
 // catch relabelled as "Network error" for a scan that had in fact started.
 function showScanning(domain) {
+    const home = $('homeStart');
+    if (home) home.classList.add('hidden');
     const box = $('loading');
     if (box) box.classList.remove('hidden');
     const label = $('loadingDomain');
@@ -728,6 +731,7 @@ function renderResults(data) {
 
     document.querySelectorAll('.tab')[0].click();
     $('results').classList.remove('hidden');
+    if ($('homeStart')) $('homeStart').classList.add('hidden');
 }
 
 // A check that was not part of this scan has nothing to show. Its card used
@@ -2202,6 +2206,26 @@ function renderCompareHtml(data) {
     return head + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${body}</tbody></table></div>`;
 }
 
+// Scan page: the latest scans, one per domain, so the page is not empty
+// for someone who comes back to look rather than to scan.
+async function initHomeStart() {
+    const list = $('homeRecent');
+    if (!list) return;
+    try {
+        const resp = await fetch('/api/history?limit=30');
+        const data = await resp.json();
+        const seen = new Set();
+        const recent = (data.scans || []).filter(s => !seen.has(s.domain) && seen.add(s.domain)).slice(0, 6);
+        list.innerHTML = recent.length
+            ? recent.map(s => `<li><a href="/report/${encodeURIComponent(s.id)}">${escapeHtml(s.domain)}</a>`
+                + `<span class="muted">${escapeHtml(s.created_at ? new Date(s.created_at).toLocaleDateString() : '')}`
+                + ` &middot; ${s.issues_count || 0} ${(s.issues_count || 0) === 1 ? 'finding' : 'findings'}</span></li>`).join('')
+            : '<li class="muted">No scans yet. Enter a domain above to start.</li>';
+    } catch (e) {
+        list.innerHTML = '<li class="muted">Recent scans could not be loaded.</li>';
+    }
+}
+
 let lastHistoryScans = null;
 
 function renderHistoryList(scans) {
@@ -2222,6 +2246,9 @@ function renderHistoryList(scans) {
         const gradeDiv = document.createElement('div');
         gradeDiv.className = 'history-grade ' + (grade === 'N/A' ? 'g-na' : gradeClass);
         gradeDiv.textContent = grade;
+        // The letter is the TLS grade, not a verdict on the whole domain.
+        gradeDiv.title = grade === 'N/A' ? 'No TLS grade' : 'TLS grade ' + grade;
+        gradeDiv.setAttribute('aria-label', gradeDiv.title);
         item.appendChild(gradeDiv);
 
         const main = document.createElement('div');
@@ -2231,7 +2258,9 @@ function renderHistoryList(scans) {
         domainDiv.textContent = s.domain;
         const metaDiv = document.createElement('div');
         metaDiv.className = 'history-meta';
-        metaDiv.textContent = when + ' \u00b7 ' + (s.issues_count || 0) + ' finding(s)';
+        const issues = s.issues_count || 0;
+        metaDiv.textContent = when + ' \u00b7 ' + (grade === 'N/A' ? '' : 'TLS ' + grade + ' \u00b7 ')
+            + issues + (issues === 1 ? ' finding' : ' findings');
         main.appendChild(domainDiv);
         main.appendChild(metaDiv);
         item.appendChild(main);

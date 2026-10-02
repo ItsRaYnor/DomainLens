@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.reports_dashboard') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main" class="mgmt">
+        <section class="mgmt-head">
+            <div>
+                <h2>Security posture of your domains</h2>
+                <p class="muted" id="mgScope">Loading&hellip;</p>
+            </div>
+            <div class="mgmt-tools no-print">
+                <div class="range-group" id="mgRange" role="group" aria-label="Period">
+                    <button type="button" class="range-btn" data-days="30">30 days</button>
+                    <button type="button" class="range-btn active" data-days="90">90 days</button>
+                    <button type="button" class="range-btn" data-days="365">1 year</button>
+                </div>
+                <select id="mgGroup" aria-label="Group"><option value="">All domains</option></select>
+                <button type="button" class="btn-primary-lite" id="mgPrint">Print / PDF</button>
+            </div>
+        </section>
+
+        <section class="mgmt-kpis" id="mgKpis"></section>
+
+        <section class="mgmt-grid">
+            <article class="card">
+                <h3>Rating per domain</h3>
+                <p class="chart-sub">Based on the open findings of each domain's latest scan in the period.</p>
+                <div class="mgmt-donut-row"><div id="mgRatingChart"></div><ul class="mgmt-legend" id="mgRatingLegend"></ul></div>
+            </article>
+            <article class="card">
+                <h3>Open findings over time</h3>
+                <p class="chart-sub">All open findings across the domains, as of each date. Lower is better.</p>
+                <div id="mgTrendChart"></div>
+            </article>
+        </section>
+
+        <section class="card">
+            <h3>Baseline controls</h3>
+            <p class="chart-sub">Share of domains where the control is in place. Domains where it could not be measured are shown apart and do not count either way.</p>
+            <div id="mgControls"></div>
+        </section>
+
+        <section class="mgmt-grid">
+            <article class="card">
+                <h3>Most common risks</h3>
+                <p class="chart-sub">Findings of medium severity or worse, by the number of domains they affect.</p>
+                <div id="mgTopFindings"></div>
+            </article>
+            <article class="card">
+                <h3>Findings by area</h3>
+                <p class="chart-sub">Open findings per area, by severity.</p>
+                <div id="mgCategories"></div>
+            </article>
+        </section>
+
+        <section class="mgmt-grid">
+            <article class="card">
+                <h3>Needs attention first</h3>
+                <div id="mgAttention"></div>
+            </article>
+            <article class="card">
+                <h3>Change in the period</h3>
+                <div id="mgMovers"></div>
+            </article>
+        </section>
+
+        <section class="card hidden" id="mgPortfolioCard">
+            <h3>Domain registrations</h3>
+            <div id="mgPortfolio"></div>
+        </section>
+
+        <section class="card mgmt-method">
+            <h3>How to read this</h3>
+            <ul id="mgMethod"></ul>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/dashboard.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

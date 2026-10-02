@@ -49,6 +49,7 @@ import overview
 import rdap
 import whois_batch
 import domain_portfolio
+import management
 import domain_watch
 import maintenance
 import metrics
@@ -3806,6 +3807,7 @@ _TOOLS_SUBNAV = [
 ]
 _REPORTS_SUBNAV = [
     ("nav.reports_history", "/reports"),
+    ("nav.reports_dashboard", "/reports/dashboard"),
     ("nav.reports_trends", "/trends"),
     ("nav.reports_compare", "/reports/compare"),
 ]
@@ -4968,6 +4970,24 @@ def reports_compare_view():
     return render_template(
         "reports_compare.html", section="reports",
         subnav=_subnav(_REPORTS_SUBNAV, "/reports/compare"))
+
+
+@app.route("/reports/dashboard")
+def reports_dashboard_view():
+    return render_template(
+        "reports_dashboard.html", section="reports",
+        subnav=_subnav(_REPORTS_SUBNAV, "/reports/dashboard"))
+
+
+@app.route("/api/reporting/dashboard", methods=["GET"])
+def api_reporting_dashboard():
+    """The management view: ratings, controls, top risks and registrations."""
+    days = _parse_positive_int(request.args.get("days"), 90, minimum=7, maximum=365)
+    group = request.args.get("group")
+    try:
+        return jsonify(management.dashboard(days=days, group_id=int(group) if group else None))
+    except ValueError as exc:
+        return jsonify({"error": str(exc) or "Unknown group"}), 400
 
 
 @app.route("/api/reporting/overview", methods=["GET"])

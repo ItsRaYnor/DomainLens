@@ -144,6 +144,11 @@ def spec():
                                              _ok("Deltas"), params=[_DAYS, _DOMAIN_FILTER])},
         "/api/reporting/trends": {"get": _op("Time series", "Reporting", _ok("Trends"),
                                              params=[_DAYS, _DOMAIN_FILTER])},
+        "/api/reporting/dashboard": {"get": _op(
+            "Management view: ratings, baseline controls, common risks, registrations",
+            "Reporting", _ok("Dashboard"),
+            params=[_DAYS, _param("group", schema={"type": "integer"},
+                                  description="Portfolio group id; its domains and their subdomains")])},
         "/api/whois": {"get": _op(
             "Registration data (RDAP, then port-43 WHOIS) for one domain", "WHOIS",
             _ok("Registration data; a subdomain is looked up at its registered domain"),
