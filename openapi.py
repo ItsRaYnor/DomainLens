@@ -215,6 +215,16 @@ def spec():
             params=[_param("group_id", "path", {"type": "integer"})],
             body=_body({"type": "object", "required": ["into"], "properties": {
                 "into": {"type": "integer"}}}))},
+        "/api/portfolio/monitor": {"post": _op(
+            "Create security monitors for portfolio domains (selected ids or a unit)", "Portfolio",
+            {"201": {"description": "Created and already monitored"}}, role="user",
+            body=_body({"type": "object", "properties": {
+                "ids": {"type": "array", "items": {"type": "integer"}},
+                "group_id": {"type": "integer"}, "schedule_minutes": {"type": "integer"},
+                "checks": {"type": "array", "items": {"type": "string"}}}}))},
+        "/api/organisation/{unit_id}": {"get": _op(
+            "One unit with the units below it: figures, domains, monitors, risks, changes",
+            "Portfolio", _ok("Unit"), params=[_param("unit_id", "path", {"type": "integer"})])},
         "/api/portfolio/assign": {"post": _op(
             "Put a host's registered domain in an organisation unit", "Portfolio",
             _ok("Domain, action and unit"), role="user",

@@ -118,6 +118,34 @@ def rating(counts):
     return "A"
 
 
+def rating_of(recs):
+    """The rating of a list of findings: open ones only, accepted left out."""
+    return rating(Counter(r["severity"] for r in recs or [] if not r.get("accepted")))
+
+
+def posture(recs):
+    """{rating, text, counts} for a scan result or report."""
+    counts = Counter(r["severity"] for r in recs or [] if not r.get("accepted"))
+    letter = rating(counts)
+    return {"rating": letter, "text": RATING_TEXT[letter],
+            "counts": {s: counts.get(s, 0) for s in SEVERITIES}}
+
+
+def fill_ratings(scans):
+    """Give listed scans their rating, computing and storing it for rows
+    saved before the rating was kept."""
+    for scan in scans:
+        if scan.get("rating"):
+            continue
+        record = db.get_scan(scan["id"])
+        if not record:
+            continue
+        scan["rating"] = summarize_scan((record["id"], record["created_at"]), record.get("data"))["rating"]
+        with db._lock, db._connect() as conn:
+            conn.execute("UPDATE scan_metrics SET rating = ? WHERE scan_id = ?", (scan["rating"], scan["id"]))
+    return scans
+
+
 def summarize_scan(key, data):
     """Rating, findings and control states of one stored scan (cached)."""
     with _cache_lock:
@@ -206,6 +234,17 @@ def _load(keys):
         if record:
             out[key] = summarize_scan(key, record.get("data"))
     return out
+
+
+def latest_scan_keys(domains):
+    """{host: (scan id, created_at)} of the newest scan of each host of
+    these domains, the domains themselves included."""
+    return _latest_scans(datetime.now(timezone.utc).isoformat(), set(domains))
+
+
+def load_summaries(keys):
+    """{(scan id, created_at): summary} for the given scans (cached)."""
+    return _load(keys)
 
 
 # ---------------------------------------------------------------- the page

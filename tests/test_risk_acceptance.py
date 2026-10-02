@@ -5,13 +5,19 @@ burying the new ones, and nothing recorded that the decision had been made,
 by whom, or until when.
 """
 
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 
 from enterprise_harness import EnterpriseAppTestCase
 
 # A scan that yields "SPF record missing" and nothing clever.
 _RESULTS = {"domain": "example.com", "apex_domain": "example.com",
             "spf": {"success": True, "found": False, "measured": True}}
+
+
+def _utc_today():
+    """The date the application judges expiry by. date.today() is local:
+    between midnight and the UTC date change "yesterday" was still today."""
+    return datetime.now(timezone.utc).date()
 
 
 class AcceptanceTests(EnterpriseAppTestCase):
@@ -28,7 +34,7 @@ class AcceptanceTests(EnterpriseAppTestCase):
             domain=domain, finding_key=self.spf["finding_key"], title=self.spf["title"],
             severity=self.spf["severity"], reason=kwargs.get("reason", "legacy relay until Q3"),
             owner=kwargs.get("owner", "CISO"),
-            expires_on=(date.today() + timedelta(days=days)).isoformat(),
+            expires_on=(_utc_today() + timedelta(days=days)).isoformat(),
             created_by="admin@example.com")
 
     def _spf_now(self, results=None):
@@ -51,7 +57,7 @@ class AcceptanceTests(EnterpriseAppTestCase):
         exception_id = self._accept()
         with self.db._connect() as conn:
             conn.execute("UPDATE finding_exceptions SET expires_on=? WHERE id=?",
-                         ((date.today() - timedelta(days=1)).isoformat(), exception_id))
+                         ((_utc_today() - timedelta(days=1)).isoformat(), exception_id))
         self.assertNotIn("accepted", self._spf_now())
 
     def test_an_acceptance_on_another_domain_does_not_apply(self):
@@ -73,7 +79,7 @@ class AcceptanceTests(EnterpriseAppTestCase):
         risk_acceptance.create(
             domain="example.com", finding_key=key, title=web["title"], severity="high",
             reason="legacy apex host", owner="CISO", created_by="admin@example.com",
-            expires_on=(date.today() + timedelta(days=30)).isoformat())
+            expires_on=(_utc_today() + timedelta(days=30)).isoformat())
         on_sub = risk_acceptance.apply(
             {"domain": "shop.example.com", "apex_domain": "example.com"}, [dict(web)],
             self.rec._condition_key)
@@ -134,7 +140,7 @@ class AcceptanceRoutesTests(EnterpriseAppTestCase):
 
     def _form(self, **overrides):
         form = {"domain": "example.com", "finding_key": self._key(), "reason": "known",
-                "owner": "CISO", "expires_on": (date.today() + timedelta(days=30)).isoformat()}
+                "owner": "CISO", "expires_on": (_utc_today() + timedelta(days=30)).isoformat()}
         form.update(overrides)
         return form
 

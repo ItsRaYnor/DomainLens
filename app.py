@@ -17,7 +17,7 @@ import ssl
 import warnings
 import concurrent.futures
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 import dns.resolver
@@ -3581,6 +3581,7 @@ def _scan_monitor(monitor, progress_cb=None):
     _attach_rapid7_findings(results, target)
     results["recommendations"] = recommendations.generate(results)
     results["recommendation_counts"] = recommendations.summarize_counts(results["recommendations"])
+    results["posture"] = management.posture(results["recommendations"])
     results["monitor"] = {
         "id": monitor["id"],
         "name": monitor["name"],
@@ -3942,6 +3943,11 @@ def _portfolio_payload():
 @app.route("/api/portfolio", methods=["GET"])
 def api_portfolio():
     domains, groups = _portfolio_payload()
+    # Which domains also have security monitoring, on any of their hosts.
+    watched = {domain_portfolio.registrable(str(m.get("target") or "").lower())
+               for m in db.list_monitors(limit=10000)}
+    for d in domains:
+        d["monitored"] = d["domain"] in watched
     return jsonify({"domains": domains, "groups": groups,
                     "summary": domain_portfolio.summary(domains, groups),
                     "events": domain_portfolio.events(30), "max": domain_portfolio.MAX_DOMAINS,
@@ -4039,6 +4045,56 @@ def api_portfolio_group(group_id):
         return jsonify({"error": str(exc) or "Invalid unit"}), 400
     audit_log.record("portfolio.group_update", target_type="portfolio", target_id=group["path"])
     return jsonify(group)
+
+
+@app.route("/api/portfolio/monitor", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_monitor():
+    """Security monitoring for many portfolio domains at once.
+
+    Registration monitoring came with the import; security monitors had to
+    be made one by one. Domains that already have a monitor on that host are
+    left alone. The first runs are spread over the schedule interval, so a
+    hundred new monitors do not all fall due in the same minute.
+    """
+    data = request.get_json(silent=True) or {}
+    domains = domain_portfolio.list_all()
+    if data.get("group_id") not in (None, ""):
+        try:
+            below = domain_portfolio.descendants(int(data["group_id"]))
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid unit"}), 400
+        domains = [d for d in domains if d.get("group_id") in below]
+    else:
+        try:
+            wanted = {int(i) for i in data.get("ids") or []}
+        except (TypeError, ValueError):
+            return jsonify({"error": "ids must be numbers"}), 400
+        domains = [d for d in domains if d["id"] in wanted]
+    if not domains:
+        return jsonify({"error": "Select domains or a unit first"}), 400
+    schedule_minutes = _parse_positive_int(data.get("schedule_minutes"), 1440)
+    checks = _prepare_checks(data.get("checks", ["all"]))
+    # The same test as the "Security monitored" mark: a monitor on any host
+    # of the domain counts, so a domain shown as monitored is not doubled.
+    existing = {domain_portfolio.registrable(str(m.get("target") or "").lower())
+                for m in db.list_monitors(limit=10000)}
+    todo = [d["domain"] for d in domains if d["domain"] not in existing]
+    now = datetime.now(timezone.utc)
+    step = timedelta(minutes=schedule_minutes) / max(len(todo), 1)
+    created = []
+    for i, domain in enumerate(todo):
+        monitor_id = db.create_monitor(
+            name=domain, domain=domain, target=domain, record_type="A",
+            source_type="portfolio", source_label="Domain portfolio",
+            provider="portfolio", schedule_minutes=schedule_minutes, checks=checks, enabled=True)
+        db.update_monitor(monitor_id, next_scan_at=(now + step * i).isoformat())
+        created.append(domain)
+    audit_log.record("monitor.bulk_create", target_type="portfolio",
+                     details={"created": len(created), "skipped": len(domains) - len(created),
+                              "group_id": data.get("group_id"), "checks": checks})
+    return jsonify({"created": created, "already_monitored": len(domains) - len(created),
+                    "spread_minutes": schedule_minutes if len(todo) > 1 else 0}), 201
 
 
 @app.route("/api/portfolio/groups/<int:group_id>/merge", methods=["POST"])
@@ -4150,7 +4206,17 @@ _MONITORING_SUBNAV = [
     ("nav.monitoring_monitors", "/monitoring"),
     ("nav.monitoring_domains", "/monitoring/domains"),
     ("nav.monitoring_organisation", "/monitoring/organisation"),
+    ("nav.monitoring_wanted", "/monitoring/wanted"),
 ]
+
+
+@app.route("/monitoring/wanted")
+def monitoring_wanted_view():
+    """Domains someone wants, watched until they come free. Was a section of
+    Tools -> WHOIS, apart from the domains one holds; it sits with them now."""
+    return render_template(
+        "monitoring_wanted.html", section="monitoring",
+        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/wanted"))
 
 
 @app.route("/monitoring/organisation")
@@ -4167,6 +4233,91 @@ def api_organisation():
     """Per unit: security (scans, monitors, events) and registration status."""
     days = _parse_positive_int(request.args.get("days"), 90, minimum=7, maximum=365)
     return jsonify(management.organisation(days=days))
+
+
+@app.route("/monitoring/organisation/<int:unit_id>")
+def monitoring_unit_view(unit_id):
+    unit = domain_portfolio.get_group(unit_id)
+    if not unit:
+        return redirect("/monitoring/organisation")
+    return render_template(
+        "monitoring_unit.html", section="monitoring", unit=unit,
+        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/organisation"),
+        can_edit=(not auth.config().get("enabled"))
+        or roles.at_least(auth.current_role(), roles.USER))
+
+
+@app.route("/api/organisation/<int:unit_id>", methods=["GET"])
+def api_organisation_unit(unit_id):
+    """Everything of one unit and the units below it, on one page: how it
+    stands, its domains with registration and security, its monitors and
+    what changed. Before, that took the dashboard, the monitor list and the
+    portfolio, each filtered by hand."""
+    groups = domain_portfolio.list_groups()
+    unit = next((g for g in groups if g["id"] == unit_id), None)
+    if not unit:
+        return jsonify({"error": "Unknown unit"}), 404
+    below = domain_portfolio.descendants(unit_id, groups)
+    by_id = {g["id"]: g for g in groups}
+    ancestors, parent = [], unit["parent_id"]
+    while parent in by_id and parent not in [a["id"] for a in ancestors]:
+        ancestors.insert(0, {"id": parent, "name": by_id[parent]["name"]})
+        parent = by_id[parent]["parent_id"]
+
+    domains = [d for d in domain_portfolio.list_all() if d.get("group_id") in below]
+    names = {d["domain"] for d in domains}
+
+    rows = [m for m in db.list_monitors(limit=10000)
+            if domain_portfolio.registrable(str(m.get("target") or "").lower()) in names]
+    latest = db.latest_scans_by_domain(
+        [m.get("domain") for m in rows] + sorted(names))
+    monitors = _with_postures(_with_org_units([
+        _serialize_monitor(m, latest_scan=latest.get(m.get("domain"))) for m in rows]), latest)
+
+    # A domain's security is its newest scan, of the domain itself or of any
+    # of its hosts: a domain only ever scanned as www. is not "not scanned".
+    keys = {}
+    for host, key in management.latest_scan_keys(names).items():
+        domain = domain_portfolio.registrable(host)
+        if domain in names and (domain not in keys or key[0] > keys[domain][0]):
+            keys[domain] = key
+    summaries = management.load_summaries(set(keys.values()))
+    for d in domains:
+        summary = summaries.get(keys.get(d["domain"]))
+        d["posture"] = ({"rating": summary["rating"], "counts": summary["counts"],
+                         "scan_id": keys[d["domain"]][0]} if summary else None)
+        d["monitored"] = any(domain_portfolio.registrable(str(m.get("target") or "").lower()) == d["domain"]
+                             for m in rows)
+
+    monitor_ids = [m["id"] for m in rows]
+    events = []
+    with db._lock, db._connect() as conn:
+        if monitor_ids:
+            marks = ",".join("?" for _ in monitor_ids)
+            for r in conn.execute(
+                    f"SELECT e.created_at AS at, e.severity, e.summary AS detail, m.target AS host "
+                    f"FROM monitor_events e JOIN monitors m ON m.id = e.monitor_id "
+                    f"WHERE e.monitor_id IN ({marks}) ORDER BY e.id DESC LIMIT 15", monitor_ids):
+                events.append({**dict(r), "kind": "security"})
+        if names:
+            marks = ",".join("?" for _ in names)
+            for r in conn.execute(
+                    f"SELECT at, kind AS severity, detail, domain AS host FROM portfolio_events "
+                    f"WHERE domain IN ({marks}) ORDER BY id DESC LIMIT 15", sorted(names)):
+                events.append({**dict(r), "kind": "registration"})
+    events.sort(key=lambda e: e["at"] or "", reverse=True)
+
+    org = management.organisation()
+    dashboard = management.dashboard(days=90, group_id=unit_id)
+    return jsonify({
+        "unit": unit, "ancestors": ancestors,
+        "children": [u for u in org["units"] if u["parent_id"] == unit_id],
+        "totals": next((u for u in org["units"] if u["id"] == unit_id), None),
+        "kpis": dashboard["kpis"], "ratings": dashboard["ratings"],
+        "top_findings": dashboard["top_findings"][:6],
+        "domains": domains, "monitors": monitors, "events": events[:20],
+        "scheduler_enabled": bool(_scheduler_config().get("enabled")),
+    })
 
 
 @app.route("/api/portfolio/unit", methods=["GET"])
@@ -5366,6 +5517,7 @@ def _perform_scan(domain, checks, extra_dkim_selectors, save_history=True, progr
     recs = recommendations.generate(results)
     results["recommendations"] = recs
     results["recommendation_counts"] = recommendations.summarize_counts(recs)
+    results["posture"] = management.posture(recs)
     results["remediation_plan"] = [
         {
             "priority": idx + 1,
@@ -5903,7 +6055,7 @@ def api_history_list():
     days_arg = request.args.get("days")
     days = _parse_positive_int(days_arg, 0, minimum=1, maximum=365) if days_arg else None
 
-    scans = db.list_scans(domain=domain_filter, limit=limit, days=days)
+    scans = management.fill_ratings(db.list_scans(domain=domain_filter, limit=limit, days=days))
     stats = db.history_stats()
     return jsonify({"scans": scans, "stats": stats})
 
@@ -5917,6 +6069,8 @@ def api_history_get(scan_id):
     # the same tiles as a new one.
     if isinstance(record.get("data"), dict):
         record["data"]["overview"] = overview.tile_states(record["data"])
+        # Current, like the tiles: an acceptance added since changes it.
+        record["data"]["posture"] = management.posture(recommendations.generate(record["data"]))
     return jsonify(record)
 
 
@@ -5985,6 +6139,27 @@ def api_compare_scans():
     })
 
 
+def _with_postures(monitors, latest):
+    """Each monitor's rating from the newest scan of its domain, and its
+    last event, so the list says how things stand without opening reports."""
+    keys = {}
+    for m in monitors:
+        scan = latest.get(m.get("domain"))
+        if scan and scan.get("id"):
+            keys[m["id"]] = (scan["id"], scan["created_at"])
+    summaries = management.load_summaries(set(keys.values()))
+    with db._lock, db._connect() as conn:
+        last = {r["monitor_id"]: dict(r) for r in conn.execute(
+            "SELECT monitor_id, severity, summary, created_at FROM monitor_events "
+            "WHERE id IN (SELECT MAX(id) FROM monitor_events GROUP BY monitor_id)").fetchall()}
+    for m in monitors:
+        summary = summaries.get(keys.get(m["id"]))
+        m["posture"] = ({"rating": summary["rating"], "counts": summary["counts"],
+                         "scan_id": keys[m["id"]][0]} if summary else None)
+        m["last_event"] = last.get(m["id"])
+    return monitors
+
+
 def _with_org_units(monitors):
     """Each monitor's organisation unit, through its registered domain.
 
@@ -6022,10 +6197,10 @@ def api_monitors_list():
 
     rows = db.list_monitors(enabled=enabled_filter, due_only=due_only, limit=500)
     latest = db.latest_scans_by_domain([item.get("domain") for item in rows])
-    monitors = _with_org_units([
+    monitors = _with_postures(_with_org_units([
         _serialize_monitor(item, latest_scan=latest.get(item.get("domain")))
         for item in rows
-    ])
+    ]), latest)
     return jsonify({
         "monitors": monitors,
         "stats": db.monitor_stats(),

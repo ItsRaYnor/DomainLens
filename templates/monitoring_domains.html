@@ -36,6 +36,12 @@
                 <span class="muted" id="pfSelected">0 selected</span>
                 <select id="pfMoveTarget" aria-label="Move to unit"></select>
                 <button class="btn-ghost" id="pfMoveBtn" type="button">Move to unit</button>
+                <select id="pfMonitorSchedule" aria-label="Security scan frequency">
+                    <option value="1440" selected>Scan daily</option>
+                    <option value="10080">Scan weekly</option>
+                    <option value="360">Scan every 6 hours</option>
+                </select>
+                <button class="btn-ghost" id="pfMonitorBtn" type="button" title="Create a security monitor (a scheduled full scan) for each selected domain that has none">Monitor security</button>
                 <button class="btn-ghost danger" id="pfRemoveBtn" type="button">Remove from portfolio</button>
             </div>
             {% endif %}

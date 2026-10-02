@@ -45,7 +45,9 @@ function pfRow(d) {
         ? `<td><input type="checkbox" class="pf-select" value="${d.id}"${pf.selected.has(String(d.id)) ? ' checked' : ''} aria-label="Select ${esc(d.domain)}"></td>` : '';
     const actions = pf.canEdit ? '<button class="btn-ghost-sm pf-check" type="button">Check now</button>' : '';
     return `<tr data-id="${d.id}">${check}<td><a href="/tools/whois?domain=${encodeURIComponent(d.domain)}"><code>${esc(d.domain)}</code></a>`
-        + (d.note ? `<div class="muted">${esc(d.note)}</div>` : '') + '</td>'
+        + (d.note ? `<div class="muted">${esc(d.note)}</div>` : '')
+        + (d.monitored ? '<div class="muted" title="A security monitor scans this domain or one of its hosts">Security monitored</div>' : '')
+        + '</td>'
         + `<td>${registrar}<div>${pfTransfer(d)}</div></td>`
         + `<td class="nowrap">${pfExpiry(d)}</td>`
         + `<td>${phase}</td>`
@@ -234,6 +236,20 @@ function initPortfolio() {
     if (pf.canEdit) {
         $('pfMoveBtn').addEventListener('click', () => pfBulk('move'));
         $('pfRemoveBtn').addEventListener('click', () => pfBulk('remove'));
+        $('pfMonitorBtn').addEventListener('click', async () => {
+            if (!pf.selected.size) { toast('Select domains first.'); return; }
+            const schedule = $('pfMonitorSchedule');
+            if (!confirm(`Create a security monitor for ${pf.selected.size} domain(s), `
+                + `${schedule.selectedOptions[0].textContent.toLowerCase()}? Domains already monitored, on any of their hosts, are skipped; `
+                + 'the first scans are spread over that interval.')) return;
+            try {
+                const res = await pfPost('/api/portfolio/monitor', {
+                    ids: [...pf.selected], schedule_minutes: Number(schedule.value) });
+                toast(`${res.created.length} monitor(s) created, ${res.already_monitored} already monitored.`);
+                pf.selected.clear();
+            } catch (err) { toast(err.message); }
+            pfLoad();
+        });
         $('pfImportBtn').addEventListener('click', async () => {
             const text = $('pfImportInput').value;
             const sheet = pf.sheet;

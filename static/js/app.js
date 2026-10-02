@@ -124,6 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initDiscovered();
     initHomeStart();
     on('scanUnitBtn', 'click', assignScanUnit);
+    on('monitorSearch', 'input', () => renderMonitorList(lastMonitors));
     on('monitorUnitFilter', 'change', () => {
         const value = $('monitorUnitFilter').value;
         history.replaceState(null, '', value ? `?unit=${value}` : location.pathname);
@@ -694,6 +695,7 @@ function renderResults(data) {
     }
     $('resultTimestamp').textContent = new Date(data.timestamp).toLocaleString();
     renderScanUnit(data.apex_domain || data.domain);
+    renderPosture(data.posture);
     // A name that is not in DNS was not scanned; say so above everything else.
     const nd = $('notDelegatedNote');
     if (nd) {
@@ -2213,6 +2215,25 @@ function renderCompareHtml(data) {
     return head + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${body}</tbody></table></div>`;
 }
 
+// The A-F rating, the same letter the dashboard and the lists use. It is
+// worked out from the open findings; the TLS grade stays in the TLS tab.
+function postureClass(letter) {
+    return 'g-' + String(letter || 'na').toLowerCase();
+}
+
+function renderPosture(posture) {
+    const badge = $('postureBadge');
+    if (!badge) return;
+    badge.classList.toggle('hidden', !posture);
+    if (!posture) return;
+    badge.textContent = posture.rating;
+    badge.className = 'posture-badge history-grade ' + postureClass(posture.rating);
+    const c = posture.counts || {};
+    badge.title = `Rating ${posture.rating}: ${posture.text}. Open: ${c.critical || 0} critical, `
+        + `${c.high || 0} high, ${c.medium || 0} medium.`;
+    badge.setAttribute('aria-label', badge.title);
+}
+
 // Scan result: the organisation unit of the scanned domain, and a way to
 // put it in one. Needs the portfolio API, so it stays hidden for a viewer
 // and when that is not reachable.
@@ -2267,7 +2288,8 @@ async function initHomeStart() {
         const seen = new Set();
         const recent = (data.scans || []).filter(s => !seen.has(s.domain) && seen.add(s.domain)).slice(0, 6);
         list.innerHTML = recent.length
-            ? recent.map(s => `<li><a href="/report/${encodeURIComponent(s.id)}">${escapeHtml(s.domain)}</a>`
+            ? recent.map(s => `<li><span><span class="history-grade mini ${postureClass(s.rating)}" title="Rating ${escapeHtml(s.rating || '?')}">${escapeHtml(s.rating || '?')}</span> `
+                + `<a href="/report/${encodeURIComponent(s.id)}">${escapeHtml(s.domain)}</a></span>`
                 + `<span class="muted">${escapeHtml(s.created_at ? new Date(s.created_at).toLocaleDateString() : '')}`
                 + ` &middot; ${s.issues_count || 0} ${(s.issues_count || 0) === 1 ? 'finding' : 'findings'}</span></li>`).join('')
             : '<li class="muted">No scans yet. Enter a domain above to start.</li>';
@@ -2288,16 +2310,17 @@ function renderHistoryList(scans) {
     list.innerHTML = '';
     scans.forEach(s => {
         const grade = s.grade || 'N/A';
-        const gradeClass = 'g-' + grade.toLowerCase().replace('+', 'plus').replace('/', '');
+        const rating = s.rating || null;
         const when = s.created_at ? new Date(s.created_at).toLocaleString() : '';
         const item = document.createElement('div');
         item.className = 'history-item';
 
         const gradeDiv = document.createElement('div');
-        gradeDiv.className = 'history-grade ' + (grade === 'N/A' ? 'g-na' : gradeClass);
-        gradeDiv.textContent = grade;
-        // The letter is the TLS grade, not a verdict on the whole domain.
-        gradeDiv.title = grade === 'N/A' ? 'No TLS grade' : 'TLS grade ' + grade;
+        gradeDiv.className = 'history-grade ' + postureClass(rating);
+        gradeDiv.textContent = rating || '?';
+        // The rating from the open findings, as on the dashboard; the TLS
+        // grade is named in the line below.
+        gradeDiv.title = rating ? 'Rating ' + rating + ' (open findings)' : 'Not rated';
         gradeDiv.setAttribute('aria-label', gradeDiv.title);
         item.appendChild(gradeDiv);
 
@@ -2550,8 +2573,11 @@ async function setMonitorUnit(m, unitId) {
     loadMonitors();
 }
 
-// Monitors in sections per unit, in the order of the organisation tree; a
-// unit filter shows that unit and the units below it.
+// Monitors as a table, in sections per unit in the order of the
+// organisation tree. A unit filter shows that unit and the units below it;
+// the search narrows on host, label and unit. Each row says how the domain
+// stands (rating, open critical/high) and what last changed, so the list
+// answers "where is it bad" without opening reports.
 function renderMonitorList(monitors) {
     const list = $('monitorList');
     if (monitors.length === 0) {
@@ -2559,52 +2585,64 @@ function renderMonitorList(monitors) {
         return;
     }
     const scope = monitorUnitScope();
-    const shown = monitors.filter(m => !scope
-        || (scope === 'none' ? !m.org_unit : (m.org_unit && scope.has(m.org_unit.id))));
-    list.innerHTML = shown.length ? '' : '<p class="history-empty">No monitors in this unit</p>';
+    const query = (($('monitorSearch') || {}).value || '').trim().toLowerCase();
+    const shown = monitors.filter(m => (!scope
+        || (scope === 'none' ? !m.org_unit : (m.org_unit && scope.has(m.org_unit.id))))
+        && (!query || [m.name, m.target, m.org_unit && m.org_unit.path]
+            .some(v => v && String(v).toLowerCase().includes(query))));
+    if (!shown.length) {
+        list.innerHTML = '<p class="history-empty">No monitors match</p>';
+        return;
+    }
     const order = new Map(monitorUnits.map((u, i) => [u.id, i]));
     const rank = m => (m.org_unit ? (order.has(m.org_unit.id) ? order.get(m.org_unit.id) : 1e6) : 1e7);
-    const sorted = shown.slice().sort((a, b) => rank(a) - rank(b));
+    const sorted = shown.slice().sort((a, b) => rank(a) - rank(b) || String(a.target).localeCompare(String(b.target)));
+
+    const table = document.createElement('table');
+    table.className = 'data-table monitor-table';
+    table.innerHTML = '<thead><tr><th>Host</th><th>Rating</th><th>Last change</th><th>Reports</th><th></th></tr></thead>';
+    const body = document.createElement('tbody');
     let currentHeading = null;
-    const grouped = monitorUnits.length > 0;
     sorted.forEach(m => {
         const heading = m.org_unit ? m.org_unit.path : 'Not in a unit';
-        if (grouped && heading !== currentHeading) {
+        if (monitorUnits.length && heading !== currentHeading) {
             currentHeading = heading;
-            const h = document.createElement('h5');
-            h.className = 'monitor-unit-heading';
-            h.textContent = heading;
-            list.appendChild(h);
+            const head = document.createElement('tr');
+            head.className = 'monitor-unit-row';
+            head.innerHTML = `<th colspan="5">${escapeHtml(heading)}</th>`;
+            body.appendChild(head);
         }
-        const item = document.createElement('div');
-        item.className = 'monitor-item';
+        const row = document.createElement('tr');
+        if (!m.enabled) row.className = 'monitor-paused';
+        const p = m.posture;
+        const rating = p
+            ? `<span class="history-grade mini ${postureClass(p.rating)}" title="Rating ${escapeHtml(p.rating)}">${escapeHtml(p.rating)}</span>`
+              + ` <span class="muted">${p.counts.critical} crit · ${p.counts.high} high</span>`
+            : '<span class="muted">Not scanned yet</span>';
+        const ev = m.last_event;
+        const change = ev
+            ? `<span class="sev-text sev-${escapeHtml(ev.severity)}">${escapeHtml(ev.severity)}</span> ${escapeHtml(ev.summary)}`
+              + `<div class="muted">${escapeHtml(new Date(ev.created_at).toLocaleString())}</div>`
+            : '<span class="muted">No changes yet</span>';
+        row.innerHTML = `<td><div class="monitor-name">${escapeHtml(monitorDisplayName(m))}${m.enabled ? '' : ' <span class="muted">(paused)</span>'}</div>`
+            + `<div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(formatFrequency(m.schedule_minutes))} · `
+            + `${escapeHtml(monitorScopeLabel(m.checks))} · watches ${escapeHtml(m.record_type || 'A')} record</div></td>`
+            + `<td class="nowrap">${rating}</td><td>${change}</td>`
+            + `<td class="monitor-meta">${monitorReportLinks(m)}</td>`;
 
-        const main = document.createElement('div');
-        main.className = 'monitor-main';
-        main.innerHTML = `<div class="monitor-name">${escapeHtml(monitorDisplayName(m))}</div>
-            <div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(formatFrequency(m.schedule_minutes))} · ${escapeHtml(monitorScopeLabel(m.checks))} · watches ${escapeHtml(m.record_type || 'A')} record</div>
-            <div class="monitor-meta">${escapeHtml(m.source_label || m.source_type)}${m.next_scan_at ? ' · next: ' + escapeHtml(new Date(m.next_scan_at).toLocaleString()) : ''}</div>
-            <div class="monitor-meta">${monitorReportLinks(m)}</div>`;
-        item.appendChild(main);
-
-        const actions = document.createElement('div');
-        actions.className = 'monitor-actions';
-
+        const actions = document.createElement('td');
+        actions.className = 'monitor-row-actions';
         const scanBtn = document.createElement('button');
+        scanBtn.className = 'btn-ghost-sm';
         scanBtn.textContent = 'Run now';
         scanBtn.title = 'Run this monitor\'s scan immediately, regardless of its schedule';
-        scanBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            runMonitorScan(m.id, scanBtn);
-        });
+        scanBtn.addEventListener('click', () => runMonitorScan(m.id, scanBtn));
         actions.appendChild(scanBtn);
 
         const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn-ghost-sm';
         toggleBtn.textContent = m.enabled ? 'Pause' : 'Enable';
-        toggleBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            toggleMonitor(m);
-        });
+        toggleBtn.addEventListener('click', () => toggleMonitor(m));
         actions.appendChild(toggleBtn);
 
         if (monitorUnits.length) {
@@ -2614,23 +2652,25 @@ function renderMonitorList(monitors) {
             unitSel.setAttribute('aria-label', 'Organisation unit');
             unitSel.innerHTML = (m.org_unit ? '' : '<option value="">Not in a unit</option>') + monitorUnitOptions();
             unitSel.value = m.org_unit ? String(m.org_unit.id) : '';
-            unitSel.addEventListener('click', e => e.stopPropagation());
             unitSel.addEventListener('change', () => setMonitorUnit(m, unitSel.value));
             actions.appendChild(unitSel);
         }
 
         const delBtn = document.createElement('button');
-        delBtn.className = 'danger';
+        delBtn.className = 'btn-ghost-sm danger';
         delBtn.textContent = 'Delete';
-        delBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            deleteMonitor(m.id);
-        });
+        delBtn.addEventListener('click', () => deleteMonitor(m.id));
         actions.appendChild(delBtn);
 
-        item.appendChild(actions);
-        list.appendChild(item);
+        row.appendChild(actions);
+        body.appendChild(row);
     });
+    table.appendChild(body);
+    const wrap = document.createElement('div');
+    wrap.className = 'users-table-wrap';
+    wrap.appendChild(table);
+    list.innerHTML = '';
+    list.appendChild(wrap);
 }
 
 // Renders the same grouped check catalog the scan form offers, so a monitor

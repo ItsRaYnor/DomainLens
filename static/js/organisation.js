@@ -49,7 +49,7 @@ function orgRow(u) {
         : '<span class="muted">No domains</span>';
     const links = `<a href="/reports/dashboard?group=${u.id}">Dashboard</a> &middot; `
         + `<a href="/monitoring?unit=${u.id}">Monitors</a> &middot; <a href="/monitoring/domains?group=${u.id}">Domains</a>`;
-    return `<tr><td class="org-unit" style="padding-left:${0.6 + u.depth * 1.25}rem"><strong>${esc(u.name)}</strong>`
+    return `<tr><td class="org-unit" style="padding-left:${0.6 + u.depth * 1.25}rem"><a href="/monitoring/organisation/${u.id}"><strong>${esc(u.name)}</strong></a>`
         + (u.effective_registrar ? `<div class="muted">Registrar: ${esc(u.effective_registrar)}${u.registrar_inherited ? ' (inherited)' : ''}</div>` : '')
         + `</td><td>${orgRatingBar(s.ratings, s.scanned)}</td><td>${findings}</td>`
         + `<td>${s.monitors} <span class="muted">(${s.monitors_enabled} on)</span>`

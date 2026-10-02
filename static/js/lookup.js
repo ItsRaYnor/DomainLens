@@ -917,7 +917,7 @@ async function loadWatchlist() {
     }).join('');
     table.innerHTML = rows
         ? '<tr><th>Domain</th><th>Phase</th><th>Last looked up</th><th></th></tr>' + rows
-        : '<tr><td class="muted">Nothing on the watchlist yet.</td></tr>';
+        : '<tr><td class="muted">No wanted domains yet.</td></tr>';
     const ev = $('watchEvents');
     if (ev) {
         ev.innerHTML = (data.events || []).slice(0, 10)
@@ -932,12 +932,18 @@ async function addToWatchlist(text) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, note: ($('watchNote') && $('watchNote').value) || '' }),
         });
-        toast(res.added.length ? `Watching ${res.added.join(', ')}` : 'Already on the watchlist.');
+        toast(res.added.length ? `Watching ${res.added.join(', ')} under Monitoring → Wanted domains`
+            : 'Already in Wanted domains.');
         await loadWatchlist();
     } catch (err) { toast(err.message); }
 }
 
 function initWatchlist() {
+    // The WHOIS page has the button but no longer the list: bind it first.
+    const watchBtn = $('whoisWatchBtn');
+    if (watchBtn) {
+        watchBtn.addEventListener('click', () => addToWatchlist(watchBtn.dataset.domain || ''));
+    }
     const table = $('watchTable');
     if (!table) return;
     $('watchAddBtn').addEventListener('click', async () => {
@@ -962,10 +968,6 @@ function initWatchlist() {
         } catch (err) { toast(err.message); }
         loadWatchlist();
     });
-    const watchBtn = $('whoisWatchBtn');
-    if (watchBtn) {
-        watchBtn.addEventListener('click', () => addToWatchlist(watchBtn.dataset.domain || ''));
-    }
     loadWatchlist();
 }
 

@@ -38,10 +38,14 @@ class ScriptTests(unittest.TestCase):
         show = APP_JS[APP_JS.index("function showScanning"):]
         self.assertIn("homeStart", show[:show.index("\n}\n")])
 
-    def test_the_history_letter_says_it_is_the_tls_grade(self):
+    def test_the_history_letter_is_the_rating_and_tls_is_named_apart(self):
+        """The big letter was the TLS grade and read as a verdict on the
+        domain; it is now the same A-F rating as the dashboard, and the TLS
+        grade is spelled out in the line below."""
         history = APP_JS[APP_JS.index("function renderHistoryList"):]
         history = history[:history.index("\n}\n")]
-        self.assertIn("'TLS grade '", history)
+        self.assertIn("postureClass(rating)", history)
+        self.assertIn("'TLS ' + grade", history)
         self.assertNotIn("finding(s)", history)
 
 

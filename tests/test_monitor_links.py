@@ -152,7 +152,8 @@ class MonitorRenderingTests(unittest.TestCase):
     def test_monitor_list_uses_the_link_helper(self):
         js = self._app_js()
         start = js.index("function renderMonitorList")
-        block = js[start:start + 3000]
+        # The whole function: a fixed window broke when the list became a table.
+        block = js[start:js.index("\n}\n", start)]
         self.assertIn("monitorReportLinks(m)", block)
 
     def test_event_list_renders_a_scan_link(self):

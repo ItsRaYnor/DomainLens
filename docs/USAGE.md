@@ -134,9 +134,9 @@ delete*) shows when it is released: at a random moment within the hour after the
 time. SIDN shows holder and contacts only on its own website, behind bot protection; this
 tool links there rather than scraping it.
 
-### Watchlist
+### Watchlist (Wanted domains)
 
-**Tools &rarr; WHOIS &rarr; Watchlist** follows domains you want until they come free:
+**Monitoring &rarr; Wanted domains** follows domains you want until they come free:
 every six hours, hourly while one is being deleted, and every minute in the hour a `.nl`
 domain leaves quarantine. Each change (into quarantine, restored, available, registered by
 someone else) is recorded and sent through the notification channels
@@ -492,6 +492,30 @@ registrar (taking the first's only when it had none), and the first is removed. 
 `POST /api/portfolio/assign`, `GET /api/portfolio/unit?domain=`, `POST /api/portfolio/groups`
 (with `parent_id`), `PUT /api/portfolio/groups/{id}` (`name`, `parent_id`,
 `expected_registrar`), and `org_unit_id` on `POST`/`PATCH /api/monitors`.
+
+### A unit's own page
+
+Click a unit on the Organisation page for everything of that unit and the units below it:
+the figures (in order, open critical and high findings, monitors, registrations at risk or
+expiring), its units, its domains with both their security rating and registration status,
+its monitors, the most common risks and the recent changes of both kinds. **Monitor security
+of all domains** creates a security monitor (a scheduled full scan) for every domain of the
+unit that has none on any of its hosts; the first scans are spread over the chosen interval
+so they do not all run at once. The same action is in the domain portfolio for selected
+domains (**Monitor security**), and the portfolio marks domains that are already monitored.
+
+### Wanted domains
+
+Domains you want rather than hold &mdash; taken, expiring or in quarantine &mdash; are under
+**Monitoring &rarr; Wanted domains** (formerly the watchlist under Tools &rarr; WHOIS; the
+"Watch this domain" button there still adds to it).
+
+### One rating
+
+Every list uses the same A&ndash;F rating as the dashboard, worked out from the open findings:
+the scan result shows it beside the title, the scan history and the start page show it per
+scan, and the Monitors table per host, with the open critical and high findings and the last
+change. The TLS grade is named as such in the history line and in the TLS tab.
 
 ## Management dashboard
 

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.monitoring_wanted') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card" id="watchlist">
+            <h2 data-i18n="nav.monitoring_wanted">{{ t('nav.monitoring_wanted') }}</h2>
+            <p class="ct-desc">Domains you <strong>want</strong>, not ones you hold (those belong in the <a href="/monitoring/domains">domain portfolio</a>): taken, expiring or in quarantine, watched until they come free. DomainLens looks each one up at the registry &mdash; every six hours, hourly while it is being deleted, and every minute in the hour a .nl domain leaves quarantine &mdash; and sends every change through your notification channels (Settings &rarr; Notifications). It cannot register a domain for you: when one is available, register it at your registrar straight away, or have a backorder service catch it.</p>
+            <textarea id="watchInput" rows="3" class="mono" placeholder="example.nl" spellcheck="false"></textarea>
+            <div class="dns-lookup-form">
+                <input type="text" id="watchNote" placeholder="Note (optional)" autocomplete="off">
+                <button class="btn-primary-lite" id="watchAddBtn" type="button">Add to wanted domains</button>
+            </div>
+            <div class="users-table-wrap"><table class="data-table" id="watchTable"></table></div>
+            <h3 class="monitor-subhead">Recent changes</h3>
+            <div id="watchEvents" class="ct-desc"></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

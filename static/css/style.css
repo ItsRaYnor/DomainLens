@@ -2618,3 +2618,32 @@ footer, .app-footer {
 .monitor-unit-heading { margin: 1rem 0 0.35rem; font-size: 0.85rem; color: var(--text-muted); }
 .monitor-unit-select { max-width: 11rem; }
 .scan-unit { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.25rem 0 1rem; font-size: 0.88rem; }
+
+/* The A-F rating beside a scan's title and in short lists. */
+.posture-badge { display: inline-flex; vertical-align: middle; margin-right: 0.6rem; }
+.history-grade.mini { display: inline-flex; width: 1.4rem; height: 1.4rem; font-size: 0.72rem; vertical-align: middle; }
+.home-start .mgmt-list li > span:first-child { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+/* Monitors as a table: unit rows, a rating per host, compact actions. */
+.monitor-table th { width: auto; }
+.monitor-table td { word-break: normal; overflow-wrap: anywhere; vertical-align: top; }
+.monitor-table .monitor-unit-row th { padding-top: 0.9rem; color: var(--text); font-weight: 600; }
+.monitor-table .monitor-paused td { opacity: 0.6; }
+.monitor-row-actions { white-space: nowrap; width: 1%; }
+.monitor-row-actions > * { margin: 0 0.25rem 0.25rem 0; }
+.sev-text { font-weight: 600; text-transform: capitalize; }
+.sev-text.sev-critical { color: var(--sev-critical); }
+.sev-text.sev-high { color: var(--sev-high); }
+.sev-text.sev-medium { color: var(--sev-medium); }
+.sev-text.sev-low { color: var(--sev-low); }
+.sev-text.sev-info { color: var(--text-muted); }
+#monitorSearch { flex: 1 1 200px; }
+@media (max-width: 760px) {
+    .monitor-row-actions { white-space: normal; }
+}
+
+/* One organisation unit: trail back up, then everything of that unit. */
+.unit-trail { margin: 0 0 0.5rem; font-size: 0.85rem; }
+.unit-trail a { color: inherit; }
+.chip-kind { display: inline-block; font-size: 0.72rem; padding: 0 0.4rem; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); margin: 0 0.25rem; }
+.unit-rating { text-decoration: none; }

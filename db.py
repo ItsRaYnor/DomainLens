@@ -176,6 +176,13 @@ def init_db():
         }
         if "last_state_hash" not in columns:
             conn.execute("ALTER TABLE monitors ADD COLUMN last_state_hash TEXT")
+        # The A-F rating of each scan, so lists need not re-read its JSON.
+        # Older rows stay NULL and are filled in when first asked for.
+        metric_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(scan_metrics)").fetchall()
+        }
+        if "rating" not in metric_columns:
+            conn.execute("ALTER TABLE scan_metrics ADD COLUMN rating TEXT")
 
         conn.execute(
             """
@@ -404,9 +411,13 @@ def _extract_metrics(domain, results, issues_count, grade, header_score, monitor
     created_at = created_at or datetime.now(timezone.utc).isoformat()
     day = created_at[:10]
     rec_count = issues_count
+    rating = None
     try:
         import recommendations
-        rec_count = recommendations.open_count(recommendations.generate(results))
+        recs = recommendations.generate(results)
+        rec_count = recommendations.open_count(recs)
+        import management
+        rating = management.rating_of(recs)
     except Exception:
         pass
 
@@ -426,6 +437,7 @@ def _extract_metrics(domain, results, issues_count, grade, header_score, monitor
         "blacklist_listed": 1 if blacklist.get("is_listed") else 0,
         "dnssec_signed": None if not dnssec else (1 if dnssec.get("signed") else 0),
         "https_redirect": None if "pass" not in https else (1 if https.get("pass") else 0),
+        "rating": rating,
     }
 
 
@@ -460,9 +472,9 @@ def save_scan(domain, results):
                 INSERT INTO scan_metrics (
                     scan_id, domain, monitor_id, created_at, day, grade, grade_score,
                     header_score, issues_count, recommendation_count, blacklist_listed,
-                    dnssec_signed, https_redirect
+                    dnssec_signed, https_redirect, rating
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     scan_id,
@@ -478,6 +490,7 @@ def save_scan(domain, results):
                     metrics["blacklist_listed"],
                     metrics["dnssec_signed"],
                     metrics["https_redirect"],
+                    metrics["rating"],
                 ),
             )
             conn.execute("COMMIT")
@@ -497,12 +510,12 @@ def list_scans(domain=None, limit=100, days=None):
     clauses = []
     params = []
     if domain:
-        clauses.append("domain = ?")
+        clauses.append("s.domain = ?")
         params.append(domain)
     if days:
         days = max(1, min(int(days), 365))
         start = (datetime.now(timezone.utc) - timedelta(days=days - 1)).date().isoformat()
-        clauses.append("created_at >= ?")
+        clauses.append("s.created_at >= ?")
         params.append(start)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     params.append(limit)
@@ -510,10 +523,11 @@ def list_scans(domain=None, limit=100, days=None):
     with _lock, _connect() as conn:
         rows = conn.execute(
             f"""
-            SELECT id, domain, created_at, grade, score, issues_count
-            FROM scans
+            SELECT s.id, s.domain, s.created_at, s.grade, s.score, s.issues_count, sm.rating
+            FROM scans s
+            LEFT JOIN scan_metrics sm ON sm.scan_id = s.id
             {where}
-            ORDER BY created_at DESC LIMIT ?
+            ORDER BY s.created_at DESC LIMIT ?
             """,
             params,
         ).fetchall()
