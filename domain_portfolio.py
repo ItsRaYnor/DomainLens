@@ -58,6 +58,7 @@ _GROUPS_TABLE = """
             name TEXT NOT NULL COLLATE NOCASE,
             parent_id INTEGER,
             expected_registrar TEXT,
+            notify_emails TEXT,
             created_at TEXT NOT NULL
         )
         """
@@ -72,6 +73,8 @@ def _migrate_groups(conn):
     """
     columns = {r["name"] for r in conn.execute("PRAGMA table_info(portfolio_groups)").fetchall()}
     if "parent_id" in columns:
+        if "notify_emails" not in columns:
+            conn.execute("ALTER TABLE portfolio_groups ADD COLUMN notify_emails TEXT")
         return
     conn.execute("BEGIN")
     try:
@@ -236,7 +239,46 @@ def ensure_path(path, conn=None):
 _UNSET = object()
 
 
-def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNSET):
+_EMAIL = re.compile(r"^[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+$")
+MAX_UNIT_RECIPIENTS = 10
+
+
+def clean_recipients(text):
+    """A unit's notification addresses from "a@x, b@y": checked, deduplicated."""
+    found = []
+    for part in re.split(r"[\s,;]+", str(text or "")):
+        part = part.strip().lower()
+        if not part:
+            continue
+        if not _EMAIL.match(part):
+            raise ValueError(f"{part} is not an e-mail address")
+        if part not in found:
+            found.append(part)
+    if len(found) > MAX_UNIT_RECIPIENTS:
+        raise ValueError(f"At most {MAX_UNIT_RECIPIENTS} addresses per unit")
+    return found
+
+
+def unit_recipients(hostname):
+    """(unit path, addresses) for a host: its unit's addresses and those of
+    every unit above it, so a company's contact hears of its business units.
+    (None, []) when the domain is in no unit."""
+    unit = unit_of(hostname)
+    if not unit:
+        return None, []
+    groups = {g["id"]: g for g in list_groups()}
+    found, current, seen = [], unit["id"], set()
+    while current in groups and current not in seen:
+        seen.add(current)
+        for address in (groups[current].get("notify_emails") or "").split(","):
+            if address and address not in found:
+                found.append(address)
+        current = groups[current]["parent_id"]
+    return unit["path"], found
+
+
+def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNSET,
+                 notify_emails=None):
     group = get_group(group_id)
     if not group:
         raise ValueError("Unknown unit")
@@ -251,6 +293,9 @@ def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNS
     if expected_registrar is not None:
         fields.append("expected_registrar = ?")
         values.append(" ".join(str(expected_registrar).split())[:200] or None)
+    if notify_emails is not None:
+        fields.append("notify_emails = ?")
+        values.append(",".join(clean_recipients(notify_emails)) or None)
     with db._lock, db._connect() as conn:
         clash = _find(conn, new_name, new_parent)
         if clash and clash != int(group_id):
@@ -628,6 +673,7 @@ def _enrich(row, groups, today=None):
     out["phase_text"] = PHASE_TEXT.get(out["phase"], out["phase"])
     group = groups.get(out.get("group_id"))
     out["group"] = group["path"] if group else None
+    out["unit"], out["unit_id"] = out["group"], out.get("group_id")
     out["transfer"] = transfer_state(out, group)
     out["expiry_state"], out["days_left"] = expiry_state(out, today)
     # The last lookup failed, so what is shown is the answer before it.
@@ -682,7 +728,7 @@ def events(limit=50):
     return [dict(r) for r in rows]
 
 
-CSV_COLUMNS = ["domain", "group", "phase", "registrar", "reseller", "transfer", "expires",
+CSV_COLUMNS = ["domain", "unit", "phase", "registrar", "reseller", "transfer", "expires",
                "days_left", "registered_on", "dnssec", "nameservers", "status", "last_checked_at",
                "last_error"]
 

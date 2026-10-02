@@ -151,7 +151,7 @@ function mgRender(d) {
     $('mgPortfolioCard').classList.toggle('hidden', !p);
     if (p) {
         $('mgPortfolio').innerHTML = (p.groups.length
-            ? `<div class="users-table-wrap"><table class="data-table mgmt-table"><tr><th>Group</th><th>Domains</th>`
+            ? `<div class="users-table-wrap"><table class="data-table mgmt-table"><tr><th>Unit</th><th>Domains</th>`
               + `<th>At risk</th><th>Expiring ≤ 30 d</th><th>To move</th><th>Not measured</th></tr>`
               + p.groups.map(g => `<tr><td>${esc(g.name)}</td><td>${g.total}</td><td>${g.attention}</td>`
                 + `<td>${g.expiring}</td><td>${g.move}</td><td>${g.unmeasured}</td></tr>`).join('') + '</table></div>' : '')
@@ -173,7 +173,7 @@ function mgRender(d) {
 
 async function mgLoad() {
     const qs = new URLSearchParams({ days: mg.days });
-    if (mg.group) qs.set('group', mg.group);
+    if (mg.group) qs.set('unit', mg.group);
     try {
         mgRender(await requestJson('/api/reporting/dashboard?' + qs));
     } catch (err) { toast(err.message); $('mgScope').textContent = err.message; }
@@ -192,7 +192,7 @@ function initDashboard() {
     if (!$('mgKpis')) return;
     const params = new URLSearchParams(location.search);
     mg.days = Number(params.get('days')) || 90;
-    mg.group = params.get('group') || '';
+    mg.group = params.get('unit') || params.get('group') || '';
     document.querySelectorAll('#mgRange .range-btn').forEach(btn => {
         btn.classList.toggle('active', Number(btn.dataset.days) === mg.days);
         btn.addEventListener('click', () => {
@@ -210,7 +210,7 @@ function initDashboard() {
 // The address carries the view, so a link to "Sales, last year" opens it.
 function mgSync() {
     const qs = new URLSearchParams({ days: mg.days });
-    if (mg.group) qs.set('group', mg.group);
+    if (mg.group) qs.set('unit', mg.group);
     history.replaceState(null, '', '?' + qs);
     mgLoad();
 }

@@ -225,6 +225,25 @@ def spec():
         "/api/organisation/{unit_id}": {"get": _op(
             "One unit with the units below it: figures, domains, monitors, risks, changes",
             "Portfolio", _ok("Unit"), params=[_param("unit_id", "path", {"type": "integer"})])},
+        "/api/organisation/units": {"post": _op(
+            "Add an organisation unit", "Portfolio", {"201": {"description": "Unit"}}, role="user",
+            body=_body({"type": "object", "required": ["name"], "properties": {
+                "name": {"type": "string"}, "parent_id": {"type": "integer"},
+                "expected_registrar": {"type": "string"},
+                "notify_emails": {"type": "string", "description": "Comma-separated addresses"}}}))},
+        "/api/organisation/units/{group_id}": {
+            "put": _op("Rename, move, or set the registrar or alert addresses of a unit", "Portfolio",
+                       _ok("Unit"), role="user", params=[_param("group_id", "path", {"type": "integer"})]),
+            "delete": _op("Delete a unit; its domains and units move one level up", "Portfolio",
+                          _ok("Removed"), role="user",
+                          params=[_param("group_id", "path", {"type": "integer"})]),
+        },
+        "/api/organisation/units/{group_id}/merge": {"post": _op(
+            "Merge a unit into another, with its domains and units", "Portfolio",
+            _ok("Counts and the resulting unit"), role="user",
+            params=[_param("group_id", "path", {"type": "integer"})],
+            body=_body({"type": "object", "required": ["into"], "properties": {
+                "into": {"type": "integer"}}}))},
         "/api/portfolio/assign": {"post": _op(
             "Put a host's registered domain in an organisation unit", "Portfolio",
             _ok("Domain, action and unit"), role="user",

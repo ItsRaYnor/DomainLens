@@ -2647,3 +2647,9 @@ footer, .app-footer {
 .unit-trail a { color: inherit; }
 .chip-kind { display: inline-block; font-size: 0.72rem; padding: 0 0.4rem; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); margin: 0 0.25rem; }
 .unit-rating { text-decoration: none; }
+
+/* Scheduler off: one notice under the menu on the pages that depend on it. */
+.scheduler-banner { box-sizing: border-box; width: calc(100% - 2rem); max-width: 960px; margin: 0.5rem auto 0.75rem; padding: 0.55rem 1rem; border: 1px solid var(--orange-line); background: var(--orange-bg); border-radius: var(--radius-sm); font-size: 0.88rem; }
+.org-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 1.3rem; padding: 0; font: inherit; }
+.org-toggle:hover { color: var(--text); }
+.org-toggle-space { display: inline-block; width: 1.3rem; }

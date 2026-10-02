@@ -43,10 +43,11 @@ function unitRender(d) {
     $('unitTrail').innerHTML = '<a href="/monitoring/organisation">Organisation</a>'
         + d.ancestors.map(a => ` › <a href="/monitoring/organisation/${a.id}">${esc(a.name)}</a>`).join('')
         + ` › <span>${esc(d.unit.name)}</span>`;
+    const notify = (d.unit.notify_emails || '').split(',').filter(Boolean);
     $('unitSub').textContent = (d.unit.effective_registrar
         ? `Registrar: ${d.unit.effective_registrar}${d.unit.registrar_inherited ? ' (inherited)' : ''} · ` : '')
+        + (notify.length ? `Alerts also to ${notify.join(', ')} · ` : '')
         + 'Figures include the units below it.';
-    $('unitSchedulerOff').classList.toggle('hidden', d.scheduler_enabled !== false);
     unitKpis(d);
 
     $('unitChildrenCard').classList.toggle('hidden', !d.children.length);

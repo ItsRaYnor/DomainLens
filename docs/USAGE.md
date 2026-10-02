@@ -493,6 +493,27 @@ registrar (taking the first's only when it had none), and the first is removed. 
 (with `parent_id`), `PUT /api/portfolio/groups/{id}` (`name`, `parent_id`,
 `expected_registrar`), and `org_unit_id` on `POST`/`PATCH /api/monitors`.
 
+### Alerts per unit
+
+A unit can have its own alert addresses (**Notify**, under Units and their registrar).
+Alerts about its domains &mdash; registration and security &mdash; go to them by e-mail, besides
+the general channels, and also to the addresses of the units above it, so a company contact
+hears about its business units. Every alert names the unit, in e-mail, Slack, Teams and the
+webhook payload (`unit`). Unit e-mail uses the SMTP settings and minimum severity under
+Settings &rarr; Notifications; an address already on the general list is not mailed twice.
+
+### Collapsing the tree
+
+The Organisation table folds per unit (▸/▾) and has Expand all / Collapse all; the choice is
+remembered in the browser.
+
+### Names in the API
+
+Units are called units everywhere now. The API takes `unit_id` (and `unit` for a path in
+the import) and returns `unit` and `unit_id` per domain; the CSV column is `unit`. Units are
+managed at `/api/organisation/units`. The earlier names (`group_id`, `group`,
+`/api/portfolio/groups`) keep working.
+
 ### A unit's own page
 
 Click a unit on the Organisation page for everything of that unit and the units below it:
@@ -516,6 +537,17 @@ Every list uses the same A&ndash;F rating as the dashboard, worked out from the 
 the scan result shows it beside the title, the scan history and the start page show it per
 scan, and the Monitors table per host, with the open critical and high findings and the last
 change. The TLS grade is named as such in the history line and in the TLS tab.
+
+### When nothing runs on its own
+
+With the scheduler off, the monitoring and report pages say so under the menu, with the
+reason: switched off in Settings (with a link to it), or disabled for the server by
+`DOMAINLENS_DISABLE_SCHEDULER`.
+
+### Language
+
+English is complete. Choosing Dutch (Settings &rarr; General) translates the menus and parts
+of the scan and admin pages; most other pages stay in English. The setting says so.
 
 ## Management dashboard
 

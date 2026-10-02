@@ -171,6 +171,7 @@
     },
     "general": {
       "locale": "Language",
+      "locale_warning": "English is complete. Dutch translates the menus and parts of the scan and admin pages; most other pages, monitoring, organisation and reports included, stay in English, so with Dutch pages mix both languages.",
       "app_title": "Application title",
       "app_subtitle": "Subtitle",
       "public_url": "Public base URL (ServiceNow → DomainLens links)"

@@ -171,6 +171,7 @@
     },
     "general": {
       "locale": "Taal",
+      "locale_warning": "Engels is volledig. Nederlands vertaalt de menu's en delen van de scan- en beheerpagina's; de meeste andere pagina's, waaronder monitoring, organisatie en rapportages, blijven Engels, dus met Nederlands lopen beide talen door elkaar.",
       "app_title": "Applicatietitel",
       "app_subtitle": "Ondertitel",
       "public_url": "Publieke basis-URL (ServiceNow → DomainLens-links)"

@@ -120,4 +120,14 @@
         </nav>
     </div>
     {% endif %}
+    {% if scheduler_off and section in ('monitoring', 'reports') %}
+    {# One notice for every page that depends on the scheduler, instead of a
+       "not measured" with no reason on each of them. #}
+    <div class="scheduler-banner" role="status">
+        <span class="status-warn"></span>
+        The scheduler is off, so monitors, registration checks and wanted domains are not looked up on their own.
+        {% if scheduler_off == 'env' %}It is disabled for this server by <code>DOMAINLENS_DISABLE_SCHEDULER</code>.
+        {% else %}<a href="/admin/settings#scheduler">Switch it on in Settings</a>.{% endif %}
+    </div>
+    {% endif %}
 </header>

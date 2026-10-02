@@ -237,6 +237,21 @@ def _format_time_ago(value):
     return f"{days} day{'s' if days != 1 else ''} ago"
 
 
+def _scheduler_off():
+    """Why nothing runs on its own, or None. Shown on the monitoring and
+    report pages: with the scheduler off, monitors, registration checks and
+    wanted domains all stand still, and the pages only showed "not measured"
+    without saying why."""
+    if os.environ.get("DOMAINLENS_DISABLE_SCHEDULER", "").strip().lower() in {"1", "true", "yes"}:
+        return "env"
+    try:
+        if not domainlens_config.load_settings(db_module=db).scheduler().get("enabled"):
+            return "settings"
+    except Exception:
+        return None
+    return None
+
+
 @app.context_processor
 def inject_i18n():
     from flask import has_request_context
@@ -251,6 +266,7 @@ def inject_i18n():
         "app_version": app_version.get_version(),
         "app_version_info": app_version.info(),
         "asset_token": _asset_token(),
+        "scheduler_off": _scheduler_off(),
         "update_repo": _update_repo(),
         **_inject_theme(user, general),
     }
@@ -3934,6 +3950,12 @@ def api_watchlist_check(watch_id):
     return jsonify(domain_watch.get(watch_id))
 
 
+def _unit_arg(source, key="unit_id", legacy="group_id"):
+    """A unit parameter by its name, or by the name it had ("group")."""
+    value = source.get(key)
+    return value if value not in (None, "") else source.get(legacy)
+
+
 def _portfolio_payload():
     domains = domain_portfolio.list_all()
     groups = domain_portfolio.list_groups()
@@ -3957,7 +3979,7 @@ def api_portfolio():
 @app.route("/api/portfolio/csv", methods=["GET"])
 def api_portfolio_csv():
     domains, _ = _portfolio_payload()
-    group = request.args.get("group")
+    group = _unit_arg(request.args, "unit", "group")
     if group:
         try:
             below = domain_portfolio.descendants(int(group))
@@ -3987,15 +4009,15 @@ def api_portfolio_import():
             text = domain_portfolio.sheet_to_text(body)
         except Exception:
             return jsonify({"error": "This file could not be read as an Excel workbook"}), 400
-        group = request.form.get("group")
+        group = _unit_arg(request.form, "unit", "group")
     else:
         data = request.get_json(silent=True) or {}
-        text, group = str(data.get("text") or ""), data.get("group")
+        text, group = str(data.get("text") or ""), _unit_arg(data, "unit", "group")
     entries, rejected, converted = domain_portfolio.parse_import(text)
     if not entries:
         return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
     try:
-        group_id = (data if upload is None else request.form).get("group_id")
+        group_id = _unit_arg(data if upload is None else request.form)
         result = domain_portfolio.import_domains(
             entries, default_group=(group or "").strip() or None,
             default_group_id=int(group_id) if group_id not in (None, "") else None,
@@ -4008,6 +4030,7 @@ def api_portfolio_import():
                     "converted": [{"from": k, "to": v} for k, v in list(converted.items())[:50]]}), 201
 
 
+@app.route("/api/organisation/units", methods=["POST"])
 @app.route("/api/portfolio/groups", methods=["POST"])
 @auth.require_role(roles.USER)
 def api_portfolio_group_add():
@@ -4018,13 +4041,15 @@ def api_portfolio_group_add():
             raise ValueError("Unknown parent unit")
         group_id = domain_portfolio.ensure_group(data.get("name"), parent_id=parent_id)
         group = domain_portfolio.update_group(
-            group_id, expected_registrar=data.get("expected_registrar"))
+            group_id, expected_registrar=data.get("expected_registrar"),
+            notify_emails=data.get("notify_emails"))
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc) or "Invalid unit"}), 400
     audit_log.record("portfolio.group_add", target_type="portfolio", target_id=group["path"])
     return jsonify(group), 201
 
 
+@app.route("/api/organisation/units/<int:group_id>", methods=["PUT", "DELETE"])
 @app.route("/api/portfolio/groups/<int:group_id>", methods=["PUT", "DELETE"])
 @auth.require_role(roles.USER)
 def api_portfolio_group(group_id):
@@ -4036,7 +4061,8 @@ def api_portfolio_group(group_id):
         audit_log.record("portfolio.group_remove", target_type="portfolio", target_id=group["path"])
         return jsonify({"removed": True})
     data = request.get_json(silent=True) or {}
-    changes = {"name": data.get("name"), "expected_registrar": data.get("expected_registrar")}
+    changes = {"name": data.get("name"), "expected_registrar": data.get("expected_registrar"),
+               "notify_emails": data.get("notify_emails")}
     if "parent_id" in data:
         changes["parent_id"] = data.get("parent_id") or None
     try:
@@ -4059,9 +4085,9 @@ def api_portfolio_monitor():
     """
     data = request.get_json(silent=True) or {}
     domains = domain_portfolio.list_all()
-    if data.get("group_id") not in (None, ""):
+    if _unit_arg(data) not in (None, ""):
         try:
-            below = domain_portfolio.descendants(int(data["group_id"]))
+            below = domain_portfolio.descendants(int(_unit_arg(data)))
         except (TypeError, ValueError):
             return jsonify({"error": "Invalid unit"}), 400
         domains = [d for d in domains if d.get("group_id") in below]
@@ -4092,11 +4118,12 @@ def api_portfolio_monitor():
         created.append(domain)
     audit_log.record("monitor.bulk_create", target_type="portfolio",
                      details={"created": len(created), "skipped": len(domains) - len(created),
-                              "group_id": data.get("group_id"), "checks": checks})
+                              "unit_id": _unit_arg(data), "checks": checks})
     return jsonify({"created": created, "already_monitored": len(domains) - len(created),
                     "spread_minutes": schedule_minutes if len(todo) > 1 else 0}), 201
 
 
+@app.route("/api/organisation/units/<int:group_id>/merge", methods=["POST"])
 @app.route("/api/portfolio/groups/<int:group_id>/merge", methods=["POST"])
 @auth.require_role(roles.USER)
 def api_portfolio_group_merge(group_id):
@@ -4120,12 +4147,12 @@ def api_portfolio_assign():
     data = request.get_json(silent=True) or {}
     try:
         domain, action = domain_portfolio.assign(
-            data.get("domain"), data.get("group_id"),
+            data.get("domain"), _unit_arg(data),
             created_by=(auth.current_user() or {}).get("email"))
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc) or "Invalid request"}), 400
     audit_log.record("portfolio.assign", target_type="portfolio", target_id=domain,
-                     details={"action": action, "group_id": data.get("group_id")})
+                     details={"action": action, "unit_id": _unit_arg(data)})
     return jsonify({"domain": domain, "action": action,
                     "unit": domain_portfolio.unit_of(domain)})
 
@@ -4145,7 +4172,7 @@ def api_portfolio_domains():
     if action == "remove":
         count = domain_portfolio.remove(ids)
     elif action == "move":
-        group_id = data.get("group_id")
+        group_id = _unit_arg(data)
         try:
             count = domain_portfolio.move(ids, int(group_id) if group_id not in (None, "") else None)
         except (TypeError, ValueError) as exc:
@@ -4232,7 +4259,11 @@ def monitoring_organisation_view():
 def api_organisation():
     """Per unit: security (scans, monitors, events) and registration status."""
     days = _parse_positive_int(request.args.get("days"), 90, minimum=7, maximum=365)
-    return jsonify(management.organisation(days=days))
+    cfg = notifications.config()
+    return jsonify({**management.organisation(days=days),
+                    # Unit addresses are mailed through the SMTP settings;
+                    # without them they are kept but nothing is sent.
+                    "unit_email_ready": bool(cfg["enabled"] and cfg["smtp_host"] and cfg["smtp_from"])})
 
 
 @app.route("/monitoring/organisation/<int:unit_id>")
@@ -5227,7 +5258,7 @@ def reports_dashboard_view():
 def api_reporting_dashboard():
     """The management view: ratings, controls, top risks and registrations."""
     days = _parse_positive_int(request.args.get("days"), 90, minimum=7, maximum=365)
-    group = request.args.get("group")
+    group = _unit_arg(request.args, "unit", "group")
     try:
         return jsonify(management.dashboard(days=days, group_id=int(group) if group else None))
     except ValueError as exc:

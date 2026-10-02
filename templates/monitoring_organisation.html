@@ -18,6 +18,10 @@
         </section>
 
         <section class="card">
+            <div class="discovered-tools">
+                <button type="button" class="btn-ghost-sm" id="orgExpandAll">Expand all</button>
+                <button type="button" class="btn-ghost-sm" id="orgCollapseAll">Collapse all</button>
+            </div>
             <div class="users-table-wrap"><table class="data-table org-table" id="orgTable"><tr><td class="muted">Loading&hellip;</td></tr></table></div>
             <p class="muted" id="orgUnassigned"></p>
         </section>
@@ -26,12 +30,15 @@
         <section class="card">
             <details class="monitor-fold" id="orgManage">
                 <summary><h4>Units and their registrar</h4></summary>
+                <p class="ct-desc"><strong>Notify</strong>: e-mail addresses that get the alerts about this unit's domains &mdash; registration and security &mdash; besides the general channels. A unit's alerts also go to the addresses of the units above it, so a company contact hears about its business units. Sent through the e-mail settings under Settings &rarr; Notifications, with the same minimum severity.</p>
+                <p class="ct-desc hidden" id="orgEmailOff"><span class="status-warn"></span> E-mail notifications are not set up (Settings &rarr; Notifications), so unit addresses are kept but nothing is sent to them yet.</p>
                 <p class="ct-desc">A unit may name the registrar its domains belong at; units below it inherit that unless they name their own. It is matched against the registrar and the reseller, without regard to case; several names may be given, separated by commas. Deleting a unit moves its domains and units one level up.</p>
                 <div class="users-table-wrap"><table class="data-table org-manage-table" id="orgManageTable"></table></div>
                 <div class="dns-lookup-form">
                     <input type="text" id="orgNewName" placeholder="New unit, e.g. Sales" autocomplete="off">
                     <select id="orgNewParent" aria-label="Under"></select>
                     <input type="text" id="orgNewRegistrar" placeholder="Expected registrar (optional)" autocomplete="off">
+                    <input type="text" id="orgNewNotify" placeholder="Notify, e.g. team@example.com (optional)" autocomplete="off">
                     <button class="btn-primary-lite" id="orgNewBtn" type="button">Add unit</button>
                 </div>
                 <h4 class="monitor-subhead">Merge two units</h4>

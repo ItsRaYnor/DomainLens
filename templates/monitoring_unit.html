@@ -25,10 +25,9 @@
                 </select>
                 <button type="button" class="btn-primary-lite" id="unitMonitorBtn" title="Create a security monitor for every domain of this unit that has none">Monitor security of all domains</button>
                 {% endif %}
-                <a class="btn-ghost" href="/reports/dashboard?group={{ unit.id }}">Dashboard / PDF</a>
+                <a class="btn-ghost" href="/reports/dashboard?unit={{ unit.id }}">Dashboard / PDF</a>
             </div>
         </section>
-        <p class="ct-desc hidden" id="unitSchedulerOff"><span class="status-warn"></span> The scheduler is switched off: monitors and registration checks do not run on their own. Switch it on under Monitoring.</p>
 
         <section class="mgmt-kpis" id="unitKpis"></section>
 
@@ -39,7 +38,7 @@
 
         <section class="card">
             <h3>Domains</h3>
-            <p class="chart-sub">Registration status and the rating of each domain's latest scan. <a href="/monitoring/domains?group={{ unit.id }}">Manage in the portfolio</a></p>
+            <p class="chart-sub">Registration status and the rating of each domain's latest scan. <a href="/monitoring/domains?unit={{ unit.id }}">Manage in the portfolio</a></p>
             <div class="users-table-wrap"><table class="data-table org-table" id="unitDomains"></table></div>
         </section>
 

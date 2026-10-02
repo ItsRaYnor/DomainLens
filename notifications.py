@@ -158,6 +158,8 @@ def send_slack(cfg, message):
     lines = [f"*{_headline(message)}*"]
     if message.get("target"):
         lines.append(f"Target: `{message['target']}`")
+    if message.get("unit"):
+        lines.append(f"Unit: {message['unit']}")
     if message.get("url"):
         lines.append(f"<{message['url']}|Open in DomainLens>")
     _post_json(cfg["slack_url"], {
@@ -176,6 +178,8 @@ def send_teams(cfg, message):
     facts = [{"title": "Severity", "value": message["severity"]}]
     if message.get("target"):
         facts.append({"title": "Target", "value": message["target"]})
+    if message.get("unit"):
+        facts.append({"title": "Unit", "value": message["unit"]})
     if message.get("event_type"):
         facts.append({"title": "Event", "value": message["event_type"]})
     card = {
@@ -206,6 +210,7 @@ def send_email(cfg, message, subject=None, body=None):
         body = "\n".join(filter(None, [
             _headline(message),
             f"Target: {message['target']}" if message.get("target") else None,
+            f"Unit: {message['unit']}" if message.get("unit") else None,
             f"Event: {message['event_type']}" if message.get("event_type") else None,
             f"Details: {message['url']}" if message.get("url") else None,
             "",
@@ -252,13 +257,43 @@ def _count(channel, result):
         pass
 
 
+def _unit_routing(message):
+    """The organisation unit of the event's domain and its own addresses."""
+    try:
+        import domain_portfolio
+        return domain_portfolio.unit_recipients(message.get("target") or "")
+    except Exception:
+        return None, []
+
+
 def dispatch(event, monitor, scan_id=None):
-    """Send a monitor event to every configured channel, if it qualifies."""
+    """Send a monitor event to every configured channel, if it qualifies.
+
+    The message names the domain's organisation unit, and the unit's own
+    addresses (and those of the units above it) get it by e-mail as well,
+    so a business unit hears about its own domains without everyone being
+    on every list. Addresses already on the general list are not mailed twice.
+    """
     try:
         cfg = config()
         if not should_notify(event, cfg):
             return None
-        return _deliver(cfg, build_message(event, monitor, scan_id))
+        message = build_message(event, monitor, scan_id)
+        unit, addresses = _unit_routing(message)
+        if unit:
+            message["unit"] = unit
+        results = _deliver(cfg, message)
+        extra = [a for a in addresses if a not in {r.lower() for r in cfg["email_to"]}]
+        if extra and cfg["smtp_host"] and cfg["smtp_from"]:
+            try:
+                send_email({**cfg, "email_to": extra}, message)
+                results["unit_email"] = {"ok": True, "to": len(extra)}
+                _count("unit_email", "ok")
+            except Exception as exc:
+                _count("unit_email", "error")
+                log.warning("Unit notification failed: %s", exc)
+                results["unit_email"] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"[:300]}
+        return results
     except Exception:
         log.exception("Notification dispatch failed")
         return None

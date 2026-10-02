@@ -461,6 +461,7 @@ def organisation(days=90, now=None):
                    "parent_id": g["parent_id"], "expected_registrar": g.get("expected_registrar"),
                    "effective_registrar": g.get("effective_registrar"),
                    "registrar_inherited": g.get("registrar_inherited"),
+                   "notify_emails": [e for e in (g.get("notify_emails") or "").split(",") if e],
                    "security": security[g["id"]], "registration": registration.get(g["id"])}
                   for g in groups],
         "unassigned": security[None],

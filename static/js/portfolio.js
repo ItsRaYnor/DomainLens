@@ -94,7 +94,7 @@ function pfRender() {
         if (!all.length && data.groups.some(g => String(g.parent_id) === s.key)) {
             return `<h4 class="pf-unit-heading" style="margin-left:${s.depth * 1.25}rem">${esc(s.name)}</h4>`;
         }
-        const head = pf.canEdit ? '<th><input type="checkbox" class="pf-select-all" aria-label="Select all in this group"></th>' : '';
+        const head = pf.canEdit ? '<th><input type="checkbox" class="pf-select-all" aria-label="Select all in this unit"></th>' : '';
         const table = shown.length
             ? `<div class="users-table-wrap"><table class="data-table portfolio-table">`
               + `<tr>${head}<th>Domain</th><th>Registrar</th><th>Expires</th><th>Status</th><th>Last looked up</th><th></th></tr>`
@@ -122,7 +122,6 @@ function pfRenderChrome() {
         + tile('Expiring within 30 days', t.expiring, 'expiring', 'tile-warn')
         + tile('To move', t.move, 'move', 'tile-warn')
         + tile('Not measured', t.unmeasured, 'unmeasured', '');
-    $('pfSchedulerOff').classList.toggle('hidden', data.scheduler_enabled !== false);
 
     const current = pf.initialGroup || $('pfGroupFilter').value;
     pf.initialGroup = null;
@@ -136,7 +135,7 @@ function pfRenderChrome() {
         $('pfGroupNames').innerHTML = data.groups.map(g => `<option value="${esc(g.path.replace(/ › /g, ' > '))}">`).join('');
     }
     const groupKey = current.startsWith('g') ? current.slice(1) : '';
-    $('pfCsvBtn').href = '/api/portfolio/csv' + (groupKey ? `?group=${encodeURIComponent(groupKey)}` : '');
+    $('pfCsvBtn').href = '/api/portfolio/csv' + (groupKey ? `?unit=${encodeURIComponent(groupKey)}` : '');
     $('pfEvents').innerHTML = (data.events || []).slice(0, 15)
         .map(e => `<div>${esc(pfWhen(e.at))} &mdash; ${esc(e.detail)}</div>`).join('')
         || '<span class="muted">No changes yet. The first lookup of a domain is its baseline, not a change.</span>';
@@ -174,7 +173,7 @@ async function pfPost(url, body, method) {
 }
 
 function pfShowImport(res) {
-    const parts = [`${res.added.length} added, ${res.moved.length} moved to another group, `
+    const parts = [`${res.added.length} added, ${res.moved.length} moved to another unit, `
         + `${res.unchanged.length} already there.`];
     if (res.converted && res.converted.length) {
         parts.push('Subdomains replaced by their registered domain: '
@@ -204,10 +203,11 @@ function initPortfolio() {
     ['pfSearch', 'pfFlagFilter'].forEach(id => $(id).addEventListener('input', pfRender));
     $('pfGroupFilter').addEventListener('change', () => {
         const value = $('pfGroupFilter').value;
-        history.replaceState(null, '', value.length > 1 ? `?group=${value.slice(1)}` : location.pathname);
+        history.replaceState(null, '', value.length > 1 ? `?unit=${value.slice(1)}` : location.pathname);
         pfRenderChrome(); pfRender();
     });
-    const wanted = new URLSearchParams(location.search).get('group');
+    const params = new URLSearchParams(location.search);
+    const wanted = params.get('unit') || params.get('group');
     if (wanted) pf.initialGroup = `g${wanted}`;
     $('pfTiles').addEventListener('click', e => {
         const tile = e.target.closest('.portfolio-tile');
@@ -260,10 +260,10 @@ function initPortfolio() {
                     // A workbook is read on the server; the browser cannot.
                     const form = new FormData();
                     form.append('file', sheet);
-                    form.append('group', $('pfImportGroup').value);
+                    form.append('unit', $('pfImportGroup').value);
                     res = await requestJson('/api/portfolio/import', { method: 'POST', body: form });
                 } else {
-                    res = await pfPost('/api/portfolio/import', { text, group: $('pfImportGroup').value });
+                    res = await pfPost('/api/portfolio/import', { text, unit: $('pfImportGroup').value });
                 }
                 pfShowImport(res);
                 $('pfImportInput').value = '';

@@ -11,7 +11,11 @@ FIELD_META = {
         "allow_user_override": {"type": "bool", "label": "settings.appearance.allow_user_override"},
     },
     "general": {
-        "locale": {"type": "select", "options": ["en", "nl"], "label": "settings.general.locale"},
+        # The Dutch translation covers the menus and part of the pages; the
+        # rest stays English. Said where the choice is made, so a mixed page
+        # is expected rather than taken for a fault.
+        "locale": {"type": "select", "options": ["en", "nl"], "label": "settings.general.locale",
+                   "warning": "settings.general.locale_warning"},
         "app_title": {"type": "text", "label": "settings.general.app_title"},
         "app_subtitle": {"type": "text", "label": "settings.general.app_subtitle"},
         "public_url": {"type": "text", "label": "settings.general.public_url"},
