@@ -28,6 +28,8 @@
     "tools_dns": "DNS-record",
     "tools_impersonation": "Impersonatie",
     "tools_disclosure": "Responsible disclosure",
+    "monitoring_monitors": "Monitors",
+    "monitoring_domains": "Domeinportfolio",
     "reports_compare": "Vergelijken",
     "admin_settings": "Instellingen",
     "admin_users": "Gebruikers",

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.monitoring_domains') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.monitoring_domains">{{ t('nav.monitoring_domains') }}</h2>
+            <p class="ct-desc">The domains you hold, grouped per company or department: at which registrar each one is, until when it is registered, and whether it is in quarantine. Give a group the registrar its domains belong at, and every domain that is elsewhere is marked <strong>to move</strong>. DomainLens looks each domain up at its registry &mdash; daily, every six hours in the month before it expires, hourly while it is being deleted &mdash; and sends every change through your notification channels (Settings &rarr; Notifications).</p>
+            <p class="ct-desc hidden" id="pfSchedulerOff"><span class="status-warn"></span> The scheduler is switched off, so nothing is looked up automatically. Switch it on under Monitoring, or use &ldquo;Check now&rdquo;.</p>
+            <div class="portfolio-tiles" id="pfTiles"></div>
+        </section>
+
+        <section class="card">
+            <div class="discovered-tools">
+                <input type="search" id="pfSearch" placeholder="Filter on domain, registrar or note" autocomplete="off">
+                <select id="pfGroupFilter" aria-label="Group"></select>
+                <select id="pfFlagFilter" aria-label="Show">
+                    <option value="">All domains</option>
+                    <option value="attention">Quarantine, being deleted or not registered</option>
+                    <option value="expiring">Expiring within 30 days</option>
+                    <option value="move">To move to another registrar</option>
+                    <option value="unmeasured">Not looked up or last lookup failed</option>
+                </select>
+                <a class="btn-ghost" id="pfCsvBtn" href="/api/portfolio/csv">Download CSV</a>
+            </div>
+            {% if can_edit %}
+            <div class="discovered-tools portfolio-bulk">
+                <span class="muted" id="pfSelected">0 selected</span>
+                <select id="pfMoveTarget" aria-label="Move to group"></select>
+                <button class="btn-ghost" id="pfMoveBtn" type="button">Move to group</button>
+                <button class="btn-ghost danger" id="pfRemoveBtn" type="button">Remove from portfolio</button>
+            </div>
+            {% endif %}
+            <div id="pfGroups"><p class="muted">Loading&hellip;</p></div>
+        </section>
+
+        {% if can_edit %}
+        <section class="card">
+            <details class="monitor-fold" id="pfImportFold">
+                <summary><h4>Add domains</h4></summary>
+                <p class="ct-desc">One domain per line, optionally followed by its group: <code>example.nl;Sales</code> or a CSV with a domain and a group column (comma, semicolon or tab). A domain already in the portfolio moves to the group named for it. Lines without a group go to the group chosen below. At most 2,000 domains in all.</p>
+                <textarea id="pfImportInput" rows="8" class="mono" placeholder="example.nl;Sales&#10;example.com;Holding&#10;example.org" spellcheck="false"></textarea>
+                <div class="dns-lookup-form">
+                    <input type="file" id="pfImportFile" accept=".csv,.txt,text/csv,text/plain">
+                    <input type="text" id="pfImportGroup" list="pfGroupNames" placeholder="Group for lines without one (optional)" autocomplete="off">
+                    <datalist id="pfGroupNames"></datalist>
+                    <button class="btn-primary-lite" id="pfImportBtn" type="button">Add to portfolio</button>
+                </div>
+                <p class="ct-desc" id="pfImportResult"></p>
+            </details>
+        </section>
+
+        <section class="card">
+            <details class="monitor-fold" id="pfGroupsFold">
+                <summary><h4>Groups and their registrar</h4></summary>
+                <p class="ct-desc">The expected registrar is matched against both the registrar and the reseller the registry publishes, without regard to case; several names may be given, separated by commas. Leave it empty and the group's domains are not judged on it.</p>
+                <div class="users-table-wrap"><table class="data-table" id="pfGroupTable"></table></div>
+                <div class="dns-lookup-form">
+                    <input type="text" id="pfNewGroupName" placeholder="New group, e.g. Sales" autocomplete="off">
+                    <input type="text" id="pfNewGroupRegistrar" placeholder="Expected registrar (optional)" autocomplete="off">
+                    <button class="btn-ghost" id="pfNewGroupBtn" type="button">Add group</button>
+                </div>
+            </details>
+        </section>
+        {% endif %}
+
+        <section class="card">
+            <h2>Recent changes</h2>
+            <div id="pfEvents" class="ct-desc"></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script type="application/json" id="pfCanEdit">{{ (can_edit and true or false)|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/portfolio.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

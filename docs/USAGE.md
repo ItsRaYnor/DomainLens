@@ -145,6 +145,29 @@ a registrar: register the domain yourself, or use a backorder service. Changing 
 needs the Analyst role and is audited. API: `GET/POST /api/watchlist`,
 `DELETE /api/watchlist/{id}`, `POST /api/watchlist/{id}/check`.
 
+## Domain portfolio
+
+**Monitoring &rarr; Domain portfolio** keeps the domains you hold, grouped per company or
+department. Paste or upload a list (`example.nl;Sales`, or a CSV with a domain and a group
+column); a domain imported again moves to the group named for it. Each group can name the
+registrar its domains belong at (matched against the registrar and the reseller, several
+names separated by commas); a domain registered elsewhere is marked **to move**.
+
+Every domain is looked up over RDAP, paced per registry like the batch lookup: daily, every
+six hours in the month before it expires, hourly while it is being deleted or when the last
+lookup failed. A change of phase (quarantine, deleted, no longer registered), registrar,
+reseller or name servers is recorded and sent through the notification channels, as is an
+expiry within 30 and within 7 days. The first lookup of a domain is its baseline, not a
+change. SIDN publishes no expiry date for `.nl` (the registrar renews until the holder
+cancels), so those show "Not published"; for them quarantine is the signal that matters. A
+failed lookup keeps the previous answer and says so. Lookups run with the scheduler; with
+the scheduler off use "Check now".
+
+Changing the portfolio needs the Analyst role and is audited. API: `GET /api/portfolio`,
+`GET /api/portfolio/csv`, `POST /api/portfolio/import`, `POST /api/portfolio/groups`,
+`PUT/DELETE /api/portfolio/groups/{id}`, `POST /api/portfolio/domains` (move or remove),
+`POST /api/portfolio/domains/{id}/check`.
+
 ## DNS propagation check
 
 **Tools &rarr; DNS record** asks one resolver a question; the propagation panel below it

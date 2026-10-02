@@ -48,6 +48,7 @@ import discovery
 import overview
 import rdap
 import whois_batch
+import domain_portfolio
 import domain_watch
 import maintenance
 import metrics
@@ -3670,6 +3671,8 @@ def _run_scheduler_digest():
     # monitor scans that share this loop. maybe_run skips if one is running.
     threading.Thread(target=domain_watch.maybe_run, daemon=True,
                      name="domain-watch").start()
+    threading.Thread(target=domain_portfolio.maybe_run, daemon=True,
+                     name="domain-portfolio").start()
 
 
 def _scheduler_config():
@@ -3925,6 +3928,120 @@ def api_watchlist_check(watch_id):
     return jsonify(domain_watch.get(watch_id))
 
 
+def _portfolio_payload():
+    domains = domain_portfolio.list_all()
+    groups = domain_portfolio.list_groups()
+    return domains, groups
+
+
+@app.route("/api/portfolio", methods=["GET"])
+def api_portfolio():
+    domains, groups = _portfolio_payload()
+    return jsonify({"domains": domains, "groups": groups,
+                    "summary": domain_portfolio.summary(domains, groups),
+                    "events": domain_portfolio.events(30), "max": domain_portfolio.MAX_DOMAINS,
+                    "scheduler_enabled": bool(_scheduler_config().get("enabled"))})
+
+
+@app.route("/api/portfolio/csv", methods=["GET"])
+def api_portfolio_csv():
+    domains, _ = _portfolio_payload()
+    group = request.args.get("group")
+    if group:
+        domains = [d for d in domains if str(d.get("group_id") or "") == group]
+    return Response(domain_portfolio.to_csv(domains), mimetype="text/csv", headers={
+        "Content-Disposition": "attachment; filename=domainlens-portfolio.csv"})
+
+
+@app.route("/api/portfolio/import", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_import():
+    """Add domains from a paste or CSV, each optionally with its group."""
+    data = request.get_json(silent=True) or {}
+    entries, rejected = domain_portfolio.parse_import(str(data.get("text") or ""))
+    if not entries:
+        return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
+    try:
+        result = domain_portfolio.import_domains(
+            entries, default_group=(data.get("group") or "").strip() or None,
+            created_by=(auth.current_user() or {}).get("email"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    audit_log.record("portfolio.import", target_type="portfolio",
+                     details={"added": len(result["added"]), "moved": len(result["moved"])})
+    return jsonify({**result, "rejected": rejected[:50]}), 201
+
+
+@app.route("/api/portfolio/groups", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_group_add():
+    data = request.get_json(silent=True) or {}
+    try:
+        group_id = domain_portfolio.ensure_group(data.get("name"))
+        group = domain_portfolio.update_group(
+            group_id, expected_registrar=data.get("expected_registrar"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    audit_log.record("portfolio.group_add", target_type="portfolio", target_id=group["name"])
+    return jsonify(group), 201
+
+
+@app.route("/api/portfolio/groups/<int:group_id>", methods=["PUT", "DELETE"])
+@auth.require_role(roles.USER)
+def api_portfolio_group(group_id):
+    group = domain_portfolio.get_group(group_id)
+    if not group:
+        return jsonify({"error": "Unknown group"}), 404
+    if request.method == "DELETE":
+        domain_portfolio.delete_group(group_id)
+        audit_log.record("portfolio.group_remove", target_type="portfolio", target_id=group["name"])
+        return jsonify({"removed": True})
+    data = request.get_json(silent=True) or {}
+    try:
+        group = domain_portfolio.update_group(group_id, name=data.get("name"),
+                                              expected_registrar=data.get("expected_registrar"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    audit_log.record("portfolio.group_update", target_type="portfolio", target_id=group["name"])
+    return jsonify(group)
+
+
+@app.route("/api/portfolio/domains", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_domains():
+    """Bulk actions on selected domains: move to a group, or remove."""
+    data = request.get_json(silent=True) or {}
+    try:
+        ids = [int(i) for i in data.get("ids") or []][:domain_portfolio.MAX_DOMAINS]
+    except (TypeError, ValueError):
+        return jsonify({"error": "ids must be numbers"}), 400
+    if not ids:
+        return jsonify({"error": "Select at least one domain"}), 400
+    action = data.get("action")
+    if action == "remove":
+        count = domain_portfolio.remove(ids)
+    elif action == "move":
+        group_id = data.get("group_id")
+        try:
+            count = domain_portfolio.move(ids, int(group_id) if group_id not in (None, "") else None)
+        except (TypeError, ValueError) as exc:
+            return jsonify({"error": str(exc) or "Unknown group"}), 400
+    else:
+        return jsonify({"error": "Unknown action"}), 400
+    audit_log.record(f"portfolio.{action}", target_type="portfolio", details={"count": count})
+    return jsonify({"count": count})
+
+
+@app.route("/api/portfolio/domains/<int:domain_id>/check", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_check(domain_id):
+    row = domain_portfolio.raw(domain_id)
+    if not row:
+        return jsonify({"error": "Not in the portfolio"}), 404
+    domain_portfolio.check(row)
+    return jsonify(domain_portfolio.get(domain_id))
+
+
 @app.route("/tools/ip")
 def lookup_ip_view():
     return render_template(
@@ -3961,10 +4078,26 @@ def lookup_impersonation_view_legacy():
     return redirect("/tools/impersonation", code=301)
 
 
+_MONITORING_SUBNAV = [
+    ("nav.monitoring_monitors", "/monitoring"),
+    ("nav.monitoring_domains", "/monitoring/domains"),
+]
+
+
+@app.route("/monitoring/domains")
+def monitoring_domains_view():
+    return render_template(
+        "monitoring_domains.html", section="monitoring",
+        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/domains"),
+        can_edit=(not auth.config().get("enabled"))
+        or roles.at_least(auth.current_role(), roles.USER))
+
+
 @app.route("/monitoring")
 def monitoring_view():
     return render_template(
         "monitoring.html", section="monitoring",
+        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring"),
         discovered_groups=discovery.grouped(db, show_hidden=request.args.get("hidden") == "1"),
         show_hidden=request.args.get("hidden") == "1",
         can_add_monitors=(not auth.config().get("enabled"))

@@ -176,6 +176,37 @@ def spec():
         "/api/watchlist/{watch_id}/check": {"post": _op(
             "Look a watched domain up now", "WHOIS", _ok("Updated entry"), role="user",
             params=[_param("watch_id", "path", {"type": "integer"})])},
+        "/api/portfolio": {"get": _op(
+            "Portfolio domains per group, with counts and recent changes", "Portfolio",
+            _ok("Portfolio"))},
+        "/api/portfolio/csv": {"get": _op(
+            "The portfolio as CSV", "Portfolio", {"200": {"description": "CSV file"}},
+            params=[_param("group", "query", {"type": "integer"}, required=False)])},
+        "/api/portfolio/import": {"post": _op(
+            "Add domains, each optionally with its group", "Portfolio",
+            {"201": {"description": "Added, moved and unchanged domains"}}, role="user",
+            body=_body({"type": "object", "required": ["text"], "properties": {
+                "text": {"type": "string"}, "group": {"type": "string"}}}))},
+        "/api/portfolio/groups": {"post": _op(
+            "Add a group", "Portfolio", {"201": {"description": "Group"}}, role="user",
+            body=_body({"type": "object", "required": ["name"], "properties": {
+                "name": {"type": "string"}, "expected_registrar": {"type": "string"}}}))},
+        "/api/portfolio/groups/{group_id}": {
+            "put": _op("Rename a group or set its expected registrar", "Portfolio", _ok("Group"),
+                       role="user", params=[_param("group_id", "path", {"type": "integer"})]),
+            "delete": _op("Delete a group; its domains stay, ungrouped", "Portfolio",
+                          _ok("Removed"), role="user",
+                          params=[_param("group_id", "path", {"type": "integer"})]),
+        },
+        "/api/portfolio/domains": {"post": _op(
+            "Move selected domains to a group, or remove them", "Portfolio", _ok("Count"),
+            role="user", body=_body({"type": "object", "required": ["action", "ids"], "properties": {
+                "action": {"type": "string", "enum": ["move", "remove"]},
+                "ids": {"type": "array", "items": {"type": "integer"}},
+                "group_id": {"type": "integer"}}}))},
+        "/api/portfolio/domains/{domain_id}/check": {"post": _op(
+            "Look a portfolio domain up now", "Portfolio", _ok("Updated entry"), role="user",
+            params=[_param("domain_id", "path", {"type": "integer"})])},
         "/api/ownership": {
             "get": _op("Domains and their verification state", "Ownership", _ok("Domains"), role="user"),
             "post": _op("Start verifying a domain", "Ownership",
