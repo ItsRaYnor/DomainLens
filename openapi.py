@@ -209,6 +209,18 @@ def spec():
                 "action": {"type": "string", "enum": ["move", "remove"]},
                 "ids": {"type": "array", "items": {"type": "integer"}},
                 "group_id": {"type": "integer"}}}))},
+        "/api/portfolio/assign": {"post": _op(
+            "Put a host's registered domain in an organisation unit", "Portfolio",
+            _ok("Domain, action and unit"), role="user",
+            body=_body({"type": "object", "required": ["domain"], "properties": {
+                "domain": {"type": "string"}, "group_id": {"type": "integer"}}}))},
+        "/api/portfolio/unit": {"get": _op(
+            "The organisation unit a host belongs to", "Portfolio", _ok("Unit or null"),
+            params=[_param("domain", required=True)])},
+        "/api/organisation": {"get": _op(
+            "Per organisation unit: security (scans, monitors, events) and registration status",
+            "Portfolio", _ok("Units, with the figures of the units below them included"),
+            params=[_DAYS])},
         "/api/portfolio/domains/{domain_id}/check": {"post": _op(
             "Look a portfolio domain up now", "Portfolio", _ok("Updated entry"), role="user",
             params=[_param("domain_id", "path", {"type": "integer"})])},

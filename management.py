@@ -164,15 +164,19 @@ def _in_scope(domain, wanted):
 
 
 def _scope(group_id):
-    """(set of portfolio domains, group name) or (None, None) for everything."""
+    """(set of portfolio domains, unit path) or (None, None) for everything.
+
+    A unit includes the units below it: the dashboard of a company covers
+    its business units."""
     if group_id is None:
         return None, None
     import domain_portfolio
     group = domain_portfolio.get_group(group_id)
     if not group:
-        raise ValueError("Unknown group")
-    domains = {d["domain"] for d in domain_portfolio.list_all() if d.get("group_id") == group["id"]}
-    return domains, group["name"]
+        raise ValueError("Unknown unit")
+    below = domain_portfolio.descendants(group["id"])
+    domains = {d["domain"] for d in domain_portfolio.list_all() if d.get("group_id") in below}
+    return domains, group["path"]
 
 
 def _latest_scans(until, wanted, since=None):
@@ -322,8 +326,9 @@ def _portfolio(group_id):
     except Exception:
         return None
     if group_id is not None:
-        domains = [d for d in domains if d.get("group_id") == group_id]
-        groups = [g for g in groups if g["id"] == group_id]
+        below = domain_portfolio.descendants(group_id, groups)
+        domains = [d for d in domains if d.get("group_id") in below]
+        groups = [g for g in groups if g["id"] in below]
     if not domains:
         return None
     summary = domain_portfolio.summary(domains, groups)
@@ -344,3 +349,80 @@ def _monitoring(days):
         return None
     return {"events_by_severity": overview_.get("events_by_severity") or {},
             "enabled_monitors": stats.get("enabled_monitors", 0)}
+
+
+# ---------------------------------------------------------------- organisation
+
+def organisation(days=90, now=None):
+    """Per organisation unit, both kinds of monitoring side by side.
+
+    Security: the domains scanned in the period with their rating and open
+    critical and high findings, the monitors and their recent events.
+    Registration: the portfolio counts (at risk, expiring, to move). Every
+    figure of a unit includes the units below it. Hosts whose registered
+    domain is in no unit are counted apart, so nothing silently drops out.
+    """
+    import domain_portfolio
+    days = max(7, min(int(days), 365))
+    now = now or datetime.now(timezone.utc)
+    groups = domain_portfolio.list_groups()
+    units = domain_portfolio.units_by_domain()
+    parents = {g["id"]: g["parent_id"] for g in groups}
+
+    def chain(host):
+        unit, seen = units.get(domain_portfolio.registrable(host)), []
+        while unit is not None and unit not in seen and unit in parents:
+            seen.append(unit)
+            unit = parents.get(unit)
+        return seen or [None]
+
+    def blank():
+        return {"scanned": 0, "ratings": {r: 0 for r in "ABCDF"}, "critical": 0, "high": 0,
+                "monitors": 0, "monitors_enabled": 0,
+                "events": {s: 0 for s in ("critical", "high", "medium", "low", "info")}}
+
+    security = {g["id"]: blank() for g in groups}
+    security[None] = blank()
+
+    current = _latest_scans(now.isoformat(), None, since=(now - timedelta(days=days)).isoformat())
+    summaries = _load(set(current.values()))
+    for host, key in current.items():
+        s = summaries.get(key)
+        if not s:
+            continue
+        for unit in chain(host):
+            bucket = security[unit]
+            bucket["scanned"] += 1
+            bucket["ratings"][s["rating"]] += 1
+            bucket["critical"] += s["counts"]["critical"]
+            bucket["high"] += s["counts"]["high"]
+
+    monitor_units = {}
+    for m in db.list_monitors(limit=5000):
+        monitor_units[m["id"]] = chain(m.get("target") or m.get("domain") or "")
+        for unit in monitor_units[m["id"]]:
+            security[unit]["monitors"] += 1
+            security[unit]["monitors_enabled"] += 1 if m.get("enabled") else 0
+    since = (now - timedelta(days=7)).isoformat()
+    with db._lock, db._connect() as conn:
+        rows = conn.execute("SELECT monitor_id, severity, COUNT(*) AS c FROM monitor_events "
+                            "WHERE created_at >= ? GROUP BY monitor_id, severity", (since,)).fetchall()
+    for row in rows:
+        for unit in monitor_units.get(row["monitor_id"], [None]):
+            events = security[unit]["events"]
+            sev = row["severity"] if row["severity"] in events else "info"
+            events[sev] += row["c"]
+
+    registration = {g["id"]: g["subtree"] for g in
+                    domain_portfolio.summary(domain_portfolio.list_all(), groups)["groups"]}
+    return {
+        "generated_at": now.isoformat(),
+        "days": days,
+        "units": [{"id": g["id"], "name": g["name"], "path": g["path"], "depth": g["depth"],
+                   "parent_id": g["parent_id"], "expected_registrar": g.get("expected_registrar"),
+                   "effective_registrar": g.get("effective_registrar"),
+                   "registrar_inherited": g.get("registrar_inherited"),
+                   "security": security[g["id"]], "registration": registration.get(g["id"])}
+                  for g in groups],
+        "unassigned": security[None],
+    }

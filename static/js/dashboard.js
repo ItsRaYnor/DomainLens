@@ -97,7 +97,7 @@ function mgKpis(d) {
 
 function mgRender(d) {
     const when = new Date(d.generated_at).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' });
-    $('mgScope').textContent = `${d.group ? `Group ${d.group}` : 'All domains'} · last ${d.days} days · as of ${when}`;
+    $('mgScope').textContent = `${d.group ? `${d.group} (and the units below it)` : 'All domains'} · last ${d.days} days · as of ${when}`;
     mgKpis(d);
 
     $('mgRatingChart').innerHTML = d.kpis.domains ? mgDonut(d.ratings, 190) : '<p class="muted">No domains were scanned in this period.</p>';
@@ -183,7 +183,7 @@ async function mgLoadGroups() {
     try {
         const data = await requestJson('/api/portfolio');
         $('mgGroup').innerHTML = '<option value="">All domains</option>'
-            + data.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
+            + data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${'  '.repeat(g.depth)}${esc(g.name)}</option>`).join('');
         $('mgGroup').classList.toggle('hidden', !data.groups.length);
     } catch (e) { $('mgGroup').classList.add('hidden'); }
 }

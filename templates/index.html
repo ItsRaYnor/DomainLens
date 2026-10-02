@@ -176,6 +176,14 @@
                     <span id="resultTimestamp" class="timestamp"></span>
                 </div>
             </div>
+            {# Which company or unit this domain belongs to; choosing one adds the
+               registered domain to the portfolio, so its registration is
+               watched too. Shown to those who may change it. #}
+            <div class="scan-unit hidden" id="scanUnit" data-can-edit="{{ 'true' if can_edit else 'false' }}">
+                <span class="muted" id="scanUnitText"></span>
+                <select id="scanUnitSelect" aria-label="Organisation unit"></select>
+                <button type="button" class="btn-ghost-sm" id="scanUnitBtn">Add to unit</button>
+            </div>
 
             <!-- Score Overview -->
             <section id="scoreOverview" class="card score-card hidden">

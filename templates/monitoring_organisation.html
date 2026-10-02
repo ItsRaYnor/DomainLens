@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.monitoring_organisation') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.monitoring_organisation">{{ t('nav.monitoring_organisation') }}</h2>
+            <p class="ct-desc">Your companies and the units under them, each with both kinds of monitoring: <strong>security</strong> (scans, monitors and what they found) and <strong>registration</strong> (quarantine, expiry, registrar). A domain belongs to one unit; every scan and monitor of its hostnames &mdash; <code>www.</code>, <code>shop.</code>, <code>mail.</code> &mdash; counts there too. The figures of a unit include the units below it.</p>
+            <p class="ct-desc">Put a domain in a unit from the <a href="/monitoring/domains">domain portfolio</a> (paste or import, with a path such as <code>Org X &gt; Sales</code>), when adding a monitor, or from a scan result.</p>
+        </section>
+
+        <section class="card">
+            <div class="users-table-wrap"><table class="data-table org-table" id="orgTable"><tr><td class="muted">Loading&hellip;</td></tr></table></div>
+            <p class="muted" id="orgUnassigned"></p>
+        </section>
+
+        {% if can_edit %}
+        <section class="card">
+            <details class="monitor-fold" id="orgManage">
+                <summary><h4>Units and their registrar</h4></summary>
+                <p class="ct-desc">A unit may name the registrar its domains belong at; units below it inherit that unless they name their own. It is matched against the registrar and the reseller, without regard to case; several names may be given, separated by commas. Deleting a unit moves its domains and units one level up.</p>
+                <div class="users-table-wrap"><table class="data-table org-manage-table" id="orgManageTable"></table></div>
+                <div class="dns-lookup-form">
+                    <input type="text" id="orgNewName" placeholder="New unit, e.g. Sales" autocomplete="off">
+                    <select id="orgNewParent" aria-label="Under"></select>
+                    <input type="text" id="orgNewRegistrar" placeholder="Expected registrar (optional)" autocomplete="off">
+                    <button class="btn-primary-lite" id="orgNewBtn" type="button">Add unit</button>
+                </div>
+            </details>
+        </section>
+        {% endif %}
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script type="application/json" id="orgCanEdit">{{ (can_edit and true or false)|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/organisation.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

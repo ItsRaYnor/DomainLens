@@ -52,17 +52,43 @@ _ATTENTION_PHASES = ("quarantine", "pending_delete", "redemption", "not_in_dns",
 _NO_EXPIRY_TLDS = ("nl",)
 
 
-def init_schema(conn):
-    conn.execute(
-        """
+_GROUPS_TABLE = """
         CREATE TABLE IF NOT EXISTS portfolio_groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            name TEXT NOT NULL COLLATE NOCASE,
+            parent_id INTEGER,
             expected_registrar TEXT,
             created_at TEXT NOT NULL
         )
         """
-    )
+
+
+def _migrate_groups(conn):
+    """Flat groups with globally unique names become units that nest.
+
+    The first version had no parent and a UNIQUE name, so "Sales" could not
+    exist under two companies. SQLite cannot drop a constraint, so the table
+    is rebuilt once, keeping every id the domains point to.
+    """
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(portfolio_groups)").fetchall()}
+    if "parent_id" in columns:
+        return
+    conn.execute("BEGIN")
+    try:
+        conn.execute("ALTER TABLE portfolio_groups RENAME TO portfolio_groups_flat")
+        conn.execute(_GROUPS_TABLE)
+        conn.execute("INSERT INTO portfolio_groups (id, name, expected_registrar, created_at) "
+                     "SELECT id, name, expected_registrar, created_at FROM portfolio_groups_flat")
+        conn.execute("DROP TABLE portfolio_groups_flat")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def init_schema(conn):
+    conn.execute(_GROUPS_TABLE)
+    _migrate_groups(conn)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS portfolio_domains (
@@ -107,31 +133,80 @@ def _now():
     return datetime.now(timezone.utc)
 
 
-# ---------------------------------------------------------------- groups
+# ---------------------------------------------------------------- organisation
+#
+# Groups are organisation units: a company, a business unit under it, a
+# department under that. A domain sits in one unit; monitors and scans of
+# its hostnames belong to the same unit through the registered domain, so
+# the structure is kept in one place.
+
+PATH_SEPARATOR = " › "
+_PATH_SPLIT = re.compile(r"\s*(?:>|/|›)\s*")
+
 
 def list_groups():
+    """Every unit, depth first, with its path, depth and the registrar it
+    is held to (its own, or the nearest ancestor's)."""
     with db._connect() as conn:
-        rows = conn.execute("SELECT * FROM portfolio_groups ORDER BY name COLLATE NOCASE").fetchall()
-    return [dict(r) for r in rows]
+        rows = [dict(r) for r in conn.execute("SELECT * FROM portfolio_groups").fetchall()]
+    by_id = {r["id"]: r for r in rows}
+    children = {}
+    for r in rows:
+        parent = r["parent_id"] if r["parent_id"] in by_id else None
+        children.setdefault(parent, []).append(r)
+    out = []
+
+    def walk(parent, path, depth, inherited, seen):
+        for r in sorted(children.get(parent, []), key=lambda g: g["name"].lower()):
+            if r["id"] in seen:          # a cycle written by hand; never loop on it
+                continue
+            names = path + [r["name"]]
+            expected = r.get("expected_registrar") or inherited
+            out.append({**r, "path": PATH_SEPARATOR.join(names), "depth": depth,
+                        "effective_registrar": expected,
+                        "registrar_inherited": bool(expected and not r.get("expected_registrar"))})
+            walk(r["id"], names, depth + 1, expected, seen | {r["id"]})
+
+    walk(None, [], 0, None, frozenset())
+    return out
+
+
+def descendants(group_id, groups=None):
+    """The unit and every unit below it."""
+    groups = groups if groups is not None else list_groups()
+    found, frontier = {int(group_id)}, [int(group_id)]
+    while frontier:
+        parent = frontier.pop()
+        for g in groups:
+            if g["parent_id"] == parent and g["id"] not in found:
+                found.add(g["id"])
+                frontier.append(g["id"])
+    return found
 
 
 def _clean_group_name(name):
-    name = " ".join(str(name or "").split())[:80]
+    name = " ".join(_PATH_SPLIT.sub(" ", str(name or "")).split())[:80]
     if not name:
-        raise ValueError("A group needs a name")
+        raise ValueError("A unit needs a name")
     return name
 
 
-def ensure_group(name, conn=None):
-    """The id of the group with this name, created when it does not exist."""
+def _find(conn, name, parent_id):
+    row = conn.execute("SELECT id FROM portfolio_groups WHERE name = ? AND parent_id IS ?",
+                       (name, parent_id)).fetchone()
+    return row["id"] if row else None
+
+
+def ensure_group(name, conn=None, parent_id=None):
+    """The id of the unit with this name under this parent, created if needed."""
     name = _clean_group_name(name)
 
     def run(c):
-        row = c.execute("SELECT id FROM portfolio_groups WHERE name = ?", (name,)).fetchone()
-        if row:
-            return row["id"]
-        return c.execute("INSERT INTO portfolio_groups (name, created_at) VALUES (?, ?)",
-                         (name, _now().isoformat())).lastrowid
+        found = _find(c, name, parent_id)
+        if found:
+            return found
+        return c.execute("INSERT INTO portfolio_groups (name, parent_id, created_at) VALUES (?, ?, ?)",
+                         (name, parent_id, _now().isoformat())).lastrowid
 
     if conn is not None:
         return run(conn)
@@ -139,38 +214,119 @@ def ensure_group(name, conn=None):
         return run(c)
 
 
-def update_group(group_id, *, name=None, expected_registrar=None):
-    fields, values = [], []
-    if name is not None:
-        fields.append("name = ?")
-        values.append(_clean_group_name(name))
+def ensure_path(path, conn=None):
+    """"Org X > Sales" (or "Org X / Sales"): the unit at the end, created
+    level by level where missing."""
+    parts = [p for p in _PATH_SPLIT.split(str(path or "")) if p.strip()]
+    if not parts:
+        raise ValueError("A unit needs a name")
+
+    def run(c):
+        parent = None
+        for part in parts:
+            parent = ensure_group(part, c, parent)
+        return parent
+
+    if conn is not None:
+        return run(conn)
+    with db._lock, db._connect() as c:
+        return run(c)
+
+
+_UNSET = object()
+
+
+def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNSET):
+    group = get_group(group_id)
+    if not group:
+        raise ValueError("Unknown unit")
+    new_parent = group["parent_id"] if parent_id is _UNSET else (int(parent_id) if parent_id else None)
+    if new_parent is not None:
+        if not get_group(new_parent):
+            raise ValueError("Unknown parent unit")
+        if new_parent in descendants(group_id):
+            raise ValueError("A unit cannot be placed under itself or one of its own units")
+    new_name = _clean_group_name(name) if name is not None else group["name"]
+    fields, values = ["name = ?", "parent_id = ?"], [new_name, new_parent]
     if expected_registrar is not None:
         fields.append("expected_registrar = ?")
         values.append(" ".join(str(expected_registrar).split())[:200] or None)
-    if not fields:
-        return get_group(group_id)
     with db._lock, db._connect() as conn:
-        try:
-            conn.execute(f"UPDATE portfolio_groups SET {', '.join(fields)} WHERE id = ?",
-                         (*values, int(group_id)))
-        except Exception as exc:
-            if "UNIQUE" in str(exc):
-                raise ValueError("Another group already has that name") from exc
-            raise
+        clash = _find(conn, new_name, new_parent)
+        if clash and clash != int(group_id):
+            raise ValueError("That level already has a unit with this name")
+        conn.execute(f"UPDATE portfolio_groups SET {', '.join(fields)} WHERE id = ?",
+                     (*values, int(group_id)))
     return get_group(group_id)
 
 
 def get_group(group_id):
-    with db._connect() as conn:
-        row = conn.execute("SELECT * FROM portfolio_groups WHERE id = ?", (int(group_id),)).fetchone()
-    return dict(row) if row else None
+    try:
+        group_id = int(group_id)
+    except (TypeError, ValueError):
+        return None
+    return next((g for g in list_groups() if g["id"] == group_id), None)
 
 
 def delete_group(group_id):
-    """Remove a group; its domains stay, ungrouped."""
+    """Remove a unit; its domains and units move up to its parent."""
+    group = get_group(group_id)
+    if not group:
+        return False
     with db._lock, db._connect() as conn:
-        conn.execute("UPDATE portfolio_domains SET group_id = NULL WHERE group_id = ?", (int(group_id),))
-        return conn.execute("DELETE FROM portfolio_groups WHERE id = ?", (int(group_id),)).rowcount > 0
+        conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE group_id = ?",
+                     (group["parent_id"], group["id"]))
+        conn.execute("UPDATE portfolio_groups SET parent_id = ? WHERE parent_id = ?",
+                     (group["parent_id"], group["id"]))
+        return conn.execute("DELETE FROM portfolio_groups WHERE id = ?", (group["id"],)).rowcount > 0
+
+
+def unit_of(hostname):
+    """{id, path} of the unit a hostname belongs to through its registered
+    domain, or None when that domain is not in the portfolio."""
+    domain = registrable(str(hostname or "").lower().rstrip("."))
+    with db._connect() as conn:
+        row = conn.execute("SELECT group_id FROM portfolio_domains WHERE domain = ?", (domain,)).fetchone()
+    if not row or row["group_id"] is None:
+        return None
+    group = get_group(row["group_id"])
+    return {"id": group["id"], "path": group["path"]} if group else None
+
+
+def units_by_domain():
+    """{registered domain: unit id} for every grouped portfolio domain."""
+    with db._connect() as conn:
+        rows = conn.execute("SELECT domain, group_id FROM portfolio_domains "
+                            "WHERE group_id IS NOT NULL").fetchall()
+    return {r["domain"]: r["group_id"] for r in rows}
+
+
+def assign(hostname, group_id, *, created_by=None):
+    """Put the registered domain of a hostname in a unit: added when new,
+    moved when it was elsewhere. Returns (domain, "added" | "moved" | "unchanged")."""
+    found, _ = whois_batch.parse_domains(str(hostname or ""))
+    if not found:
+        raise ValueError("Not a domain name")
+    domain = registrable(found[0])
+    group_id = int(group_id) if group_id not in (None, "") else None
+    if group_id is not None and not get_group(group_id):
+        raise ValueError("Unknown unit")
+    with db._connect() as conn:
+        row = conn.execute("SELECT id, group_id FROM portfolio_domains WHERE domain = ?",
+                           (domain,)).fetchone()
+        total = conn.execute("SELECT COUNT(*) AS c FROM portfolio_domains").fetchone()["c"]
+    if row is None:
+        if total >= MAX_DOMAINS:
+            raise ValueError(f"At most {MAX_DOMAINS} domains in the portfolio")
+        with db._lock, db._connect() as conn:
+            conn.execute("INSERT INTO portfolio_domains (domain, group_id, created_by, created_at) "
+                         "VALUES (?, ?, ?, ?)", (domain, group_id, created_by, _now().isoformat()))
+        return domain, "added"
+    if row["group_id"] == group_id:
+        return domain, "unchanged"
+    with db._lock, db._connect() as conn:
+        conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE id = ?", (group_id, row["id"]))
+    return domain, "moved"
 
 
 # ---------------------------------------------------------------- import
@@ -193,7 +349,8 @@ _DOMAIN_HEADERS = {"domain", "domein", "domains", "domeinen", "domeinnaam", "dom
 _GROUP_HEADERS = {"group", "groep", "company", "bedrijf", "afdeling", "department",
                   "business unit", "bedrijfsonderdeel", "bu", "organisation",
                   "organization", "organisatie", "entity", "entiteit", "customer", "klant",
-                  "label"}
+                  "label", "unit", "eenheid", "org unit", "organisation unit",
+                  "organisatieonderdeel"}
 
 
 def registrable(domain):
@@ -320,12 +477,15 @@ def _delimiter(line):
     return ","
 
 
-def import_domains(entries, *, default_group=None, created_by=None):
+def import_domains(entries, *, default_group=None, default_group_id=None, created_by=None):
     """Add or regroup domains. Returns counts and the names that changed.
 
-    A domain already in the portfolio is moved to the group the import
-    names for it; one imported without a group keeps the group it has.
+    A group is a unit path ("Org X > Sales"); missing levels are created. A
+    domain already in the portfolio is moved to the unit the import names
+    for it; one imported without a unit keeps the unit it has.
     """
+    if default_group_id is not None and not get_group(default_group_id):
+        raise ValueError("Unknown unit")
     with db._connect() as conn:
         existing = {r["domain"]: dict(r) for r in
                     conn.execute("SELECT id, domain, group_id FROM portfolio_domains").fetchall()}
@@ -336,9 +496,10 @@ def import_domains(entries, *, default_group=None, created_by=None):
     added, moved, unchanged = [], [], []
     now = _now().isoformat()
     with db._lock, db._connect() as conn:
-        default_id = ensure_group(default_group, conn) if default_group else None
+        default_id = (int(default_group_id) if default_group_id is not None
+                      else ensure_path(default_group, conn) if default_group else None)
         for domain, group in entries:
-            group_id = ensure_group(group, conn) if group else default_id
+            group_id = ensure_path(group, conn) if group else default_id
             current = existing.get(domain)
             if current is None:
                 conn.execute("INSERT INTO portfolio_domains (domain, group_id, created_by, created_at) "
@@ -355,7 +516,7 @@ def import_domains(entries, *, default_group=None, created_by=None):
 
 def move(domain_ids, group_id):
     if group_id is not None and not get_group(group_id):
-        raise ValueError("Unknown group")
+        raise ValueError("Unknown unit")
     ids = [int(i) for i in domain_ids]
     with db._lock, db._connect() as conn:
         return sum(conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE id = ?",
@@ -381,14 +542,16 @@ def _days_left(expires, today=None):
 
 
 def transfer_state(domain, group):
-    """Whether the domain is at the registrar its group expects.
+    """Whether the domain is at the registrar its unit expects.
 
     "ok", "move", "unmeasured" (no registrar known yet) or "not_applicable"
-    (the group names no registrar). A match on the reseller counts too: for
-    .nl the name a customer knows is often the reseller, not the registrar.
+    (neither the unit nor any unit above it names one). A match on the
+    reseller counts too: for .nl the name a customer knows is often the
+    reseller, not the registrar.
     """
-    expected = [e.strip().lower() for e in str((group or {}).get("expected_registrar") or "").split(",")
-                if e.strip()]
+    group = group or {}
+    wanted = group.get("effective_registrar", group.get("expected_registrar"))
+    expected = [e.strip().lower() for e in str(wanted or "").split(",") if e.strip()]
     if not expected:
         return "not_applicable"
     if domain.get("phase") in ("unmeasured", "not_registered") or not domain.get("registrar"):
@@ -412,7 +575,7 @@ def _enrich(row, groups, today=None):
     out["nameservers"] = (out.get("nameservers") or "").split()
     out["phase_text"] = PHASE_TEXT.get(out["phase"], out["phase"])
     group = groups.get(out.get("group_id"))
-    out["group"] = group["name"] if group else None
+    out["group"] = group["path"] if group else None
     out["transfer"] = transfer_state(out, group)
     out["expiry_state"], out["days_left"] = expiry_state(out, today)
     # The last lookup failed, so what is shown is the answer before it.
@@ -444,14 +607,17 @@ def get(domain_id):
 
 
 def summary(domains, groups):
-    """Counts per group and in total, for the headers and the tiles."""
+    """Counts per unit and in total. A unit's counts are its own domains;
+    "subtree" adds those of every unit below it."""
     def counts(items):
         return {"total": len(items),
                 **{flag: sum(1 for d in items if flag in d["flags"])
                    for flag in ("attention", "expiring", "move", "unmeasured")}}
     per_group = []
     for g in groups:
-        per_group.append({**g, **counts([d for d in domains if d.get("group_id") == g["id"]])})
+        below = descendants(g["id"], groups)
+        per_group.append({**g, **counts([d for d in domains if d.get("group_id") == g["id"]]),
+                          "subtree": counts([d for d in domains if d.get("group_id") in below])})
     ungrouped = [d for d in domains if not d.get("group")]
     return {"total": counts(domains), "groups": per_group,
             "ungrouped": counts(ungrouped)}

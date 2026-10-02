@@ -2605,3 +2605,16 @@ footer, .app-footer {
 .home-links a { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.55rem 0.7rem; margin: 0 -0.7rem; border-radius: var(--radius-sm); text-decoration: none; color: var(--text); }
 .home-links a:hover { background: var(--bg-card-hover); }
 .home-links .muted { font-size: 0.82rem; }
+
+/* Monitoring -> Organisation: units as an indented tree, both kinds of monitoring side by side. */
+.pf-count-bad { color: var(--red); }
+.pf-unit-heading { margin: 0.9rem 0 0.25rem; font-size: 0.95rem; }
+.org-table th { width: auto; }
+.org-table td { word-break: normal; vertical-align: top; }
+.org-table .mgmt-bar { min-width: 7rem; margin-top: 0.3rem; }
+.org-manage-table th { width: auto; }
+.org-manage-table td { word-break: normal; }
+.org-manage-table td:last-child { white-space: nowrap; width: 1%; }
+.monitor-unit-heading { margin: 1rem 0 0.35rem; font-size: 0.85rem; color: var(--text-muted); }
+.monitor-unit-select { max-width: 11rem; }
+.scan-unit { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.25rem 0 1rem; font-size: 0.88rem; }

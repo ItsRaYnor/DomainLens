@@ -16,6 +16,11 @@
                 </section>
                 <section class="monitor-section">
                     <h4>Saved monitors</h4>
+                    <div class="discovered-tools">
+                        <label for="monitorUnitFilter" class="muted">Unit</label>
+                        <select id="monitorUnitFilter"><option value="">All units</option></select>
+                        <a class="muted" href="/monitoring/organisation">Organisation overview</a>
+                    </div>
                     <div id="monitorList" class="monitor-list"></div>
                 </section>
                 <section class="monitor-section">
@@ -31,6 +36,9 @@
                     <div class="stack-form">
                         <input type="text" id="monitorDomainInput" placeholder="Domain / hostname (e.g. app.example.com)">
                         <input type="text" id="monitorNameInput" placeholder="Label (optional)">
+                        <label class="monitor-field-label" for="monitorUnitInput">Organisation unit</label>
+                        <select id="monitorUnitInput"><option value="">Keep as it is / none</option></select>
+                        <p class="login-hint">Puts the registered domain in this unit, so it is also watched for quarantine and expiry, and every monitor of its hosts counts there.</p>
                         <div class="inline-fields">
                             <select id="monitorSchedulePreset">
                                 <option value="15">Every 15 minutes</option>

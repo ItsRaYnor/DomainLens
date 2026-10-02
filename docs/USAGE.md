@@ -459,6 +459,33 @@ correct behaviour, and a timeout is recorded as unknown rather than clean.
 
 ---
 
+## Organisation
+
+**Monitoring &rarr; Organisation** arranges domains in companies and the units under them
+(`Org X › Retail › Webshop`), with both kinds of monitoring per unit: security (rating of
+the domains scanned in the last 90 days, open critical and high findings, monitors and their
+high or critical events in the last week) and registration (domains at risk, expiring, to
+move, not yet looked up). Every figure of a unit includes the units below it; scans and
+monitors whose domain is in no unit are counted separately underneath.
+
+A domain belongs to one unit, and every scan and monitor of its hostnames counts there:
+`www.example.nl`, `shop.example.nl` and `example.nl` all follow the unit of `example.nl`. Put
+a domain in a unit:
+
+- in the domain portfolio, with a unit path in the import (`example.nl;Org X > Retail`, or
+  `/` as separator; missing levels are created) or by moving selected domains;
+- when adding a monitor (choose the unit), or later from the unit picker on the monitor;
+- from a scan result ("Add to unit" under the result header).
+
+Choosing a unit for a monitor or scan adds the registered domain to the portfolio, so it is
+then also watched for quarantine and expiry. A unit may name the registrar its domains belong
+at; units below inherit it unless they name their own. Deleting a unit moves its domains and
+units one level up. The Monitors page, the domain portfolio (`?group=`) and the dashboard
+(`?group=`) can each be narrowed to a unit and the units below it. API: `GET /api/organisation`,
+`POST /api/portfolio/assign`, `GET /api/portfolio/unit?domain=`, `POST /api/portfolio/groups`
+(with `parent_id`), `PUT /api/portfolio/groups/{id}` (`name`, `parent_id`,
+`expected_registrar`), and `org_unit_id` on `POST`/`PATCH /api/monitors`.
+
 ## Management dashboard
 
 **Reports &rarr; Dashboard** shows how all domains stand, for people who do not read scan

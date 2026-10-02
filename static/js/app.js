@@ -123,6 +123,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initCustomDkimSelectors();
     initDiscovered();
     initHomeStart();
+    on('scanUnitBtn', 'click', assignScanUnit);
+    on('monitorUnitFilter', 'change', () => {
+        const value = $('monitorUnitFilter').value;
+        history.replaceState(null, '', value ? `?unit=${value}` : location.pathname);
+        renderMonitorList(lastMonitors);
+    });
 
     // Export menu
     const exportBtn = $('exportBtn');
@@ -687,6 +693,7 @@ function renderResults(data) {
         }
     }
     $('resultTimestamp').textContent = new Date(data.timestamp).toLocaleString();
+    renderScanUnit(data.apex_domain || data.domain);
     // A name that is not in DNS was not scanned; say so above everything else.
     const nd = $('notDelegatedNote');
     if (nd) {
@@ -2206,6 +2213,49 @@ function renderCompareHtml(data) {
     return head + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${body}</tbody></table></div>`;
 }
 
+// Scan result: the organisation unit of the scanned domain, and a way to
+// put it in one. Needs the portfolio API, so it stays hidden for a viewer
+// and when that is not reachable.
+async function renderScanUnit(host) {
+    const box = $('scanUnit');
+    if (!box || !host) return;
+    box.classList.add('hidden');
+    try {
+        const [unitResp, portResp] = await Promise.all([
+            fetch('/api/portfolio/unit?domain=' + encodeURIComponent(host)), fetch('/api/portfolio')]);
+        if (!unitResp.ok || !portResp.ok) return;
+        const info = await unitResp.json();
+        const units = (await portResp.json()).groups || [];
+        $('scanUnitText').textContent = info.unit
+            ? `${info.domain} belongs to ${info.unit.path}`
+            : (units.length ? `${info.domain} is not in a unit yet` : `${info.domain} is not in the domain portfolio`);
+        const select = $('scanUnitSelect');
+        select.innerHTML = units.map(u =>
+            `<option value="${u.id}" title="${escapeHtml(u.path)}">${'\u00a0\u00a0'.repeat(u.depth)}${escapeHtml(u.name)}</option>`).join('');
+        const canEdit = box.dataset.canEdit === 'true';
+        select.classList.toggle('hidden', !units.length || !canEdit);
+        $('scanUnitBtn').classList.toggle('hidden', !canEdit);
+        if (info.unit) select.value = String(info.unit.id);
+        $('scanUnitBtn').textContent = info.unit ? 'Move to this unit' : (units.length ? 'Add to unit' : 'Add to portfolio');
+        box.dataset.host = host;
+        box.classList.remove('hidden');
+    } catch (e) { /* the unit is an extra; the scan result stands without it */ }
+}
+
+async function assignScanUnit() {
+    const box = $('scanUnit');
+    const select = $('scanUnitSelect');
+    try {
+        const resp = await fetch('/api/portfolio/assign', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: box.dataset.host, group_id: select.classList.contains('hidden') ? null : select.value }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) { showError(data.error || 'Could not add the domain'); return; }
+        renderScanUnit(box.dataset.host);
+    } catch (e) { showError('Network error while adding the domain'); }
+}
+
 // Scan page: the latest scans, one per domain, so the page is not empty
 // for someone who comes back to look rather than to scan.
 async function initHomeStart() {
@@ -2408,7 +2458,9 @@ async function loadMonitors() {
         const scheduler = data.scheduler || {};
         schedulerEl.innerHTML = `<p class="status ${scheduler.enabled ? 'status-pass' : 'status-warn'}">${scheduler.enabled ? 'Background scheduler enabled' : 'Background scheduler disabled'}</p>
             <p class="monitor-meta">Poll interval: ${escapeHtml(String(scheduler.poll_seconds || 0))} seconds</p>`;
-        renderMonitorList(data.monitors || []);
+        lastMonitors = data.monitors || [];
+        await loadMonitorUnits();
+        renderMonitorList(lastMonitors);
         renderMonitorEvents(data.events || []);
     } catch (err) {
         list.innerHTML = '<p class="history-empty">Failed to load monitors</p>';
@@ -2444,14 +2496,86 @@ function monitorReportLinks(m) {
     return links.join(' · ');
 }
 
+// Organisation units for the monitor list, its filter and the add form.
+let lastMonitors = [];
+let monitorUnits = [];
+
+function monitorUnitOptions() {
+    return monitorUnits.map(u =>
+        `<option value="${u.id}" title="${escapeHtml(u.path)}">${'\u00a0\u00a0'.repeat(u.depth)}${escapeHtml(u.name)}</option>`).join('');
+}
+
+async function loadMonitorUnits() {
+    try {
+        const resp = await fetch('/api/portfolio');
+        if (!resp.ok) return;
+        monitorUnits = (await resp.json()).groups || [];
+    } catch (e) { monitorUnits = []; }
+    const filter = $('monitorUnitFilter');
+    if (filter) {
+        const wanted = filter.value || new URLSearchParams(location.search).get('unit') || '';
+        filter.innerHTML = '<option value="">All units</option>' + monitorUnitOptions()
+            + '<option value="none">Not in a unit</option>';
+        filter.value = wanted;
+    }
+    const input = $('monitorUnitInput');
+    if (input) {
+        const keep = input.value;
+        input.innerHTML = '<option value="">Keep as it is / none</option>' + monitorUnitOptions();
+        input.value = keep;
+    }
+}
+
+function monitorUnitScope() {
+    const value = ($('monitorUnitFilter') || {}).value || '';
+    if (!value || value === 'none') return value;
+    const found = new Set([Number(value)]);
+    let grew = true;
+    while (grew) {
+        grew = false;
+        monitorUnits.forEach(u => { if (found.has(u.parent_id) && !found.has(u.id)) { found.add(u.id); grew = true; } });
+    }
+    return found;
+}
+
+async function setMonitorUnit(m, unitId) {
+    try {
+        const resp = await fetch(`/api/monitors/${m.id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ org_unit_id: unitId }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) { showError(data.error || 'Could not change the unit'); return; }
+    } catch (e) { showError('Network error while changing the unit'); }
+    loadMonitors();
+}
+
+// Monitors in sections per unit, in the order of the organisation tree; a
+// unit filter shows that unit and the units below it.
 function renderMonitorList(monitors) {
     const list = $('monitorList');
     if (monitors.length === 0) {
         list.innerHTML = '<p class="history-empty">No monitors configured yet</p>';
         return;
     }
-    list.innerHTML = '';
-    monitors.forEach(m => {
+    const scope = monitorUnitScope();
+    const shown = monitors.filter(m => !scope
+        || (scope === 'none' ? !m.org_unit : (m.org_unit && scope.has(m.org_unit.id))));
+    list.innerHTML = shown.length ? '' : '<p class="history-empty">No monitors in this unit</p>';
+    const order = new Map(monitorUnits.map((u, i) => [u.id, i]));
+    const rank = m => (m.org_unit ? (order.has(m.org_unit.id) ? order.get(m.org_unit.id) : 1e6) : 1e7);
+    const sorted = shown.slice().sort((a, b) => rank(a) - rank(b));
+    let currentHeading = null;
+    const grouped = monitorUnits.length > 0;
+    sorted.forEach(m => {
+        const heading = m.org_unit ? m.org_unit.path : 'Not in a unit';
+        if (grouped && heading !== currentHeading) {
+            currentHeading = heading;
+            const h = document.createElement('h5');
+            h.className = 'monitor-unit-heading';
+            h.textContent = heading;
+            list.appendChild(h);
+        }
         const item = document.createElement('div');
         item.className = 'monitor-item';
 
@@ -2482,6 +2606,18 @@ function renderMonitorList(monitors) {
             toggleMonitor(m);
         });
         actions.appendChild(toggleBtn);
+
+        if (monitorUnits.length) {
+            const unitSel = document.createElement('select');
+            unitSel.className = 'monitor-unit-select';
+            unitSel.title = 'Organisation unit of this domain';
+            unitSel.setAttribute('aria-label', 'Organisation unit');
+            unitSel.innerHTML = (m.org_unit ? '' : '<option value="">Not in a unit</option>') + monitorUnitOptions();
+            unitSel.value = m.org_unit ? String(m.org_unit.id) : '';
+            unitSel.addEventListener('click', e => e.stopPropagation());
+            unitSel.addEventListener('change', () => setMonitorUnit(m, unitSel.value));
+            actions.appendChild(unitSel);
+        }
 
         const delBtn = document.createElement('button');
         delBtn.className = 'danger';
@@ -2568,11 +2704,12 @@ async function createMonitor() {
     const schedule_minutes = Number($('monitorScheduleInput').value || 1440);
     const record_type = $('monitorTypeInput').value;
     const checks = collectMonitorChecks();
+    const org_unit_id = ($('monitorUnitInput') || {}).value || null;
     try {
         const resp = await fetch('/api/monitors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type, checks }),
+            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type, checks, org_unit_id }),
         });
         const data = await resp.json();
         if (!resp.ok || data.error) {

@@ -3820,7 +3820,10 @@ def _subnav(items, current):
 
 @app.route("/")
 def index():
-    return render_template("index.html", section="scan")
+    return render_template(
+        "index.html", section="scan",
+        can_edit=(not auth.config().get("enabled"))
+        or roles.at_least(auth.current_role(), roles.USER))
 
 
 @app.route("/tools/whois")
@@ -3950,7 +3953,11 @@ def api_portfolio_csv():
     domains, _ = _portfolio_payload()
     group = request.args.get("group")
     if group:
-        domains = [d for d in domains if str(d.get("group_id") or "") == group]
+        try:
+            below = domain_portfolio.descendants(int(group))
+        except ValueError:
+            return jsonify({"error": "Invalid unit"}), 400
+        domains = [d for d in domains if d.get("group_id") in below]
     return Response(domain_portfolio.to_csv(domains), mimetype="text/csv", headers={
         "Content-Disposition": "attachment; filename=domainlens-portfolio.csv"})
 
@@ -3982,8 +3989,10 @@ def api_portfolio_import():
     if not entries:
         return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
     try:
+        group_id = (data if upload is None else request.form).get("group_id")
         result = domain_portfolio.import_domains(
             entries, default_group=(group or "").strip() or None,
+            default_group_id=int(group_id) if group_id not in (None, "") else None,
             created_by=(auth.current_user() or {}).get("email"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -3998,12 +4007,15 @@ def api_portfolio_import():
 def api_portfolio_group_add():
     data = request.get_json(silent=True) or {}
     try:
-        group_id = domain_portfolio.ensure_group(data.get("name"))
+        parent_id = int(data["parent_id"]) if data.get("parent_id") not in (None, "") else None
+        if parent_id is not None and not domain_portfolio.get_group(parent_id):
+            raise ValueError("Unknown parent unit")
+        group_id = domain_portfolio.ensure_group(data.get("name"), parent_id=parent_id)
         group = domain_portfolio.update_group(
             group_id, expected_registrar=data.get("expected_registrar"))
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    audit_log.record("portfolio.group_add", target_type="portfolio", target_id=group["name"])
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Invalid unit"}), 400
+    audit_log.record("portfolio.group_add", target_type="portfolio", target_id=group["path"])
     return jsonify(group), 201
 
 
@@ -4012,19 +4024,38 @@ def api_portfolio_group_add():
 def api_portfolio_group(group_id):
     group = domain_portfolio.get_group(group_id)
     if not group:
-        return jsonify({"error": "Unknown group"}), 404
+        return jsonify({"error": "Unknown unit"}), 404
     if request.method == "DELETE":
         domain_portfolio.delete_group(group_id)
-        audit_log.record("portfolio.group_remove", target_type="portfolio", target_id=group["name"])
+        audit_log.record("portfolio.group_remove", target_type="portfolio", target_id=group["path"])
         return jsonify({"removed": True})
     data = request.get_json(silent=True) or {}
+    changes = {"name": data.get("name"), "expected_registrar": data.get("expected_registrar")}
+    if "parent_id" in data:
+        changes["parent_id"] = data.get("parent_id") or None
     try:
-        group = domain_portfolio.update_group(group_id, name=data.get("name"),
-                                              expected_registrar=data.get("expected_registrar"))
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    audit_log.record("portfolio.group_update", target_type="portfolio", target_id=group["name"])
+        group = domain_portfolio.update_group(group_id, **changes)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Invalid unit"}), 400
+    audit_log.record("portfolio.group_update", target_type="portfolio", target_id=group["path"])
     return jsonify(group)
+
+
+@app.route("/api/portfolio/assign", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_assign():
+    """Put a scanned or monitored host's registered domain in a unit."""
+    data = request.get_json(silent=True) or {}
+    try:
+        domain, action = domain_portfolio.assign(
+            data.get("domain"), data.get("group_id"),
+            created_by=(auth.current_user() or {}).get("email"))
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Invalid request"}), 400
+    audit_log.record("portfolio.assign", target_type="portfolio", target_id=domain,
+                     details={"action": action, "group_id": data.get("group_id")})
+    return jsonify({"domain": domain, "action": action,
+                    "unit": domain_portfolio.unit_of(domain)})
 
 
 @app.route("/api/portfolio/domains", methods=["POST"])
@@ -4102,7 +4133,34 @@ def lookup_impersonation_view_legacy():
 _MONITORING_SUBNAV = [
     ("nav.monitoring_monitors", "/monitoring"),
     ("nav.monitoring_domains", "/monitoring/domains"),
+    ("nav.monitoring_organisation", "/monitoring/organisation"),
 ]
+
+
+@app.route("/monitoring/organisation")
+def monitoring_organisation_view():
+    return render_template(
+        "monitoring_organisation.html", section="monitoring",
+        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/organisation"),
+        can_edit=(not auth.config().get("enabled"))
+        or roles.at_least(auth.current_role(), roles.USER))
+
+
+@app.route("/api/organisation", methods=["GET"])
+def api_organisation():
+    """Per unit: security (scans, monitors, events) and registration status."""
+    days = _parse_positive_int(request.args.get("days"), 90, minimum=7, maximum=365)
+    return jsonify(management.organisation(days=days))
+
+
+@app.route("/api/portfolio/unit", methods=["GET"])
+def api_portfolio_unit():
+    """The unit a host belongs to through its registered domain, if any."""
+    host = _normalize_domain(request.args.get("domain") or "")
+    if not _is_valid_domain(host):
+        return jsonify({"error": "Invalid domain"}), 400
+    return jsonify({"domain": domain_portfolio.registrable(host),
+                    "unit": domain_portfolio.unit_of(host)})
 
 
 @app.route("/monitoring/domains")
@@ -5911,6 +5969,33 @@ def api_compare_scans():
     })
 
 
+def _with_org_units(monitors):
+    """Each monitor's organisation unit, through its registered domain.
+
+    The unit is kept on the domain in the portfolio, not on the monitor, so
+    every monitor and scan of a domain's hosts lands in the same place and
+    moving a domain moves all of them.
+    """
+    units = domain_portfolio.units_by_domain()
+    groups = {g["id"]: g for g in domain_portfolio.list_groups()}
+    for m in monitors:
+        group = groups.get(units.get(domain_portfolio.registrable(str(m.get("target") or m.get("domain") or ""))))
+        m["org_unit"] = {"id": group["id"], "path": group["path"]} if group else None
+    return monitors
+
+
+def _assign_org_unit(host, unit_id):
+    """Put the host's registered domain in a unit; a bad id is an error,
+    an empty one leaves the domain where it is."""
+    if unit_id in (None, ""):
+        return None
+    domain, action = domain_portfolio.assign(
+        host, unit_id, created_by=(auth.current_user() or {}).get("email"))
+    audit_log.record("portfolio.assign", target_type="portfolio", target_id=domain,
+                     details={"action": action, "group_id": unit_id, "via": "monitor"})
+    return domain
+
+
 @app.route("/api/monitors", methods=["GET"])
 def api_monitors_list():
     due_only = request.args.get("due_only", "").strip().lower() in {"1", "true", "yes"}
@@ -5921,10 +6006,10 @@ def api_monitors_list():
 
     rows = db.list_monitors(enabled=enabled_filter, due_only=due_only, limit=500)
     latest = db.latest_scans_by_domain([item.get("domain") for item in rows])
-    monitors = [
+    monitors = _with_org_units([
         _serialize_monitor(item, latest_scan=latest.get(item.get("domain")))
         for item in rows
-    ]
+    ])
     return jsonify({
         "monitors": monitors,
         "stats": db.monitor_stats(),
@@ -5951,6 +6036,10 @@ def api_monitors_create():
     schedule_minutes = _parse_positive_int(data.get("schedule_minutes"), 1440)
     checks = _prepare_checks(data.get("checks", ["all"]))
     enabled = bool(data.get("enabled", True))
+    try:
+        _assign_org_unit(target, data.get("org_unit_id"))
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Unknown unit"}), 400
 
     monitor_id = db.create_monitor(
         name=name,
@@ -5968,7 +6057,7 @@ def api_monitors_create():
     )
     audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
                      details={"target": target, "checks": checks})
-    return jsonify({"monitor": _serialize_monitor(db.get_monitor(monitor_id))}), 201
+    return jsonify({"monitor": _with_org_units([_serialize_monitor(db.get_monitor(monitor_id))])[0]}), 201
 
 
 @app.route("/api/monitors/import", methods=["POST"])
@@ -6081,11 +6170,16 @@ def api_monitors_update(monitor_id):
     if "enabled" in data:
         updates["enabled"] = bool(data["enabled"])
         updates["next_scan_at"] = datetime.now(timezone.utc).isoformat() if updates["enabled"] else None
+    if data.get("org_unit_id") not in (None, ""):
+        try:
+            _assign_org_unit(monitor["target"], data["org_unit_id"])
+        except (TypeError, ValueError) as exc:
+            return jsonify({"error": str(exc) or "Unknown unit"}), 400
 
     updated = db.update_monitor(monitor_id, **updates)
     audit_log.record("monitor.update", target_type="monitor", target_id=monitor_id,
                      details={"fields": sorted(k for k in updates if k != "next_scan_at")})
-    return jsonify({"monitor": _serialize_monitor(updated)})
+    return jsonify({"monitor": _with_org_units([_serialize_monitor(updated)])[0]})
 
 
 @app.route("/api/monitors/<int:monitor_id>", methods=["DELETE"])

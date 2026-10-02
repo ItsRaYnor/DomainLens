@@ -71,11 +71,16 @@ function pfRender() {
     const data = pf.data;
     if (!data) return;
     const groupFilter = $('pfGroupFilter').value;
-    const sections = data.groups.map(g => ({ key: String(g.id), name: g.name, expected: g.expected_registrar }));
-    sections.push({ key: '', name: 'Without a group', expected: null });
+    // A unit shows with the units below it: a company's view covers its parts.
+    const inScope = groupFilter === '' ? null
+        : groupFilter === 'g' ? new Set([''])
+        : new Set([...pfDescendants(data.groups, Number(groupFilter.slice(1)))].map(String));
+    const sections = data.groups.map(g => ({ key: String(g.id), name: g.path, depth: g.depth,
+        expected: g.effective_registrar, inherited: g.registrar_inherited }));
+    sections.push({ key: '', name: 'Not in a unit', depth: 0, expected: null });
     const summaries = Object.fromEntries(data.summary.groups.map(g => [String(g.id), g]));
     summaries[''] = data.summary.ungrouped;
-    const html = sections.filter(s => groupFilter === '' || groupFilter === `g${s.key}`).map(s => {
+    const html = sections.filter(s => !inScope || inScope.has(s.key)).map(s => {
         const all = data.domains.filter(d => String(d.group_id || '') === s.key);
         const shown = all.filter(pfMatches);
         if (!all.length && s.key === '') return '';
@@ -83,16 +88,20 @@ function pfRender() {
         // answer to that are noise.
         const filtering = $('pfFlagFilter').value || $('pfSearch').value.trim();
         if (filtering && !shown.length) return '';
+        // An empty unit that only holds other units is a heading, not a gap.
+        if (!all.length && data.groups.some(g => String(g.parent_id) === s.key)) {
+            return `<h4 class="pf-unit-heading" style="margin-left:${s.depth * 1.25}rem">${esc(s.name)}</h4>`;
+        }
         const head = pf.canEdit ? '<th><input type="checkbox" class="pf-select-all" aria-label="Select all in this group"></th>' : '';
         const table = shown.length
             ? `<div class="users-table-wrap"><table class="data-table portfolio-table">`
               + `<tr>${head}<th>Domain</th><th>Registrar</th><th>Expires</th><th>Status</th><th>Last looked up</th><th></th></tr>`
               + shown.map(pfRow).join('') + '</table></div>'
-            : `<p class="muted">${all.length ? 'No domains in this group match the filter.' : 'No domains in this group yet.'}</p>`;
+            : `<p class="muted">${all.length ? 'No domains in this unit match the filter.' : 'No domains in this unit yet.'}</p>`;
         const counts = pfCounts(summaries[s.key] || {});
-        return `<details class="monitor-fold discovered-zone" open data-group="${esc(s.key)}">`
+        return `<details class="monitor-fold discovered-zone" open data-group="${esc(s.key)}" style="margin-left:${s.depth * 1.25}rem">`
             + `<summary><h4>${esc(s.name)}</h4><span class="muted">${all.length} domain${all.length === 1 ? '' : 's'}`
-            + (s.expected ? ` &middot; expected at ${esc(s.expected)}` : '') + '</span>'
+            + (s.expected ? ` &middot; expected at ${esc(s.expected)}${s.inherited ? ' (inherited)' : ''}` : '') + '</span>'
             + (counts ? ` &middot; ${counts}` : '') + `</summary>${table}</details>`;
     }).join('');
     $('pfGroups').innerHTML = html || (data.domains.length
@@ -113,28 +122,33 @@ function pfRenderChrome() {
         + tile('Not measured', t.unmeasured, 'unmeasured', '');
     $('pfSchedulerOff').classList.toggle('hidden', data.scheduler_enabled !== false);
 
-    const current = $('pfGroupFilter').value;
-    $('pfGroupFilter').innerHTML = '<option value="">All groups</option>'
-        + data.groups.map(g => `<option value="g${g.id}">${esc(g.name)}</option>`).join('')
-        + '<option value="g">Without a group</option>';
+    const current = pf.initialGroup || $('pfGroupFilter').value;
+    pf.initialGroup = null;
+    const indent = g => '  '.repeat(g.depth);
+    $('pfGroupFilter').innerHTML = '<option value="">All units</option>'
+        + data.groups.map(g => `<option value="g${g.id}" title="${esc(g.path)}">${indent(g)}${esc(g.name)}</option>`).join('')
+        + '<option value="g">Not in a unit</option>';
     $('pfGroupFilter').value = current;
     if ($('pfMoveTarget')) {
-        $('pfMoveTarget').innerHTML = data.groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')
-            + '<option value="">Without a group</option>';
-        $('pfGroupNames').innerHTML = data.groups.map(g => `<option value="${esc(g.name)}">`).join('');
-        $('pfGroupTable').innerHTML = data.groups.length
-            ? '<tr><th>Group</th><th>Expected registrar</th><th>Domains</th><th></th></tr>'
-              + data.summary.groups.map(g => `<tr data-group-id="${g.id}"><td><input type="text" class="pf-group-name" value="${esc(g.name)}" aria-label="Group name"></td>`
-                + `<td><input type="text" class="pf-group-registrar" value="${esc(g.expected_registrar || '')}" placeholder="Any registrar" aria-label="Expected registrar"></td>`
-                + `<td>${g.total}</td><td class="nowrap"><button class="btn-ghost-sm pf-group-save" type="button">Save</button> `
-                + `<button class="btn-ghost-sm danger pf-group-delete" type="button">Delete</button></td></tr>`).join('')
-            : '<tr><td class="muted">No groups yet. Add one here, or name it in the import.</td></tr>';
+        $('pfMoveTarget').innerHTML = data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${indent(g)}${esc(g.name)}</option>`).join('')
+            + '<option value="">Not in a unit</option>';
+        $('pfGroupNames').innerHTML = data.groups.map(g => `<option value="${esc(g.path.replace(/ › /g, ' > '))}">`).join('');
     }
     const groupKey = current.startsWith('g') ? current.slice(1) : '';
     $('pfCsvBtn').href = '/api/portfolio/csv' + (groupKey ? `?group=${encodeURIComponent(groupKey)}` : '');
     $('pfEvents').innerHTML = (data.events || []).slice(0, 15)
         .map(e => `<div>${esc(pfWhen(e.at))} &mdash; ${esc(e.detail)}</div>`).join('')
         || '<span class="muted">No changes yet. The first lookup of a domain is its baseline, not a change.</span>';
+}
+
+function pfDescendants(groups, id) {
+    const found = new Set([id]);
+    let grew = true;
+    while (grew) {
+        grew = false;
+        groups.forEach(g => { if (found.has(g.parent_id) && !found.has(g.id)) { found.add(g.id); grew = true; } });
+    }
+    return found;
 }
 
 async function pfLoad() {
@@ -187,7 +201,13 @@ function initPortfolio() {
     if (!$('pfGroups')) return;
     try { pf.canEdit = JSON.parse($('pfCanEdit').textContent); } catch (e) { pf.canEdit = false; }
     ['pfSearch', 'pfFlagFilter'].forEach(id => $(id).addEventListener('input', pfRender));
-    $('pfGroupFilter').addEventListener('change', () => { pfRenderChrome(); pfRender(); });
+    $('pfGroupFilter').addEventListener('change', () => {
+        const value = $('pfGroupFilter').value;
+        history.replaceState(null, '', value.length > 1 ? `?group=${value.slice(1)}` : location.pathname);
+        pfRenderChrome(); pfRender();
+    });
+    const wanted = new URLSearchParams(location.search).get('group');
+    if (wanted) pf.initialGroup = `g${wanted}`;
     $('pfTiles').addEventListener('click', e => {
         const tile = e.target.closest('.portfolio-tile');
         if (!tile) return;
@@ -256,33 +276,6 @@ function initPortfolio() {
                 box.value = (box.value.trim() ? box.value.trim() + '\n' : '') + String(reader.result || '');
             };
             reader.readAsText(file);
-        });
-        $('pfNewGroupBtn').addEventListener('click', async () => {
-            try {
-                await pfPost('/api/portfolio/groups', {
-                    name: $('pfNewGroupName').value, expected_registrar: $('pfNewGroupRegistrar').value });
-                $('pfNewGroupName').value = '';
-                $('pfNewGroupRegistrar').value = '';
-            } catch (err) { toast(err.message); }
-            pfLoad();
-        });
-        $('pfGroupTable').addEventListener('click', async e => {
-            const row = e.target.closest('tr[data-group-id]');
-            if (!row) return;
-            const url = '/api/portfolio/groups/' + row.getAttribute('data-group-id');
-            try {
-                if (e.target.classList.contains('pf-group-save')) {
-                    await pfPost(url, { name: row.querySelector('.pf-group-name').value,
-                        expected_registrar: row.querySelector('.pf-group-registrar').value }, 'PUT');
-                    toast('Group saved.');
-                } else if (e.target.classList.contains('pf-group-delete')) {
-                    if (!confirm('Delete this group? Its domains stay in the portfolio, without a group.')) return;
-                    await pfPost(url, null, 'DELETE');
-                } else {
-                    return;
-                }
-            } catch (err) { toast(err.message); }
-            pfLoad();
         });
     }
     pfLoad();
