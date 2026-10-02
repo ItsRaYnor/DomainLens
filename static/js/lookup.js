@@ -793,9 +793,19 @@ function whoisBatchRows(rows) {
             + (r.status ? `<div class="muted">${esc(r.status)}</div>` : '')
             + (r.released_from ? `<div class="status-warn">Released from ${esc(new Date(r.released_from).toLocaleString())}</div>` : '')
             + (r.detail ? `<div class="muted">${esc(r.detail)}</div>` : '');
-        return `<tr><td>${esc(r.domain)}</td><td>${state}</td><td>${esc(r.registrar)}</td>`
+        // Details here, and the registry's own page for what RDAP withholds
+        // (holder and contacts): the same links the scan's WHOIS tab gives.
+        const registryLink = r.registry_url
+            ? `<a href="${esc(r.registry_url)}" target="_blank" rel="noopener noreferrer">${esc(r.registry || 'registry')}</a>`
+            : '';
+        const links = `<div class="muted"><a href="/tools/whois?domain=${encodeURIComponent(r.domain)}">details</a>`
+            + (registryLink ? ` &middot; ${registryLink}` : '') + '</div>';
+        const holder = r.holder === 'withheld'
+            ? `<span class="muted">Not published over RDAP</span>${registryLink ? ` &mdash; see ${registryLink}` : ''}`
+            : esc(r.holder);
+        return `<tr><td><code>${esc(r.domain)}</code>${links}</td><td>${state}</td><td>${esc(r.registrar)}</td>`
             + `<td>${esc(r.reseller)}</td><td>${esc(r.registered)}</td><td>${esc(r.expires)}</td>`
-            + `<td>${esc(r.dnssec)}</td><td>${esc(r.holder)}</td></tr>`;
+            + `<td>${esc(r.dnssec)}</td><td>${holder}</td></tr>`;
     }).join('');
     return head + body;
 }

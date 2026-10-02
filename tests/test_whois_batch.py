@@ -84,6 +84,33 @@ class PacingTests(unittest.TestCase):
         self.assertEqual("Example Registrar", result["registrar"]["name"])
 
 
+class RegistryLinkTests(unittest.TestCase):
+    """The scan's WHOIS tab links to the registry for what RDAP withholds;
+    batch rows did not, so holder and contacts were a dead end there."""
+
+    def test_every_row_links_to_its_registry_whatever_the_outcome(self):
+        for result in ({"success": True}, {"success": False, "state": "unmeasured"}):
+            with self.subTest(result=result):
+                row = whois_batch._row("example.nl", result)
+                self.assertEqual("SIDN", row["registry"])
+                self.assertIn("example.nl", row["registry_url"])
+
+    def test_the_csv_carries_the_link(self):
+        job = whois_batch.start(["example.nl"], runner=lambda fn: None)
+        whois_batch._jobs[job["id"]]["rows"].append(whois_batch._row("example.nl", {"success": True}))
+        header = whois_batch.to_csv(job["id"]).splitlines()[0]
+        self.assertIn("registry_url", header)
+
+    def test_the_table_shows_details_and_registry_links(self):
+        import pathlib
+        js = pathlib.Path(__file__).resolve().parent.parent.joinpath(
+            "static", "js", "lookup.js").read_text(encoding="utf-8")
+        rows = js[js.index("function whoisBatchRows"):]
+        rows = rows[:rows.index("\n}\n")]
+        self.assertIn('href="/tools/whois?domain=', rows)
+        self.assertIn("r.registry_url", rows)
+
+
 class RowTests(unittest.TestCase):
     def test_a_failed_lookup_is_not_measured_rather_than_not_registered(self):
         row = whois_batch._row("example.nl", {"success": False, "state": "unmeasured",

@@ -95,7 +95,12 @@ _pacer = _Pacer()
 
 def _row(domain, result):
     """One flat row per domain, for the table and the CSV."""
-    base = {"domain": domain, "state": "", "detail": "", "registrar": "", "reseller": "",
+    # Where to see what RDAP does not publish (holder, contacts): the
+    # registry's own lookup, SIDN for .nl. Every row has one, whatever the
+    # outcome, so a "not measured" row can still be checked by hand.
+    lookup = result.get("registry_lookup") or rdap.registry_lookup(domain)
+    base = {"domain": domain, "registry": lookup["name"], "registry_url": lookup["url"],
+            "state": "", "detail": "", "registrar": "", "reseller": "",
             "registered": "", "updated": "", "expires": "", "dnssec": "", "nameservers": "",
             "holder": "", "source": "", "status": "", "phase": "", "released_from": ""}
     if result.get("success"):
@@ -230,7 +235,7 @@ def cancel(job_id):
 
 CSV_COLUMNS = ["domain", "state", "phase", "status", "released_from", "detail", "registrar",
                "reseller", "registered", "updated", "expires", "dnssec", "nameservers", "holder",
-               "source"]
+               "source", "registry_url"]
 
 
 def _csv_safe(value):
