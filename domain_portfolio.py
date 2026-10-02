@@ -254,7 +254,7 @@ def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNS
     with db._lock, db._connect() as conn:
         clash = _find(conn, new_name, new_parent)
         if clash and clash != int(group_id):
-            raise ValueError("That level already has a unit with this name")
+            raise ValueError("That level already has a unit with this name; use Merge to combine them")
         conn.execute(f"UPDATE portfolio_groups SET {', '.join(fields)} WHERE id = ?",
                      (*values, int(group_id)))
     return get_group(group_id)
@@ -266,6 +266,58 @@ def get_group(group_id):
     except (TypeError, ValueError):
         return None
     return next((g for g in list_groups() if g["id"] == group_id), None)
+
+
+def merge_group(source_id, target_id):
+    """Fold one unit into another, as in a reorganisation.
+
+    The source's domains go to the target; each of its units moves under the
+    target, or, where the target already has a unit of that name, is merged
+    into that one in turn. The target keeps its own expected registrar and
+    takes the source's only when it had none. The source is removed.
+    Returns counts of what moved.
+    """
+    source, target = get_group(source_id), get_group(target_id)
+    if not source or not target:
+        raise ValueError("Unknown unit")
+    if source["id"] == target["id"]:
+        raise ValueError("A unit cannot be merged into itself")
+    if target["id"] in descendants(source["id"]):
+        raise ValueError("A unit cannot be merged into one of its own units")
+    # Every domain in the merged branch goes along, also those in units that
+    # move as a whole; the count says so.
+    branch = descendants(source["id"])
+    with db._connect() as conn:
+        in_branch = sum(1 for r in conn.execute("SELECT group_id FROM portfolio_domains").fetchall()
+                        if r["group_id"] in branch)
+    counts = {"domains": in_branch, "units_moved": 0, "units_merged": 0}
+
+    def fold(conn, src, dst):
+        conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE group_id = ?", (dst, src))
+        for child in conn.execute("SELECT id, name FROM portfolio_groups WHERE parent_id = ?",
+                                  (src,)).fetchall():
+            twin = _find(conn, child["name"], dst)
+            if twin:
+                fold(conn, child["id"], twin)
+                counts["units_merged"] += 1
+            else:
+                conn.execute("UPDATE portfolio_groups SET parent_id = ? WHERE id = ?", (dst, child["id"]))
+                counts["units_moved"] += 1
+        own = conn.execute("SELECT expected_registrar FROM portfolio_groups WHERE id = ?", (src,)).fetchone()
+        if own and own["expected_registrar"]:
+            conn.execute("UPDATE portfolio_groups SET expected_registrar = ? "
+                         "WHERE id = ? AND expected_registrar IS NULL", (own["expected_registrar"], dst))
+        conn.execute("DELETE FROM portfolio_groups WHERE id = ?", (src,))
+
+    with db._lock, db._connect() as conn:
+        conn.execute("BEGIN")
+        try:
+            fold(conn, source["id"], target["id"])
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    return counts
 
 
 def delete_group(group_id):

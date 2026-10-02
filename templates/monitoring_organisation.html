@@ -34,6 +34,14 @@
                     <input type="text" id="orgNewRegistrar" placeholder="Expected registrar (optional)" autocomplete="off">
                     <button class="btn-primary-lite" id="orgNewBtn" type="button">Add unit</button>
                 </div>
+                <h4 class="monitor-subhead">Merge two units</h4>
+                <p class="ct-desc">For a reorganisation: every domain and unit of the first goes to the second, and the first is removed. Where both have a unit of the same name, those are merged too. The second keeps its expected registrar, and takes the first's only when it had none.</p>
+                <div class="dns-lookup-form">
+                    <select id="orgMergeFrom" aria-label="Unit to merge"></select>
+                    <span class="muted">into</span>
+                    <select id="orgMergeInto" aria-label="Unit to merge into"></select>
+                    <button class="btn-ghost" id="orgMergeBtn" type="button">Merge</button>
+                </div>
             </details>
         </section>
         {% endif %}

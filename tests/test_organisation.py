@@ -104,6 +104,41 @@ class TreeTests(OrgTestCase):
         with self.assertRaises(ValueError):
             domain_portfolio.update_group(self.unit("Org X > Retail"), parent_id=self.unit("Org Y"))
 
+    def test_merging_folds_domains_and_same_named_units_together(self):
+        """A reorganisation where both companies already had a Retail unit:
+        refusing the move left only a manual, domain-by-domain merge."""
+        domain_portfolio.import_domains([
+            ("example.nl", "Org X > Retail"), ("example.com", "Org X > Retail > Webshop"),
+            ("example.org", "Org X > Retail > Outlet"), ("example.net", "Org Y > Retail > Webshop")])
+        x_retail = self.unit("Org X > Retail")
+        domain_portfolio.update_group(x_retail, expected_registrar="Example Registrar")
+        y_retail = self.unit("Org Y > Retail")
+        counts = domain_portfolio.merge_group(x_retail, y_retail)
+        self.assertEqual({"domains": 3, "units_moved": 1, "units_merged": 1}, counts)
+        paths = {d["domain"]: d["group"] for d in domain_portfolio.list_all()}
+        self.assertEqual({"example.nl": "Org Y › Retail", "example.com": "Org Y › Retail › Webshop",
+                          "example.org": "Org Y › Retail › Outlet",
+                          "example.net": "Org Y › Retail › Webshop"}, paths)
+        units = [g["path"] for g in domain_portfolio.list_groups()]
+        self.assertNotIn("Org X › Retail", units)
+        self.assertEqual(1, units.count("Org Y › Retail › Webshop"))
+        # Nothing set at the target, so the source's registrar is kept.
+        self.assertEqual("Example Registrar", domain_portfolio.get_group(y_retail)["expected_registrar"])
+
+    def test_a_unit_cannot_be_merged_into_its_own_unit(self):
+        top = self.unit("Org X")
+        with self.assertRaises(ValueError):
+            domain_portfolio.merge_group(top, self.unit("Org X > Sales"))
+
+    def test_merging_over_the_api_needs_the_analyst_role(self):
+        a, b = self.unit("Org X"), self.unit("Org Y")
+        self.login_as("viewer")
+        self.assertEqual(403, self.client.post(f"/api/portfolio/groups/{a}/merge", json={"into": b}).status_code)
+        self.login_as("user")
+        resp = self.client.post(f"/api/portfolio/groups/{a}/merge", json={"into": b})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(["Org Y"], [g["path"] for g in domain_portfolio.list_groups()])
+
     def test_deleting_a_unit_moves_its_domains_and_units_up(self):
         domain_portfolio.import_domains([("example.nl", "Org X > Sales")])
         self.unit("Org X > Sales > Webshop")

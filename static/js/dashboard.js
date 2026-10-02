@@ -183,7 +183,7 @@ async function mgLoadGroups() {
     try {
         const data = await requestJson('/api/portfolio');
         $('mgGroup').innerHTML = '<option value="">All domains</option>'
-            + data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${'  '.repeat(g.depth)}${esc(g.name)}</option>`).join('');
+            + data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${esc(g.path)}</option>`).join('');
         $('mgGroup').classList.toggle('hidden', !data.groups.length);
     } catch (e) { $('mgGroup').classList.add('hidden'); }
 }

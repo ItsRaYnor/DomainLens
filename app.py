@@ -4041,6 +4041,22 @@ def api_portfolio_group(group_id):
     return jsonify(group)
 
 
+@app.route("/api/portfolio/groups/<int:group_id>/merge", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_group_merge(group_id):
+    """Fold a unit into another: its domains and units go along."""
+    source = domain_portfolio.get_group(group_id)
+    data = request.get_json(silent=True) or {}
+    try:
+        target = domain_portfolio.get_group(int(data.get("into")))
+        counts = domain_portfolio.merge_group(group_id, target["id"] if target else None)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Choose the unit to merge into"}), 400
+    audit_log.record("portfolio.group_merge", target_type="portfolio", target_id=target["path"],
+                     details={"from": source["path"], **counts})
+    return jsonify({**counts, "into": domain_portfolio.get_group(target["id"])})
+
+
 @app.route("/api/portfolio/assign", methods=["POST"])
 @auth.require_role(roles.USER)
 def api_portfolio_assign():

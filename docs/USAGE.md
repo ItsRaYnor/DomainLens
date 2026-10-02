@@ -480,7 +480,14 @@ a domain in a unit:
 Choosing a unit for a monitor or scan adds the registered domain to the portfolio, so it is
 then also watched for quarantine and expiry. A unit may name the registrar its domains belong
 at; units below inherit it unless they name their own. Deleting a unit moves its domains and
-units one level up. The Monitors page, the domain portfolio (`?group=`) and the dashboard
+units one level up.
+
+To move a unit with everything below it — to another company, say — choose its new place
+under **Under** and save. A move onto a name that already exists at that level is refused;
+use **Merge two units** instead: every domain and unit of the first goes to the second,
+units of the same name on both sides are merged as well, the second keeps its expected
+registrar (taking the first's only when it had none), and the first is removed. API:
+`POST /api/portfolio/groups/{id}/merge` with `{"into": id}`. The Monitors page, the domain portfolio (`?group=`) and the dashboard
 (`?group=`) can each be narrowed to a unit and the units below it. API: `GET /api/organisation`,
 `POST /api/portfolio/assign`, `GET /api/portfolio/unit?domain=`, `POST /api/portfolio/groups`
 (with `parent_id`), `PUT /api/portfolio/groups/{id}` (`name`, `parent_id`,

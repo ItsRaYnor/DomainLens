@@ -4,11 +4,12 @@ const ORG_RATING_COLOR = {
     A: 'var(--grade-a)', B: 'var(--grade-b)', C: 'var(--grade-c)', D: 'var(--grade-d)', F: 'var(--grade-f)',
 };
 
-// One option list for every unit picker: indented by depth, full path as title.
+// One option list for every unit picker, by full path: a closed list shows
+// one line, and "Marketing" under two companies looked the same.
 function orgUnitOptions(units, { blank, exclude } = {}) {
     return (blank ? `<option value="">${esc(blank)}</option>` : '')
         + units.filter(u => !(exclude && exclude.has(u.id)))
-            .map(u => `<option value="${u.id}" title="${esc(u.path)}">${'  '.repeat(u.depth)}${esc(u.name)}</option>`).join('');
+            .map(u => `<option value="${u.id}">${esc(u.path)}</option>`).join('');
 }
 
 function orgDescendants(units, id) {
@@ -76,6 +77,11 @@ async function orgLoad() {
 function orgRenderManage() {
     const units = org.units;
     $('orgNewParent').innerHTML = orgUnitOptions(units, { blank: 'Top level' });
+    const from = $('orgMergeFrom').value, into = $('orgMergeInto').value;
+    $('orgMergeFrom').innerHTML = orgUnitOptions(units, { blank: 'Choose a unit' });
+    $('orgMergeInto').innerHTML = orgUnitOptions(units, { blank: 'Choose a unit' });
+    $('orgMergeFrom').value = units.some(u => String(u.id) === from) ? from : '';
+    $('orgMergeInto').value = units.some(u => String(u.id) === into) ? into : '';
     $('orgManageTable').innerHTML = units.length
         ? '<tr><th>Unit</th><th>Under</th><th>Expected registrar</th><th></th></tr>' + units.map(u => {
             const parent = `<select class="org-parent" aria-label="Under">${orgUnitOptions(units, { blank: 'Top level', exclude: orgDescendants(units, u.id) })}</select>`;
@@ -105,6 +111,20 @@ function initOrganisation() {
                 });
                 $('orgNewName').value = '';
                 $('orgNewRegistrar').value = '';
+            } catch (err) { toast(err.message); }
+            orgLoad();
+        });
+        $('orgMergeBtn').addEventListener('click', async () => {
+            const from = org.units.find(u => String(u.id) === $('orgMergeFrom').value);
+            const into = org.units.find(u => String(u.id) === $('orgMergeInto').value);
+            if (!from || !into) { toast('Choose both units first.'); return; }
+            if (!confirm(`Merge ${from.path} into ${into.path}? ${from.path} is removed; its domains and units go to ${into.path}.`)) return;
+            try {
+                const res = await requestJson(`/api/portfolio/groups/${from.id}/merge`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ into: into.id }),
+                });
+                toast(`Merged: ${res.domains} domain(s) and ${res.units_moved + res.units_merged} unit(s) now in ${res.into.path}.`);
             } catch (err) { toast(err.message); }
             orgLoad();
         });

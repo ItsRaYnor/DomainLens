@@ -124,13 +124,12 @@ function pfRenderChrome() {
 
     const current = pf.initialGroup || $('pfGroupFilter').value;
     pf.initialGroup = null;
-    const indent = g => '  '.repeat(g.depth);
     $('pfGroupFilter').innerHTML = '<option value="">All units</option>'
-        + data.groups.map(g => `<option value="g${g.id}" title="${esc(g.path)}">${indent(g)}${esc(g.name)}</option>`).join('')
+        + data.groups.map(g => `<option value="g${g.id}" title="${esc(g.path)}">${esc(g.path)}</option>`).join('')
         + '<option value="g">Not in a unit</option>';
     $('pfGroupFilter').value = current;
     if ($('pfMoveTarget')) {
-        $('pfMoveTarget').innerHTML = data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${indent(g)}${esc(g.name)}</option>`).join('')
+        $('pfMoveTarget').innerHTML = data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${esc(g.path)}</option>`).join('')
             + '<option value="">Not in a unit</option>';
         $('pfGroupNames').innerHTML = data.groups.map(g => `<option value="${esc(g.path.replace(/ › /g, ' > '))}">`).join('');
     }

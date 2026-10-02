@@ -209,6 +209,12 @@ def spec():
                 "action": {"type": "string", "enum": ["move", "remove"]},
                 "ids": {"type": "array", "items": {"type": "integer"}},
                 "group_id": {"type": "integer"}}}))},
+        "/api/portfolio/groups/{group_id}/merge": {"post": _op(
+            "Merge a unit into another, with its domains and units", "Portfolio",
+            _ok("Counts and the resulting unit"), role="user",
+            params=[_param("group_id", "path", {"type": "integer"})],
+            body=_body({"type": "object", "required": ["into"], "properties": {
+                "into": {"type": "integer"}}}))},
         "/api/portfolio/assign": {"post": _op(
             "Put a host's registered domain in an organisation unit", "Portfolio",
             _ok("Domain, action and unit"), role="user",

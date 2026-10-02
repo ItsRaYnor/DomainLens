@@ -2231,7 +2231,7 @@ async function renderScanUnit(host) {
             : (units.length ? `${info.domain} is not in a unit yet` : `${info.domain} is not in the domain portfolio`);
         const select = $('scanUnitSelect');
         select.innerHTML = units.map(u =>
-            `<option value="${u.id}" title="${escapeHtml(u.path)}">${'\u00a0\u00a0'.repeat(u.depth)}${escapeHtml(u.name)}</option>`).join('');
+            `<option value="${u.id}" title="${escapeHtml(u.path)}">${escapeHtml(u.path)}</option>`).join('');
         const canEdit = box.dataset.canEdit === 'true';
         select.classList.toggle('hidden', !units.length || !canEdit);
         $('scanUnitBtn').classList.toggle('hidden', !canEdit);
@@ -2502,7 +2502,7 @@ let monitorUnits = [];
 
 function monitorUnitOptions() {
     return monitorUnits.map(u =>
-        `<option value="${u.id}" title="${escapeHtml(u.path)}">${'\u00a0\u00a0'.repeat(u.depth)}${escapeHtml(u.name)}</option>`).join('');
+        `<option value="${u.id}" title="${escapeHtml(u.path)}">${escapeHtml(u.path)}</option>`).join('');
 }
 
 async function loadMonitorUnits() {
