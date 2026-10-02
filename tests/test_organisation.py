@@ -82,6 +82,28 @@ class TreeTests(OrgTestCase):
         with self.assertRaises(ValueError):
             domain_portfolio.update_group(top, parent_id=sales)
 
+    def test_a_business_unit_moves_to_another_company_with_everything_below_it(self):
+        """A reorganisation: Retail, its Webshop unit and their domains go
+        from Org X to Org Y, and every figure follows."""
+        domain_portfolio.import_domains([("example.nl", "Org X > Retail"),
+                                         ("example.com", "Org X > Retail > Webshop")])
+        top_y = self.unit("Org Y")
+        domain_portfolio.update_group(top_y, expected_registrar="Example Registrar")
+        retail = self.unit("Org X > Retail")
+        domain_portfolio.update_group(retail, parent_id=top_y)
+        paths = {d["domain"]: d["group"] for d in domain_portfolio.list_all()}
+        self.assertEqual({"example.nl": "Org Y › Retail", "example.com": "Org Y › Retail › Webshop"}, paths)
+        webshop = domain_portfolio.get_group(self.unit("Org Y > Retail > Webshop"))
+        self.assertEqual("Example Registrar", webshop["effective_registrar"])
+        units = {u["path"]: u for u in management.organisation()["units"]}
+        self.assertEqual(0, units["Org X"]["registration"]["total"])
+        self.assertEqual(2, units["Org Y"]["registration"]["total"])
+
+    def test_a_move_onto_a_name_already_used_there_is_refused(self):
+        self.unit("Org Y > Retail")
+        with self.assertRaises(ValueError):
+            domain_portfolio.update_group(self.unit("Org X > Retail"), parent_id=self.unit("Org Y"))
+
     def test_deleting_a_unit_moves_its_domains_and_units_up(self):
         domain_portfolio.import_domains([("example.nl", "Org X > Sales")])
         self.unit("Org X > Sales > Webshop")
