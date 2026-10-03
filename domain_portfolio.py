@@ -950,6 +950,10 @@ def _enrich(row, groups, today=None, people=None):
         flags.append("intel")
     if out["lifecycle"] == "claim" and out["phase"] == "not_registered":
         flags.append("claimable")
+    # Whether it is in use is not known yet, so whether it needs threat
+    # intelligence is not known either: a third answer, counted on its own.
+    if held and out["usage"] == "unmeasured":
+        flags.append("use_unmeasured")
     if out["phase"] == "unmeasured" or out["stale"]:
         flags.append("unmeasured")
     out["flags"] = flags
@@ -982,7 +986,8 @@ def summary(domains, groups):
     def counts(items):
         return {"total": len(items),
                 **{flag: sum(1 for d in items if flag in d["flags"])
-                   for flag in ("attention", "expiring", "move", "unmeasured", "intel", "claimable")}}
+                   for flag in ("attention", "expiring", "move", "unmeasured", "intel", "claimable",
+                                "use_unmeasured")}}
     per_group = []
     for g in groups:
         below = descendants(g["id"], groups)

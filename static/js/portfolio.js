@@ -8,7 +8,7 @@ const PF_PHASE_CLASS = {
 const PF_FLAG_TEXT = {
     attention: 'Quarantine / deleted', expiring: 'Expiring ≤ 30 days',
     move: 'To move', intel: 'In use, no threat intel', claimable: 'Free to request',
-    unmeasured: 'Not measured',
+    unmeasured: 'Registration not measured', use_unmeasured: 'Use not measured',
 };
 const PF_LIFECYCLE_CLASS = { keep: '', review: 'status-warn', cancel: 'muted', claim: '' };
 const pf = { data: null, selected: new Set(), canEdit: false };
@@ -122,7 +122,7 @@ function pfRow(d) {
 
 function pfCounts(c) {
     return Object.keys(PF_FLAG_TEXT).filter(f => c[f])
-        .map(f => `<span class="${f === 'unmeasured' ? 'muted' : 'pf-count-warn'}">${c[f]} ${esc(PF_FLAG_TEXT[f].toLowerCase())}</span>`)
+        .map(f => `<span class="${['unmeasured', 'use_unmeasured'].includes(f) ? 'muted' : 'pf-count-warn'}">${c[f]} ${esc(PF_FLAG_TEXT[f].toLowerCase())}</span>`)
         .join(' &middot; ');
 }
 
@@ -189,7 +189,8 @@ function pfRenderChrome() {
         + tile('Expiring within 30 days', t.expiring, 'expiring', 'tile-warn')
         + tile('To move', t.move, 'move', 'tile-warn')
         + tile('In use, no threat intel', t.intel, 'intel', 'tile-warn')
-        + tile('Not measured', t.unmeasured, 'unmeasured', '');
+        + tile('Use not measured', t.use_unmeasured, 'use_unmeasured', '')
+        + tile('Registration not measured', t.unmeasured, 'unmeasured', '');
 
     const current = pf.initialGroup || $('pfGroupFilter').value;
     pf.initialGroup = null;

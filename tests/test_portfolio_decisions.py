@@ -153,6 +153,23 @@ class ThreatIntelTests(DecisionTestCase):
         row = self.row("example.nl")
         self.assertEqual(("unmeasured", "unmeasured"), (row["usage"], row["threat_intel_state"]))
 
+    def test_use_not_measured_has_a_count_of_its_own(self):
+        """The "Not measured" tile counted only registration lookups: domains
+        looked up before use was measured showed 0 there, and appeared in no
+        tile at all. A domain being cancelled does not need the answer."""
+        self.add("example.nl")
+        dropped = self.add("example.com")
+        self.look_up("example.nl", _answer())
+        self.look_up("example.com", _answer())
+        domain_portfolio.set_lifecycle([dropped], "cancel")
+        self.assertIn("use_unmeasured", self.row("example.nl")["flags"])
+        self.assertNotIn("use_unmeasured", self.row("example.com")["flags"])
+        domains = domain_portfolio.list_all(today=_NOW.date())
+        totals = domain_portfolio.summary(domains, domain_portfolio.list_groups())["total"]
+        self.assertEqual((1, 0), (totals["use_unmeasured"], totals["unmeasured"]))
+        source = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
+        self.assertIn("tile('Use not measured', t.use_unmeasured, 'use_unmeasured', '')", source)
+
     def test_a_failed_measurement_keeps_the_last_one(self):
         self.add("example.nl")
         self.look_up("example.nl", _answer(), probe=lambda d: {"mail": True, "web": True})

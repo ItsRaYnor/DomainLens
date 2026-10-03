@@ -83,7 +83,12 @@
   "No e-mail or phone": "Geen e-mail of telefoon",
   "No contacts yet. Add the people to ask about your companies and units.": "Nog geen contactpersonen. Voeg de mensen toe bij wie je terecht kunt over je bedrijven en eenheden.",
   "None: enter a name below": "Geen: vul hieronder een naam in",
-  "Choose a company or unit first.": "Kies eerst een bedrijf of eenheid."
+  "Choose a company or unit first.": "Kies eerst een bedrijf of eenheid.",
+  "Use not measured": "Gebruik niet gemeten",
+  "use not measured": "gebruik niet gemeten",
+  "Registration not measured": "Registratie niet gemeten",
+  "registration not measured": "registratie niet gemeten",
+  "Use not measured yet (mail and web)": "Gebruik nog niet gemeten (mail en web)"
  },
  "patterns": [
   [
@@ -193,6 +198,14 @@
   [
    "(.+?)\\ is\\ not\\ in\\ the\\ domain\\ portfolio\\ yet\\.\\ Choose\\ a\\ unit\\ to\\ add\\ it\\ there\\.",
    "$1 staat nog niet in de domeinportfolio. Kies een eenheid om het daar toe te voegen."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ use\\ not\\ measured",
+   "$1 gebruik niet gemeten"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ registration\\ not\\ measured",
+   "$1 registratie niet gemeten"
   ]
  ]
 }
