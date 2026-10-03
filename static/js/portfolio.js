@@ -102,11 +102,12 @@ function pfRow(d) {
         + (d.released_from ? `<div class="muted">Released from ${esc(pfWhen(d.released_from))}</div>` : '')
         + (d.stale ? `<div class="muted" title="${esc(d.last_error)}">Last lookup failed; showing the answer from ${esc(pfWhen(d.last_ok_at))}</div>` : '')
         + (d.phase === 'unmeasured' && d.last_error ? `<div class="muted">${esc(d.last_error)}</div>` : '')
-        + (d.last_checked_at ? `<div class="muted">Looked up ${esc(pfWhen(d.last_checked_at))}</div>` : '');
+        + (d.last_checked_at ? `<div class="muted">Looked up ${esc(pfWhen(d.last_checked_at))}</div>` : '')
+        // "Check now" sits with the answer it renews, not in a column of its own.
+        + (pf.canEdit ? '<div><button class="btn-ghost-sm pf-check" type="button">Check now</button></div>' : '');
     const registrar = d.registrar ? esc(d.registrar) + (d.reseller ? `<div class="muted">via ${esc(d.reseller)}</div>` : '') : '<span class="muted">&mdash;</span>';
     const check = pf.canEdit
         ? `<td><input type="checkbox" class="pf-select" value="${d.id}"${pf.selected.has(String(d.id)) ? ' checked' : ''} aria-label="Select ${esc(d.domain)}"></td>` : '';
-    const actions = pf.canEdit ? '<button class="btn-ghost-sm pf-check" type="button">Check now</button>' : '';
     return `<tr data-id="${d.id}">${check}<td><a href="/tools/whois?domain=${encodeURIComponent(d.domain)}"><code>${esc(d.domain)}</code></a>`
         + (d.note ? `<div class="muted">${esc(d.note)}</div>` : '')
         + (d.monitored ? '<div class="muted" title="A security monitor scans this domain or one of its hosts">Security monitored</div>' : '')
@@ -116,8 +117,7 @@ function pfRow(d) {
         + `<td>${phase}</td>`
         + `<td>${pfIntel(d)}</td>`
         + `<td>${pfLifecycle(d)}</td>`
-        + `<td>${pfContact(d)}</td>`
-        + `<td class="nowrap">${actions}</td></tr>`;
+        + `<td>${pfContact(d)}</td></tr>`;
 }
 
 function pfCounts(c) {
@@ -164,7 +164,7 @@ function pfRender() {
         const table = shown.length
             ? `<div class="users-table-wrap"><table class="data-table portfolio-table">`
               + `<tr>${head}<th>Domain</th><th>Registrar</th><th>Expires</th><th>Status</th>`
-              + `<th>Threat intel</th><th>Decision</th><th>Contact</th><th></th></tr>`
+              + `<th>Threat intel</th><th>Decision</th><th>Contact</th></tr>`
               + shown.map(pfRow).join('') + '</table></div>'
             : `<p class="muted">${all.length ? 'No domains in this unit match the filter.' : 'No domains in this unit yet.'}</p>`;
         const counts = pfCounts(summaries[s.key] || {});

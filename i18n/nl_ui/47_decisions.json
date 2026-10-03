@@ -185,6 +185,14 @@
   [
    "Contact\\ added:\\ (.+?)\\.",
    "Contactpersoon toegevoegd: $1."
+  ],
+  [
+   "(.+?)\\ is\\ in\\ (.+?)\\ in\\ the\\ domain\\ portfolio;\\ this\\ monitor\\ counts\\ there\\.",
+   "$1 staat in de domeinportfolio bij $2; deze monitor telt daar mee."
+  ],
+  [
+   "(.+?)\\ is\\ not\\ in\\ the\\ domain\\ portfolio\\ yet\\.\\ Choose\\ a\\ unit\\ to\\ add\\ it\\ there\\.",
+   "$1 staat nog niet in de domeinportfolio. Kies een eenheid om het daar toe te voegen."
   ]
  ]
 }

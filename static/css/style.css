@@ -2542,18 +2542,17 @@ footer, .app-footer {
 .portfolio-tile.tile-warn { background: var(--orange-bg); }
 .portfolio-tile.tile-warn .portfolio-tile-value { color: var(--orange); }
 .portfolio-bulk { border-top: 1px solid var(--border); padding-top: 0.5rem; }
-.portfolio-table td:nth-child(4) { white-space: nowrap; }
+.portfolio-table td:nth-child(4) { white-space: normal; min-width: 6.5rem; }
 #pfImportInput { width: 100%; margin: 0.5rem 0; }
 .portfolio-table th { width: auto; }
-.portfolio-table td { word-break: normal; overflow-wrap: anywhere; }
+.portfolio-table td { word-break: normal; overflow-wrap: break-word; }
 .portfolio-table th:first-child, .portfolio-table td:first-child { width: 1%; }
-/* Status, and the actions at the end, stay on one line; threat intel,
-   decision and contact wrap between words, never inside one. */
-.portfolio-table td:nth-child(5), .portfolio-table td:last-child,
-.portfolio-table td:last-child button { white-space: nowrap; overflow-wrap: normal; }
-.portfolio-table td:nth-child(6), .portfolio-table td:nth-child(7),
-.portfolio-table td:nth-child(8) { overflow-wrap: normal; }
-.portfolio-table td:nth-child(5) .muted { white-space: normal; }
+/* Words wrap between words, never inside one ("team.blu / e nl"); the
+   status keeps its first line whole. */
+.portfolio-table td:nth-child(5) > span:first-child { white-space: nowrap; }
+.portfolio-table td:nth-child(3) { min-width: 6rem; }
+.portfolio-table td:nth-child(8) { min-width: 8rem; }
+.portfolio-table .pf-check { margin-top: 0.35rem; }
 .pf-count-warn { color: var(--orange); }
 .portfolio-table td:nth-child(2) code { white-space: nowrap; }
 #pfGroupTable th { width: auto; }
@@ -2727,3 +2726,8 @@ button.switch[aria-checked="true"]::after { transform: translate(1.05rem, -50%);
 .contact-form { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; margin-top: 0.9rem; background: var(--bg-subtle); }
 .contact-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.3rem; }
 .contact-card .muted { font-size: 0.82rem; }
+
+/* Wide tables scroll inside their card instead of running out of it. The
+   rule lived only in the admin stylesheet, so elsewhere a wide table spilled
+   over the card's edge. */
+.users-table-wrap { overflow-x: auto; max-width: 100%; }

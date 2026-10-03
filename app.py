@@ -3967,7 +3967,7 @@ def _portfolio_payload():
 def api_portfolio():
     domains, groups = _portfolio_payload()
     # Which domains also have security monitoring, on any of their hosts.
-    watched = {domain_portfolio.registrable(str(m.get("target") or "").lower())
+    watched = {domain_portfolio.registrable(domain_portfolio.host_of(m.get("target")))
                for m in db.list_monitors(limit=10000)}
     for d in domains:
         d["monitored"] = d["domain"] in watched
@@ -4112,7 +4112,7 @@ def api_portfolio_monitor():
     checks = _prepare_checks(data.get("checks", ["all"]))
     # The same test as the "Security monitored" mark: a monitor on any host
     # of the domain counts, so a domain shown as monitored is not doubled.
-    existing = {domain_portfolio.registrable(str(m.get("target") or "").lower())
+    existing = {domain_portfolio.registrable(domain_portfolio.host_of(m.get("target")))
                 for m in db.list_monitors(limit=10000)}
     todo = [d["domain"] for d in domains if d["domain"] not in existing]
     now = datetime.now(timezone.utc)
@@ -4370,7 +4370,7 @@ def api_organisation_unit(unit_id):
     names = {d["domain"] for d in domains}
 
     rows = [m for m in db.list_monitors(limit=10000)
-            if domain_portfolio.registrable(str(m.get("target") or "").lower()) in names]
+            if domain_portfolio.registrable(domain_portfolio.host_of(m.get("target"))) in names]
     latest = db.latest_scans_by_domain(
         [m.get("domain") for m in rows] + sorted(names))
     monitors = _with_postures(_with_org_units([
@@ -4388,7 +4388,7 @@ def api_organisation_unit(unit_id):
         summary = summaries.get(keys.get(d["domain"]))
         d["posture"] = ({"rating": summary["rating"], "counts": summary["counts"],
                          "scan_id": keys[d["domain"]][0]} if summary else None)
-        d["monitored"] = any(domain_portfolio.registrable(str(m.get("target") or "").lower()) == d["domain"]
+        d["monitored"] = any(domain_portfolio.registrable(domain_portfolio.host_of(m.get("target"))) == d["domain"]
                              for m in rows)
 
     monitor_ids = [m["id"] for m in rows]
@@ -6281,7 +6281,8 @@ def _with_org_units(monitors):
     units = domain_portfolio.units_by_domain()
     groups = {g["id"]: g for g in domain_portfolio.list_groups()}
     for m in monitors:
-        group = groups.get(units.get(domain_portfolio.registrable(str(m.get("target") or m.get("domain") or ""))))
+        host = domain_portfolio.host_of(m.get("target") or m.get("domain"))
+        group = groups.get(units.get(domain_portfolio.registrable(host)))
         m["org_unit"] = {"id": group["id"], "path": group["path"]} if group else None
     return monitors
 

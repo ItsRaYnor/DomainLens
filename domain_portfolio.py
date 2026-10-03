@@ -437,10 +437,23 @@ def delete_group(group_id):
         return conn.execute("DELETE FROM portfolio_groups WHERE id = ?", (group["id"],)).rowcount > 0
 
 
+def host_of(target):
+    """The bare host in a monitor or scan target: "https://WWW.Example.com:8443/x"
+    is www.example.com."""
+    text = str(target or "").strip().lower()
+    if "://" in text:
+        text = text.split("://", 1)[1]
+    text = text.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    text = text.rsplit("@", 1)[-1]
+    if text.startswith("["):
+        return text
+    return text.split(":", 1)[0].rstrip(".")
+
+
 def unit_of(hostname):
     """{id, path} of the unit a hostname belongs to through its registered
     domain, or None when that domain is not in the portfolio."""
-    domain = registrable(str(hostname or "").lower().rstrip("."))
+    domain = registrable(host_of(hostname))
     with db._connect() as conn:
         row = conn.execute("SELECT group_id FROM portfolio_domains WHERE domain = ?", (domain,)).fetchone()
     if not row or row["group_id"] is None:

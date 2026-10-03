@@ -409,7 +409,7 @@ def organisation(days=90, now=None):
     parents = {g["id"]: g["parent_id"] for g in groups}
 
     def chain(host):
-        unit, seen = units.get(domain_portfolio.registrable(host)), []
+        unit, seen = units.get(domain_portfolio.registrable(domain_portfolio.host_of(host))), []
         while unit is not None and unit not in seen and unit in parents:
             seen.append(unit)
             unit = parents.get(unit)

@@ -170,6 +170,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     on('historyCompareRun', 'click', runHistoryCompare);
     on('historyCompareClear', 'click', clearHistoryCompare);
     on('createMonitorBtn', 'click', createMonitor);
+    on('monitorDomainInput', 'input', monitorUnitLookupSoon);
+    on('monitorUnitInput', 'change', () => { $('monitorUnitInput').dataset.manual = '1'; });
     on('importMonitorsBtn', 'click', importMonitors);
     on('runDueBtn', 'click', runDueMonitors);
     initMonitorChecks();
@@ -2734,6 +2736,37 @@ function collectMonitorChecks() {
     return picked.length ? picked : ['all'];
 }
 
+// A host whose registered domain is already in the portfolio belongs to
+// that domain's unit: the form chooses it and says so, rather than showing
+// "none" for a monitor that will count under a unit anyway.
+let monitorUnitTimer = null;
+function monitorUnitLookupSoon() {
+    clearTimeout(monitorUnitTimer);
+    monitorUnitTimer = setTimeout(monitorUnitLookup, 350);
+}
+
+async function monitorUnitLookup() {
+    const select = $('monitorUnitInput');
+    const note = $('monitorUnitFound');
+    if (!select || !note) return;
+    const host = $('monitorDomainInput').value.trim();
+    if (!host || !host.includes('.')) { note.textContent = ''; return; }
+    let info;
+    try {
+        const resp = await fetch(`/api/portfolio/unit?domain=${encodeURIComponent(host)}`);
+        if (!resp.ok) { note.textContent = ''; return; }
+        info = await resp.json();
+    } catch (e) { note.textContent = ''; return; }
+    if ($('monitorDomainInput').value.trim() !== host) return;   // typed on meanwhile
+    if (info.unit) {
+        if (!select.dataset.manual) select.value = String(info.unit.id);
+        note.textContent = `${info.domain} is in ${info.unit.path} in the domain portfolio; this monitor counts there.`;
+    } else {
+        if (!select.dataset.manual) select.value = '';
+        note.textContent = `${info.domain} is not in the domain portfolio yet. Choose a unit to add it there.`;
+    }
+}
+
 async function createMonitor() {
     const domain = $('monitorDomainInput').value.trim();
     if (!domain) {
@@ -2758,6 +2791,8 @@ async function createMonitor() {
         }
         $('monitorDomainInput').value = '';
         $('monitorNameInput').value = '';
+        if ($('monitorUnitInput')) { $('monitorUnitInput').value = ''; delete $('monitorUnitInput').dataset.manual; }
+        if ($('monitorUnitFound')) $('monitorUnitFound').textContent = '';
         await loadMonitors();
     } catch (err) {
         showError('Network error while creating monitor');

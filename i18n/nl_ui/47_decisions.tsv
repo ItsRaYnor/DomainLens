@@ -109,3 +109,5 @@ None: enter a name below	Geen: vul hieronder een naam in
 Choose a company or unit first.	Kies eerst een bedrijf of eenheid.
 {} has {} as its contact. Make it {}?	{} heeft {} als contactpersoon. {} ervan maken?
 Contact added: {}.	Contactpersoon toegevoegd: {}.
+{} is in {} in the domain portfolio; this monitor counts there.	{} staat in de domeinportfolio bij {}; deze monitor telt daar mee.
+{} is not in the domain portfolio yet. Choose a unit to add it there.	{} staat nog niet in de domeinportfolio. Kies een eenheid om het daar toe te voegen.
