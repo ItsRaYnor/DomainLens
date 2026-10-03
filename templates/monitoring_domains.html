@@ -53,10 +53,19 @@
                 <summary><h4>Add domains</h4></summary>
                 <p class="ct-desc">Paste one domain per line, optionally followed by its unit (<code>example.nl;Sales</code>, or a path: <code>example.nl;Org X &gt; Sales</code>; missing levels are created), or choose a CSV, text or Excel (.xlsx) file. With a header row that names the columns &mdash; for example <code>Domain</code> and <code>Company</code>, or <code>Domein</code> and <code>Bedrijf</code> (or <code>Unit</code>, <code>Eenheid</code>) &mdash; only those columns are used and the others are ignored. A subdomain or web address is added as its registered domain (<code>https://shop.example.nl/x</code> becomes <code>example.nl</code>), and the result lists what was converted. A domain already in the portfolio moves to the unit named for it; lines without a unit go to the unit chosen below. At most 2,000 domains in all.</p>
                 <textarea id="pfImportInput" rows="8" class="mono" placeholder="example.nl;Sales&#10;example.com;Holding&#10;example.org" spellcheck="false"></textarea>
+                <div class="form-grid">
+                    <label class="form-field" for="pfImportUnit"><span>Put these domains in</span>
+                        <select id="pfImportUnit"></select>
+                        <small class="muted">For lines that name no unit themselves.</small>
+                    </label>
+                    <label class="form-field hidden" for="pfImportGroup" id="pfImportNewField"><span>Name of the new unit</span>
+                        <input type="text" id="pfImportGroup" list="pfGroupNames" placeholder="e.g. Example BV &gt; Sales" autocomplete="off">
+                        <datalist id="pfGroupNames"></datalist>
+                        <small class="muted">Use &gt; for a unit under another; missing levels are created.</small>
+                    </label>
+                </div>
                 <div class="dns-lookup-form">
                     <input type="file" id="pfImportFile" accept=".csv,.txt,.xlsx,text/csv,text/plain">
-                    <input type="text" id="pfImportGroup" list="pfGroupNames" placeholder="Unit for lines without one, e.g. Org X &gt; Sales (optional)" autocomplete="off">
-                    <datalist id="pfGroupNames"></datalist>
                     <button class="btn-primary-lite" id="pfImportBtn" type="button">Add to portfolio</button>
                 </div>
                 <p class="ct-desc" id="pfImportResult"></p>

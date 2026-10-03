@@ -133,6 +133,16 @@ function pfRenderChrome() {
         $('pfMoveTarget').innerHTML = data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${esc(g.path)}</option>`).join('')
             + '<option value="">Not in a unit</option>';
         $('pfGroupNames').innerHTML = data.groups.map(g => `<option value="${esc(g.path.replace(/ › /g, ' > '))}">`).join('');
+        // The unit new domains go to: a choice, not a name to type and get
+        // slightly wrong. Arriving from a unit (?unit=) chooses it.
+        const unit = $('pfImportUnit');
+        const chosen = pf.importUnit || unit.value;
+        pf.importUnit = null;
+        unit.innerHTML = '<option value="">Not in a unit</option>'
+            + data.groups.map(g => `<option value="${g.id}" title="${esc(g.path)}">${esc(g.path)}</option>`).join('')
+            + '<option value="new">New unit…</option>';
+        unit.value = chosen === 'new' || data.groups.some(g => String(g.id) === String(chosen)) ? String(chosen) : '';
+        $('pfImportNewField').classList.toggle('hidden', unit.value !== 'new');
     }
     const groupKey = current.startsWith('g') ? current.slice(1) : '';
     $('pfCsvBtn').href = '/api/portfolio/csv' + (groupKey ? `?unit=${encodeURIComponent(groupKey)}` : '');
@@ -172,9 +182,10 @@ async function pfPost(url, body, method) {
     });
 }
 
-function pfShowImport(res) {
+function pfShowImport(res, unitName) {
     const parts = [`${res.added.length} added, ${res.moved.length} moved to another unit, `
         + `${res.unchanged.length} already there.`];
+    if (unitName && (res.added.length || res.moved.length)) parts.push(`Lines without a unit went to ${unitName}.`);
     if (res.converted && res.converted.length) {
         parts.push('Subdomains replaced by their registered domain: '
             + res.converted.map(c => `${c.from} → ${c.to}`).join(', ') + '.');
@@ -209,6 +220,15 @@ function initPortfolio() {
     const params = new URLSearchParams(location.search);
     const wanted = params.get('unit') || params.get('group');
     if (wanted) pf.initialGroup = `g${wanted}`;
+    // "+ Domains" on a unit: the add form, open, with that unit chosen.
+    if (wanted) pf.importUnit = wanted;
+    if (params.get('add') && $('pfImportFold')) {
+        $('pfImportFold').open = true;
+        setTimeout(() => {
+            $('pfImportFold').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            $('pfImportInput').focus();
+        }, 200);
+    }
     $('pfTiles').addEventListener('click', e => {
         const tile = e.target.closest('.portfolio-tile');
         if (!tile) return;
@@ -254,24 +274,47 @@ function initPortfolio() {
             const text = $('pfImportInput').value;
             const sheet = pf.sheet;
             if (!text.trim() && !sheet) { toast('Paste domains or choose a file first.'); return; }
+            // An existing unit goes by its id, a new one by the path typed.
+            const choice = $('pfImportUnit').value;
+            const newPath = $('pfImportGroup').value.trim();
+            if (choice === 'new' && !newPath) { toast('Give the new unit a name first.'); $('pfImportGroup').focus(); return; }
+            const target = choice === 'new' ? { unit: newPath } : { unit_id: choice };
+            const known = (pf.data.groups || []).find(g => String(g.id) === choice);
+            const unitName = choice === 'new' ? newPath.split('>').map(s => s.trim()).join(' › ') : (known ? known.path : '');
             try {
                 let res;
                 if (sheet) {
                     // A workbook is read on the server; the browser cannot.
                     const form = new FormData();
                     form.append('file', sheet);
-                    form.append('unit', $('pfImportGroup').value);
+                    Object.entries(target).forEach(([k, v]) => form.append(k, v));
                     res = await requestJson('/api/portfolio/import', { method: 'POST', body: form });
                 } else {
-                    res = await pfPost('/api/portfolio/import', { text, unit: $('pfImportGroup').value });
+                    res = await pfPost('/api/portfolio/import', { text, ...target });
                 }
-                pfShowImport(res);
+                pfShowImport(res, unitName);
+                if (choice === 'new') {
+                    // The unit exists now; keep it chosen for the next paste.
+                    $('pfImportGroup').value = '';
+                    pf.importNewPath = newPath;
+                }
                 $('pfImportInput').value = '';
                 pf.sheet = null;
                 $('pfImportFile').value = '';
                 $('pfImportInput').disabled = false;
             } catch (err) { toast(err.message); }
-            pfLoad();
+            await pfLoad();
+            if (pf.importNewPath) {
+                const want = pf.importNewPath.split('>').map(s => s.trim().toLowerCase()).join(' › ');
+                const made = pf.data.groups.find(g => g.path.toLowerCase() === want);
+                if (made) { $('pfImportUnit').value = String(made.id); $('pfImportNewField').classList.add('hidden'); }
+                pf.importNewPath = null;
+            }
+        });
+        $('pfImportUnit').addEventListener('change', () => {
+            const isNew = $('pfImportUnit').value === 'new';
+            $('pfImportNewField').classList.toggle('hidden', !isNew);
+            if (isNew) $('pfImportGroup').focus();
         });
         $('pfImportFile').addEventListener('change', e => {
             const file = e.target.files && e.target.files[0];

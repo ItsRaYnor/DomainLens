@@ -48,7 +48,11 @@ function orgRow(u) {
           + (r.unmeasured ? ` &middot; <span class="muted">${r.unmeasured} not measured</span>` : '')
         : '<span class="muted">No domains</span>';
     const links = `<a href="/reports/dashboard?unit=${u.id}">Dashboard</a> &middot; `
-        + `<a href="/monitoring?unit=${u.id}">Monitors</a> &middot; <a href="/monitoring/domains?unit=${u.id}">Domains</a>`;
+        + `<a href="/monitoring?unit=${u.id}">Monitors</a> &middot; <a href="/monitoring/domains?unit=${u.id}">Domains</a>`
+        + (org.canEdit
+            ? `<div class="org-row-add"><button type="button" class="btn-ghost-sm org-add-sub" data-id="${u.id}">+ Unit under it</button> `
+              + `<a class="btn-ghost-sm" href="/monitoring/domains?unit=${u.id}&amp;add=1">+ Domains</a></div>`
+            : '');
     const parent = org.units.some(c => c.parent_id === u.id);
     const toggle = parent
         ? `<button type="button" class="org-toggle" data-id="${u.id}" aria-expanded="${!org.collapsed.has(u.id)}" `
@@ -96,7 +100,9 @@ function orgRenderTable() {
     $('orgTable').innerHTML = data.units.length
         ? '<tr><th>Unit</th><th>Security rating</th><th>Open findings</th><th>Monitors</th><th>Registration</th><th></th></tr>'
           + data.units.filter(u => !orgHidden(u)).map(orgRow).join('')
-        : '<tr><td class="muted">No units yet. Add one below, or import domains with a unit path in the domain portfolio.</td></tr>';
+        : `<tr><td class="muted">${org.canEdit
+            ? 'No units yet. Start with your company: give it a name under "Add a company or business unit" and leave "Part of" as it is.'
+            : 'No units yet.'}</td></tr>`;
 }
 
 async function orgLoad() {
@@ -115,7 +121,10 @@ async function orgLoad() {
 
 function orgRenderManage() {
     const units = org.units;
-    $('orgNewParent').innerHTML = orgUnitOptions(units, { blank: 'Top level' });
+    const parent = $('orgNewParent').value || org.wantedParent || '';
+    $('orgNewParent').innerHTML = orgUnitOptions(units, { blank: 'Nothing — this is a company' });
+    $('orgNewParent').value = units.some(u => String(u.id) === String(parent)) ? String(parent) : '';
+    org.wantedParent = null;
     const from = $('orgMergeFrom').value, into = $('orgMergeInto').value;
     $('orgMergeFrom').innerHTML = orgUnitOptions(units, { blank: 'Choose a unit' });
     $('orgMergeInto').innerHTML = orgUnitOptions(units, { blank: 'Choose a unit' });
@@ -141,6 +150,9 @@ function orgRenderManage() {
 function initOrganisation() {
     if (!$('orgTable')) return;
     try { org.canEdit = JSON.parse($('orgCanEdit').textContent); } catch (e) { org.canEdit = false; }
+    // From a unit page: /monitoring/organisation?parent=ID opens the form for a unit under it.
+    org.wantedParent = new URLSearchParams(location.search).get('parent');
+    if (org.wantedParent && org.canEdit) setTimeout(() => $('orgNewName').focus(), 300);
     org.collapsed = orgLoadCollapsed();
     $('orgTable').addEventListener('click', e => {
         const btn = e.target.closest('.org-toggle');
@@ -162,8 +174,9 @@ function initOrganisation() {
     });
     if (org.canEdit) {
         $('orgNewBtn').addEventListener('click', async () => {
+            if (!$('orgNewName').value.trim()) { toast('Give the unit a name first.'); $('orgNewName').focus(); return; }
             try {
-                await requestJson('/api/organisation/units', {
+                const unit = await requestJson('/api/organisation/units', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: $('orgNewName').value, parent_id: $('orgNewParent').value,
                         expected_registrar: $('orgNewRegistrar').value, notify_emails: $('orgNewNotify').value }),
@@ -171,8 +184,25 @@ function initOrganisation() {
                 $('orgNewName').value = '';
                 $('orgNewRegistrar').value = '';
                 $('orgNewNotify').value = '';
+                // What next: its domains, or a unit under it.
+                const added = $('orgAdded');
+                added.innerHTML = `<span class="status-pass"></span> <span>Unit added:</span> <strong>${esc(unit.path)}</strong> `
+                    + `<a class="btn-primary-lite" href="/monitoring/domains?unit=${unit.id}&amp;add=1">Add domains to it</a> `
+                    + `<button type="button" class="btn-ghost org-add-sub" data-id="${unit.id}">Add a unit under it</button>`;
+                added.classList.remove('hidden');
+                org.wantedParent = null;
             } catch (err) { toast(err.message); }
-            orgLoad();
+            await orgLoad();
+        });
+        $('orgNewName').addEventListener('keydown', e => { if (e.key === 'Enter') $('orgNewBtn').click(); });
+        // "+ Unit under it", from a row or from the confirmation: the form,
+        // with that unit already chosen as the parent.
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('.org-add-sub');
+            if (!btn) return;
+            $('orgNewParent').value = btn.dataset.id;
+            $('orgAdd').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            $('orgNewName').focus();
         });
         $('orgMergeBtn').addEventListener('click', async () => {
             const from = org.units.find(u => String(u.id) === $('orgMergeFrom').value);

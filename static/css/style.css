@@ -2653,3 +2653,13 @@ footer, .app-footer {
 .org-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 1.3rem; padding: 0; font: inherit; }
 .org-toggle:hover { color: var(--text); }
 .org-toggle-space { display: inline-block; width: 1.3rem; }
+
+/* Adding a unit: labelled fields, a short line of help under each. */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 0.9rem 1.2rem; margin: 0.75rem 0; }
+.form-field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.88rem; }
+.form-field > span { font-weight: 600; }
+.form-field small { font-size: 0.78rem; line-height: 1.35; }
+.org-added { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 0.75rem; padding: 0.6rem 0.8rem; border: 1px solid var(--green-line); background: var(--green-bg); border-radius: var(--radius-sm); }
+.org-row-add { margin-top: 0.35rem; display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.org-row-add .btn-ghost-sm { display: inline-flex; align-items: center; padding: 0.2rem 0.55rem; font-size: 0.78rem; line-height: 1.3; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); text-decoration: none; cursor: pointer; }
+.org-row-add .btn-ghost-sm:hover { border-color: var(--accent); }

@@ -1,0 +1,46 @@
+{
+ "text": {
+  "Add a company or business unit": "Een bedrijf of bedrijfsonderdeel toevoegen",
+  "Start with a company, then add its business units and departments under it. A unit can be as deep as your organisation is.": "Begin met een bedrijf en voeg daaronder de bedrijfsonderdelen en afdelingen toe. Een eenheid kan zo diep gaan als je organisatie.",
+  "Part of": "Onderdeel van",
+  "Leave as is for a company. Choose a unit to add a business unit or department under it.": "Laat zo staan voor een bedrijf. Kies een eenheid om er een bedrijfsonderdeel of afdeling onder te zetten.",
+  "e.g. Example BV, or Sales": "bijv. Example BV, of Verkoop",
+  "e.g. Example Registrar": "bijv. Example Registrar",
+  "e.g. team@example.com": "bijv. team@example.com",
+  "(optional)": "(optioneel)",
+  "Alert e-mail": "E-mail voor meldingen",
+  "Domains of this unit registered elsewhere are marked to move. Units below inherit it.": "Domeinen van deze eenheid die elders geregistreerd staan, worden gemarkeerd om te verhuizen. Eenheden eronder nemen dit over.",
+  "Also gets the alerts about this unit's domains, besides the general channels.": "Krijgt ook de meldingen over de domeinen van deze eenheid, naast de algemene kanalen.",
+  "Edit, move or merge units": "Eenheden bewerken, verplaatsen of samenvoegen",
+  "Nothing — this is a company": "Niets — dit is een bedrijf",
+  "+ Unit under it": "+ Eenheid eronder",
+  "+ Domains": "+ Domeinen",
+  "Unit added:": "Eenheid toegevoegd:",
+  "Add domains to it": "Domeinen eraan toevoegen",
+  "Add a unit under it": "Een eenheid eronder toevoegen",
+  "Give the unit a name first.": "Geef de eenheid eerst een naam.",
+  "No units yet. Start with your company: give it a name under \"Add a company or business unit\" and leave \"Part of\" as it is.": "Nog geen eenheden. Begin met je bedrijf: geef het een naam onder \"Een bedrijf of bedrijfsonderdeel toevoegen\" en laat \"Onderdeel van\" zo staan.",
+  "No units yet.": "Nog geen eenheden.",
+  "Put these domains in": "Zet deze domeinen in",
+  "For lines that name no unit themselves.": "Voor regels die zelf geen eenheid noemen.",
+  "Name of the new unit": "Naam van de nieuwe eenheid",
+  "e.g. Example BV > Sales": "bijv. Example BV > Verkoop",
+  "Use > for a unit under another; missing levels are created.": "Gebruik > voor een eenheid onder een andere; ontbrekende niveaus worden aangemaakt.",
+  "New unit…": "Nieuwe eenheid…",
+  "Give the new unit a name first.": "Geef de nieuwe eenheid eerst een naam."
+ },
+ "patterns": [
+  [
+   "Lines\\ without\\ a\\ unit\\ went\\ to\\ (.+?)\\.",
+   "Regels zonder eenheid zijn naar $1 gegaan."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domains",
+   "$1 domeinen"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain",
+   "$1 domein"
+  ]
+ ]
+}

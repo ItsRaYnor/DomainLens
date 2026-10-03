@@ -17,6 +17,36 @@
             <p class="ct-desc">Put a domain in a unit from the <a href="/monitoring/domains">domain portfolio</a> (paste or import, with a path such as <code>Org X &gt; Sales</code>), when adding a monitor, or from a scan result.</p>
         </section>
 
+        {% if can_edit %}
+        {# Adding a unit is the first thing a new user does here; it used to
+           sit at the bottom of a folded table, with placeholders for labels. #}
+        <section class="card" id="orgAdd">
+            <h3>Add a company or business unit</h3>
+            <p class="ct-desc">Start with a company, then add its business units and departments under it. A unit can be as deep as your organisation is.</p>
+            <div class="form-grid">
+                <label class="form-field" for="orgNewName"><span>Name</span>
+                    <input type="text" id="orgNewName" placeholder="e.g. Example BV, or Sales" autocomplete="off">
+                </label>
+                <label class="form-field" for="orgNewParent"><span>Part of</span>
+                    <select id="orgNewParent"></select>
+                    <small class="muted">Leave as is for a company. Choose a unit to add a business unit or department under it.</small>
+                </label>
+                <label class="form-field" for="orgNewRegistrar"><span>Expected registrar <span class="muted">(optional)</span></span>
+                    <input type="text" id="orgNewRegistrar" placeholder="e.g. Example Registrar" autocomplete="off">
+                    <small class="muted">Domains of this unit registered elsewhere are marked to move. Units below inherit it.</small>
+                </label>
+                <label class="form-field" for="orgNewNotify"><span>Alert e-mail <span class="muted">(optional)</span></span>
+                    <input type="text" id="orgNewNotify" placeholder="e.g. team@example.com" autocomplete="off">
+                    <small class="muted">Also gets the alerts about this unit's domains, besides the general channels.</small>
+                </label>
+            </div>
+            <div class="dns-lookup-form">
+                <button class="btn-primary-lite" id="orgNewBtn" type="button">Add unit</button>
+            </div>
+            <div class="org-added hidden" id="orgAdded" role="status"></div>
+        </section>
+        {% endif %}
+
         <section class="card">
             <div class="discovered-tools">
                 <button type="button" class="btn-ghost-sm" id="orgExpandAll">Expand all</button>
@@ -29,18 +59,11 @@
         {% if can_edit %}
         <section class="card">
             <details class="monitor-fold" id="orgManage">
-                <summary><h4>Units and their registrar</h4></summary>
+                <summary><h4>Edit, move or merge units</h4></summary>
                 <p class="ct-desc"><strong>Notify</strong>: e-mail addresses that get the alerts about this unit's domains &mdash; registration and security &mdash; besides the general channels. A unit's alerts also go to the addresses of the units above it, so a company contact hears about its business units. Sent through the e-mail settings under Settings &rarr; Notifications, with the same minimum severity.</p>
                 <p class="ct-desc hidden" id="orgEmailOff"><span class="status-warn"></span> E-mail notifications are not set up (Settings &rarr; Notifications), so unit addresses are kept but nothing is sent to them yet.</p>
                 <p class="ct-desc">A unit may name the registrar its domains belong at; units below it inherit that unless they name their own. It is matched against the registrar and the reseller, without regard to case; several names may be given, separated by commas. Deleting a unit moves its domains and units one level up.</p>
                 <div class="users-table-wrap"><table class="data-table org-manage-table" id="orgManageTable"></table></div>
-                <div class="dns-lookup-form">
-                    <input type="text" id="orgNewName" placeholder="New unit, e.g. Sales" autocomplete="off">
-                    <select id="orgNewParent" aria-label="Under"></select>
-                    <input type="text" id="orgNewRegistrar" placeholder="Expected registrar (optional)" autocomplete="off">
-                    <input type="text" id="orgNewNotify" placeholder="Notify, e.g. team@example.com (optional)" autocomplete="off">
-                    <button class="btn-primary-lite" id="orgNewBtn" type="button">Add unit</button>
-                </div>
                 <h4 class="monitor-subhead">Merge two units</h4>
                 <p class="ct-desc">For a reorganisation: every domain and unit of the first goes to the second, and the first is removed. Where both have a unit of the same name, those are merged too. The second keeps its expected registrar, and takes the first's only when it had none.</p>
                 <div class="dns-lookup-form">
