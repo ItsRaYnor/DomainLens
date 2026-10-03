@@ -11,9 +11,8 @@ FIELD_META = {
         "allow_user_override": {"type": "bool", "label": "settings.appearance.allow_user_override"},
     },
     "general": {
-        # The Dutch translation covers the menus and part of the pages; the
-        # rest stays English. Said where the choice is made, so a mixed page
-        # is expected rather than taken for a fault.
+        # Said where the choice is made: what follows the language (the whole
+        # interface) and what does not (outside data, exports, e-mails).
         "locale": {"type": "select", "options": ["en", "nl"], "label": "settings.general.locale",
                    "warning": "settings.general.locale_warning"},
         "app_title": {"type": "text", "label": "settings.general.app_title"},

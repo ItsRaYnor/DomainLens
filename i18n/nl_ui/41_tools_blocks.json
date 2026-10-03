@@ -1,0 +1,6 @@
+{
+  "blocks": {
+    "Want to check your own DNS server? Add it under Settings → Scan → Custom resolvers, one Label = 1.2.3.4 per line — it then appears as a checkbox here. Addresses live in settings rather than in this box so an unauthenticated page cannot be used to aim UDP/53 at any host this server can reach.": "<strong>Wil je je eigen DNS-server controleren?</strong> Voeg hem toe onder <a href=\"/admin/settings#scan\">Instellingen &rarr; Scan &rarr; Eigen resolvers</a>, één <code>Label = 1.2.3.4</code> per regel &mdash; hij verschijnt dan hier als vinkje. Adressen staan in de instellingen en niet in dit vak, zodat een pagina zonder inlog niet gebruikt kan worden om UDP/53 op een willekeurige host te richten die deze server kan bereiken.",
+    "This is a PGP private key. If it has been published anywhere, treat it as compromised: revoke it and publish only the exported public half.": "Dit is een PGP-<strong>privé</strong>sleutel. Is hij ergens gepubliceerd, beschouw hem dan als gecompromitteerd: trek hem in en publiceer alleen de geëxporteerde publieke helft."
+  }
+}

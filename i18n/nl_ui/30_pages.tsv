@@ -1,0 +1,310 @@
+# Admin settings, compare, dashboard, organisation, portfolio, trends, unit and
+# WHOIS view scripts. English<TAB>Dutch; {} is a part filled in at run time.
+Request failed	Verzoek mislukt
+Configured	Ingesteld
+Set	Ingesteld
+via environment	via de omgeving
+Enter a new value to replace the current one	Voer een nieuwe waarde in om de huidige te vervangen
+Paste value	Waarde plakken
+Testing…	Testen…
+Test failed	Test mislukt
+Failed	Mislukt
+OK	OK
+Enter a key first.	Voer eerst een sleutel in.
+Saving…	Opslaan…
+Removing…	Verwijderen…
+Could not update the key	De sleutel kon niet worden bijgewerkt
+Remove the stored {}?	De opgeslagen {} verwijderen?
+Other	Overig
+Credentials	Inloggegevens
+Update check failed	Controle op updates mislukt
+Update available:	Update beschikbaar:
+(running v{}). Prefer ./scripts/docker-update.sh.	(draait v{}). Gebruik bij voorkeur ./scripts/docker-update.sh.
+Running v{} — latest release v{}	Draait v{} — nieuwste release v{}
+Running v{}	Draait v{}
+Could not read key status	Status van de sleutel kon niet worden gelezen
+gpg is not installed on this server, so a key cannot be generated here. The Docker image ships with it; on a native install, install GnuPG (Gpg4win on Windows) and restart DomainLens.	gpg is niet geïnstalleerd op deze server, dus hier kan geen sleutel worden gegenereerd. De Docker-image bevat het; installeer bij een native installatie GnuPG (Gpg4win op Windows) en herstart DomainLens.
+Key published	Sleutel gepubliceerd
+Public key:	Publieke sleutel:
+No key yet	Nog geen sleutel
+Enter a name and an email address.	Voer een naam en een e-mailadres in.
+This replaces the published key. Anyone holding the old one will have to fetch the new key before they can encrypt to you. Continue?	Dit vervangt de gepubliceerde sleutel. Wie de oude heeft, moet de nieuwe ophalen voordat hij naar jou kan versleutelen. Doorgaan?
+Generating…	Genereren…
+Generating a keypair…	Een sleutelpaar genereren…
+Network error while generating the key	Netwerkfout bij het genereren van de sleutel
+Save this now.	Bewaar dit nu.
+Download private key	Privésleutel downloaden
+Copy to clipboard	Naar klembord kopiëren
+Copied	Gekopieerd
+Copy failed — select the text below	Kopiëren mislukt — selecteer de tekst hieronder
+Settings page failed to initialise	De instellingenpagina kon niet worden geladen
+This page failed to initialise, so its buttons will not work: {}	Deze pagina kon niet worden geladen, dus de knoppen werken niet: {}
+Could not reach the server. Is DomainLens still running?	De server is niet bereikbaar. Draait DomainLens nog?
+This endpoint is not available (HTTP 404). If you just updated DomainLens, restart it: routes are registered at startup.	Dit endpoint is niet beschikbaar (HTTP 404). Heb je DomainLens net bijgewerkt, herstart het dan: routes worden bij het opstarten geregistreerd.
+The server returned HTTP {} instead of JSON.	De server gaf HTTP {} terug in plaats van JSON.
+The server returned HTTP {}.	De server gaf HTTP {} terug.
+Nothing tracked changed between these two scans.	Tussen deze twee scans is niets veranderd van wat wordt gevolgd.
+{} change(s): {} worse, {} better, {} without a verdict.	{} wijziging(en): {} slechter, {} beter, {} zonder oordeel.
+Comparing the last scan in each period:	Vergeleken wordt de laatste scan in elke periode:
+(scan {}) against	(scan {}) met
+(scan {}).	(scan {}).
+What	Wat
+Was	Was
+Now	Nu
+Direction	Richting
+worse	slechter
+better	beter
+changed	gewijzigd
+No changes match the current filter.	Geen wijzigingen die bij het huidige filter passen.
+nothing changed	niets veranderd
+Could not be compared	Kon niet worden vergeleken
+Fill in a domain and both periods first.	Vul eerst een domein en beide periodes in.
+No scanned domains yet	Nog geen gescande domeinen
+Choose a domain…	Kies een domein…
+{} has only one scan, so there is nothing to compare yet. Scan it again and come back.	{} heeft maar één scan, dus er valt nog niets te vergelijken. Scan het opnieuw en kom daarna terug.
+No scans in this period.	Geen scans in deze periode.
+{}: {} open findings on {} domains	{}: {} open bevindingen op {} domeinen
+{} better, {} worse than {} days ago	{} beter, {} slechter dan {} dagen geleden
+No earlier scan to compare with	Geen eerdere scan om mee te vergelijken
+Domains assessed	Beoordeelde domeinen
+{} not scanned again in this period	{} niet opnieuw gescand in deze periode
+In order (rating A or B)	In orde (beoordeling A of B)
+{n} of {n}	{n} van {n}
+Open critical findings	Open kritieke bevindingen
+Open high findings	Open hoge bevindingen
+Net change in ratings	Netto verandering in beoordelingen
+Accepted risks	Geaccepteerde risico's
+Decided, with an owner and an end date	Besloten, met een eigenaar en een einddatum
+{n} of {n} not looked up yet	{} van {} nog niet opgezocht
+Registrations at risk	Registraties met risico
+In quarantine, being deleted or lost	In quarantaine, wordt verwijderd of kwijt
+Registrations	Registraties
+{} in the portfolio, none looked up yet	{} in het portfolio, nog geen enkele opgezocht
+All domains · last {} days · as of {}	Alle domeinen · laatste {} dagen · per {}
+{} (and the units below it) · last {} days · as of {}	{} (en de eenheden eronder) · laatste {} dagen · per {}
+No domains were scanned in this period.	In deze periode zijn geen domeinen gescand.
+domains	domeinen
+In place	Aanwezig
+Missing	Ontbreekt
+Could not be measured	Kon niet worden gemeten
+{} in place, {} missing, {} not measured	{} aanwezig, {} ontbreekt, {} niet gemeten
+in place	aanwezig
+missing	ontbreekt
+not measured	niet gemeten
+critical	kritiek
+high	hoog
+medium	middel
+low	laag
+No open findings of medium severity or worse.	Geen open bevindingen van middelmatige ernst of erger.
+No open findings.	Geen open bevindingen.
+{} critical, {} high	{} kritiek, {} hoog
+No domain is rated C or worse.	Geen enkel domein heeft beoordeling C of slechter.
+No domain improved.	Geen enkel domein is verbeterd.
+No domain got worse.	Geen enkel domein is verslechterd.
+Better	Beter
+Worse	Slechter
+Not scanned in this period, so not included: {}	Niet gescand in deze periode, dus niet meegeteld: {}
+At risk	Met risico
+Expiring ≤ 30 d	Verloopt ≤ 30 d
+To move	Te verhuizen
+Not measured	Niet gemeten
+At risk / expiring	Met risico / verloopt
+Expiring soon	Verloopt binnenkort
+Open the domain portfolio	Domeinportfolio openen
+Each domain is judged on its latest scan in the period; a domain not scanned in the period is left out and listed under "Change in the period".	Elk domein wordt beoordeeld op zijn laatste scan in de periode; een domein dat in de periode niet is gescand, telt niet mee en staat onder "Verandering in de periode".
+Ratings: {}.	Beoordelingen: {}.
+A — no open findings of medium severity or worse; B — only medium findings open; C — one or two high findings, nothing critical; D — three or more high findings, nothing critical; F — at least one critical finding.	A — geen open bevindingen van middelmatige ernst of erger; B — alleen bevindingen van middelmatige ernst open; C — één of twee hoge bevindingen, niets kritieks; D — drie of meer hoge bevindingen, niets kritieks; F — minstens één kritieke bevinding.
+Ratings: A — no open findings of medium severity or worse; B — only medium findings open; C — one or two high findings, nothing critical; D — three or more high findings, nothing critical; F — at least one critical finding.	Beoordelingen: A — geen open bevindingen van middelmatige ernst of erger; B — alleen bevindingen van middelmatige ernst open; C — één of twee hoge bevindingen, niets kritieks; D — drie of meer hoge bevindingen, niets kritieks; F — minstens één kritieke bevinding.
+Accepted risks are not counted as open findings: they are decisions with an owner and an end date.	Geaccepteerde risico's tellen niet als open bevindingen: het zijn besluiten met een eigenaar en een einddatum.
+A control that could not be measured (for example because a firewall blocked the check) is shown separately and counts neither as in place nor as missing.	Een maatregel die niet gemeten kon worden (bijvoorbeeld omdat een firewall de controle blokkeerde), staat apart en telt niet als aanwezig en ook niet als ontbrekend.
+"Better" and "worse" compare each domain with its last scan before the period began.	"Beter" en "slechter" vergelijken elk domein met zijn laatste scan van vóór de periode.
+No open findings of medium severity or worse	Geen open bevindingen van middelmatige ernst of erger
+At least one critical finding	Minstens één kritieke bevinding
+Three or more high findings, nothing critical	Drie of meer hoge bevindingen, niets kritieks
+One or two high findings, nothing critical	Eén of twee hoge bevindingen, niets kritieks
+Only medium findings open	Alleen bevindingen van middelmatige ernst open
+{} · {} ({}%) {}	{} · {} ({}%) {}
+DMARC blocks spoofed mail (quarantine or reject)	DMARC blokkeert vervalste mail (quarantine of reject)
+SPF is strict (-all)	SPF is strikt (-all)
+DNSSEC signed	DNSSEC ondertekend
+TLS rated A or B	TLS-cijfer A of B
+HSTS enabled	HSTS ingeschakeld
+HTTP redirects to HTTPS	HTTP verwijst door naar HTTPS
+Not on a reputation blocklist	Niet op een reputatie-blocklist
+Other	Overig
+Email	E-mail
+TLS	TLS
+Certificate	Certificaat
+Unit	Eenheid
+No scans in 90 days	Geen scans in 90 dagen
+{n} of {n} in order	{} van {} in orde
+none open	geen open
+{} domains	{} domeinen
+1 domain	1 domein
+{} at risk	{} met risico
+{} expiring	{} verloopt
+{} to move	{} te verhuizen
+{} not measured	{} niet gemeten
+No domains	Geen domeinen
+Registrar: {} (inherited)	Registrar: {} (overgenomen)
+Registrar: {}	Registrar: {}
+({} on)	({} aan)
+{} high or critical events, 7 d	{} hoge of kritieke events, 7 d
+Security rating	Security-beoordeling
+Open findings	Open bevindingen
+Registration	Registratie
+No units yet. Add one below, or import domains with a unit path in the domain portfolio.	Nog geen eenheden. Voeg er hieronder een toe, of importeer domeinen met een eenheidspad in het domeinportfolio.
+Not in any unit: {} scanned domain(s) and {} monitor(s). Put their domains in a unit to count them here.	In geen enkele eenheid: {} gescand(e) domein(en) en {} monitor(s). Zet hun domeinen in een eenheid om ze hier mee te tellen.
+Top level	Hoogste niveau
+Choose a unit	Kies een eenheid
+Expected registrar	Verwachte registrar
+Notify	Melden aan
+e-mail addresses	e-mailadressen
+Any registrar	Elke registrar
+{} (inherited)	{} (overgenomen)
+No units yet.	Nog geen eenheden.
+Choose both units first.	Kies eerst beide eenheden.
+Merge {} into {}? {} is removed; its domains and units go to {}.	{} samenvoegen in {}? {} wordt verwijderd; de domeinen en eenheden gaan naar {}.
+Merged: {} domain(s) and {} unit(s) now in {}.	Samengevoegd: {} domein(en) en {} eenheid/eenheden nu in {}.
+Unit saved.	Eenheid opgeslagen.
+Delete this unit? Its domains and units move one level up.	Deze eenheid verwijderen? De domeinen en eenheden gaan één niveau omhoog.
+Expand {}	{} uitklappen
+Collapse {}	{} inklappen
+Quarantine / deleted	Quarantaine / verwijderd
+Expiring ≤ 30 days	Verloopt ≤ 30 dagen
+not published	niet gepubliceerd
+Not published	Niet gepubliceerd
+SIDN publishes no expiry date: the registrar renews until the holder cancels.	SIDN publiceert geen verloopdatum: de registrar verlengt tot de houder opzegt.
+At expected registrar	Bij de verwachte registrar
+Registrar not known yet	Registrar nog niet bekend
+Last lookup failed; showing the answer from {}	Laatste opzoeking mislukt; dit is het antwoord van {}
+via {}	via {}
+Security monitored	Security gemonitord
+A security monitor scans this domain or one of its hosts	Een security-monitor scant dit domein of een van zijn hosts
+Check now	Nu controleren
+Select {}	{} selecteren
+Select all in this unit	Alles in deze eenheid selecteren
+{} domains · expected at {} (inherited)	{} domeinen · verwacht bij {} (overgenomen)
+{} domains · expected at {}	{} domeinen · verwacht bij {}
+1 domain · expected at {} (inherited)	1 domein · verwacht bij {} (overgenomen)
+1 domain · expected at {}	1 domein · verwacht bij {}
+No domains in this unit match the filter.	Geen domeinen in deze eenheid die bij het filter passen.
+No domains in this unit yet.	Nog geen domeinen in deze eenheid.
+No domains match the filter.	Geen domeinen die bij het filter passen.
+No domains in the portfolio yet. Add them below.	Nog geen domeinen in het portfolio. Voeg ze hieronder toe.
+Quarantine or deleted	Quarantaine of verwijderd
+Not measured	Niet gemeten
+No changes yet. The first lookup of a domain is its baseline, not a change.	Nog geen wijzigingen. De eerste opzoeking van een domein is het beginpunt, geen wijziging.
+All units	Alle eenheden
+Last looked up	Laatst opgezocht
+Expires	Verloopt
+Registrar	Registrar
+{} added, {} moved to another unit, {} already there.	{} toegevoegd, {} naar een andere eenheid verplaatst, {} stonden er al.
+Subdomains replaced by their registered domain: {}.	Subdomeinen vervangen door hun geregistreerde domein: {}.
+Not a domain name: {}.	Geen domeinnaam: {}.
+New domains are looked up within a few minutes.	Nieuwe domeinen worden binnen enkele minuten opgezocht.
+Select domains first.	Selecteer eerst domeinen.
+Remove {} domain(s) from the portfolio?	{} domein(en) uit het portfolio verwijderen?
+{} domain(s) moved.	{} domein(en) verplaatst.
+{} domain(s) removed.	{} domein(en) verwijderd.
+Create a security monitor for {} domain(s), {}? Domains already monitored, on any of their hosts, are skipped; the first scans are spread over that interval.	Een security-monitor maken voor {} domein(en), {}? Domeinen die al gemonitord worden, op welke host dan ook, worden overgeslagen; de eerste scans worden over dat interval verdeeld.
+{} monitor(s) created, {} already monitored.	{} monitor(s) aangemaakt, {} werden al gemonitord.
+Paste domains or choose a file first.	Plak eerst domeinen of kies een bestand.
+{} is ready; press "Add to portfolio".	{} staat klaar; klik op "Toevoegen aan portfolio".
+No data in this range yet	Nog geen gegevens in deze periode
+No monitor events in this range	Geen monitor-events in deze periode
+Scans	Scans
+Scans recorded in this period	Scans vastgelegd in deze periode
+Distinct domains scanned	Verschillende gescande domeinen
+Avg issues	Gem. problemen
+Average over the latest scan of each domain	Gemiddelde over de laatste scan van elk domein
+TLS score	TLS-score
+Header score	Header-score
+Blacklist hits	Blacklist-treffers
+Domains currently on a DNS blocklist	Domeinen die nu op een DNS-blocklist staan
+SN incidents	SN-incidenten
+Monitor events linked to a ServiceNow incident	Monitor-events gekoppeld aan een ServiceNow-incident
+Scans in this period	Scans in deze periode
+Every scan recorded in the selected period, newest first. Removing a scan also removes it from the figures above.	Elke scan uit de gekozen periode, nieuwste eerst. Een scan verwijderen haalt hem ook uit de cijfers hierboven.
+The most recent scan of each domain — this is what the averages above are based on.	De meest recente scan van elk domein — daarop zijn de gemiddelden hierboven gebaseerd.
+Issues: what moved in this period	Problemen: wat veranderde in deze periode
+First scan against last, per domain, biggest deterioration first. A count on its own cannot tell a domain that sat at 20 issues all month from one that went from 2 to 20. A domain scanned once has no change to report.	Eerste scan tegen de laatste, per domein, grootste verslechtering eerst. Een aantal alleen kan een domein dat de hele maand op 20 problemen stond niet onderscheiden van een dat van 2 naar 20 ging. Een domein dat één keer gescand is, heeft geen verandering te melden.
+Domains by TLS score	Domeinen naar TLS-score
+Latest scan per domain, lowest TLS score first.	Laatste scan per domein, laagste TLS-score eerst.
+Domains by header score	Domeinen naar header-score
+Latest scan per domain, lowest header score first.	Laatste scan per domein, laagste header-score eerst.
+Blacklisted domains	Domeinen op een blacklist
+A blacklist (DNSBL) hit means the domain or its IP appears on a spam/abuse blocklist, which can cause outgoing mail to be rejected. Shown from the latest scan of each domain, so a domain that has since been rescanned clean no longer appears here.	Een blacklisttreffer (DNSBL) betekent dat het domein of het IP op een spam- of misbruiklijst staat, waardoor uitgaande mail geweigerd kan worden. Getoond vanaf de laatste scan van elk domein, dus een domein dat inmiddels schoon is gescand, staat hier niet meer.
+No scans in this period	Geen scans in deze periode
+No scans on {}	Geen scans op {}
+Scans on {}	Scans op {}
+When	Wanneer
+Grade	Cijfer
+Issues	Problemen
+Only one scan in this period, so there is nothing to compare it against	Maar één scan in deze periode, dus er is niets om mee te vergelijken
+No domain metrics in this period	Geen domeingegevens in deze periode
+{} domain(s) moved.	{} domein(en) veranderd.
+{} domain(s) moved. {} scanned only once in this period, so their change could not be measured.	{} domein(en) veranderd. {} slechts één keer gescand in deze periode, dus hun verandering kon niet worden gemeten.
+Issues at start	Problemen aan het begin
+Issues now	Problemen nu
+Change	Verandering
+Last scan	Laatste scan
+Delete this scan? It will also disappear from the figures above.	Deze scan verwijderen? Hij verdwijnt ook uit de cijfers hierboven.
+Could not delete the scan	De scan kon niet worden verwijderd
+No domain metrics yet	Nog geen domeingegevens
+{} scans	{} scans
+{} avg issues	{} gem. problemen
+Domain: {} · last {} days · {} scans · updated {}	Domein: {} · laatste {} dagen · {} scans · bijgewerkt {}
+Domain: {} · last {} days · {} scan · updated {}	Domein: {} · laatste {} dagen · {} scan · bijgewerkt {}
+All domains · last {} days · {} scans · updated {}	Alle domeinen · laatste {} dagen · {} scans · bijgewerkt {}
+All domains · last {} days · {} scan · updated {}	Alle domeinen · laatste {} dagen · {} scan · bijgewerkt {}
+Failed to load reporting data	Rapportagegegevens laden mislukt
+No scans in this range yet	Nog geen scans in deze periode
+No scored scans in this range yet	Nog geen scans met een score in deze periode
+ServiceNow connected · notify >= {}	ServiceNow gekoppeld · melden vanaf {}
+ServiceNow configured but disabled	ServiceNow ingesteld maar uitgeschakeld
+ServiceNow not configured	ServiceNow niet ingesteld
+Refreshing…	Vernieuwen…
+Not scanned	Niet gescand
+No monitor	Geen monitor
+{n} of {n} scanned in 90 days	{} van {} gescand in 90 dagen
+{} running	{} actief
+{} not looked up yet	{} nog niet opgezocht
+Quarantine, deleted or lost	Quarantaine, verwijderd of kwijt
+At another registrar than expected	Bij een andere registrar dan verwacht
+Registrar: {} (inherited) · Alerts also to {} · Figures include the units below it.	Registrar: {} (overgenomen) · Meldingen ook naar {} · De cijfers omvatten de onderliggende eenheden.
+Registrar: {} · Alerts also to {} · Figures include the units below it.	Registrar: {} · Meldingen ook naar {} · De cijfers omvatten de onderliggende eenheden.
+Registrar: {} (inherited) · Figures include the units below it.	Registrar: {} (overgenomen) · De cijfers omvatten de onderliggende eenheden.
+Registrar: {} · Figures include the units below it.	Registrar: {} · De cijfers omvatten de onderliggende eenheden.
+Alerts also to {} · Figures include the units below it.	Meldingen ook naar {} · De cijfers omvatten de onderliggende eenheden.
+Figures include the units below it.	De cijfers omvatten de onderliggende eenheden.
+In order	In orde
+Critical / high	Kritiek / hoog
+No domains in this unit yet. Add them in the domain portfolio, or from a scan result.	Nog geen domeinen in deze eenheid. Voeg ze toe in het domeinportfolio of vanuit een scanresultaat.
+No monitors yet. Use "Monitor security of all domains" above.	Nog geen monitors. Gebruik "Security van alle domeinen monitoren" hierboven.
+Create a security monitor, {}, for every domain of this unit and the units below it that has none? The first scans are spread over that interval.	Een security-monitor maken, {}, voor elk domein van deze eenheid en de eenheden eronder dat er nog geen heeft? De eerste scans worden over dat interval verdeeld.
+scan daily	dagelijks scannen
+scan weekly	wekelijks scannen
+scan every 6 hours	elke 6 uur scannen
+Security	Security
+Not published over RDAP	Niet gepubliceerd via RDAP
+see {}	zie {}
+Abuse: {}	Abuse: {}
+Released for registration between	Vrijgegeven voor registratie tussen
+and	en
+(your time), at a random moment.	(jouw tijd), op een willekeurig moment.
+(your time), at a random moment; deleted on {}.	(jouw tijd), op een willekeurig moment; verwijderd op {}.
+; deleted on {}.	; verwijderd op {}.
+Not published by the registry; see the registrar's website	Niet gepubliceerd door de registry; zie de website van de registrar
+Yes	Ja
+No	Nee
+Administrative contact	Administratief contact
+Technical contact	Technisch contact
+RDAP · {}	RDAP · {}
+Source: {}	Bron: {}
+WHOIS server	WHOIS-server
+Contact	Contact
+Organization	Organisatie
+Registrar abuse	Abuse van de registrar
+WHOIS (port 43)	WHOIS (poort 43)
+RDAP: {}.	RDAP: {}.

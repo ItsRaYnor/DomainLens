@@ -1,0 +1,62 @@
+# Admin settings (credential descriptions), users, page titles, report page.
+Obfuscated only — DOMAINLENS_SECRET_KEY is not set, so the encryption key falls back to the app secret stored in the same database as the values. Anyone who can read the database can recover these keys. Set DOMAINLENS_SECRET_KEY for real at-rest encryption.	Alleen versluierd — DOMAINLENS_SECRET_KEY is niet ingesteld, dus de versleutelingssleutel valt terug op het app-geheim in dezelfde database als de waarden. Wie de database kan lezen, kan deze sleutels terughalen. Stel DOMAINLENS_SECRET_KEY in voor echte versleuteling van opgeslagen gegevens.
+Encrypted with DOMAINLENS_SECRET_KEY.	Versleuteld met DOMAINLENS_SECRET_KEY.
+Spamhaus DQS	Spamhaus DQS
+Spamhaus blocklist zones in the Blacklist check.	Blocklistzones van Spamhaus in de blacklistcontrole.
+— without it: Spamhaus zones are skipped; the other DNSBLs still run.	— zonder: Spamhaus-zones worden overgeslagen; de andere DNSBL's draaien wel.
+abuse.ch (ThreatFox + URLhaus)	abuse.ch (ThreatFox + URLhaus)
+Malware/C2 threat-feed lookups in the OSINT tab.	Opzoekingen in dreigingsfeeds voor malware/C2 in het tabblad OSINT.
+— without it: ThreatFox and URLhaus are reported as not configured.	— zonder: ThreatFox en URLhaus worden gemeld als niet ingesteld.
+AlienVault OTX	AlienVault OTX
+OTX threat-intelligence pulses in the OSINT tab.	Pulses met dreigingsinformatie van OTX in het tabblad OSINT.
+— without it: OTX is reported as not configured.	— zonder: OTX wordt gemeld als niet ingesteld.
+Multi-vendor domain reputation (detections + community score) in the OSINT tab.	Domeinreputatie van meerdere leveranciers (detecties + communityscore) in het tabblad OSINT.
+— without it: VirusTotal is reported as not configured and no reputation verdict is claimed.	— zonder: VirusTotal wordt gemeld als niet ingesteld en er wordt geen oordeel over de reputatie gegeven.
+Webhook URL	Webhook-URL
+HTTPS endpoint that receives each alert as JSON.	HTTPS-endpoint dat elke melding als JSON ontvangt.
+Webhook signing secret	Ondertekeningsgeheim voor de webhook
+Signs the JSON body (X-DomainLens-Signature: sha256=HMAC).	Ondertekent de JSON-inhoud (X-DomainLens-Signature: sha256=HMAC).
+Slack incoming webhook URL	URL van de inkomende Slack-webhook
+From a Slack app's Incoming Webhooks page.	Van de pagina Incoming Webhooks van een Slack-app.
+Teams Workflows webhook URL	Webhook-URL van een Teams-workflow
+From a Teams Workflow: 'Post to a channel when a webhook request is received'.	Uit een Teams-workflow: 'Post to a channel when a webhook request is received'.
+SMTP user	SMTP-gebruiker
+Leave empty for a relay that needs no login.	Laat leeg voor een relay zonder inlog.
+SMTP password	SMTP-wachtwoord
+Password for the SMTP user.	Wachtwoord van de SMTP-gebruiker.
+Write-only: a value can be replaced or removed here, never read back. Stored obfuscated only; an environment variable wins and locks the field.	Alleen te schrijven: een waarde kan hier worden vervangen of verwijderd, maar nooit teruggelezen. Alleen versluierd opgeslagen; een omgevingsvariabele gaat voor en vergrendelt het veld.
+Write-only: a value can be replaced or removed here, never read back. Stored encrypted; an environment variable wins and locks the field.	Alleen te schrijven: een waarde kan hier worden vervangen of verwijderd, maar nooit teruggelezen. Versleuteld opgeslagen; een omgevingsvariabele gaat voor en vergrendelt het veld.
+ServiceNow user	ServiceNow-gebruiker
+Account used to create and update incidents.	Account waarmee incidents worden aangemaakt en bijgewerkt.
+ServiceNow password	ServiceNow-wachtwoord
+Password for the ServiceNow account.	Wachtwoord van het ServiceNow-account.
+InsightVM console user	Gebruiker van de InsightVM-console
+Console (on-prem) API account.	API-account van de console (on-premises).
+InsightVM console password	Wachtwoord van de InsightVM-console
+Password for the console API account.	Wachtwoord van het API-account van de console.
+Insight Platform API key	API-sleutel van het Insight Platform
+Cloud API key; used instead of console credentials.	Cloud-API-sleutel; gebruikt in plaats van de inloggegevens van de console.
+OAuth client secret	OAuth-clientgeheim
+Client secret for the OAuth login application.	Clientgeheim van de OAuth-inlogapplicatie.
+Azure client secret	Azure-clientgeheim
+Entra ID client secret; takes precedence over the generic OAuth one.	Clientgeheim van Entra ID; gaat voor het algemene OAuth-geheim.
+SCIM bearer token	SCIM-bearer-token
+Static bearer token for the SCIM endpoint (legacy auth mode).	Vaste bearer-token voor het SCIM-endpoint (verouderde authenticatiemodus).
+SCIM client secret	SCIM-clientgeheim
+Client secret when SCIM uses OAuth instead of a bearer token.	Clientgeheim als SCIM OAuth gebruikt in plaats van een bearer-token.
+Password min 12 chars + upper + lower + digit + special.	Wachtwoord minimaal 12 tekens + hoofdletter + kleine letter + cijfer + bijzonder teken.
+Password min {n} chars + upper + lower + digit + special.	Wachtwoord minimaal {} tekens + hoofdletter + kleine letter + cijfer + bijzonder teken.
+Account security	Accountbeveiliging
+Compare periods	Periodes vergelijken
+DomainLens Login	DomainLens Inloggen
+Remediate	Herstel
+— {}	— {}
+SHA1 on {}	SHA1 op {}
+SHA224 on {}	SHA224 op {}
+MD5 on {}	MD5 op {}
+Certificate Transparency lookup unavailable, so only the apex domain was checked. This section is an absent answer, not a clean one — it says nothing about the subdomains. ({})	Opzoeking in Certificate Transparency niet beschikbaar, dus alleen het hoofddomein is gecontroleerd. Dit deel is een ontbrekend antwoord, geen schoon antwoord — het zegt niets over de subdomeinen. ({})
+not detected	niet gevonden
+Server preferred {} (expected {})	De server gaf voorkeur aan {} (verwacht: {})
+critical,	kritiek,
+answered by {}	beantwoord door {}
+flags: {}	vlaggen: {}

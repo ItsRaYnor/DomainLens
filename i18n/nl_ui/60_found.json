@@ -1,0 +1,111 @@
+{
+ "text": {
+  "HIGH": "HOOG",
+  "MEDIUM": "MIDDEL",
+  "LOW": "LAAG",
+  "INFO": "INFO",
+  "CRITICAL": "KRITIEK",
+  "info": "info",
+  "Found": "Gevonden",
+  "revoked (empty p=)": "ingetrokken (lege p=)",
+  "Non-compliant": "Voldoet niet",
+  "Compliant": "Voldoet",
+  "good": "goed",
+  "sufficient": "voldoende",
+  "phase-out": "uitfaseren",
+  "insufficient": "onvoldoende",
+  "phased_out": "uit te faseren",
+  "(disabled)": "(uitgeschakeld)",
+  "(enabled)": "(ingeschakeld)",
+  "total": "totaal",
+  "strong": "sterk",
+  "acceptable": "acceptabel",
+  "weak": "zwak",
+  "insecure": "onveilig",
+  "Disabled (safe)": "Uitgeschakeld (veilig)",
+  "Enabled (vulnerable)": "Ingeschakeld (kwetsbaar)",
+  "No HTTPS redirect": "Geen HTTPS-doorverwijzing",
+  "HTTPS redirect OK": "HTTPS-doorverwijzing in orde",
+  "Not detected": "Niet gevonden",
+  "Detected": "Gevonden",
+  "(none)": "(geen)",
+  "Publish `_mta-sts.yourdomain` TXT (`v=STSv1; id=<timestamp>`) and host an HTTPS policy file at `https://mta-sts.yourdomain/.well-known/mta-sts.txt` listing your MX hosts and `mode: enforce`.": "Publiceer `_mta-sts.yourdomain` TXT (`v=STSv1; id=<timestamp>`) en host een beleidsbestand via HTTPS op `https://mta-sts.yourdomain/.well-known/mta-sts.txt` met je MX-hosts en `mode: enforce`.",
+  "Prefer AES-GCM / ChaCha20-Poly1305 and ECDHE. Remove or schedule removal of CBC-SHA256/SHA384 suites. Keep `ssl_prefer_server_ciphers on` with AEAD first.": "Gebruik bij voorkeur AES-GCM / ChaCha20-Poly1305 en ECDHE. Verwijder CBC-SHA256/SHA384-suites of plan het verwijderen. Houd `ssl_prefer_server_ciphers on` met AEAD eerst.",
+  "NCSC §3.3.5 / internet.nl / RFC 9155: only allow SHA-256/384/512 for the TLS 1.2 signature algorithms used during key exchange (not the cipher-suite PRF name). This is configured separately from cipher suites (OpenSSL: `SignatureAlgorithms` / `SSLSignatureAlgorithms`).": "NCSC §3.3.5 / internet.nl / RFC 9155: sta alleen SHA-256/384/512 toe voor de handtekeningalgoritmes van TLS 1.2 bij de sleuteluitwisseling (niet de PRF-naam van de cipher suite). Dit stel je apart van de cipher suites in (OpenSSL: `SignatureAlgorithms` / `SSLSignatureAlgorithms`).",
+  "On **Cloudflare**: SSL/TLS → **Edge Certificates** → Minimum TLS Version **1.2** (prefer 1.3). Under **Cipher suites** (Business/Enterprise or cipher customization), use a modern Mozilla Intermediate set without CBC-SHA1. Legacy signature algorithms are controlled by Cloudflare’s edge — if internet.nl still reports SHA-1 for key-exchange hashes, contact Cloudflare support / use Advanced Certificate Manager custom cipher+sigalg profiles where available. Also set origin SSL to Full (strict) and harden origin SignatureAlgorithms as above.": "Bij **Cloudflare**: SSL/TLS → **Edge Certificates** → Minimum TLS Version **1.2** (bij voorkeur 1.3). Gebruik onder **Cipher suites** (Business/Enterprise of eigen cipherinstellingen) een moderne Mozilla Intermediate-set zonder CBC-SHA1. Verouderde handtekeningalgoritmes worden door de edge van Cloudflare bepaald — meldt internet.nl nog SHA-1 voor de hashes bij sleuteluitwisseling, neem dan contact op met Cloudflare support / gebruik waar mogelijk eigen cipher- en sigalg-profielen in Advanced Certificate Manager. Zet ook de SSL naar de origin op Full (strict) en verhard de SignatureAlgorithms van de origin zoals hierboven.",
+  "On **BunnyCDN** (Pull Zone): open the zone → **Security** / **SSL** and set the strongest TLS profile available (TLS 1.2+ only). If the panel does not expose SignatureAlgorithms, open a Bunny support ticket asking to disable SHA-1 (and SHA-224) signature algorithms on the edge for your pull zone — internet.nl fails when the edge still accepts `ECDSA+SHA1` / `RSA+SHA1`. Also remove legacy CBC-SHA1 cipher suites and enforce AEAD-first cipher order in the same SSL settings. Origin: if SSL mode is Full/Strict to your origin, harden origin OpenSSL too: `SSLSignatureAlgorithms SHA256+ECDSA:SHA384+ECDSA:SHA256+RSA:RSA-PSS+SHA256` (Apache) / nginx+OpenSSL 3 `ssl_conf_command SignatureAlgorithms …`.": "Bij **BunnyCDN** (Pull Zone): open de zone → **Security** / **SSL** en kies het sterkste beschikbare TLS-profiel (alleen TLS 1.2+). Toont het paneel geen SignatureAlgorithms, open dan een supportticket bij Bunny met het verzoek SHA-1 (en SHA-224) als handtekeningalgoritme op de edge van je pull zone uit te zetten — internet.nl keurt af zolang de edge nog `ECDSA+SHA1` / `RSA+SHA1` accepteert. Verwijder in dezelfde SSL-instellingen ook oude CBC-SHA1-cipher suites en dwing een volgorde met AEAD eerst af. Origin: staat de SSL-modus op Full/Strict naar je origin, verhard dan ook OpenSSL op de origin: `SSLSignatureAlgorithms SHA256+ECDSA:SHA384+ECDSA:SHA256+RSA:RSA-PSS+SHA256` (Apache) / nginx+OpenSSL 3 `ssl_conf_command SignatureAlgorithms …`.",
+  "On **OVHcloud**: for **SSL Gateway / Load Balancer**, pick a modern SSL profile (TLS 1.2+ / Mozilla Intermediate). For a VPS/origin behind CDN, set Apache `SSLSignatureAlgorithms` / Nginx OpenSSL `SignatureAlgorithms` to SHA-256/384/512 only and reload. Confirm both the CDN VIP and origin IPs (IPv4+IPv6) — internet.nl lists each address that still offers SHA-1.": "Bij **OVHcloud**: kies voor **SSL Gateway / Load Balancer** een modern SSL-profiel (TLS 1.2+ / Mozilla Intermediate). Zet voor een VPS of origin achter een CDN Apache `SSLSignatureAlgorithms` / Nginx-OpenSSL `SignatureAlgorithms` op alleen SHA-256/384/512 en herlaad. Controleer zowel het CDN-VIP als de IP's van de origin (IPv4+IPv6) — internet.nl noemt elk adres dat nog SHA-1 aanbiedt.",
+  "OpenSSL 3 example: `SSLSignatureAlgorithms ed25519:ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384`. Nginx: `ssl_conf_command SignatureAlgorithms …;` Apache: `SSLSignatureAlgorithms …`. If a CDN terminates TLS, change the CDN SSL profile (Bunny / Cloudflare / OVH) — origin-only changes will not fix internet.nl edge findings.": "Voorbeeld voor OpenSSL 3: `SSLSignatureAlgorithms ed25519:ecdsa_secp256r1_sha256:rsa_pss_rsae_sha256:rsa_pkcs1_sha256:ecdsa_secp384r1_sha384:rsa_pss_rsae_sha384:rsa_pkcs1_sha384`. Nginx: `ssl_conf_command SignatureAlgorithms …;` Apache: `SSLSignatureAlgorithms …`. Handelt een CDN TLS af, pas dan het SSL-profiel van het CDN aan (Bunny / Cloudflare / OVH) — wijzigingen alleen op de origin lossen bevindingen van internet.nl op de edge niet op.",
+  "Cloudflare: SSL/TLS → Edge Certificates → Cipher suites → modern/custom list with GCM/ChaCha first (requires eligible plan).": "Cloudflare: SSL/TLS → Edge Certificates → Cipher suites → moderne/eigen lijst met GCM/ChaCha eerst (vereist een geschikt abonnement).",
+  "BunnyCDN: Pull Zone → SSL → custom cipher list / modern preset; ensure server order prefers ECDHE-*GCM/CCM over *SHA384 CBC.": "BunnyCDN: Pull Zone → SSL → eigen cipherlijst / moderne voorinstelling; zorg dat de volgorde van de server ECDHE-*GCM/CCM boven *SHA384 CBC verkiest.",
+  "OVH SSL Gateway: select Intermediate/Modern profile; on Nginx origin: `ssl_prefer_server_ciphers on;` + ordered `ssl_ciphers`.": "OVH SSL Gateway: kies het profiel Intermediate/Modern; op een Nginx-origin: `ssl_prefer_server_ciphers on;` + een geordende `ssl_ciphers`.",
+  "Nginx: `ssl_prefer_server_ciphers on;` Apache: `SSLHonorCipherOrder on`.": "Nginx: `ssl_prefer_server_ciphers on;` Apache: `SSLHonorCipherOrder on`.",
+  "Send security headers on **all** HTTPS responses (including CDN error/geo-block pages). Build CSP: Report-Only → `default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'` → add hosts → nonces → enforce.": "Stuur beveiligingsheaders mee met **alle** HTTPS-responses (ook fout- en geoblokkeringspagina's van het CDN). Bouw CSP op: Report-Only → `default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'` → hosts toevoegen → nonces → afdwingen.",
+  "Cloudflare: **Transform Rules → Managed Transforms / Response Header Transform** (or Workers) to set HSTS + CSP. Use SSL/TLS → Edge Certificates → Always Use HTTPS + HSTS. Configuration Rules can scope headers per hostname.": "Cloudflare: **Transform Rules → Managed Transforms / Response Header Transform** (of Workers) om HSTS + CSP te zetten. Gebruik SSL/TLS → Edge Certificates → Always Use HTTPS + HSTS. Met Configuration Rules beperk je headers per hostnaam.",
+  "BunnyCDN: Pull Zone → **Edge Rules / Headers** (or Bunny Optimizer/Worker) to inject `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`. Geo-allow NL/DE/BE if needed, but still attach HSTS/CSP on 403 block pages so scanners and users get consistent headers.": "BunnyCDN: Pull Zone → **Edge Rules / Headers** (of Bunny Optimizer/Worker) om `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy` toe te voegen. Sta zo nodig alleen NL/DE/BE toe, maar zet HSTS/CSP ook op 403-blokkeerpagina's, zodat scanners en gebruikers dezelfde headers krijgen.",
+  "OVH: configure headers on the **SSL Gateway** or origin vhost; for CDN caching, ensure HTML responses from origin include CSP/HSTS or add them at the load-balancer layer.": "OVH: stel headers in op de **SSL Gateway** of de vhost van de origin; zorg bij CDN-caching dat HTML-responses van de origin CSP/HSTS bevatten, of voeg ze toe op de load balancer.",
+  "Re-test HSTS/CSP from an allowed country or internet.nl.": "Test HSTS/CSP opnieuw vanuit een toegestaan land of met internet.nl.",
+  "It controls how much of your URLs — path and query included — is handed to every site you link to.": "Hij bepaalt hoeveel van je URL's — inclusief pad en query — wordt doorgegeven aan elke site waar je naar linkt.",
+  "It is the second half of cross-origin isolation, needed only for SharedArrayBuffer and high-resolution timers.": "Hij is de tweede helft van cross-origin-isolatie, alleen nodig voor SharedArrayBuffer en timers met hoge resolutie.",
+  "Weak cipher suites accepted": "Zwakke cipher suites geaccepteerd",
+  "phased out": "uit te faseren"
+ },
+ "patterns": [
+  [
+   "Up\\ to\\ date\\ \\(v(.+?)\\)",
+   "Actueel (v$1)"
+  ],
+  [
+   "Update\\ available\\ \\(v(.+?)\\)",
+   "Update beschikbaar (v$1)"
+  ],
+  [
+   "Running\\ commit\\ (.+?)",
+   "Draaiende commit $1"
+  ],
+  [
+   "Certificate\\ Transparency\\ lookup\\ unavailable\\ —\\ crt\\.sh\\ answered\\ HTTP\\ (.+?)\\ after\\ (.+?)\\ attempts\\.\\ This\\ is\\ an\\ outage\\ at\\ crt\\.sh,\\ not\\ a\\ problem\\ with\\ the\\ scanned\\ domain;\\ re\\-run\\ the\\ scan\\ shortly\\.",
+   "Opzoeking in Certificate Transparency niet beschikbaar — crt.sh gaf HTTP $1 na $2 pogingen. Dit is een storing bij crt.sh, geen probleem van het gescande domein; voer de scan straks opnieuw uit."
+  ],
+  [
+   "Wait\\ for\\ DNS\\ TTL,\\ then\\ re\\-scan\\ `(.+?)`\\ in\\ DomainLens\\ \\(E\\-mail\\ Security\\)\\.\\ Also\\ verify\\ with\\ `dig\\ TXT`\\ /\\ MX\\ Toolbox,\\ and\\ optionally\\ https://www\\.mail\\-tester\\.com/\\ or\\ https://internet\\.nl/mail/(.+?)/\\.",
+   "Wacht de DNS-TTL af en scan `$1` daarna opnieuw in DomainLens (E-mailbeveiliging). Controleer ook met `dig TXT` / MX Toolbox, en eventueel https://www.mail-tester.com/ of https://internet.nl/mail/$2/."
+  ],
+  [
+   "After\\ DNS\\ propagates,\\ re\\-scan\\ `(.+?)`\\ in\\ DomainLens\\ \\(DNS/DNSSEC\\)\\.\\ Confirm\\ with\\ `dig\\ \\+dnssec\\ (.+?)`\\ or\\ https://dnsviz\\.net/\\.",
+   "Scan `$1` na doorvoering in DNS opnieuw in DomainLens (DNS/DNSSEC). Bevestig met `dig +dnssec $2` of https://dnsviz.net/."
+  ],
+  [
+   "Force\\ a\\ 301\\ redirect\\ from\\ HTTP\\ to\\ HTTPS\\.\\ Nginx:\\ `return\\ 301\\ https://\\$host\\$request_uri;`\\.\\ Apache:\\ `Redirect\\ permanent\\ /\\ https://(.+?)/`\\.",
+   "Dwing een 301-doorverwijzing af van HTTP naar HTTPS. Nginx: `return 301 https://$host$request_uri;`. Apache: `Redirect permanent / https://$1/`."
+  ],
+  [
+   "Re\\-run\\ DomainLens\\ Web\\ Security\\ for\\ `(.+?)`\\.\\ Confirm\\ with\\ `curl\\ \\-sI\\ https://…`\\ from\\ an\\ allowed\\ region\\ \\(NL/DE/BE\\ if\\ geo\\-blocked\\)\\.\\ Optional:\\ https://internet\\.nl/site/(.+?)/\\.",
+   "Voer DomainLens Webbeveiliging opnieuw uit voor `$1`. Bevestig met `curl -sI https://…` vanuit een toegestane regio (NL/DE/BE bij geoblokkade). Optioneel: https://internet.nl/site/$2/."
+  ],
+  [
+   "Server\\ preferred\\ `(.+?)`\\ \\((.+?)\\);\\ expected\\ something\\ like\\ `(.+?)`\\ \\((.+?)\\)\\.",
+   "De server gaf voorkeur aan `$1` ($2); verwacht werd iets als `$3` ($4)."
+  ],
+  [
+   "Server\\ accepts\\ insufficient\\ signature\\ hash\\(es\\)\\ for\\ TLS\\ 1\\.2\\ key\\ exchange:\\ (.+?)\\.\\ NCSC\\ §3\\.3\\.5\\ /\\ RFC\\ 9155\\ rate\\ SHA\\-1\\ \\(and\\ MD5\\)\\ as\\ Insufficient;\\ allow\\ only\\ SHA\\-256/384/512\\ \\(SignatureAlgorithms\\)\\.\\ Addresses:\\ (.+?)\\.",
+   "De server accepteert onvoldoende handtekening-hash(es) voor de sleuteluitwisseling in TLS 1.2: $1. NCSC §3.3.5 / RFC 9155 beoordelen SHA-1 (en MD5) als Onvoldoende; sta alleen SHA-256/384/512 toe (SignatureAlgorithms). Adressen: $2."
+  ],
+  [
+   "The\\ server\\ does\\ not\\ send\\ (.+?)\\.",
+   "De server stuurt $1 niet mee."
+  ],
+  [
+   "(\\d[\\d.,]*)\\.\\ (.+?)",
+   "$1. $2"
+  ],
+  [
+   "DomainLens\\ (.+?)\\ \\((.+?)\\)",
+   "DomainLens $1 ($2)"
+  ],
+  [
+   "Example:\\ (.+?)",
+   "Voorbeeld: $1"
+  ]
+ ]
+}

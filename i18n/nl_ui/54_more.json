@@ -1,0 +1,458 @@
+{
+ "text": {
+  "Basic Auth in URL": "Basic Auth in URL",
+  "No HTTP response": "Geen HTTP-response",
+  "Vulnerable JS Library": "Kwetsbare JS-bibliotheek",
+  "Confirm the identifier is intended to be public and restrict it by origin, API, quota, and least privilege where the provider supports that.": "Controleer of de aanduiding openbaar mag zijn en beperk haar op origin, API, quotum en minimale rechten, voor zover de provider dat ondersteunt.",
+  "Validate and rotate this credential, remove it from client-side code, and move privileged operations behind a backend API.": "Controleer en vervang dit geheim, haal het uit de clientcode en verplaats handelingen met extra rechten naar een backend-API.",
+  "Validate the match and its permissions. Rotate and remove it from client-side code if it is a live private credential.": "Controleer de treffer en de rechten. Vervang het en haal het uit de clientcode als het een echt privégeheim is.",
+  "Exposed Secret": "Blootgesteld geheim",
+  "Subresource Integrity": "Subresource Integrity",
+  "jQuery UI <= 1.12.1 has multiple XSS issues in .datepicker(), .resizable(), and altField options.": "jQuery UI <= 1.12.1 heeft meerdere XSS-problemen in .datepicker(), .resizable() en de opties voor altField.",
+  "Certificate key length not available from scan.": "Sleutellengte van het certificaat niet beschikbaar uit de scan.",
+  "Nginx: `ssl_protocols TLSv1.2 TLSv1.3;`. Apache: `SSLProtocol -all +TLSv1.2 +TLSv1.3`.": "Nginx: `ssl_protocols TLSv1.2 TLSv1.3;`. Apache: `SSLProtocol -all +TLSv1.2 +TLSv1.3`.",
+  "TLS 1.3 not offered (NCSC prefers Good)": "TLS 1.3 niet aangeboden (NCSC geeft de voorkeur aan Goed)",
+  "NCSC rates TLS 1.3 as Good and recommends preferring it for future quantum-safe migration.": "Het NCSC beoordeelt TLS 1.3 als Goed en raadt aan het de voorkeur te geven met het oog op een toekomstige quantumveilige overstap.",
+  "Enable TLS 1.3 alongside TLS 1.2 in the server TLS stack.": "Zet TLS 1.3 naast TLS 1.2 aan in de TLS-stack van de server.",
+  "No modern TLS versions offered": "Geen moderne TLS-versies aangeboden",
+  "Neither TLS 1.2 nor TLS 1.3 is available. The configuration is Insufficient.": "TLS 1.2 en TLS 1.3 zijn geen van beide beschikbaar. De configuratie is Onvoldoende.",
+  "One or more accepted cipher suites use algorithms rated Insufficient (e.g. static RSA key exchange, 3DES, RC4, SHA-1, NULL, DSS, CCM-8).": "Eén of meer geaccepteerde cipher suites gebruiken algoritmes die als Onvoldoende zijn beoordeeld (bijv. statische RSA-sleuteluitwisseling, 3DES, RC4, SHA-1, NULL, DSS, CCM-8).",
+  "Restrict the cipher list to AEAD suites with ECDHE (and TLS 1.3 suites). Remove CBC-SHA1 and CCM-8. See NCSC Appendix B / Mozilla Intermediate SSL config.": "Beperk de lijst met ciphers tot AEAD-suites met ECDHE (en TLS 1.3-suites). Verwijder CBC-SHA1 en CCM-8. Zie NCSC bijlage B / Mozilla Intermediate SSL config.",
+  "Re-run DomainLens NCSC TLS and confirm zero Insufficient cipher suites. Cross-check internet.nl → HTTPS → cipher suites (should no longer list Insufficient algorithms).": "Voer DomainLens NCSC TLS opnieuw uit en controleer dat er geen Onvoldoende cipher suites meer zijn. Controleer ook internet.nl → HTTPS → cipher suites (daar mogen geen Onvoldoende algoritmes meer staan).",
+  "CBC-mode AES/CAMELLIA/ARIA and/or DHE suites are still accepted. NCSC 2025-05 marks these as To be phased out.": "AES/CAMELLIA/ARIA in CBC-modus en/of DHE-suites worden nog geaccepteerd. NCSC 2025-05 merkt deze aan als Uit te faseren.",
+  "Re-run DomainLens NCSC TLS and confirm phased-out cipher count is 0 (or accepted as an explicit temporary exception). Cross-check internet.nl HTTPS results.": "Voer DomainLens NCSC TLS opnieuw uit en controleer dat het aantal uit te faseren ciphers 0 is (of als uitdrukkelijke tijdelijke uitzondering is geaccepteerd). Controleer ook de HTTPS-resultaten van internet.nl.",
+  "TLS compression enabled (Insufficient)": "TLS-compressie ingeschakeld (Onvoldoende)",
+  "TLS compression is Insufficient per NCSC Table 10 and enables CRIME-class attacks.": "TLS-compressie is Onvoldoende volgens NCSC tabel 10 en maakt aanvallen van het type CRIME mogelijk.",
+  "Disable TLS compression. TLS 1.3 does not support compression.": "Zet TLS-compressie uit. TLS 1.3 ondersteunt geen compressie.",
+  "Good": "Goed",
+  "Sufficient": "Voldoende",
+  "To be phased out": "Uit te faseren",
+  "Insufficient": "Onvoldoende",
+  "Unknown": "Onbekend",
+  "Certificate key parameters are Insufficient": "Sleutelparameters van het certificaat zijn Onvoldoende",
+  "Key length below NCSC minimum.": "Sleutellengte onder het minimum van het NCSC.",
+  "Use RSA ≥ 3072-bit (Sufficient) or at least 2048-bit while phasing out; prefer ECDSA secp256r1 or stronger.": "Gebruik RSA ≥ 3072 bit (Voldoende) of tijdens het uitfaseren minstens 2048 bit; gebruik bij voorkeur ECDSA secp256r1 of sterker.",
+  "Certificate key parameters should be phased out": "Sleutelparameters van het certificaat moeten worden uitgefaseerd",
+  "Key length is To be phased out.": "De sleutellengte is Uit te faseren.",
+  "Plan migration to RSA ≥ 3072-bit or ECDSA P-256+.": "Plan de overstap naar RSA ≥ 3072 bit of ECDSA P-256+.",
+  "An expired certificate breaks authentication trust.": "Een verlopen certificaat breekt het vertrouwen in de authenticatie.",
+  "Self-signed certificates are not suitable for public TLS authentication.": "Zelfondertekende certificaten zijn niet geschikt voor publieke TLS-authenticatie.",
+  "OCSP stapling not detected": "OCSP-stapling niet gevonden",
+  "The certificate advertises OCSP, but no stapled response was observed.": "Het certificaat noemt OCSP, maar er is geen meegestapeld antwoord gezien.",
+  "Enable OCSP stapling on the TLS terminator.": "Zet OCSP-stapling aan op het systeem dat TLS afhandelt.",
+  "Cipher suite order prefers weaker suites": "Volgorde van cipher suites geeft voorkeur aan zwakkere suites",
+  "Enforce server cipher order and put AEAD suites (AES-GCM / AES-CCM / ChaCha20-Poly1305) before CBC 'phase out' suites. Also remove or demote Insufficient suites (CBC-SHA1, CCM-8). Nginx: `ssl_prefer_server_ciphers on;` with an ordered `ssl_ciphers` list (Good/Sufficient AEAD first). Apache: `SSLHonorCipherOrder on`. On BunnyCDN/Cloudflare: set a modern custom cipher suite list and prefer server order if the control panel exposes it.": "Dwing de cipher-volgorde van de server af en zet AEAD-suites (AES-GCM / AES-CCM / ChaCha20-Poly1305) vóór uit te faseren CBC-suites. Verwijder Onvoldoende suites (CBC-SHA1, CCM-8) of zet ze achteraan. Nginx: `ssl_prefer_server_ciphers on;` met een geordende lijst `ssl_ciphers` (Goed/Voldoende AEAD eerst). Apache: `SSLHonorCipherOrder on`. Bij BunnyCDN/Cloudflare: stel een moderne eigen lijst met cipher suites in en kies voor de volgorde van de server als het configuratiescherm dat toelaat.",
+  "Re-run DomainLens SSL/TLS + NCSC TLS and confirm Cipher suite order passes (no `cipher-order` finding). Cross-check internet.nl → HTTPS → “Volgorde van cipher suites”. From a blocked region, TLS probes still work; HTTP/HSTS checks need NL/DE/BE.": "Voer DomainLens SSL/TLS + NCSC TLS opnieuw uit en controleer dat de cipher-volgorde in orde is (geen bevinding `cipher-order`). Controleer ook internet.nl → HTTPS → “Volgorde van cipher suites”. Vanuit een geblokkeerde regio werken TLS-proeven nog; HTTP/HSTS-checks hebben NL/DE/BE nodig.",
+  "Insufficient hash for TLS key-exchange signatures (SHA-1)": "Onvoldoende hash voor handtekeningen bij de TLS-sleuteluitwisseling (SHA-1)",
+  "Re-run DomainLens NCSC TLS and confirm no `signature-hash-insufficient` finding. Cross-check internet.nl → HTTPS → “Hashfuncties voor sleuteluitwisseling”. Verify both A and AAAA addresses.": "Voer DomainLens NCSC TLS opnieuw uit en controleer dat er geen bevinding `signature-hash-insufficient` meer is. Controleer ook internet.nl → HTTPS → “Hashfuncties voor sleuteluitwisseling”. Controleer zowel de A- als de AAAA-adressen.",
+  "Phased-out signature hash still accepted (SHA-224)": "Uit te faseren handtekening-hash nog geaccepteerd (SHA-224)",
+  "SHA-224 is still accepted for TLS 1.2 key-exchange signatures (NCSC: phase out).": "SHA-224 wordt nog geaccepteerd voor handtekeningen bij de sleuteluitwisseling in TLS 1.2 (NCSC: uitfaseren).",
+  "Remove SHA-224 from SignatureAlgorithms; keep SHA-256/384/512 only.": "Verwijder SHA-224 uit SignatureAlgorithms; houd alleen SHA-256/384/512 over.",
+  "Re-run DomainLens NCSC TLS; confirm only Good signature hashes remain.": "Voer DomainLens NCSC TLS opnieuw uit; controleer dat alleen Goede handtekening-hashes overblijven.",
+  "No TLS deep scan data available": "Geen gegevens van een diepe TLS-scan beschikbaar",
+  "NCSC TLS Security Guidelines 2025-05": "NCSC ICT-beveiligingsrichtlijnen voor TLS 2025-05",
+  "IP lookup failed": "IP-opzoeking mislukt",
+  "Set ABUSECH_AUTH_KEY for ThreatFox lookups": "Stel ABUSECH_AUTH_KEY in voor opzoekingen in ThreatFox",
+  "Set ABUSECH_AUTH_KEY for URLhaus lookups": "Stel ABUSECH_AUTH_KEY in voor opzoekingen in URLhaus",
+  "Set OTX_API_KEY for OTX lookups": "Stel OTX_API_KEY in voor opzoekingen in OTX",
+  "OTX rejected the API key": "OTX weigerde de API-sleutel",
+  "OTX passive DNS": "Passive DNS van OTX",
+  "Set VIRUSTOTAL_API_KEY for VirusTotal reputation lookups": "Stel VIRUSTOTAL_API_KEY in voor reputatieopzoekingen in VirusTotal",
+  "VirusTotal rejected the API key": "VirusTotal weigerde de API-sleutel",
+  "The domain's own MX hosts have no IPv6 address.": "De eigen MX-hosts van het domein hebben geen IPv6-adres.",
+  "Weak-auth did not run for this scan.": "De check op zwakke authenticatie is bij deze scan niet uitgevoerd.",
+  "Default or weak credentials were accepted.": "Standaard- of zwakke inloggegevens werden geaccepteerd.",
+  "Weak-auth returned no result.": "De check op zwakke authenticatie gaf geen resultaat.",
+  "The address": "Het adres",
+  "No nameserver addresses found to test": "Geen adressen van nameservers gevonden om te testen",
+  "Answered a recursive query for a name it is not authoritative for": "Beantwoordde een recursieve vraag voor een naam waarvoor hij niet gezaghebbend is",
+  "Refused the recursive query, which is correct": "Weigerde de recursieve vraag, en dat is juist",
+  "Mail server accepts relay for a foreign domain": "Mailserver accepteert relay voor een vreemd domein",
+  "A mail host accepted a recipient in a domain it has no reason to serve. An open relay is used to send spam and phishing in your name, and gets the address blocklisted quickly.": "Een mailserver accepteerde een ontvanger in een domein dat hij niet hoort te bedienen. Een open relay wordt gebruikt om spam en phishing in jouw naam te sturen, en zet het adres snel op blocklists.",
+  "Restrict relaying to authenticated users and your own networks. On Postfix that is smtpd_relay_restrictions; on Exchange, the receive connector's permission groups.": "Beperk relaying tot geauthenticeerde gebruikers en je eigen netwerken. Bij Postfix is dat smtpd_relay_restrictions; bij Exchange de machtigingsgroepen van de receive connector.",
+  "Nameserver answers recursive queries from anywhere": "Nameserver beantwoordt recursieve vragen van iedereen",
+  "An authoritative nameserver also resolves names it has no authority for, for any client that asks. Open resolvers are used to amplify denial-of-service traffic against third parties.": "Een gezaghebbende nameserver lost ook namen op waarvoor hij niet gezaghebbend is, voor elke client die het vraagt. Open resolvers worden gebruikt om denial-of-service-verkeer tegen derden te versterken.",
+  "Separate the authoritative and recursive roles, or restrict recursion to your own networks (BIND: allow-recursion).": "Scheid de gezaghebbende en de recursieve rol, of beperk recursie tot je eigen netwerken (BIND: allow-recursion).",
+  "These tests are disabled. They ask a server to relay or recurse, so they are off until an operator turns them on in Settings.": "Deze tests staan uit. Ze vragen een server om door te sturen of recursief op te zoeken, dus ze staan uit tot een beheerder ze aanzet in Instellingen.",
+  "No MX records, so there is no mail host to test": "Geen MX-records, dus er is geen mailserver om te testen",
+  "Expiry must look like 2y, 18m, 90d or 0 for no expiry": "De looptijd moet eruitzien als 2y, 18m, 90d of 0 voor geen einddatum",
+  "gpg did not finish in time": "gpg was niet op tijd klaar",
+  "gpg generated a key but reported no fingerprint": "gpg genereerde een sleutel, maar gaf geen vingerafdruk",
+  "gpg did not return an armoured public key": "gpg gaf geen armored publieke sleutel terug",
+  "gpg did not return an armoured private key": "gpg gaf geen armored privésleutel terug",
+  "gpg failed": "gpg mislukt",
+  "Paste an armoured PGP key block": "Plak een armored PGP-sleutelblok",
+  "That is an encrypted PGP message, not a key.": "Dat is een versleuteld PGP-bericht, geen sleutel.",
+  "No PGP key block found. An armoured key starts with -----BEGIN PGP PUBLIC KEY BLOCK-----": "Geen PGP-sleutelblok gevonden. Een armored sleutel begint met -----BEGIN PGP PUBLIC KEY BLOCK-----",
+  "This is a key block, but gpg is not installed on this server, so its contents cannot be read. The Docker image ships with it.": "Dit is een sleutelblok, maar gpg is niet geïnstalleerd op deze server, dus de inhoud kan niet worden gelezen. De Docker-image bevat het wel.",
+  "RSA (encrypt only)": "RSA (alleen versleutelen)",
+  "RSA (sign only)": "RSA (alleen ondertekenen)",
+  "Untitled vulnerability": "Kwetsbaarheid zonder titel",
+  "XLSX support requires openpyxl. Install with: pip install openpyxl": "Voor XLSX is openpyxl nodig. Installeer met: pip install openpyxl",
+  "Legacy .xls is not supported; save as .xlsx or .csv": "Het oude .xls wordt niet ondersteund; sla op als .xlsx of .csv",
+  "No data rows found in export.": "Geen gegevensregels gevonden in de export.",
+  "Could not recognize Rapid7 columns. Expected at least Vulnerability Title or Host Name / IP Address. Check that this is an InsightVM/Nexpose export.": "De kolommen van Rapid7 werden niet herkend. Verwacht werd minstens Vulnerability Title of Host Name / IP Address. Controleer of dit een export van InsightVM/Nexpose is.",
+  "Rapid7 vulnerability": "Rapid7-kwetsbaarheid",
+  "Apply the vendor patch or configuration change recommended in InsightVM, then re-scan the asset in Rapid7.": "Pas de patch of configuratiewijziging toe die InsightVM aanbeveelt, en scan de asset daarna opnieuw in Rapid7.",
+  "Active": "Actief",
+  "Redemption period: the holder can still restore it": "Herstelperiode: de houder kan het nog terugzetten",
+  "Suspended by the registrar (not in DNS)": "Geschorst door de registrar (niet in DNS)",
+  "Suspended by the registry (not in DNS)": "Geschorst door de registry (niet in DNS)",
+  "Registered but not in DNS": "Geregistreerd, maar niet in DNS",
+  "Transfer locked by the registrar": "Verhuizing vergrendeld door de registrar",
+  "Transfer locked by the registry": "Verhuizing vergrendeld door de registry",
+  "Delete locked by the registrar": "Verwijderen vergrendeld door de registrar",
+  "Update locked by the registrar": "Wijzigen vergrendeld door de registrar",
+  "Transfer in progress": "Verhuizing bezig",
+  "In quarantine: only the previous holder can restore it until it is released.": "In quarantaine: tot het vrijkomt, kan alleen de vorige houder het herstellen.",
+  "In quarantine: only the previous holder can restore it until it is released. The release time was not in this answer; look again.": "In quarantaine: tot het vrijkomt, kan alleen de vorige houder het herstellen. Het moment van vrijgeven stond niet in dit antwoord; kijk later opnieuw.",
+  "Being deleted: it becomes available once the registry releases it.": "Wordt verwijderd: het komt vrij zodra de registry het vrijgeeft.",
+  "Registered, but not published in DNS.": "Geregistreerd, maar niet gepubliceerd in DNS.",
+  "This TLD's registry does not offer RDAP": "De registry van deze extensie biedt geen RDAP",
+  "The registry is rate limiting lookups (HTTP 429)": "De registry beperkt het aantal opzoekingen (HTTP 429)",
+  "The registry has no registration for this domain": "De registry heeft geen registratie voor dit domein",
+  "RDAP answer was not JSON": "Het RDAP-antwoord was geen JSON",
+  "not disclosed": "niet openbaar",
+  "State why the risk is accepted; that is what an auditor will ask": "Geef aan waarom het risico wordt geaccepteerd; daar vraagt een auditor naar",
+  "Name who owns the risk until it expires": "Noem wie eigenaar is van het risico tot het verloopt",
+  "Expiry must be a date (YYYY-MM-DD)": "De einddatum moet een datum zijn (JJJJ-MM-DD)",
+  "Expiry is in the past": "De einddatum ligt in het verleden",
+  "Accept a risk for at most a year; renew it when it expires": "Accepteer een risico voor hoogstens een jaar; verleng het als het verloopt",
+  "Viewer": "Lezer",
+  "Analyst": "Analist",
+  "limit and offset must be integers": "limit en offset moeten gehele getallen zijn",
+  "Unknown domain; request verification first": "Onbekend domein; vraag eerst verificatie aan",
+  "Enter a valid domain name.": "Voer een geldige domeinnaam in.",
+  "Unknown domain.": "Onbekend domein.",
+  "Invalid domain.": "Ongeldig domein.",
+  "Risk accepted.": "Risico geaccepteerd.",
+  "Acceptance revoked.": "Acceptatie ingetrokken.",
+  "API tokens need an account in the user list; ask an admin to provision you.": "Voor API-tokens is een account in de gebruikerslijst nodig; vraag een beheerder je aan te maken.",
+  "No account to hold tokens": "Geen account om tokens aan te koppelen",
+  "Tokens can only be created from a signed-in session": "Tokens kunnen alleen worden aangemaakt vanuit een ingelogde sessie",
+  "This is the only time the token is shown.": "Dit is de enige keer dat de token wordt getoond.",
+  "Token not found": "Token niet gevonden",
+  "not measured in the earlier scan": "niet gemeten in de eerdere scan",
+  "not measured in the later scan": "niet gemeten in de latere scan",
+  "Security-header score": "Score beveiligingsheaders",
+  "Blacklist listings": "Vermeldingen op blacklists",
+  "HTTP→HTTPS redirect": "Doorverwijzing HTTP→HTTPS",
+  "Email auth passing": "E-mailauthenticatie in orde",
+  "SPF record present": "SPF-record aanwezig",
+  "Threat-feed hits": "Treffers in dreigingsfeeds",
+  "Leaked secrets": "Gelekte geheimen",
+  "Vulnerable JS libraries": "Kwetsbare JS-bibliotheken",
+  "SPF all mechanism": "SPF-mechanisme all",
+  "SPF strict (hard fail)": "SPF strikt (hard fail)",
+  "Recommendation severity": "Ernst van de adviezen",
+  "SPF has multiple records": "SPF heeft meerdere records",
+  "DMARC record present": "DMARC-record aanwezig",
+  "DMARC policy": "DMARC-beleid",
+  "DKIM selector found": "DKIM-selector gevonden",
+  "MTA-STS published": "MTA-STS gepubliceerd",
+  "TLS-RPT published": "TLS-RPT gepubliceerd",
+  "IPv6 (AAAA) present": "IPv6 (AAAA) aanwezig",
+  "IPv6 on mail hosts": "IPv6 op mailservers",
+  "Certificate expiry date": "Verloopdatum van het certificaat",
+  "Certificate issuer": "Uitgever van het certificaat",
+  "TLS grade": "TLS-cijfer",
+  "TLS versions accepted": "Geaccepteerde TLS-versies",
+  "Security header score": "Score beveiligingsheaders",
+  "Missing security headers": "Ontbrekende beveiligingsheaders",
+  "HTTP status": "HTTP-status",
+  "Redirects HTTP to HTTPS": "Verwijst HTTP door naar HTTPS",
+  "Listed on a DNS blacklist": "Vermeld op een DNS-blacklist",
+  "+all (pass — accepts any sender)": "+all (pass — accepteert elke afzender)",
+  "?all (neutral)": "?all (neutraal)",
+  "~all (soft fail)": "~all (soft fail)",
+  "-all (hard fail)": "-all (hard fail)",
+  "The file is empty.": "Het bestand is leeg.",
+  "No Contact field. It is mandatory (RFC 9116 s2.5.3) and is the one thing a researcher actually needs.": "Geen veld Contact. Dat is verplicht (RFC 9116 s2.5.3) en het enige wat een onderzoeker echt nodig heeft.",
+  "No Expires field. It is mandatory (RFC 9116 s2.5.5); without it a reader cannot tell whether this file is still maintained.": "Geen veld Expires. Dat is verplicht (RFC 9116 s2.5.5); zonder kan een lezer niet zien of dit bestand nog wordt bijgehouden.",
+  "More than one Expires field; only one is allowed.": "Meer dan één veld Expires; er mag er maar één zijn.",
+  "Expires is more than a year out; RFC 9116 says it should be less, so the file gets re-checked.": "Expires ligt meer dan een jaar vooruit; volgens RFC 9116 hoort dat korter te zijn, zodat het bestand opnieuw wordt nagekeken.",
+  "No Encryption field. It is optional, so this is a choice rather than a fault, but researchers have no way to encrypt a report.": "Geen veld Encryption. Dat is optioneel, dus een keuze en geen fout, maar onderzoekers kunnen een melding niet versleutelen.",
+  "No Policy field pointing at your disclosure policy.": "Geen veld Policy dat naar je disclosurebeleid verwijst.",
+  "For production at scale, prefer the ServiceNow Store app 'Rapid7 Integration for Security Operations' with CI Lookup Rules. DomainLens's bridge is for lean/filtered sync and validation.": "Gebruik voor productie op grote schaal bij voorkeur de ServiceNow Store-app 'Rapid7 Integration for Security Operations' met CI Lookup Rules. De koppeling van DomainLens is voor beperkte, gefilterde synchronisatie en validatie.",
+  "Rapid7 integration disabled in settings": "Koppeling met Rapid7 staat uit in de instellingen",
+  "Console API not configured (RAPID7_CONSOLE_URL + RAPID7_USERNAME/PASSWORD)": "Console API niet ingesteld (RAPID7_CONSOLE_URL + RAPID7_USERNAME/PASSWORD)",
+  "Cloud API not configured (RAPID7_API_KEY)": "Cloud API niet ingesteld (RAPID7_API_KEY)",
+  "source_mode is 'file'. Upload a lean export via /api/vuln-imports or set Rapid7 source_mode to console_api / cloud_api.": "source_mode is 'file'. Upload een beperkte export via /api/vuln-imports of zet source_mode van Rapid7 op console_api / cloud_api.",
+  "Password masked; the account accepted a known default credential.": "Wachtwoord gemaskeerd; het account accepteerde bekende standaardinloggegevens.",
+  "Weak-auth scanning is disabled. Enable weak_auth.enabled in config/domainlens.json only for systems you are authorized to test.": "Scannen op zwakke authenticatie staat uit. Zet weak_auth.enabled in config/domainlens.json alleen aan voor systemen die je mag testen.",
+  "No credentials configured for weak-auth scan": "Geen inloggegevens ingesteld voor de scan op zwakke authenticatie",
+  "No HTTP Basic authentication endpoints discovered on configured paths.": "Geen endpoints met HTTP Basic-authenticatie gevonden op de ingestelde paden.",
+  "Set `object-src 'none'` to block Flash/plugins.": "Zet `object-src 'none'` om Flash en plugins te blokkeren.",
+  "CSP object-src is not 'none'": "CSP object-src is niet 'none'",
+  "CSP missing frame-ancestors": "CSP mist frame-ancestors",
+  "Add `frame-ancestors 'none'` (or 'self') to prevent clickjacking. Prefer CSP over X-Frame-Options.": "Voeg `frame-ancestors 'none'` (of 'self') toe om clickjacking te voorkomen. Gebruik CSP liever dan X-Frame-Options.",
+  "CSP frame-ancestors allows any site (*)": "CSP frame-ancestors staat elke site toe (*)",
+  "Any origin may iframe this page (clickjacking risk).": "Elke origin mag deze pagina in een iframe zetten (risico op clickjacking).",
+  "CSP missing base-uri": "CSP mist base-uri",
+  "Set `base-uri 'self'` to mitigate base-tag injection.": "Zet `base-uri 'self'` om injectie via de base-tag te beperken.",
+  "CSP missing form-action": "CSP mist form-action",
+  "Set `form-action 'self'` so forms cannot post to attacker sites.": "Zet `form-action 'self'` zodat formulieren niet naar sites van aanvallers kunnen versturen.",
+  "Add Report-To / report-uri while tightening policy so breakages are visible.": "Voeg Report-To / report-uri toe tijdens het aanscherpen, zodat zichtbaar is wat breekt.",
+  "1. Start in report-only: `Content-Security-Policy-Report-Only` with a tight policy and a reporting endpoint.": "1. Begin in report-only: `Content-Security-Policy-Report-Only` met een strak beleid en een rapportage-endpoint.",
+  "2. Baseline policy: `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`.": "2. Basisbeleid: `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`.",
+  "3. Add only the hosts you need: `script-src 'self' https://cdn.example.com`, `style-src 'self'`, `img-src 'self' data:`, `connect-src 'self'`, `font-src 'self'`.": "3. Voeg alleen de hosts toe die je nodig hebt: `script-src 'self' https://cdn.example.com`, `style-src 'self'`, `img-src 'self' data:`, `connect-src 'self'`, `font-src 'self'`.",
+  "5. Remove `'unsafe-eval'` — refactor code that needs `eval` / `new Function`.": "5. Verwijder `'unsafe-eval'` — herschrijf code die `eval` / `new Function` nodig heeft.",
+  "6. Lock framing with `frame-ancestors 'none'` (or `'self'` if you must embed yourself). You can drop legacy `X-Frame-Options` once CSP is enforced.": "6. Vergrendel insluiten met `frame-ancestors 'none'` (of `'self'` als je jezelf moet insluiten). Het oude `X-Frame-Options` kan weg zodra CSP wordt afgedwongen.",
+  "7. When reports are clean, switch Report-Only → enforcing `Content-Security-Policy` and keep reporting via `report-to`.": "7. Zijn de rapporten schoon, schakel dan van Report-Only over op een afdwingend `Content-Security-Policy` en blijf rapporteren via `report-to`.",
+  "Priority: replace `'unsafe-inline'` with nonces/hashes before enforcing.": "Prioriteit: vervang `'unsafe-inline'` door nonces/hashes voordat je afdwingt.",
+  "Priority: eliminate `'unsafe-eval'` from script-src/default-src.": "Prioriteit: haal `'unsafe-eval'` uit script-src/default-src.",
+  "Priority: replace `*` / `https:` with explicit host allow-lists.": "Prioriteit: vervang `*` / `https:` door expliciete lijsten van toegestane hosts.",
+  "CORS * combined with credentials": "CORS * gecombineerd met credentials",
+  "Standards-compliant browsers reject this header combination, so credentialed cross-origin access was not established.": "Browsers die de standaard volgen, weigeren deze combinatie van headers, dus toegang tussen origins met credentials is niet vastgesteld.",
+  "CORS allows null origin": "CORS staat de origin null toe",
+  "Page can be framed by any origin (CSP)": "Pagina kan door elke origin worden ingesloten (CSP)",
+  "No clickjacking protection (no CSP frame-ancestors, no X-Frame-Options)": "Geen bescherming tegen clickjacking (geen CSP frame-ancestors, geen X-Frame-Options)",
+  "X-Frame-Options uses deprecated ALLOW-FROM": "X-Frame-Options gebruikt het verouderde ALLOW-FROM",
+  "Modern browsers ignore ALLOW-FROM. Use CSP frame-ancestors instead.": "Moderne browsers negeren ALLOW-FROM. Gebruik in plaats daarvan CSP frame-ancestors.",
+  "X-Powered-By header discloses technology": "De header X-Powered-By geeft de technologie prijs",
+  "Server header discloses software version": "De header Server geeft de softwareversie prijs",
+  "ASP.NET version header exposed": "Versieheader van ASP.NET zichtbaar",
+  "Content-Security-Policy missing": "Content-Security-Policy ontbreekt",
+  "Any site may load your resources, which is what happens without the header at all.": "Elke site mag je bestanden laden, en dat gebeurt ook als de header er helemaal niet is.",
+  "same-site (or same-origin)": "same-site (of same-origin)",
+  "This is the browser default; the header grants nothing it would not already do.": "Dit is de standaard van de browser; de header staat niets toe wat hij niet al zou doen.",
+  "0 (and rely on Content-Security-Policy)": "0 (en vertrouw op Content-Security-Policy)",
+  "DENY or SAMEORIGIN (prefer CSP frame-ancestors)": "DENY of SAMEORIGIN (bij voorkeur CSP frame-ancestors)",
+  "The full URL, including path and query, is sent to every site you link to — over plain HTTP as well.": "De volledige URL, met pad en query, gaat naar elke site waar je naar linkt — ook via gewone HTTP.",
+  "The full URL is sent to every other HTTPS site; this was the old browser default.": "De volledige URL gaat naar elke andere HTTPS-site; dit was de oude standaard van browsers.",
+  "CSP has neither default-src nor script-src": "CSP heeft geen default-src en geen script-src",
+  "Without a baseline, browsers fall back to allowing almost anything.": "Zonder basis vallen browsers terug op bijna alles toestaan.",
+  "Inline scripts/styles defeat XSS protections. Prefer nonces or hashes.": "Inline scripts en stijlen ondermijnen de bescherming tegen XSS. Gebruik bij voorkeur nonces of hashes.",
+  "eval() and similar APIs expand the XSS attack surface.": "eval() en vergelijkbare API's vergroten het aanvalsoppervlak voor XSS.",
+  "Restrict to concrete hostnames your app actually needs.": "Beperk tot de concrete hostnamen die je app echt nodig heeft.",
+  "CSP does not restrict object-src": "CSP beperkt object-src niet",
+  "WHOIS gave no answer": "WHOIS gaf geen antwoord",
+  "Weak or default credentials accepted": "Zwakke of standaardinloggegevens geaccepteerd"
+ },
+ "patterns": [
+  [
+   "No\\ TXT\\ record\\ (.+?)…\\ with\\ this\\ token\\ at\\ (.+?)\\.(.+?)",
+   "Geen TXT-record $1… met deze token op $2.$3"
+  ],
+  [
+   "(.+?)\\ (.+?)\\ has\\ known\\ vulnerabilities",
+   "$1 $2 heeft bekende kwetsbaarheden"
+  ],
+  [
+   "(.+?)\\ ·\\ found\\ in\\ (.+?)",
+   "$1 · gevonden in $2"
+  ],
+  [
+   "Upgrade\\ (.+?)\\ beyond\\ (.+?)\\ to\\ a\\ currently\\ maintained\\ release\\.",
+   "Werk $1 bij tot na $2, naar een versie die nog onderhouden wordt."
+  ],
+  [
+   "A\\ client\\-visible\\ identifier\\ matching\\ (.+?)\\ was\\ found\\.\\ This\\ may\\ be\\ intentional;\\ its\\ server\\-side\\ restrictions\\ still\\ need\\ review\\.",
+   "Er is een voor clients zichtbare aanduiding gevonden die op $1 lijkt. Dat kan bedoeld zijn; de beperkingen aan de serverkant moeten nog worden bekeken."
+  ],
+  [
+   "A\\ pattern\\ strongly\\ matching\\ (.+?)\\ was\\ found\\ in\\ JavaScript\\ served\\ to\\ every\\ visitor's\\ browser\\.",
+   "In JavaScript dat naar de browser van elke bezoeker gaat, is een patroon gevonden dat sterk op $1 lijkt."
+  ],
+  [
+   "A\\ pattern\\ possibly\\ matching\\ (.+?)\\ was\\ found\\ in\\ public\\ JavaScript,\\ but\\ validity\\ and\\ privilege\\ were\\ not\\ established\\.",
+   "In openbare JavaScript is een patroon gevonden dat mogelijk op $1 lijkt, maar geldigheid en rechten zijn niet vastgesteld."
+  ],
+  [
+   "Possible\\ (.+?)\\ exposed\\ in\\ client\\-side\\ JS",
+   "Mogelijk $1 blootgesteld in JS aan de clientkant"
+  ],
+  [
+   "(.+?)\\ third\\-party\\ script/style\\ tag\\(s\\)\\ without\\ SRI",
+   "$1 script- of stijltag(s) van derden zonder SRI"
+  ],
+  [
+   "Hosts:\\ (.+?)",
+   "Hosts: $1"
+  ],
+  [
+   "ECDSA/EC\\ key\\ size\\ (.+?)\\ bit",
+   "ECDSA/EC-sleutel van $1 bit"
+  ],
+  [
+   "RSA\\ modulus\\ (.+?)\\ bit",
+   "RSA-modulus van $1 bit"
+  ],
+  [
+   "(.+?)\\ is\\ insufficient\\ \\(NCSC\\ 2025\\-05\\)",
+   "$1 is onvoldoende (NCSC 2025-05)"
+  ],
+  [
+   "(.+?)\\ is\\ classified\\ as\\ Insufficient\\.\\ Disable\\ it\\ and\\ require\\ TLS\\ 1\\.2\\ minimum,\\ preferably\\ TLS\\ 1\\.3\\.",
+   "$1 is beoordeeld als Onvoldoende. Zet het uit en vereis minimaal TLS 1.2, bij voorkeur TLS 1.3."
+  ],
+  [
+   "(.+?)\\ insufficient\\ cipher\\ suite\\(s\\)",
+   "$1 onvoldoende cipher suite(s)"
+  ],
+  [
+   "(.+?)\\ cipher\\ suite\\(s\\)\\ to\\ be\\ phased\\ out",
+   "$1 uit te faseren cipher suite(s)"
+  ],
+  [
+   "(.+?)\\ did\\ not\\ respond\\ within\\ (.+?)s",
+   "$1 antwoordde niet binnen $2s"
+  ],
+  [
+   "The\\ MX\\ hosts\\ belong\\ to\\ (.+?)\\ and\\ have\\ no\\ IPv6\\ address\\.\\ That\\ is\\ the\\ mail\\ provider's\\ choice,\\ not\\ this\\ domain's\\.",
+   "De MX-hosts zijn van $1 en hebben geen IPv6-adres. Dat is de keuze van de mailprovider, niet van dit domein."
+  ],
+  [
+   "(.+?)\\ is\\ a\\ shared\\ (.+?)\\ edge\\ address,\\ listed\\ on\\ (.+?)\\.\\ Other\\ sites\\ use\\ it\\ too;\\ it\\ is\\ not\\ this\\ domain's\\ mail\\ server,\\ and\\ only\\ the\\ CDN\\ can\\ have\\ it\\ delisted\\.",
+   "$1 is een gedeeld edge-adres van $2, vermeld op $3. Andere sites gebruiken het ook; het is niet de mailserver van dit domein, en alleen het CDN kan het van de lijst laten halen."
+  ],
+  [
+   "(.+?)\\ is\\ listed\\ on\\ (.+?)\\.",
+   "$1 staat vermeld op $2."
+  ],
+  [
+   "(.+?)\\ is\\ only\\ on\\ the\\ Spamhaus\\ PBL,\\ a\\ list\\ of\\ ranges\\ that\\ should\\ not\\ send\\ mail\\ directly\\.\\ It\\ is\\ not\\ a\\ reputation\\ listing\\.",
+   "$1 staat alleen op de Spamhaus PBL, een lijst van bereiken die niet rechtstreeks mail horen te versturen. Het is geen vermelding over de reputatie."
+  ],
+  [
+   "RCPT\\ TO\\ returned\\ (.+?)",
+   "RCPT TO gaf $1"
+  ],
+  [
+   "Could\\ not\\ complete\\ the\\ check:\\ (.+?)",
+   "De controle kon niet worden afgerond: $1"
+  ],
+  [
+   "Relaying:\\ (.+?)",
+   "Relay: $1"
+  ],
+  [
+   "Recursing:\\ (.+?)",
+   "Recursief: $1"
+  ],
+  [
+   "(.+?)\\ is\\ not\\ on\\ the\\ own\\-infrastructure\\ list,\\ so\\ it\\ was\\ not\\ tested\\.\\ Add\\ it\\ in\\ Settings\\ only\\ if\\ you\\ run\\ this\\ infrastructure\\.",
+   "$1 staat niet op de lijst met eigen infrastructuur, dus het is niet getest. Voeg het in Instellingen alleen toe als jij deze infrastructuur beheert."
+  ],
+  [
+   "(.+?)\\ is\\ not\\ a\\ valid\\ email\\ address",
+   "$1 is geen geldig e-mailadres"
+  ],
+  [
+   "Could\\ not\\ run\\ gpg:\\ (.+?)",
+   "gpg kon niet worden uitgevoerd: $1"
+  ],
+  [
+   "Truncated\\ import\\ to\\ first\\ (.+?)\\ rows\\ \\(file\\ had\\ (.+?)\\)\\.",
+   "Import ingekort tot de eerste $1 regels (het bestand had er $2)."
+  ],
+  [
+   "InsightVM/Nexpose\\ reported\\ this\\ on\\ `(.+?)`\\.",
+   "InsightVM/Nexpose meldde dit op `$1`."
+  ],
+  [
+   "CVSS:\\ (.+?)\\.",
+   "CVSS: $1."
+  ],
+  [
+   "Exploit/malware\\ signal:\\ (.+?)\\.",
+   "Signaal van exploit/malware: $1."
+  ],
+  [
+   "Re\\-scan\\ `(.+?)`\\ in\\ InsightVM/Nexpose\\ and\\ confirm\\ the\\ vulnerability\\ is\\ gone\\.\\ Optionally\\ re\\-run\\ DomainLens\\ for\\ `(.+?)`\\ after\\ DNS/TLS/web\\ changes\\.",
+   "Scan `$1` opnieuw in InsightVM/Nexpose en controleer dat de kwetsbaarheid weg is. Voer eventueel DomainLens opnieuw uit voor `$2` na wijzigingen aan DNS, TLS of web."
+  ],
+  [
+   "RDAP\\ bootstrap\\ unavailable:\\ (.+?)",
+   "RDAP-bootstrap niet beschikbaar: $1"
+  ],
+  [
+   "RDAP\\ request\\ failed:\\ (.+?)",
+   "RDAP-verzoek mislukt: $1"
+  ],
+  [
+   "RDAP\\ server\\ answered\\ HTTP\\ (.+?)",
+   "RDAP-server gaf HTTP $1"
+  ],
+  [
+   "(.+?)\\ verified\\.",
+   "$1 geverifieerd."
+  ],
+  [
+   "(.+?)\\ attested\\.",
+   "$1 verklaard."
+  ],
+  [
+   "(.+?)\\ revoked\\.",
+   "$1 ingetrokken."
+  ],
+  [
+   "Expires\\ '(.+?)'\\ is\\ not\\ a\\ valid\\ ISO\\ 8601\\ timestamp\\.",
+   "Expires '$1' is geen geldig ISO 8601-tijdstip."
+  ],
+  [
+   "Expires\\ is\\ in\\ the\\ past\\ \\((.+?)\\);\\ the\\ file\\ is\\ stale\\ and\\ tooling\\ will\\ ignore\\ it\\.",
+   "Expires ligt in het verleden ($1); het bestand is verouderd en tools negeren het."
+  ],
+  [
+   "'(.+?)'\\ is\\ not\\ a\\ field\\ defined\\ in\\ RFC\\ 9116\\.",
+   "'$1' is geen veld uit RFC 9116."
+  ],
+  [
+   "Tested\\ (.+?)\\ credential\\ attempt\\(s\\)\\ on\\ (.+?)\\ protected\\ endpoint\\(s\\)\\.",
+   "$1 inlogpoging(en) getest op $2 beveiligd(e) endpoint(s)."
+  ],
+  [
+   "Stopped\\ at\\ the\\ max_attempts_per_scan\\ ceiling\\ \\((.+?)\\)\\.",
+   "Gestopt bij het maximum max_attempts_per_scan ($1)."
+  ],
+  [
+   "(.+?)\\ See\\ full\\ step\\ list\\ in\\ Advies\\.",
+   "$1 Zie het volledige stappenplan onder Advies."
+  ],
+  [
+   "Cookie\\ `(.+?)`\\ missing\\ Secure",
+   "Cookie `$1` mist Secure"
+  ],
+  [
+   "Session\\ cookie\\ `(.+?)`\\ missing\\ HttpOnly",
+   "Sessiecookie `$1` mist HttpOnly"
+  ],
+  [
+   "Session\\ cookie\\ `(.+?)`\\ missing\\ SameSite",
+   "Sessiecookie `$1` mist SameSite"
+  ],
+  [
+   "Cookie\\ `(.+?)`\\ has\\ SameSite=None\\ without\\ Secure",
+   "Cookie `$1` heeft SameSite=None zonder Secure"
+  ],
+  [
+   "Value:\\ (.+?)",
+   "Waarde: $1"
+  ],
+  [
+   "`(.+?)`\\ is\\ not\\ a\\ value\\ (.+?)\\ accepts,\\ so\\ browsers\\ discard\\ the\\ header\\.\\ The\\ site\\ is\\ in\\ the\\ same\\ position\\ as\\ if\\ it\\ were\\ never\\ sent\\.",
+   "`$1` is geen waarde die $2 accepteert, dus browsers gooien de header weg. De site staat er dan voor alsof hij nooit was meegestuurd."
+  ],
+  [
+   "No\\ token\\ in\\ `(.+?)`\\ is\\ a\\ Referrer\\-Policy\\ value,\\ so\\ browsers\\ fall\\ back\\ to\\ their\\ own\\ default\\ and\\ the\\ header\\ has\\ no\\ effect\\.",
+   "Geen enkel onderdeel van `$1` is een waarde voor Referrer-Policy, dus browsers vallen terug op hun eigen standaard en de header heeft geen effect."
+  ],
+  [
+   "CSP\\ (.+?)\\ allows\\ 'unsafe\\-inline'",
+   "CSP $1 staat 'unsafe-inline' toe"
+  ],
+  [
+   "CSP\\ (.+?)\\ allows\\ 'unsafe\\-eval'",
+   "CSP $1 staat 'unsafe-eval' toe"
+  ],
+  [
+   "CSP\\ (.+?)\\ is\\ overly\\ broad\\ \\(\\*\\ or\\ https:\\)",
+   "CSP $1 is te ruim (* of https:)"
+  ],
+  [
+   "At\\ most\\ (.+?)\\ domains\\ per\\ batch;\\ split\\ the\\ list",
+   "Hoogstens $1 domeinen per batch; splits de lijst"
+  ]
+ ]
+}

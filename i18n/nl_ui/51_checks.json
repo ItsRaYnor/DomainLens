@@ -1,0 +1,236 @@
+{
+ "text": {
+  "carriage return": "regeleinde (CR)",
+  "null byte": "nulbyte",
+  "at the end": "aan het eind",
+  "inside the value": "in de waarde",
+  "has leading or trailing whitespace": "heeft spaties aan het begin of eind",
+  "CAA lookup could not be measured": "CAA-opzoeking kon niet worden gemeten",
+  "ASP.NET version": "ASP.NET-versie",
+  "ASP.NET MVC version": "ASP.NET MVC-versie",
+  "Generator": "Generator",
+  "Meta generator": "Meta-generator",
+  "Subdomain Takeover": "Subdomeinovername",
+  "the hosting provider": "de hostingprovider",
+  "the provider controls the hostname": "de provider beheert de hostnaam",
+  "Exposure": "Blootstelling",
+  "CORS reflects arbitrary Origin with credentials": "CORS geeft elke Origin terug, met credentials",
+  "The server reflects any Origin in Access-Control-Allow-Origin while allowing credentials — any site can read authenticated responses.": "De server geeft elke Origin terug in Access-Control-Allow-Origin en staat credentials toe — elke site kan geauthenticeerde responses lezen.",
+  "ACAO reflected, ACAC=true": "ACAO teruggegeven, ACAC=true",
+  "CORS wildcard with credentials": "CORS-wildcard met credentials",
+  "Access-Control-Allow-Origin is * together with credentials. Standards-compliant browsers reject this combination, so no credentialed data exposure was established.": "Access-Control-Allow-Origin is * samen met credentials. Browsers die de standaard volgen, weigeren deze combinatie, dus er is geen blootstelling van gegevens met credentials vastgesteld.",
+  "Replace the wildcard with an explicit allowlist when credentials are needed.": "Vervang de wildcard door een expliciete lijst van toegestane origins als credentials nodig zijn.",
+  "HTTP Methods": "HTTP-methodes",
+  "HTTP TRACE enabled (Cross-Site Tracing)": "HTTP TRACE ingeschakeld (Cross-Site Tracing)",
+  "TRACE is enabled and can be abused for Cross-Site Tracing (XST) to steal headers/cookies.": "TRACE staat aan en kan worden misbruikt voor Cross-Site Tracing (XST) om headers en cookies te stelen.",
+  "Disable the TRACE method on the web server.": "Zet de methode TRACE uit op de webserver.",
+  "no Secure": "geen Secure",
+  "no HttpOnly": "geen HttpOnly",
+  "no SameSite": "geen SameSite",
+  "SameSite=None without Secure": "SameSite=None zonder Secure",
+  "Session cookies without Secure/HttpOnly/SameSite are exposed to interception and XSS theft.": "Sessiecookies zonder Secure/HttpOnly/SameSite staan bloot aan onderschepping en diefstal via XSS.",
+  "Set Secure, HttpOnly and SameSite=Lax (or Strict) on session cookies.": "Zet Secure, HttpOnly en SameSite=Lax (of Strict) op sessiecookies.",
+  "Best Practice": "Goede praktijk",
+  "No security.txt published": "Geen security.txt gepubliceerd",
+  "There is no /.well-known/security.txt, so researchers have no clear way to report vulnerabilities.": "Er is geen /.well-known/security.txt, dus onderzoekers hebben geen duidelijke manier om kwetsbaarheden te melden.",
+  "Publish /.well-known/security.txt with a Contact field (RFC 9116).": "Publiceer /.well-known/security.txt met een veld Contact (RFC 9116).",
+  "security.txt Encryption: URL serves a PGP PRIVATE key": "De URL bij Encryption: in security.txt levert een PGP-PRIVÉSLEUTEL",
+  "The key published for encrypted reports is a private key. Anyone who fetched it can decrypt reports sent to this address and sign as its owner.": "De sleutel voor versleutelde meldingen is een privésleutel. Iedereen die hem heeft opgehaald, kan meldingen aan dit adres ontsleutelen en ondertekenen als de eigenaar.",
+  "Remove the private key, revoke it, and publish only the exported public key.": "Verwijder de privésleutel, trek hem in en publiceer alleen de geëxporteerde publieke sleutel.",
+  "security.txt Encryption: URL does not serve a PGP public key": "De URL bij Encryption: in security.txt levert geen publieke PGP-sleutel",
+  "The Encryption: field points at a URL that does not return an armoured PGP public key block, so a researcher following it cannot encrypt a report.": "Het veld Encryption: wijst naar een URL die geen armored publiek PGP-sleutelblok teruggeeft, dus een onderzoeker die het volgt, kan geen melding versleutelen.",
+  "Serve the armoured public key (-----BEGIN PGP PUBLIC KEY BLOCK-----) at that URL, or drop the Encryption: field.": "Bied de armored publieke sleutel (-----BEGIN PGP PUBLIC KEY BLOCK-----) aan op die URL, of laat het veld Encryption: weg.",
+  "DNS zone transfer (AXFR) allowed": "DNS-zoneoverdracht (AXFR) toegestaan",
+  "Restrict AXFR to authorized secondary nameservers only (allow-transfer ACL).": "Beperk AXFR tot geautoriseerde secundaire nameservers (allow-transfer-ACL).",
+  "Publish a TLSA record at _25._tcp.<mx-host> for each mail exchanger under this domain, matching the certificate it serves. DNSSEC must be signed for DANE to mean anything.": "Publiceer een TLSA-record op _25._tcp.<mx-host> voor elke mailserver onder dit domein, passend bij het certificaat dat hij aanbiedt. DNSSEC moet ondertekend zijn om DANE betekenis te geven.",
+  "DANE (TLSA) is missing on some mail hosts": "DANE (TLSA) ontbreekt op sommige mailservers",
+  "Publish a TLSA record at _25._tcp for every mail exchanger under this domain, not only the primary.": "Publiceer een TLSA-record op _25._tcp voor elke mailserver onder dit domein, niet alleen de primaire.",
+  "The mail exchangers publish no TLSA record, so incoming SMTP cannot be authenticated with DANE. These exchangers are outside this domain's DNS zone, so only the mail provider can add it.": "De mailservers publiceren geen TLSA-record, dus inkomende SMTP kan niet met DANE worden geauthenticeerd. Deze servers vallen buiten de DNS-zone van dit domein, dus alleen de mailprovider kan het toevoegen.",
+  "CAA record present but missing 'issue' property": "CAA-record aanwezig, maar de eigenschap 'issue' ontbreekt",
+  "Add a CAA record with the issue tag naming your allowed CA(s), e.g. 0 issue \"letsencrypt.org\".": "Voeg een CAA-record toe met de tag issue en je toegestane CA('s), bijv. 0 issue \"letsencrypt.org\".",
+  "No CAA record": "Geen CAA-record",
+  "Without a CAA record, any Certificate Authority may issue certificates for this domain.": "Zonder CAA-record mag elke certificaatautoriteit certificaten voor dit domein uitgeven.",
+  "Publish a CAA record naming your allowed CA(s), e.g. 0 issue \"letsencrypt.org\".": "Publiceer een CAA-record met je toegestane CA('s), bijv. 0 issue \"letsencrypt.org\".",
+  "CAA property tag is not lowercase": "CAA-tag staat niet in kleine letters",
+  "RFC 8659 defines CAA tag matching as case-insensitive, but some validators and Certificate Authorities treat tags case-sensitively in practice, so a capitalised tag (e.g. \"Issue\") may be ignored and treated as if no issue restriction exists.": "RFC 8659 schrijft voor dat CAA-tags niet hoofdlettergevoelig zijn, maar sommige validators en certificaatautoriteiten behandelen ze in de praktijk wel zo, dus een tag met hoofdletter (bijv. \"Issue\") kan worden genegeerd alsof er geen issue-beperking is.",
+  "Republish the CAA record(s) with lowercase tags (issue, issuewild, iodef) for maximum compatibility.": "Publiceer de CAA-record(s) opnieuw met tags in kleine letters (issue, issuewild, iodef) voor de beste compatibiliteit.",
+  "SPF requires <=10 DNS lookups; over the limit yields a permerror and receivers ignore SPF entirely.": "SPF mag hoogstens 10 DNS-lookups doen; daarboven volgt een permerror en negeren ontvangers SPF helemaal.",
+  "Flatten includes or remove unused mechanisms to get under 10 lookups.": "Vlak includes af of verwijder ongebruikte mechanismen om onder de 10 lookups te komen.",
+  "DMARC subdomain policy is weaker than domain policy": "DMARC-beleid voor subdomeinen is zwakker dan dat voor het domein",
+  "Set sp=reject (or remove sp so it inherits the strong p= policy).": "Zet sp=reject (of verwijder sp, zodat het het strenge p=-beleid overneemt).",
+  "Wildcard DNS record present": "Wildcard-DNS-record aanwezig",
+  "A wildcard (*) DNS record resolves arbitrary subdomains, which can mask takeovers and aid phishing.": "Een wildcard-DNS-record (*) lost willekeurige subdomeinen op, wat overnames kan maskeren en phishing kan helpen.",
+  "Remove the wildcard unless it is strictly required.": "Verwijder de wildcard, tenzij die echt nodig is.",
+  "Re-enter the record value without a trailing line break or stray whitespace.": "Voer de waarde van het record opnieuw in, zonder regeleinde of losse spaties aan het eind.",
+  "Info Disclosure": "Informatielek",
+  "the ELB DNS name carries an AWS-allocated suffix that cannot be requested": "de ELB-DNS-naam heeft een achtervoegsel dat AWS toewijst en dat niet aan te vragen is",
+  "the CloudFront distribution domain is a random AWS-assigned id, and an alternate domain can only be added after ownership is proven": "het CloudFront-distributiedomein is een willekeurig door AWS toegewezen id, en een ander domein kan pas worden toegevoegd nadat eigenaarschap is aangetoond",
+  "No Encryption: field in security.txt": "Geen veld Encryption: in security.txt",
+  "Encryption URL does not resolve to a public address": "De Encryption-URL wijst niet naar een publiek adres",
+  "The URL serves a PGP PRIVATE key block": "De URL levert een PGP-PRIVÉSLEUTELBLOK",
+  "Armoured PGP public key block served": "Armored publiek PGP-sleutelblok aangeboden",
+  "The URL did not serve an armoured PGP public key block": "De URL leverde geen armored publiek PGP-sleutelblok",
+  "MX lookup failed": "MX-opzoeking mislukt",
+  "Null MX: this domain receives no mail": "Null MX: dit domein ontvangt geen mail",
+  "One or more TLSA lookups could not be measured": "Eén of meer TLSA-opzoekingen konden niet worden gemeten",
+  "redirect loop": "doorverwijzingslus"
+ },
+ "patterns": [
+  [
+   "contains\\ (.+?)",
+   "bevat $1"
+  ],
+  [
+   "Possible\\ subdomain\\ takeover:\\ (.+?)",
+   "Mogelijke subdomeinovername: $1"
+  ],
+  [
+   "(.+?)\\ has\\ a\\ dangling\\ CNAME\\ to\\ (.+?)\\ \\((.+?)\\)\\.\\ (.+?)",
+   "$1 heeft een dangling CNAME naar $2 ($3). $4"
+  ],
+  [
+   "Remove\\ the\\ dangling\\ DNS\\ record\\ for\\ (.+?),\\ or\\ re\\-claim\\ the\\ resource\\ on\\ (.+?)\\.",
+   "Verwijder het dangling DNS-record voor $1, of claim de resource opnieuw bij $2."
+  ],
+  [
+   "Dangling\\ CNAME:\\ (.+?)",
+   "Dangling CNAME: $1"
+  ],
+  [
+   "(.+?)\\ is\\ a\\ CNAME\\ to\\ (.+?),\\ which\\ returns\\ NXDOMAIN\\ —\\ the\\ (.+?)\\ resource\\ behind\\ it\\ is\\ gone\\.\\ This\\ is\\ a\\ stale\\ record\\ to\\ clean\\ up,\\ not\\ a\\ claimable\\ takeover:\\ (.+?),\\ so\\ a\\ third\\ party\\ cannot\\ re\\-register\\ the\\ target\\.",
+   "$1 is een CNAME naar $2, dat NXDOMAIN geeft — de resource bij $3 erachter is weg. Dit is een verouderd record om op te ruimen, geen overname die iemand kan claimen: $4, dus een derde kan het doel niet opnieuw registreren."
+  ],
+  [
+   "CNAME\\ →\\ (.+?)\\ \\(NXDOMAIN,\\ provider\\-assigned\\)",
+   "CNAME → $1 (NXDOMAIN, toegewezen door de provider)"
+  ],
+  [
+   "Remove\\ the\\ DNS\\ record\\ for\\ (.+?);\\ the\\ target\\ is\\ no\\ longer\\ in\\ use\\.",
+   "Verwijder het DNS-record voor $1; het doel is niet meer in gebruik."
+  ],
+  [
+   "(.+?)\\ is\\ a\\ CNAME\\ to\\ (.+?),\\ which\\ returns\\ NXDOMAIN\\.\\ The\\ provider\\ is\\ not\\ in\\ DomainLens's\\ takeover\\-signature\\ list,\\ so\\ this\\ could\\ not\\ be\\ confirmed\\ as\\ claimable,\\ but\\ a\\ CNAME\\ pointing\\ at\\ a\\ non\\-existent\\ target\\ is\\ a\\ stale\\ record\\ and\\ may\\ be\\ claimable\\ by\\ whoever\\ can\\ register\\ it\\.",
+   "$1 is een CNAME naar $2, dat NXDOMAIN geeft. De provider staat niet in de lijst met overnamekenmerken van DomainLens, dus het kon niet worden bevestigd als claimbaar, maar een CNAME naar een niet-bestaand doel is een verouderd record en kan te claimen zijn door wie het kan registreren."
+  ],
+  [
+   "CNAME\\ →\\ (.+?)\\ \\(NXDOMAIN\\)",
+   "CNAME → $1 (NXDOMAIN)"
+  ],
+  [
+   "Remove\\ the\\ DNS\\ record\\ for\\ (.+?)\\ if\\ the\\ target\\ is\\ no\\ longer\\ in\\ use\\.",
+   "Verwijder het DNS-record voor $1 als het doel niet meer in gebruik is."
+  ],
+  [
+   "Sensitive\\ file\\ exposed:\\ (.+?)",
+   "Gevoelig bestand blootgesteld: $1"
+  ],
+  [
+   "The\\ path\\ (.+?)\\ is\\ publicly\\ readable\\ and\\ matched\\ a\\ known\\ sensitive\\-content\\ signature\\.",
+   "Het pad $1 is publiek leesbaar en kwam overeen met een bekend kenmerk van gevoelige inhoud."
+  ],
+  [
+   "HTTP\\ (.+?),\\ (.+?)\\ bytes",
+   "HTTP $1, $2 bytes"
+  ],
+  [
+   "Block\\ public\\ access\\ to\\ (.+?)\\ at\\ the\\ web\\ server\\ /\\ deny\\ dotfiles\\ and\\ backups\\.",
+   "Blokkeer publieke toegang tot $1 op de webserver / weiger dotbestanden en back-ups."
+  ],
+  [
+   "Cookie\\ '(.+?)'\\ missing\\ flags:\\ (.+?)",
+   "Cookie '$1' mist vlaggen: $2"
+  ],
+  [
+   "Admin/debug\\ endpoint\\ reachable:\\ (.+?)",
+   "Beheer- of debug-endpoint bereikbaar: $1"
+  ],
+  [
+   "(.+?)\\ returned\\ HTTP\\ 200\\ and\\ may\\ expose\\ an\\ administrative\\ or\\ debug\\ interface\\.",
+   "$1 gaf HTTP 200 en stelt mogelijk een beheer- of debuginterface bloot."
+  ],
+  [
+   "Restrict\\ (.+?)\\ to\\ trusted\\ networks\\ or\\ require\\ authentication\\.",
+   "Beperk $1 tot vertrouwde netwerken of vereis authenticatie."
+  ],
+  [
+   "One\\ or\\ more\\ nameservers\\ allow\\ unauthenticated\\ zone\\ transfers,\\ leaking\\ the\\ full\\ DNS\\ zone\\ \\((.+?)\\ records\\)\\.",
+   "Eén of meer nameservers staan zoneoverdracht zonder authenticatie toe, waardoor de volledige DNS-zone uitlekt ($1 records)."
+  ],
+  [
+   "Vulnerable\\ NS:\\ (.+?)",
+   "Kwetsbare NS: $1"
+  ],
+  [
+   "No\\ _25\\._tcp\\ TLSA\\ on:\\ (.+?)",
+   "Geen _25._tcp-TLSA op: $1"
+  ],
+  [
+   "Without\\ TLSA:\\ (.+?)",
+   "Zonder TLSA: $1"
+  ],
+  [
+   "SPF\\ exceeds\\ 10\\ DNS\\ lookups\\ \\((.+?)\\)",
+   "SPF overschrijdt 10 DNS-lookups ($1)"
+  ],
+  [
+   "The\\ main\\ policy\\ is\\ p=(.+?)\\ but\\ sp=none,\\ so\\ subdomains\\ can\\ still\\ be\\ spoofed\\.",
+   "Het hoofdbeleid is p=$1, maar sp=none, dus subdomeinen kunnen nog worden vervalst."
+  ],
+  [
+   "Malformed\\ (.+?)\\ record:\\ (.+?)",
+   "Ongeldig $1-record: $2"
+  ],
+  [
+   "The\\ TXT\\ record\\ at\\ (.+?)\\ (.+?)\\.\\ Control\\ characters\\ usually\\ arrive\\ by\\ pasting\\ the\\ value\\ into\\ a\\ DNS\\ editor\\ along\\ with\\ a\\ line\\ break\\.\\ Nothing\\ displays\\ them\\ —\\ the\\ DNS\\ panel\\ shows\\ the\\ record\\ as\\ normal\\ —\\ but\\ strict\\ parsers\\ reject\\ the\\ record,\\ so\\ the\\ policy\\ it\\ carries\\ silently\\ stops\\ applying\\.",
+   "Het TXT-record op $1 $2. Stuurtekens komen er meestal in door de waarde met een regeleinde in een DNS-editor te plakken. Niets laat ze zien — het DNS-paneel toont het record gewoon — maar strikte parsers weigeren het record, zodat het beleid erin ongemerkt niet meer geldt."
+  ],
+  [
+   "ends\\ with:\\ (.+?)",
+   "eindigt op: $1"
+  ],
+  [
+   "Version\\ leaked\\ in\\ (.+?)",
+   "Versie uitgelekt in $1"
+  ],
+  [
+   "The\\ server\\ discloses\\ a\\ precise\\ version\\ \\((.+?)\\),\\ helping\\ attackers\\ match\\ known\\ CVEs\\.",
+   "De server geeft een precieze versie prijs ($1), wat aanvallers helpt bekende CVE's te koppelen."
+  ],
+  [
+   "Strip\\ or\\ generalize\\ the\\ (.+?)\\ header\\.",
+   "Verwijder of algemeniseer de header $1."
+  ],
+  [
+   "Encryption\\ URI\\ is\\ not\\ HTTP\\(S\\)\\ and\\ was\\ not\\ followed:\\ (.+?)",
+   "De Encryption-URI is geen HTTP(S) en is niet gevolgd: $1"
+  ],
+  [
+   "Could\\ not\\ fetch\\ the\\ key:\\ (.+?)",
+   "De sleutel kon niet worden opgehaald: $1"
+  ],
+  [
+   "Key\\ URL\\ returned\\ HTTP\\ (.+?)",
+   "De sleutel-URL gaf HTTP $1"
+  ],
+  [
+   "Could\\ not\\ read\\ the\\ key:\\ (.+?)",
+   "De sleutel kon niet worden gelezen: $1"
+  ],
+  [
+   "Could\\ not\\ reach\\ (.+?)\\ \\((.+?)\\)",
+   "$1 was niet bereikbaar ($2)"
+  ],
+  [
+   "(.+?)\\ does\\ not\\ resolve\\ to\\ a\\ public\\ address",
+   "$1 wijst niet naar een publiek adres"
+  ],
+  [
+   "more\\ than\\ (.+?)\\ redirects",
+   "meer dan $1 doorverwijzingen"
+  ],
+  [
+   "Key\\ check\\ failed:\\ (.+?)",
+   "Sleutelcontrole mislukt: $1"
+  ]
+ ]
+}

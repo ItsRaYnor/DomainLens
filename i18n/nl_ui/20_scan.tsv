@@ -1,0 +1,422 @@
+# Scan page, results tabs, history and monitors (static/js/app.js).
+# English<TAB>Dutch; {} is a part filled in at run time.
+every 15 minutes	elke 15 minuten
+every 30 minutes	elke 30 minuten
+every 6 hours	elke 6 uur
+every 12 hours	elke 12 uur
+every {} day(s)	elke {} dag(en)
+every {} hour(s)	elke {} uur
+every {} min	elke {} min
+daily	dagelijks
+hourly	elk uur
+weekly	wekelijks
+Custom...	Eigen...
+Import DNS records	DNS-records importeren
+Full scan	Volledige scan
+Scan & open Advies	Scannen & advies openen
+Invalid domain name	Ongeldige domeinnaam
+Scan failed ({})	Scan mislukt ({})
+Scan could not be started	De scan kon niet worden gestart
+Run now	Nu uitvoeren
+Network error	Netwerkfout
+Scan failed	Scan mislukt
+Scanning…	Bezig met scannen…
+{} selected	{} geselecteerd
+Tick hostnames to act on them	Vink hostnamen aan om er iets mee te doen
+Email & WHOIS checked on apex domain: {}	E-mail & WHOIS gecontroleerd op het hoofddomein: {}
+{} does not exist in DNS	{} bestaat niet in DNS
+{} does not exist in DNS (registry status: {})	{} bestaat niet in DNS (status bij de registry: {})
+WHOIS lookup failed	WHOIS-opzoeking mislukt
+SSL Valid	SSL geldig
+TLS Grade	TLS-cijfer
+Cipher order	Cipher-volgorde
+Fwd Secrecy	Forward secrecy
+IPv6 Web	IPv6 web
+IPv6 Mail	IPv6 mail
+OSINT Clean	OSINT schoon
+HubSpot/CF	HubSpot/CF
+Weak auth	Zwakke authenticatie
+Pass	Goed
+Fail	Fout
+Context	Context
+Not tested	Niet getest
+Partial	Gedeeltelijk
+No DNS records found	Geen DNS-records gevonden
+DS Record	DS-record
+No SPF record found	Geen SPF-record gevonden
+Strict policy (-all)	Strikt beleid (-all)
+SPF configured	SPF ingesteld
+Weak SPF policy	Zwak SPF-beleid
+Multiple SPF records published — PermError, SPF is ignored entirely	Meerdere SPF-records gepubliceerd — PermError, SPF wordt helemaal genegeerd
+No DMARC record found	Geen DMARC-record gevonden
+Policy: {}	Beleid: {}
+Multiple DMARC records published — receivers ignore DMARC entirely	Meerdere DMARC-records gepubliceerd — ontvangers negeren DMARC helemaal
+No DKIM records found (checked common selectors)	Geen DKIM-records gevonden (gangbare selectors gecontroleerd)
+{} active selector(s) found	{} actieve selector(s) gevonden
+{} active selector(s) found, {} revoked	{} actieve selector(s) gevonden, {} ingetrokken
+No MTA-STS record found	Geen MTA-STS-record gevonden
+MTA-STS configured and policy reachable (mode: {})	MTA-STS ingesteld en beleid bereikbaar (modus: {})
+DNS record found, but the /.well-known/mta-sts.txt policy file is NOT reachable over HTTPS ({})	DNS-record gevonden, maar het beleidsbestand /.well-known/mta-sts.txt is NIET bereikbaar via HTTPS ({})
+request failed	verzoek mislukt
+DNS record found and policy file reachable, but the policy content is not valid (missing version/mode/mx/max_age)	DNS-record gevonden en beleidsbestand bereikbaar, maar de inhoud van het beleid is ongeldig (version/mode/mx/max_age ontbreekt)
+Note: reachability is only checked from DomainLens's own server location, not from arbitrary mail-server vantage points worldwide.	Let op: de bereikbaarheid wordt alleen gecontroleerd vanaf de eigen serverlocatie van DomainLens, niet vanaf willekeurige mailservers wereldwijd.
+No TLS-RPT record found	Geen TLS-RPT-record gevonden
+TLS-RPT configured	TLS-RPT ingesteld
+TLS-RPT record found, but no rua= report destination is set — no reports will ever be delivered	TLS-RPT-record gevonden, maar er is geen rua=-bestemming ingesteld — er worden nooit rapporten bezorgd
+{} days remaining	nog {} dagen
+EXPIRED	VERLOPEN
+Subject	Onderwerp
+Issuer	Uitgever
+Valid From	Geldig vanaf
+Valid Until	Geldig tot
+Serial	Serienummer
+No issues found	Geen problemen gevonden
+Enabled (deprecated)	Ingeschakeld (verouderd)
+Enabled	Ingeschakeld
+Disabled	Uitgeschakeld
+Not supported	Niet ondersteund
+Cipher Suite	Cipher suite
+Bits	Bits
+Strength	Sterkte
+No cipher suites detected	Geen cipher suites gevonden
+OCSP Stapling	OCSP-stapling
+TLS Compression	TLS-compressie
+Could not verify (CDN/WAF geo-blocked probe)	Kon niet worden gecontroleerd (proef geblokkeerd door CDN/WAF op locatie)
+Could not verify (CDN/WAF geo-blocked probe from {})	Kon niet worden gecontroleerd (proef vanuit {} geblokkeerd door CDN/WAF op locatie)
+HSTS Value	HSTS-waarde
+HSTS Preload	HSTS-preload
+Probe status	Status van de proef
+Certificate	Certificaat
+Wildcard	Wildcard
+Self-signed	Zelfondertekend
+SAN Count	Aantal SAN's
+Security audit not run. Enable "Security Audit" in the scan options.	Beveiligingsaudit niet uitgevoerd. Zet "Beveiligingsaudit" aan in de scanopties.
+No security findings. Nice — but keep scanning regularly.	Geen beveiligingsbevindingen. Mooi — maar blijf regelmatig scannen.
+the unclaimed-resource page of this service was served	de pagina voor een niet-geclaimde resource van deze dienst werd getoond
+the CNAME target returns NXDOMAIN	het CNAME-doel geeft NXDOMAIN
+Flagged because {}.	Gemarkeerd omdat {}.
+Fix: remove this DNS record, or re-claim the resource on {}.	Oplossing: verwijder dit DNS-record, of claim de resource opnieuw bij {}.
+dangling CNAME	dangling CNAME
+Fix: remove the record if the target is no longer in use.	Oplossing: verwijder het record als het doel niet meer in gebruik is.
+Certificate Transparency lookup failed, so only the apex domain was checked — this is an absent answer, not a clean one.	De opzoeking in Certificate Transparency mislukte, dus alleen het hoofddomein is gecontroleerd — dit is een ontbrekend antwoord, geen schoon antwoord.
+No dangling / takeover-able subdomains detected	Geen dangling of overneembare subdomeinen gevonden
+subdomains checked via Certificate Transparency	subdomeinen gecontroleerd via Certificate Transparency
+Only the first {n} of {n} discovered hostnames were checked — this result does not cover the whole attack surface.	Alleen de eerste {} van {} gevonden hostnamen zijn gecontroleerd — dit resultaat dekt niet het hele aanvalsoppervlak.
+{} ago	{} geleden
+crt.sh is unavailable right now, so this list is the last successful lookup, from {}. Certificates issued since then are missing.	crt.sh is nu niet bereikbaar, dus deze lijst komt uit de laatste geslaagde opzoeking, van {}. Certificaten die sindsdien zijn uitgegeven, ontbreken.
+Certificate list reused from a lookup {} ago rather than queried again.	Certificatenlijst hergebruikt van een opzoeking van {} geleden in plaats van opnieuw opgevraagd.
+All discovered subdomains ({})	Alle gevonden subdomeinen ({})
+Exposed sensitive files:	Blootgestelde gevoelige bestanden:
+HTTP {} · {} bytes	HTTP {} · {} bytes
+No exposed sensitive files found	Geen blootgestelde gevoelige bestanden gevonden
+Reachable admin/debug endpoints:	Bereikbare beheer- en debug-endpoints:
+CORS Allow-Origin	CORS Allow-Origin
+CORS Credentials	CORS Credentials
+Allowed methods	Toegestane methodes
+Cookies:	Cookies:
+VULNERABLE — {} records leaked	KWETSBAAR — {} records gelekt
+Refused ({} NS tested)	Geweigerd ({} NS getest)
+not set	niet ingesteld
+{} — missing issue tag	{} — issue-tag ontbreekt
+{} — non-lowercase tag: {}	{} — tag niet in kleine letters: {}
+DANE / TLSA	DANE / TLSA
+DMARC subdomain policy	DMARC-beleid voor subdomeinen
+Wildcard DNS	Wildcard-DNS
+Policy TXT records	Beleids-TXT-records
+no stray control characters	geen verdwaalde stuurtekens
+A control character (usually a line break pasted along with the value) makes the record invalid to strict parsers, so the policy silently stops applying — nothing in a DNS panel shows it.	Een stuurteken (meestal een regeleinde dat met de waarde is meegeplakt) maakt het record ongeldig voor strikte parsers, zodat het beleid ongemerkt niet meer geldt — geen DNS-paneel laat dat zien.
+Version numbers disclosed:	Versienummers prijsgegeven:
+No precise version numbers leaked	Geen precieze versienummers gelekt
+Disclosed identifiers ({})	Prijsgegeven kenmerken ({})
+TLS compression:	TLS-compressie:
+Server prefers weaker suites	Server geeft voorkeur aan zwakkere suites
+Server preferred	Voorkeur van de server
+Expected preferred	Verwachte voorkeur
+Certificate key:	Certificaatsleutel:
+NCSC level	NCSC-niveau
+Cipher suite	Cipher suite
+Auth	Auth
+Bulk	Bulk
+Hash	Hash
+Azure (IP range)	Azure (IP-bereik)
+HTTP analysis not available	HTTP-analyse niet beschikbaar
+CNAME chain:	CNAME-keten:
+Key indicators	Belangrijkste kenmerken
+All response headers ({})	Alle response-headers ({})
+No response headers captured	Geen response-headers vastgelegd
+Location	Locatie
+Server: {}	Server: {}
+CSP Report-Only (staged)	CSP Report-Only (voorbereid)
+Identical to the enforced policy — it can only report violations you already block.	Gelijk aan het afgedwongen beleid — het kan alleen overtredingen melden die je al blokkeert.
+Would stop allowing	Zou niet meer toestaan
+Would start allowing	Zou gaan toestaan
+Adds directive	Voegt directive toe
+Drops directive	Laat directive vallen
+Nothing is blocked by this — it only reports. Check the reporting endpoint in the policy (e.g. uriports) for report-only violations before promoting it to the enforced header.	Hiermee wordt niets geblokkeerd — het meldt alleen. Controleer het rapportage-endpoint in het beleid (bijv. uriports) op report-only-overtredingen voordat je het naar de afgedwongen header overzet.
+None	Geen
+Web (AAAA)	Web (AAAA)
+Mail IPv6	Mail-IPv6
+No mail server IPv6	Geen IPv6 voor mailservers
+NS IPv6	NS-IPv6
+No nameserver IPv6	Geen IPv6 voor nameservers
+IP: {}	IP: {}
+Settings → Optional API keys	Instellingen → Optionele API-sleutels
+Listed on {} blacklist(s)!	Vermeld op {} blacklist(s)!
+Clean - not listed on any blacklist	Schoon - op geen enkele blacklist vermeld
+the domain	het domein
+Re-run DomainLens SSL/TLS (+ NCSC) for `{}`. Cross-check https://internet.nl/site/{}/ from NL/DE/BE if geo-restricted.	Voer DomainLens SSL/TLS (+ NCSC) opnieuw uit voor `{}`. Controleer ook https://internet.nl/site/{}/ vanuit NL/DE/BE als er geografische beperkingen zijn.
+After DNS TTL, re-scan `{}` in DomainLens E-mail Security (and optionally internet.nl mail).	Scan `{}` na de DNS-TTL opnieuw in DomainLens E-mailbeveiliging (en eventueel internet.nl mail).
+Re-scan `{}` in DomainLens DNS/DNSSEC after propagation (`dig +dnssec`).	Scan `{}` na doorvoering opnieuw in DomainLens DNS/DNSSEC (`dig +dnssec`).
+Re-run DomainLens Web Security for `{}`; confirm with curl -sI from an allowed region.	Voer DomainLens Webbeveiliging opnieuw uit voor `{}`; bevestig met curl -sI vanuit een toegestane regio.
+Re-run a full DomainLens scan for `{}` and confirm this advies item is gone.	Voer een volledige DomainLens-scan uit voor `{}` en controleer dat dit adviespunt weg is.
+DNSSEC not configured	DNSSEC niet ingesteld
+DNSSEC is not fully set up. Responses cannot be cryptographically verified.	DNSSEC is niet volledig ingericht. Antwoorden kunnen niet cryptografisch worden gecontroleerd.
+Enable DNSSEC at your DNS provider. Publish a DS record at the registrar.	Zet DNSSEC aan bij je DNS-provider. Publiceer een DS-record bij de registrar.
+SPF record missing	SPF-record ontbreekt
+Anyone can spoof mail from this domain.	Iedereen kan mail namens dit domein vervalsen.
+Publish a TXT record: v=spf1 include:_spf.yourprovider.com -all	Publiceer een TXT-record: v=spf1 include:_spf.yourprovider.com -all
+SPF is not strict	SPF is niet strikt
+SPF ends with ~all or ?all, so spoofed mail may still be accepted.	SPF eindigt op ~all of ?all, dus vervalste mail kan nog worden geaccepteerd.
+After verifying sending sources, tighten to -all.	Scherp aan naar -all nadat je de verzendbronnen hebt gecontroleerd.
+DMARC missing	DMARC ontbreekt
+No DMARC policy is published.	Er is geen DMARC-beleid gepubliceerd.
+Publish _dmarc TXT: v=DMARC1; p=none; rua=mailto:dmarc@yourdomain; then move to quarantine/reject.	Publiceer _dmarc TXT: v=DMARC1; p=none; rua=mailto:dmarc@jouwdomein; ga daarna naar quarantine/reject.
+DMARC policy is p=none	DMARC-beleid is p=none
+DMARC is only in monitor mode; spoofed mail is not blocked.	DMARC staat alleen in monitormodus; vervalste mail wordt niet geblokkeerd.
+After reviewing aggregate reports, change to p=quarantine or p=reject.	Zet het na het bekijken van de aggregaatrapporten op p=quarantine of p=reject.
+No DKIM selectors detected	Geen DKIM-selectors gevonden
+Mail from this domain may not be DKIM-signed.	Mail van dit domein is mogelijk niet met DKIM ondertekend.
+Enable DKIM at your mail provider and publish the public key as {}.	Zet DKIM aan bij je mailprovider en publiceer de publieke sleutel als {}.
+MTA-STS not configured	MTA-STS niet ingesteld
+Inbound mail may be delivered over insecure TLS.	Inkomende mail kan via onveilige TLS worden bezorgd.
+Publish _mta-sts TXT and host the policy at https://mta-sts.yourdomain/.well-known/mta-sts.txt.	Publiceer _mta-sts TXT en host het beleid op https://mta-sts.jouwdomein/.well-known/mta-sts.txt.
+TLS-RPT not configured	TLS-RPT niet ingesteld
+No reporting of TLS failures on inbound mail.	Geen rapportage van TLS-fouten bij inkomende mail.
+Publish _smtp._tls TXT: v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.	Publiceer _smtp._tls TXT: v=TLSRPTv1; rua=mailto:tls-reports@jouwdomein.
+Poor TLS grade ({})	Slecht TLS-cijfer ({})
+Connections are exposed to known attacks.	Verbindingen staan bloot aan bekende aanvallen.
+Disable obsolete protocols, remove weak ciphers, install a trusted certificate, enable HSTS.	Zet verouderde protocollen uit, verwijder zwakke ciphers, installeer een vertrouwd certificaat en zet HSTS aan.
+TLS 1.0 enabled	TLS 1.0 ingeschakeld
+TLS 1.0 is deprecated and vulnerable to BEAST.	TLS 1.0 is verouderd en kwetsbaar voor BEAST.
+Disable TLS 1.0 in the web server config.	Zet TLS 1.0 uit in de configuratie van de webserver.
+TLS 1.1 enabled	TLS 1.1 ingeschakeld
+TLS 1.1 is deprecated (RFC 8996).	TLS 1.1 is verouderd (RFC 8996).
+Require TLS 1.2 as a minimum.	Vereis minimaal TLS 1.2.
+TLS 1.3 not available	TLS 1.3 niet beschikbaar
+Missing performance and security benefits of TLS 1.3.	Mist de prestatie- en beveiligingsvoordelen van TLS 1.3.
+Upgrade OpenSSL and enable TLS 1.3.	Werk OpenSSL bij en zet TLS 1.3 aan.
+Weak ciphers accepted	Zwakke ciphers geaccepteerd
+{} weak and {} insecure cipher suites are accepted.	{} zwakke en {} onveilige cipher suites worden geaccepteerd.
+Restrict to modern AEAD suites (ECDHE-*-GCM, CHACHA20).	Beperk tot moderne AEAD-suites (ECDHE-*-GCM, CHACHA20).
+Forward secrecy not universal	Forward secrecy niet overal
+Some cipher suites lack forward secrecy.	Sommige cipher suites missen forward secrecy.
+Only allow ECDHE/DHE cipher suites.	Sta alleen ECDHE/DHE-cipher suites toe.
+TLS compression enabled (CRIME)	TLS-compressie ingeschakeld (CRIME)
+Server vulnerable to the CRIME attack.	Server kwetsbaar voor de CRIME-aanval.
+Disable TLS compression.	Zet TLS-compressie uit.
+OCSP stapling disabled	OCSP-stapling uitgeschakeld
+Clients may query the CA directly (slower, privacy leak).	Clients vragen mogelijk de CA rechtstreeks (trager, privacylek).
+Enable OCSP stapling in your web server.	Zet OCSP-stapling aan in je webserver.
+HSTS missing	HSTS ontbreekt
+First-visit downgrade attacks are possible.	Downgrade-aanvallen bij het eerste bezoek zijn mogelijk.
+Return Strict-Transport-Security: max-age=31536000; includeSubDomains; preload.	Stuur Strict-Transport-Security: max-age=31536000; includeSubDomains; preload mee.
+Certificate expired	Certificaat verlopen
+Browsers block access.	Browsers blokkeren de toegang.
+Renew immediately and automate with ACME.	Vernieuw direct en automatiseer met ACME.
+Certificate expires soon	Certificaat verloopt binnenkort
+Certificate expires in {} days.	Certificaat verloopt over {} dagen.
+Renew now and automate renewals.	Vernieuw nu en automatiseer het vernieuwen.
+Self-signed certificate	Zelfondertekend certificaat
+Browsers show warnings.	Browsers tonen waarschuwingen.
+Use a trusted CA (e.g. Let's Encrypt).	Gebruik een vertrouwde CA (bijv. Let's Encrypt).
+Web	Web
+HTTP does not redirect to HTTPS	HTTP verwijst niet door naar HTTPS
+Plain HTTP exposes users to MITM.	Gewone HTTP stelt gebruikers bloot aan MITM.
+Force a 301 redirect from HTTP to HTTPS.	Dwing een 301-doorverwijzing af van HTTP naar HTTPS.
+{} security header(s) missing	{} beveiligingsheader(s) ontbreken
+Recommended HTTP security headers are not set.	Aanbevolen HTTP-beveiligingsheaders zijn niet ingesteld.
+Add: {}	Voeg toe: {}
+Network	Netwerk
+No IPv6 (AAAA) record	Geen IPv6-record (AAAA)
+IPv6-only clients cannot reach the domain.	Clients met alleen IPv6 kunnen het domein niet bereiken.
+Publish AAAA records for your web server.	Publiceer AAAA-records voor je webserver.
+IP listed on DNSBL	IP vermeld op DNSBL
+Listed on: {}	Vermeld op: {}
+Investigate the cause and request delisting after remediation.	Onderzoek de oorzaak en vraag na herstel om verwijdering van de lijst.
+Domain appears in open threat feeds	Domein komt voor in openbare dreigingsfeeds
+ThreatFox / URLhaus / OTX returned indicators for this domain.	ThreatFox / URLhaus / OTX gaven indicatoren voor dit domein.
+Investigate compromise or abuse, then clean up and request delisting.	Onderzoek compromittering of misbruik, ruim daarna op en vraag om verwijdering van de lijst.
+Large Certificate Transparency footprint	Grote voetafdruk in Certificate Transparency
+{} related hostnames found in CT logs.	{} verwante hostnamen gevonden in CT-logs.
+Inventory and retire unused hostnames to reduce attack surface.	Inventariseer ongebruikte hostnamen en ruim ze op om het aanvalsoppervlak te verkleinen.
+FTP unencrypted	FTP onversleuteld
+Telnet unencrypted	Telnet onversleuteld
+MySQL public	MySQL publiek
+RDP exposed	RDP blootgesteld
+PostgreSQL public	PostgreSQL publiek
+Risky port	Riskante poort
+Close the port on the public interface or restrict via firewall/VPN.	Sluit de poort op de publieke interface of beperk de toegang via firewall/VPN.
+Security	Beveiliging
+Security finding	Beveiligingsbevinding
+Review and remediate this finding.	Beoordeel en herstel deze bevinding.
+No saved scan yet. Run a scan first.	Nog geen opgeslagen scan. Voer eerst een scan uit.
+Failed to load history	Geschiedenis laden mislukt
+Tick two scans to compare them.	Vink twee scans aan om ze te vergelijken.
+1 selected — pick one more.	1 geselecteerd — kies er nog één.
+2 selected.	2 geselecteerd.
+Comparing…	Vergelijken…
+what changed	wat er veranderde
+what changed?	wat er veranderde?
+Rating {}: {}. Open: {} critical, {} high, {} medium.	Beoordeling {}: {}. Open: {} kritiek, {} hoog, {} middel.
+{} belongs to {}	{} hoort bij {}
+{} is not in a unit yet	{} staat nog niet in een eenheid
+{} is not in the domain portfolio	{} staat niet in het domeinportfolio
+Move to this unit	Naar deze eenheid verplaatsen
+Could not add the domain	Het domein kon niet worden toegevoegd
+Network error while adding the domain	Netwerkfout bij het toevoegen van het domein
+No scans yet. Enter a domain above to start.	Nog geen scans. Voer hierboven een domein in om te beginnen.
+Recent scans could not be loaded.	Recente scans konden niet worden geladen.
+No scans saved yet	Nog geen scans opgeslagen
+Rating	Beoordeling
+Rating {} (open findings)	Beoordeling {} (open bevindingen)
+Rating {}	Beoordeling {}
+Not rated	Niet beoordeeld
+{} · TLS {} · {} findings	{} · TLS {} · {} bevindingen
+{} · TLS {} · 1 finding	{} · TLS {} · 1 bevinding
+{} · {} findings	{} · {} bevindingen
+{} · 1 finding	{} · 1 bevinding
+{} findings	{} bevindingen
+1 finding	1 bevinding
+0 findings	0 bevindingen
+Select for comparison (pick two)	Selecteren om te vergelijken (kies er twee)
+vs	vs
+Load	Openen
+Report	Rapport
+Failed to load scan	Scan laden mislukt
+Could not open that scan: {}	Die scan kon niet worden geopend: {}
+Delete this scan from history?	Deze scan uit de geschiedenis verwijderen?
+Failed to delete scan	Scan verwijderen mislukt
+Deleted. {} lost the report it compares against; the next check re-establishes it.	Verwijderd. {} is het rapport kwijt waarmee wordt vergeleken; de volgende controle legt dat opnieuw vast.
+Delete ALL saved scans? This cannot be undone.	ALLE opgeslagen scans verwijderen? Dit kan niet ongedaan worden gemaakt.
+Failed to clear history	Geschiedenis wissen mislukt
+Poll interval: {} seconds	Poll-interval: {} seconden
+Background scheduler enabled	Achtergrondplanner ingeschakeld
+Background scheduler disabled	Achtergrondplanner uitgeschakeld
+Failed to load monitors	Monitors laden mislukt
+monitor check	monitorcontrole
+monitor check · {}	monitorcontrole · {}
+latest scan · {}	laatste scan · {}
+not scanned yet	nog niet gescand
+monitor check · {} · report deleted	monitorcontrole · {} · rapport verwijderd
+no monitor check yet	nog geen monitorcontrole
+latest scan	laatste scan
+Not in a unit	Niet in een eenheid
+Could not change the unit	De eenheid kon niet worden gewijzigd
+Network error while changing the unit	Netwerkfout bij het wijzigen van de eenheid
+No monitors configured yet	Nog geen monitors ingesteld
+No monitors match	Geen monitors gevonden
+No monitors in this unit	Geen monitors in deze eenheid
+Host	Host
+Last change	Laatste wijziging
+Reports	Rapporten
+{} crit · {} high	{} krit · {} hoog
+Not scanned yet	Nog niet gescand
+No changes yet	Nog geen wijzigingen
+{} · {} · {} · watches {} record	{} · {} · {} · volgt {}-record
+(paused)	(gepauzeerd)
+Run this monitor's scan immediately, regardless of its schedule	Voer de scan van deze monitor direct uit, ongeacht het schema
+Pause	Pauzeren
+Enable	Inschakelen
+Organisation unit of this domain	Organisatie-eenheid van dit domein
+full scan	volledige scan
+1 check	1 check
+{} checks	{} checks
+Enter a domain or hostname to monitor	Voer een domein of hostnaam in om te monitoren
+Failed to create monitor	Monitor aanmaken mislukt
+Network error while creating monitor	Netwerkfout bij het aanmaken van de monitor
+Enter the zone name to import	Voer de zonenaam in om te importeren
+Failed to import monitors	Monitors importeren mislukt
+Imported {} monitor(s) from {}.	{} monitor(s) geïmporteerd uit {}.
+Network error while importing monitors	Netwerkfout bij het importeren van monitors
+Starting…	Starten…
+Monitor scan failed	Monitorscan mislukt
+Scanning… {}%	Bezig met scannen… {}%
+Network error while running monitor scan	Netwerkfout bij het uitvoeren van de monitorscan
+Failed to run due monitors	Achterstallige monitors uitvoeren mislukt
+Scheduler is already processing monitors	De planner verwerkt al monitors
+No due monitors to run	Geen achterstallige monitors om uit te voeren
+Network error while running due monitors	Netwerkfout bij het uitvoeren van achterstallige monitors
+Failed to update monitor	Monitor bijwerken mislukt
+Network error while updating monitor	Netwerkfout bij het bijwerken van de monitor
+Delete this monitor?	Deze monitor verwijderen?
+Failed to delete monitor	Monitor verwijderen mislukt
+Network error while deleting monitor	Netwerkfout bij het verwijderen van de monitor
+No monitor events yet	Nog geen monitor-events
+read as	gelezen als
+report at time of change	rapport op het moment van de wijziging
+report deleted	rapport verwijderd
+Weak-auth check not selected.	Check op zwakke authenticatie niet geselecteerd.
+Protected endpoints	Beveiligde endpoints
+Attempts	Pogingen
+Weak credentials	Zwakke inloggegevens
+User	Gebruiker
+Method	Methode
+JS scan not selected.	JS-scan niet geselecteerd.
+Base URL	Basis-URL
+Scripts analyzed	Geanalyseerde scripts
+Vulnerable libraries	Kwetsbare bibliotheken
+None detected	Niets gevonden
+Exposed secrets	Blootgestelde geheimen
+Missing SRI	Ontbrekende SRI
+Vulnerable libraries:	Kwetsbare bibliotheken:
+Source	Bron
+Exposed secrets:	Blootgestelde geheimen:
+Third-party tags without SRI:	Tags van derden zonder SRI:
+Tag	Tag
+Active scan not selected.	Actieve scan niet geselecteerd.
+Pages crawled	Gecrawlde pagina's
+Targets discovered	Gevonden doelen
+Requests sent	Verzonden verzoeken
+Vulnerabilities	Kwetsbaarheden
+HubSpot	HubSpot
+Behind Cloudflare	Achter Cloudflare
+Portal IDs	Portal-ID's
+Cookies	Cookies
+No HubSpot/Cloudflare remediation items.	Geen herstelpunten voor HubSpot/Cloudflare.
+Matched findings	Gekoppelde bevindingen
+By severity	Naar ernst
+InsightVM / Nexpose export	InsightVM- / Nexpose-export
+Asset:	Asset:
+Select a CSV or XLSX InsightVM/Nexpose export first.	Kies eerst een CSV- of XLSX-export van InsightVM/Nexpose.
+Import failed	Importeren mislukt
+Imported {} findings across {} assets.	{} bevindingen geïmporteerd over {} assets.
+API sync failed	API-synchronisatie mislukt
+API sync ({}): {} findings · {} assets	API-synchronisatie ({}): {} bevindingen · {} assets
+{} min	{} min
+Reused from an earlier lookup {} ago — tick "Force fresh third-party lookups" to query again.	Hergebruikt van een eerdere opzoeking van {} geleden — vink "Externe bronnen opnieuw raadplegen" aan om opnieuw te vragen.
+Not configured	Niet ingesteld
+zero detections	geen detecties
+not configured	niet ingesteld
+{} malicious / {} suspicious	{} kwaadaardig / {} verdacht
+Related hostnames (CT)	Verwante hostnamen (CT)
+Wayback snapshots	Wayback-snapshots
+Threat feed hits	Treffers in dreigingsfeeds
+VirusTotal detections	VirusTotal-detecties
+Country	Land
+{} related hostname(s) · {} cert row(s)	{} verwante hostnaam/hostnamen · {} certificaatregel(s)
+City	Plaats
+Org	Organisatie
+Hosting	Hosting
+Proxy	Proxy
+No Wayback snapshots found	Geen Wayback-snapshots gevonden
+{}: {} — see	{}: {} — zie
+for where to set this.	voor waar je dit instelt.
+{}: {} malicious, {} suspicious of {} engines	{}: {} kwaadaardig, {} verdacht van {} engines
+{}: {} malicious, {} suspicious of {} engines · community score {}	{}: {} kwaadaardig, {} verdacht van {} engines · communityscore {}
+Flagged by: {}	Gemarkeerd door: {}
+A single engine disagreeing with the rest is commonly a false positive — confirm on the VirusTotal report before acting.	Eén engine die afwijkt van de rest is vaak vals alarm — controleer het VirusTotal-rapport voordat je iets doet.
+{}: {} hit(s)	{}: {} treffer(s)
+Passive DNS unavailable ({}) — the pulse count above is still valid.	Passive DNS niet beschikbaar ({}) — het aantal pulses hierboven klopt nog wel.
+No threat intel results	Geen resultaten uit dreigingsinformatie
+{} open port(s) found	{} open poort(en) gevonden
+{} — see	{} — zie

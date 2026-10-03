@@ -4967,6 +4967,15 @@ def api_admin_settings_patch(section):
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/i18n/nl-ui.json")
+def i18n_ui_catalogue():
+    """The Dutch catalogue static/js/translate.js applies to the page. The
+    URL carries the asset token, so a new release is fetched afresh."""
+    resp = jsonify(i18n_mod.ui_catalogue())
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
 @app.route("/api/i18n/<locale>.json")
 def api_i18n_locale(locale):
     code = locale.split(".", 1)[0].strip().lower()

@@ -483,3 +483,7 @@ hr {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Dutch: hidden for the moment translate.js needs to apply the catalogue,
+   never longer than its own fail-safe. */
+html.i18n-pending body { visibility: hidden; }

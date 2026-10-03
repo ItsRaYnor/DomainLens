@@ -546,8 +546,20 @@ reason: switched off in Settings (with a link to it), or disabled for the server
 
 ### Language
 
-English is complete. Choosing Dutch (Settings &rarr; General) translates the menus and parts
-of the scan and admin pages; most other pages stay in English. The setting says so.
+The interface is complete in English and in Dutch (Settings &rarr; General &rarr; Language).
+Everything the browser shows follows the choice, findings and advice included. Data that comes
+from outside stays as it arrives (registry answers, response headers, cipher suite names),
+and exports, e-mails and notifications are in English.
+
+How it works: templates and scripts are written in English, and `static/js/translate.js`
+applies a Dutch catalogue, keyed by the English text, to the page and to everything scripts
+add to it later. The catalogue lives in `i18n/nl_ui/`: `*.tsv` sheets ("English<TAB>Dutch",
+`{}` for a part filled in at run time, `{n}` for a number) built into `*.json` with
+`python -m i18n.build_catalogue`, plus `*.json` files with sentences that carry markup.
+`tests/test_dutch_ui.py` fails when a fixed text in a template has no Dutch, when a
+translated sentence loses a link, or when a pattern would rewrite text that is already Dutch.
+To find gaps on a page, open it in Dutch and run `DomainLensUntranslated()` in the browser
+console.
 
 ## Management dashboard
 

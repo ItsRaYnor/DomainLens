@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"{{ theme_attr }}>
+<html lang="{{ locale }}"{{ theme_attr }}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
     <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
     <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+    <script src="/static/js/translate.js?v={{ asset_token }}"></script>
 </head>
 <body class="login-body">
     <main class="login-shell">

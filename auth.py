@@ -692,6 +692,9 @@ def _public_path(path: str) -> bool:
         "/login",
         "/auth/",
         "/static/",
+        # The interface translation, needed by the login page itself; it is
+        # the same text the pages show, nothing about any account or scan.
+        "/i18n/nl-ui.json",
         "/scim/",
         "/oauth/token",
         # RFC 9116 says security.txt must be reachable without credentials --

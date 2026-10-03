@@ -1,0 +1,410 @@
+{
+ "text": {
+  "Set Secure; HttpOnly; SameSite=Lax (or Strict) on session cookies. Example: `Set-Cookie: session=…; Secure; HttpOnly; SameSite=Lax; Path=/`.": "Zet Secure; HttpOnly; SameSite=Lax (of Strict) op sessiecookies. Voorbeeld: `Set-Cookie: session=…; Secure; HttpOnly; SameSite=Lax; Path=/`.",
+  "Do not use `Access-Control-Allow-Origin: *` for authenticated APIs. Reflect an allow-listed Origin and only set `Access-Control-Allow-Credentials: true` for those origins.": "Gebruik geen `Access-Control-Allow-Origin: *` voor API's met authenticatie. Geef een Origin uit een toegestane lijst terug en zet `Access-Control-Allow-Credentials: true` alleen voor die origins.",
+  "Add CSP `frame-ancestors 'none'` (preferred) or `X-Frame-Options: DENY` to prevent clickjacking.": "Voeg CSP `frame-ancestors 'none'` (voorkeur) of `X-Frame-Options: DENY` toe om clickjacking te voorkomen.",
+  "Change CSP `frame-ancestors` from `*` to `'none'` or an explicit allow-list.": "Wijzig CSP `frame-ancestors` van `*` naar `'none'` of een expliciete lijst van toegestane bronnen.",
+  "Remove `X-Powered-By` (e.g. disable in Express/ASP.NET) so stack details are not advertised.": "Verwijder `X-Powered-By` (bijv. uitzetten in Express/ASP.NET) zodat details van je stack niet worden rondgeroepen.",
+  "Configure the reverse proxy to send a generic `Server` token without version numbers.": "Laat de reverse proxy een algemeen `Server`-token zonder versienummers sturen.",
+  "Disable ASP.NET version headers (`httpRuntime enableVersionHeader=\"false\"` / remove X-AspNet* headers).": "Zet de versieheaders van ASP.NET uit (`httpRuntime enableVersionHeader=\"false\"` / verwijder X-AspNet*-headers).",
+  "Harden the HTTP response according to OWASP Secure Headers guidance.": "Maak de HTTP-response robuuster volgens de OWASP Secure Headers-richtlijnen.",
+  "The domain only resolves to IPv4. Clients on IPv6-only networks cannot reach it.": "Het domein verwijst alleen naar IPv4. Clients op netwerken met alleen IPv6 kunnen het niet bereiken.",
+  "Nothing to change on this domain. If the listing matters to you, raise it with the provider that operates the address.": "Op dit domein hoeft niets te veranderen. Is de vermelding voor jou van belang, kaart het dan aan bij de provider die het adres beheert.",
+  "IP reputation listing requires context": "IP-reputatievermelding vraagt om context",
+  "Confirm whether this is the domain's outbound-mail IP. If it is, investigate spam or compromise before requesting delisting; otherwise ask the hosting provider.": "Controleer of dit het IP is waarmee het domein mail verstuurt. Zo ja, onderzoek spam of compromittering voordat je om verwijdering van de lijst vraagt; zo niet, vraag het de hostingprovider.",
+  "FTP is unencrypted — use SFTP/FTPS instead.": "FTP is onversleuteld — gebruik SFTP/FTPS.",
+  "Telnet is unencrypted and deprecated — use SSH.": "Telnet is onversleuteld en verouderd — gebruik SSH.",
+  "Database ports should not be public. Restrict with a firewall.": "Databasepoorten horen niet publiek te zijn. Beperk de toegang met een firewall.",
+  "RDP is a common ransomware vector. Restrict to VPN or use a bastion.": "RDP is een veelgebruikte ingang voor ransomware. Beperk tot VPN of gebruik een bastion.",
+  "No SPF record was found. Without SPF, anyone can spoof mail from your domain.": "Er is geen SPF-record gevonden. Zonder SPF kan iedereen mail namens je domein vervalsen.",
+  "Publish a TXT record on the apex: `v=spf1 include:_spf.yourprovider.com -all`. Start with `~all` during roll-out, then move to `-all`.": "Publiceer een TXT-record op het hoofddomein: `v=spf1 include:_spf.yourprovider.com -all`. Begin tijdens de uitrol met `~all` en ga daarna naar `-all`.",
+  "Close the port on the public interface or restrict access via firewall/VPN.": "Sluit de poort op de publieke interface of beperk de toegang via firewall/VPN.",
+  "Domain expires soon": "Domein verloopt binnenkort",
+  "Renew the domain with your registrar and consider enabling auto-renew.": "Verleng het domein bij je registrar en overweeg automatisch verlengen aan te zetten.",
+  "Domain expired": "Domein verlopen",
+  "The domain registration has expired.": "De registratie van het domein is verlopen.",
+  "Renew immediately; otherwise the domain may be released to another registrant.": "Verleng direct; anders kan het domein vrijkomen voor een andere registrant.",
+  "SPF not strict (~all / ?all)": "SPF niet strikt (~all / ?all)",
+  "SPF exists but the final mechanism is not `-all`, so receivers may still accept spoofed mail.": "SPF bestaat, maar het laatste mechanisme is niet `-all`, dus ontvangers kunnen vervalste mail nog accepteren.",
+  "Once you have verified every legitimate sending source, tighten the SPF record to end with `-all`.": "Scherp het SPF-record aan zodat het eindigt op `-all`, zodra je elke legitieme verzendbron hebt gecontroleerd.",
+  "Public OSINT sources (ThreatFox / URLhaus / OTX) returned indicators for this domain.": "Openbare OSINT-bronnen (ThreatFox / URLhaus / OTX) gaven indicatoren voor dit domein.",
+  "Investigate host compromise, phishing abuse, or malware distribution. Rotate credentials, review web roots, and request delisting after cleanup.": "Onderzoek compromittering van de host, misbruik voor phishing of verspreiding van malware. Vervang inloggegevens, controleer de webroots en vraag na het opruimen om verwijdering van de lijst.",
+  "Inventory CT-discovered hostnames, retire unused DNS records, and restrict certificate issuance where possible.": "Inventariseer de hostnamen uit CT, ruim ongebruikte DNS-records op en beperk waar mogelijk het uitgeven van certificaten.",
+  "IP marked as proxy/VPN": "IP gemarkeerd als proxy/VPN",
+  "Open IP enrichment marked this address as a proxy.": "Openbare IP-verrijking markeerde dit adres als proxy.",
+  "Confirm whether this is expected for your hosting or CDN setup.": "Controleer of dit klopt voor je hosting of CDN.",
+  "unnamed engines": "niet-benoemde engines",
+  "Investigate compromise, phishing or malware hosting. After cleanup, request a re-analysis on VirusTotal and dispute any remaining incorrect verdicts with the vendors.": "Onderzoek compromittering, phishing of het hosten van malware. Vraag na het opruimen een nieuwe analyse aan op VirusTotal en betwist resterende onjuiste oordelen bij de leveranciers.",
+  "VirusTotal: isolated detection — confirm before acting": "VirusTotal: losse detectie — controleer voordat je iets doet",
+  "Open the VirusTotal report and check whether the detection is substantiated. If it is not, dispute it with that vendor.": "Open het VirusTotal-rapport en controleer of de detectie onderbouwd is. Zo niet, betwist haar bij die leverancier.",
+  "HTTP diagnostic": "HTTP-diagnose",
+  "HTTP analysis reported an access issue.": "De HTTP-analyse meldde een toegangsprobleem.",
+  "Review gateway/WAF and application access controls.": "Controleer de toegangsregels van gateway/WAF en applicatie.",
+  "HubSpot finding": "HubSpot-bevinding",
+  "NCSC TLS finding": "NCSC TLS-bevinding",
+  "Align the TLS configuration with NCSC TLS Security Guidelines 2025-05 (prefer TLS 1.3 + AEAD/ECDHE cipher suites).": "Breng de TLS-configuratie in lijn met de NCSC ICT-beveiligingsrichtlijnen voor TLS 2025-05 (bij voorkeur TLS 1.3 + AEAD/ECDHE-cipher suites).",
+  "Weak-auth scan could not run": "Scan op zwakke authenticatie kon niet worden uitgevoerd",
+  "Check weak_auth settings in config/domainlens.json and ensure the feature is enabled only for authorized targets.": "Controleer de instellingen voor weak_auth in config/domainlens.json en zorg dat de functie alleen aanstaat voor doelen die je mag testen.",
+  "Authentication": "Authenticatie",
+  "Weak or default credentials accepted": "Zwakke of standaardinloggegevens geaccepteerd",
+  "Change all default passwords immediately. Enforce strong unique passwords, disable unused accounts, and prefer SSO/MFA. Restrict admin paths by IP or VPN. Remove HTTP Basic where possible; use application-level auth with lockout/rate limits.": "Wijzig alle standaardwachtwoorden direct. Dwing sterke, unieke wachtwoorden af, zet ongebruikte accounts uit en gebruik bij voorkeur SSO/MFA. Beperk beheerpaden op IP of VPN. Verwijder HTTP Basic waar mogelijk; gebruik authenticatie in de applicatie met blokkering en rate limits.",
+  "HTTP Basic endpoints detected (no weak creds found)": "HTTP Basic-endpoints gevonden (geen zwakke inloggegevens)",
+  "Keep strong passwords and monitor these endpoints. Re-run weak-auth checks after changes.": "Houd sterke wachtwoorden aan en houd deze endpoints in de gaten. Voer de checks op zwakke authenticatie na wijzigingen opnieuw uit.",
+  "Remediate in InsightVM and re-scan.": "Herstel in InsightVM en scan opnieuw.",
+  "CDN hardening": "CDN-verharding",
+  "CDN edge needs hardening.": "De CDN-edge moet worden verhard.",
+  "This is SIDN's quarantine: the domain has no name servers and is released after 40 days unless the holder restores it.": "Dit is de quarantaine van SIDN: het domein heeft geen nameservers en komt na 40 dagen vrij, tenzij de houder het herstelt.",
+  "If the domain is still wanted, ask the registrar to restore it from quarantine before it is released. Nothing else can be checked until it is back in DNS.": "Wil je het domein houden, vraag de registrar dan om het uit quarantaine te halen voordat het vrijkomt. Verder valt er niets te controleren tot het weer in DNS staat.",
+  "Nothing to check. Register the domain first if it is meant to be used.": "Niets te controleren. Registreer het domein eerst als het gebruikt moet worden.",
+  "Check the delegation at the registrar: the name servers or the zone itself are missing. Mail, web and DNS checks were not run, as there is nothing to measure.": "Controleer de delegatie bij de registrar: de nameservers of de zone zelf ontbreken. Mail-, web- en DNS-checks zijn niet uitgevoerd, want er valt niets te meten.",
+  "Domain is not in DNS": "Domein staat niet in DNS",
+  "publishes a null MX record, so it states outright that it receives no mail": "publiceert een null-MX-record en zegt daarmee uitdrukkelijk dat het geen mail ontvangt",
+  "No SPF on a domain that receives no mail": "Geen SPF op een domein dat geen mail ontvangt",
+  "If nothing sends mail from this domain either, publish the shortest possible record: `v=spf1 -all`. That tells every receiver to reject anything claiming to come from here. Only do this if no service — newsletters, ticketing, CRM — sends on its behalf.": "Verstuurt ook niets mail vanaf dit domein, publiceer dan het kortst mogelijke record: `v=spf1 -all`. Dat vertelt elke ontvanger alles te weigeren wat van hier lijkt te komen. Doe dit alleen als geen enkele dienst — nieuwsbrieven, ticketing, CRM — namens het domein verstuurt.",
+  "SPF still allows senders on a domain that receives no mail": "SPF staat nog afzenders toe op een domein dat geen mail ontvangt",
+  "If nothing legitimately sends from this domain, replace the record with `v=spf1 -all`. If something does send, this is correct as it stands and the record should keep listing it.": "Verstuurt niets legitiem vanaf dit domein, vervang het record dan door `v=spf1 -all`. Verstuurt er wel iets, dan klopt het zo en moet het record die afzender blijven noemen.",
+  "No DMARC on a domain that receives no mail": "Geen DMARC op een domein dat geen mail ontvangt",
+  "Publish `_dmarc.yourdomain` TXT: `v=DMARC1; p=reject; rua=mailto:you@example.com`. For a domain that sends nothing, `p=reject` can be set immediately — there is no legitimate mail to break, which is the usual reason to roll out gradually.": "Publiceer `_dmarc.yourdomain` TXT: `v=DMARC1; p=reject; rua=mailto:you@example.com`. Voor een domein dat niets verstuurt, kan `p=reject` meteen — er is geen legitieme mail die kan breken, en dat is meestal de reden om geleidelijk uit te rollen.",
+  "For a domain that sends nothing, move straight to `p=reject`: the gradual none → quarantine → reject roll-out exists to avoid dropping legitimate mail, and there is none here to drop.": "Ga voor een domein dat niets verstuurt direct naar `p=reject`: de geleidelijke uitrol none → quarantine → reject is er om te voorkomen dat legitieme mail wegvalt, en die is er hier niet.",
+  "Restrict relaying to authenticated users and your own networks. Postfix: `smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination`. Exchange: the receive connector's permission groups.": "Beperk relaying tot geauthenticeerde gebruikers en je eigen netwerken. Postfix: `smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination`. Exchange: de machtigingsgroepen van de receive connector.",
+  "Separate the authoritative and recursive roles, or restrict recursion to your own networks. BIND: `allow-recursion { localnets; };`.": "Scheid de gezaghebbende en de recursieve rol, of beperk recursie tot je eigen netwerken. BIND: `allow-recursion { localnets; };`.",
+  "No DANE (TLSA) on the mail hosts": "Geen DANE (TLSA) op de mailservers",
+  "Publish a TLSA record at `_25._tcp.<mx-host>` for each exchanger under this domain, matching the certificate it serves. DNSSEC must be signed for DANE to mean anything, and the record must rotate with the certificate.": "Publiceer een TLSA-record op `_25._tcp.<mx-host>` voor elke mailserver onder dit domein, passend bij het certificaat dat hij aanbiedt. DNSSEC moet ondertekend zijn om DANE betekenis te geven, en het record moet meewisselen met het certificaat.",
+  "Mail provider does not publish DANE (TLSA)": "Mailprovider publiceert geen DANE (TLSA)",
+  "Ask the mail provider about incoming SMTP DANE, or use mail hosts under your own DNS zone if DANE is required.": "Vraag de mailprovider naar DANE voor inkomende SMTP, of gebruik mailservers onder je eigen DNS-zone als DANE vereist is.",
+  "DMARC record missing": "DMARC-record ontbreekt",
+  "No DMARC policy is published. Receivers have no instructions for handling spoofed mail that fails SPF or DKIM.": "Er is geen DMARC-beleid gepubliceerd. Ontvangers hebben geen instructies voor vervalste mail die niet door SPF of DKIM komt.",
+  "Publish `_dmarc.yourdomain` TXT: `v=DMARC1; p=none; rua=mailto:dmarc@yourdomain; fo=1`. Monitor aggregate reports for a few weeks, then move to `p=quarantine` and finally `p=reject`.": "Publiceer `_dmarc.yourdomain` TXT: `v=DMARC1; p=none; rua=mailto:dmarc@yourdomain; fo=1`. Bekijk de aggregaatrapporten een paar weken, ga dan naar `p=quarantine` en ten slotte naar `p=reject`.",
+  "DMARC is published but only in monitor mode. Spoofed mail is not blocked.": "DMARC is gepubliceerd, maar alleen in monitormodus. Vervalste mail wordt niet geblokkeerd.",
+  "After reviewing aggregate (rua) reports, change the policy to `p=quarantine` and eventually `p=reject`.": "Zet het beleid na het bekijken van de aggregaatrapporten (rua) op `p=quarantine` en uiteindelijk op `p=reject`.",
+  "Check a recent outbound message's DKIM-Signature header for the actual selector. If mail is unsigned, enable DKIM at the mail provider.": "Bekijk de DKIM-Signature-header van een recent verstuurd bericht voor de echte selector. Is mail niet ondertekend, zet DKIM dan aan bij de mailprovider.",
+  "No DKIM public keys were found for the limited set of selectors tested. This does not establish that outbound mail is unsigned.": "Er zijn geen publieke DKIM-sleutels gevonden voor de beperkte set geteste selectors. Daarmee staat niet vast dat uitgaande mail niet ondertekend is.",
+  "Without MTA-STS, inbound mail can be delivered over unencrypted or misconfigured TLS connections.": "Zonder MTA-STS kan inkomende mail via onversleutelde of verkeerd ingestelde TLS-verbindingen worden bezorgd.",
+  "TLS-RPT is not set up. You won't receive reports about TLS failures on inbound mail.": "TLS-RPT is niet ingericht. Je ontvangt geen rapporten over TLS-fouten bij inkomende mail.",
+  "Publish `_smtp._tls.yourdomain` TXT record: `v=TLSRPTv1; rua=mailto:tls-reports@yourdomain`.": "Publiceer het TXT-record `_smtp._tls.yourdomain`: `v=TLSRPTv1; rua=mailto:tls-reports@yourdomain`.",
+  "The TLS configuration scored a failing grade. Connections are exposed to known attacks.": "De TLS-configuratie kreeg een onvoldoende. Verbindingen staan bloot aan bekende aanvallen.",
+  "Address the warnings below: disable obsolete protocols, remove weak ciphers, install a trusted certificate, and enable HSTS.": "Los de waarschuwingen hieronder op: zet verouderde protocollen uit, verwijder zwakke ciphers, installeer een vertrouwd certificaat en zet HSTS aan.",
+  "TLS 1.0 is deprecated (PCI-DSS forbids it) and vulnerable to BEAST and downgrade attacks.": "TLS 1.0 is verouderd (PCI-DSS verbiedt het) en kwetsbaar voor BEAST- en downgrade-aanvallen.",
+  "Disable TLS 1.0 in the web server. Nginx: `ssl_protocols TLSv1.2 TLSv1.3;`. Apache: `SSLProtocol -all +TLSv1.2 +TLSv1.3`.": "Zet TLS 1.0 uit in de webserver. Nginx: `ssl_protocols TLSv1.2 TLSv1.3;`. Apache: `SSLProtocol -all +TLSv1.2 +TLSv1.3`.",
+  "TLS 1.1 is deprecated (RFC 8996). Browsers have removed support.": "TLS 1.1 is verouderd (RFC 8996). Browsers ondersteunen het niet meer.",
+  "Disable TLS 1.1 and require TLS 1.2 as a minimum.": "Zet TLS 1.1 uit en vereis minimaal TLS 1.2.",
+  "TLS 1.3 is not offered. You miss performance and security improvements (0-RTT, cleaner handshake).": "TLS 1.3 wordt niet aangeboden. Je mist verbeteringen in snelheid en beveiliging (0-RTT, een eenvoudigere handshake).",
+  "Upgrade OpenSSL (>=1.1.1) and enable TLS 1.3 alongside TLS 1.2 in the server configuration.": "Werk OpenSSL bij (>=1.1.1) en zet TLS 1.3 naast TLS 1.2 aan in de serverconfiguratie.",
+  "Restrict ciphers to modern AEAD suites, e.g. Nginx: `ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:...; ssl_prefer_server_ciphers on;`. Use Mozilla's SSL Config Generator (intermediate profile).": "Beperk ciphers tot moderne AEAD-suites, bijv. Nginx: `ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:...; ssl_prefer_server_ciphers on;`. Gebruik de SSL Config Generator van Mozilla (profiel intermediate).",
+  "Some accepted cipher suites do not provide forward secrecy, so past sessions could be decrypted if the private key leaks.": "Sommige geaccepteerde cipher suites bieden geen forward secrecy, dus eerdere sessies kunnen worden ontsleuteld als de privésleutel uitlekt.",
+  "Only allow ECDHE/DHE based cipher suites. Disable static RSA key exchange.": "Sta alleen cipher suites op basis van ECDHE/DHE toe. Zet statische RSA-sleuteluitwisseling uit.",
+  "TLS compression is enabled and leaves the server vulnerable to CRIME.": "TLS-compressie staat aan en maakt de server kwetsbaar voor CRIME.",
+  "Disable TLS compression. Nginx: already disabled by default. OpenSSL: compile with `-DOPENSSL_NO_COMP` or set `SSL_OP_NO_COMPRESSION`.": "Zet TLS-compressie uit. Nginx: staat standaard al uit. OpenSSL: compileer met `-DOPENSSL_NO_COMP` of zet `SSL_OP_NO_COMPRESSION`.",
+  "The certificate names an OCSP responder, but the server did not staple a response. Clients that check revocation must then contact the CA themselves, which is slower and tells the CA which sites they visit.": "Het certificaat noemt een OCSP-responder, maar de server stapelde geen antwoord mee. Clients die op intrekking controleren, moeten dan zelf de CA raadplegen; dat is trager en vertelt de CA welke sites ze bezoeken.",
+  "Enable OCSP stapling on whatever terminates TLS. Nginx: `ssl_stapling on; ssl_stapling_verify on; resolver 1.1.1.1 valid=300s;`. Behind a CDN the edge terminates TLS, so this is a setting on the CDN, not on your origin.": "Zet OCSP-stapling aan op het systeem dat TLS afhandelt. Nginx: `ssl_stapling on; ssl_stapling_verify on; resolver 1.1.1.1 valid=300s;`. Achter een CDN handelt de edge TLS af, dus dit is een instelling bij het CDN, niet op je origin.",
+  "OCSP stapling not applicable to this certificate": "OCSP-stapling niet van toepassing op dit certificaat",
+  "This CA": "Deze CA",
+  "Nothing to do. Enabling stapling on the server would have no effect, because there is no responder to fetch a status from.": "Niets te doen. Stapling aanzetten op de server heeft geen effect, want er is geen responder om een status bij op te halen.",
+  "HSTS could not be verified": "HSTS kon niet worden gecontroleerd",
+  "Re-check from NL, DE, or BE (or use internet.nl). Optionally configure BunnyCDN/Cloudflare to also send `Strict-Transport-Security: max-age=31536000; includeSubDomains` on geo-block responses.": "Controleer opnieuw vanuit NL, DE of BE (of gebruik internet.nl). Stel eventueel BunnyCDN/Cloudflare zo in dat ook geoblokkeringsantwoorden `Strict-Transport-Security: max-age=31536000; includeSubDomains` meesturen.",
+  "HSTS header missing": "HSTS-header ontbreekt",
+  "Strict-Transport-Security is not set. A downgrade to plain HTTP is possible on first visit.": "Strict-Transport-Security is niet ingesteld. Bij het eerste bezoek is een downgrade naar gewone HTTP mogelijk.",
+  "Return `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` on every HTTPS response. After testing, submit to hstspreload.org.": "Stuur `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` mee met elke HTTPS-response. Meld het domein na het testen aan bij hstspreload.org.",
+  "HSTS is switched off by max-age=0": "HSTS wordt uitgezet door max-age=0",
+  "The header is present but `max-age=0` tells browsers to forget HSTS for this host. Visitors who were protected lose that protection on their next visit, and a downgrade to plain HTTP becomes possible again.": "De header is aanwezig, maar `max-age=0` vertelt browsers HSTS voor deze host te vergeten. Bezoekers die beschermd waren, verliezen die bescherming bij hun volgende bezoek, en een downgrade naar gewone HTTP wordt weer mogelijk.",
+  "Set `max-age=31536000` (one year). Use `max-age=0` only deliberately, to retire HSTS for a host you are decommissioning.": "Zet `max-age=31536000` (één jaar). Gebruik `max-age=0` alleen bewust, om HSTS af te bouwen voor een host die je uitfaseert.",
+  "The policy expires faster than a typical visit interval, so most returning visitors arrive unprotected and can be downgraded to HTTP.": "Het beleid verloopt sneller dan bezoekers doorgaans terugkomen, dus de meeste terugkerende bezoekers komen onbeschermd binnen en kunnen naar HTTP worden teruggezet.",
+  "HSTS max-age is below one year": "HSTS max-age is korter dan één jaar",
+  "Set `max-age=31536000` once you are confident every subdomain serves HTTPS.": "Zet `max-age=31536000` zodra je zeker weet dat elk subdomein HTTPS aanbiedt.",
+  "HSTS does not cover subdomains": "HSTS geldt niet voor subdomeinen",
+  "Without `includeSubDomains` the policy applies to this host only. A subdomain reachable over plain HTTP can still be used to set cookies for the parent domain or to phish over an unprotected connection.": "Zonder `includeSubDomains` geldt het beleid alleen voor deze host. Een subdomein dat via gewone HTTP bereikbaar is, kan nog worden gebruikt om cookies voor het bovenliggende domein te zetten of om via een onbeschermde verbinding te phishen.",
+  "Add `includeSubDomains` — but confirm first that every subdomain, including internal ones, serves HTTPS, because they will all become unreachable over HTTP at once.": "Voeg `includeSubDomains` toe — maar controleer eerst dat elk subdomein, ook interne, HTTPS aanbiedt, want ze worden allemaal tegelijk onbereikbaar via HTTP.",
+  "HSTS not preload-ready": "HSTS niet klaar voor preload",
+  "HSTS covers subdomains but does not include `preload`, so the very first visit to the domain is still made over an unprotected connection.": "HSTS geldt voor subdomeinen, maar bevat geen `preload`, dus het allereerste bezoek aan het domein gaat nog via een onbeschermde verbinding.",
+  "Add `preload` and submit the domain to hstspreload.org. Note this is close to irreversible: removal takes months and never reaches older browsers.": "Voeg `preload` toe en meld het domein aan bij hstspreload.org. Let op: dit is bijna onomkeerbaar; verwijderen duurt maanden en bereikt oudere browsers nooit.",
+  "The TLS certificate has expired. Browsers block access.": "Het TLS-certificaat is verlopen. Browsers blokkeren de toegang.",
+  "Renew the certificate immediately. Automate renewal with ACME (Let's Encrypt + certbot / acme.sh).": "Vernieuw het certificaat direct. Automatiseer het vernieuwen met ACME (Let's Encrypt + certbot / acme.sh).",
+  "Renew the certificate now and automate renewal to avoid future outages.": "Vernieuw het certificaat nu en automatiseer het vernieuwen om storingen in de toekomst te voorkomen.",
+  "The certificate is self-signed. Browsers show warnings and APIs will refuse the connection.": "Het certificaat is zelfondertekend. Browsers tonen waarschuwingen en API's weigeren de verbinding.",
+  "Obtain a certificate from a public CA (Let's Encrypt is free and automated).": "Vraag een certificaat aan bij een publieke CA (Let's Encrypt is gratis en geautomatiseerd).",
+  "HTTPS redirect could not be verified": "HTTPS-doorverwijzing kon niet worden gecontroleerd",
+  "The HTTP probe was blocked by a CDN/WAF, so an HTTP→HTTPS redirect could not be confirmed from this vantage point.": "De HTTP-proef werd geblokkeerd door een CDN/WAF, dus een doorverwijzing van HTTP naar HTTPS kon vanaf deze plek niet worden bevestigd.",
+  "Verify the redirect from NL/DE/BE (or another allowed region). Prefer a permanent 301/308 from HTTP to HTTPS on the same host.": "Controleer de doorverwijzing vanuit NL/DE/BE (of een andere toegestane regio). Gebruik bij voorkeur een permanente 301/308 van HTTP naar HTTPS op dezelfde host.",
+  "Plain HTTP traffic is not redirected to HTTPS, exposing users to MITM attacks.": "Gewoon HTTP-verkeer wordt niet naar HTTPS doorverwezen, waardoor gebruikers blootstaan aan MITM-aanvallen.",
+  "HTTPS redirect is temporary (302/307)": "HTTPS-doorverwijzing is tijdelijk (302/307)",
+  "The HTTP to HTTPS redirect uses a non-permanent status code.": "De doorverwijzing van HTTP naar HTTPS gebruikt een niet-permanente statuscode.",
+  "Use a permanent redirect (301 or 308) so browsers cache the redirect.": "Gebruik een permanente doorverwijzing (301 of 308), zodat browsers haar onthouden.",
+  "Send `Strict-Transport-Security: max-age=31536000; includeSubDomains` (then add `preload` once all subdomains are HTTPS).": "Stuur `Strict-Transport-Security: max-age=31536000; includeSubDomains` mee (voeg daarna `preload` toe zodra alle subdomeinen HTTPS zijn).",
+  "Build CSP in stages: (1) deploy Content-Security-Policy-Report-Only with `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`; (2) add only required hosts for script/style/img/connect/font; (3) replace inline scripts with nonces/hashes — never keep `'unsafe-inline'`/`'unsafe-eval'`; (4) when reports are clean, switch to enforcing Content-Security-Policy.": "Bouw CSP in stappen op: (1) zet Content-Security-Policy-Report-Only neer met `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`; (2) voeg alleen de benodigde hosts toe voor script/style/img/connect/font; (3) vervang inline scripts door nonces/hashes — laat `'unsafe-inline'`/`'unsafe-eval'` nooit staan; (4) zijn de rapporten schoon, schakel dan over op een afdwingend Content-Security-Policy.",
+  "Set `X-Content-Type-Options: nosniff`.": "Zet `X-Content-Type-Options: nosniff`.",
+  "Prefer CSP `frame-ancestors 'none'` (or `'self'`). Legacy fallback: `X-Frame-Options: DENY`.": "Gebruik bij voorkeur CSP `frame-ancestors 'none'` (of `'self'`). Terugvaloptie voor oudere browsers: `X-Frame-Options: DENY`.",
+  "Set `Referrer-Policy: strict-origin-when-cross-origin` (or `no-referrer` for sensitive apps).": "Zet `Referrer-Policy: strict-origin-when-cross-origin` (of `no-referrer` voor gevoelige apps).",
+  "Deny everything, then open only what your own pages use: `Permissions-Policy: accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=()`. Change a feature to `(self)` where your own pages need it, and use `*` only when you deliberately hand the capability to an embedded partner.": "Weiger alles en open alleen wat je eigen pagina's gebruiken: `Permissions-Policy: accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=()`. Zet een functie op `(self)` waar je eigen pagina's haar nodig hebben, en gebruik `*` alleen als je de mogelijkheid bewust aan een ingesloten partner geeft.",
+  "Set `Cross-Origin-Opener-Policy: same-origin`.": "Zet `Cross-Origin-Opener-Policy: same-origin`.",
+  "Set `Cross-Origin-Resource-Policy: same-site` (or `same-origin` if possible).": "Zet `Cross-Origin-Resource-Policy: same-site` (of `same-origin` als dat kan).",
+  "Only if you need cross-origin isolation (SharedArrayBuffer, high-resolution timers): set `Cross-Origin-Embedder-Policy: require-corp`, and first confirm every cross-origin image, font, script and frame you load returns `Cross-Origin-Resource-Policy` or is fetched with CORS — those that do not will stop loading.": "Alleen als je cross-origin-isolatie nodig hebt (SharedArrayBuffer, timers met hoge resolutie): zet `Cross-Origin-Embedder-Policy: require-corp`, en controleer eerst dat elke afbeelding, elk font, script en frame van een andere origin `Cross-Origin-Resource-Policy` teruggeeft of met CORS wordt opgehaald — wat dat niet doet, laadt niet meer.",
+  "Set `X-XSS-Protection: 0` and rely on a strong CSP (legacy XSS auditor is deprecated/harmful).": "Zet `X-XSS-Protection: 0` en vertrouw op een sterke CSP (de oude XSS-auditor is verouderd en schadelijk).",
+  "It keeps browsers on HTTPS for this host, so a visitor cannot be downgraded to plain HTTP by someone on their network.": "Hij houdt browsers op HTTPS voor deze host, zodat iemand op het netwerk van een bezoeker die niet naar gewone HTTP kan terugzetten.",
+  "It limits where scripts, styles and images may be loaded from, and is the main defence against cross-site scripting.": "Hij beperkt waarvandaan scripts, stijlen en afbeeldingen mogen worden geladen, en is de belangrijkste verdediging tegen cross-site scripting.",
+  "It stops browsers guessing a response's type, which is how an uploaded file can end up being executed as script.": "Hij voorkomt dat browsers het type van een response raden, waardoor een geüpload bestand als script kan worden uitgevoerd.",
+  "It stops other sites putting your pages in an iframe and tricking users into clicking them.": "Hij voorkomt dat andere sites je pagina's in een iframe zetten en gebruikers misleiden om erop te klikken.",
+  "It decides which browser features, such as camera, microphone and geolocation, your pages and any embedded frames may use.": "Hij bepaalt welke browserfuncties, zoals camera, microfoon en locatie, je pagina's en ingesloten frames mogen gebruiken.",
+  "It severs the link between your window and any page that opened it, closing off cross-window attacks.": "Hij verbreekt de koppeling tussen je venster en de pagina die het opende, en sluit zo aanvallen tussen vensters af.",
+  "It stops other sites loading your images, scripts and other resources directly.": "Hij voorkomt dat andere sites je afbeeldingen, scripts en andere bestanden rechtstreeks laden.",
+  "Setting it to 0 turns off the legacy XSS auditor, which modern browsers have removed and which was itself exploitable.": "Op 0 gezet schakelt hij de oude XSS-auditor uit, die moderne browsers hebben verwijderd en die zelf misbruikt kon worden.",
+  "nothing restricts where scripts may load from, so the policy offers no XSS protection at all": "niets beperkt waarvandaan scripts mogen laden, dus het beleid biedt helemaal geen bescherming tegen XSS",
+  "inline styles are allowed. This cannot execute code, so it is far less serious than on script-src, but injected CSS can still deface pages and leak data through attribute selectors": "inline stijlen zijn toegestaan. Daarmee kan geen code worden uitgevoerd, dus het is veel minder ernstig dan bij script-src, maar ingevoegde CSS kan nog steeds pagina's beschadigen en gegevens lekken via attribuutselectors",
+  "plugin content is allowed from somewhere; there is rarely a reason for this to be anything but 'none'": "plugin-inhoud is ergens vandaan toegestaan; er is zelden een reden om dit iets anders dan 'none' te laten zijn",
+  "any site can place your pages in an iframe, which is what clickjacking needs": "elke site kan je pagina's in een iframe zetten, en dat is precies wat clickjacking nodig heeft",
+  "framing is explicitly allowed from anywhere, so clickjacking is unimpeded": "insluiten is uitdrukkelijk overal vandaan toegestaan, dus clickjacking wordt niet tegengehouden",
+  "injected markup can point a form at an attacker's server, so submitted credentials leave your site": "ingevoegde opmaak kan een formulier naar de server van een aanvaller laten wijzen, zodat ingevoerde inloggegevens je site verlaten",
+  "violations are invisible, so you cannot tell whether tightening the policy would break the site": "overtredingen zijn onzichtbaar, dus je kunt niet zien of aanscherpen van het beleid de site zou breken",
+  "eval() and friends remain available, letting injected strings become executable code": "eval() en verwanten blijven beschikbaar, zodat ingevoegde tekst uitvoerbare code kan worden",
+  "the wildcard allows any host on the internet, so this directive stops being a meaningful restriction": "de wildcard staat elke host op internet toe, dus deze directive is geen zinvolle beperking meer",
+  "inline content is allowed, which weakens what this directive protects": "inline inhoud is toegestaan, wat verzwakt wat deze directive beschermt",
+  "Security headers could not be fully verified": "Beveiligingsheaders konden niet volledig worden gecontroleerd",
+  "The HTTPS probe was blocked by a CDN/WAF, so missing headers are inconclusive.": "De HTTPS-proef werd geblokkeerd door een CDN/WAF, dus ontbrekende headers zeggen hier niets.",
+  "Re-check headers from NL/DE/BE (or another allowed region), or configure the CDN to return security headers on geo-block responses too.": "Controleer de headers opnieuw vanuit NL/DE/BE (of een andere toegestane regio), of stel het CDN zo in dat ook geoblokkeringsantwoorden beveiligingsheaders meesturen.",
+  "Cross-Origin-Embedder-Policy intentionally not advised here": "Cross-Origin-Embedder-Policy hier bewust niet aangeraden",
+  "Leave Cross-Origin-Embedder-Policy unset unless you need cross-origin isolation (SharedArrayBuffer or high-resolution timers). If you do, mirror those resources onto your own origin first, or proxy them, so they carry your CORP header.": "Laat Cross-Origin-Embedder-Policy weg, tenzij je cross-origin-isolatie nodig hebt (SharedArrayBuffer of timers met hoge resolutie). Heb je die nodig, zet die bestanden dan eerst op je eigen origin of laat ze via een proxy lopen, zodat ze jouw CORP-header meekrijgen.",
+  "These features are set to `*`, so any third-party iframe on the page can use them. That is more permissive than the browser default, which limits them to your own origin.": "Deze functies staan op `*`, dus elk iframe van derden op de pagina kan ze gebruiken. Dat is ruimer dan de standaard van de browser, die ze tot je eigen origin beperkt.",
+  "Replace `*` with `(self)` for features your own pages use, and `()` for the rest. `*` is only appropriate when you deliberately delegate a capability to an embedded partner.": "Vervang `*` door `(self)` voor functies die je eigen pagina's gebruiken, en `()` voor de rest. `*` past alleen als je een mogelijkheid bewust aan een ingesloten partner overdraagt.",
+  "Content-Security-Policy missing — build a safe policy": "Content-Security-Policy ontbreekt — bouw een veilig beleid op",
+  "No CSP header was returned. Without CSP, XSS and framing defenses rely only on weaker legacy headers.": "Er werd geen CSP-header teruggegeven. Zonder CSP rust de verdediging tegen XSS en insluiten alleen op zwakkere, oudere headers.",
+  "CSP has no violation reporting": "CSP heeft geen rapportage van overtredingen",
+  "Policy looks reasonable but has no report-uri / report-to, so breakages are hard to see while tightening.": "Het beleid ziet er redelijk uit, maar heeft geen report-uri / report-to, dus wat breekt bij aanscherpen is lastig te zien.",
+  "Add a reporting endpoint (`report-to` / Report-To) before and after switching from Report-Only to enforce.": "Voeg een rapportage-endpoint toe (`report-to` / Report-To), voor en na de overstap van Report-Only naar afdwingen.",
+  "CSP Report-Only is identical to the enforced policy": "CSP Report-Only is gelijk aan het afgedwongen beleid",
+  "A Content-Security-Policy-Report-Only header is present but matches the enforced policy exactly, so it can only ever report violations you are already blocking. It tells you nothing about a change you are considering.": "Er is een Content-Security-Policy-Report-Only-header, maar die is precies gelijk aan het afgedwongen beleid, dus hij kan alleen overtredingen melden die je al blokkeert. Over een wijziging die je overweegt, zegt hij niets.",
+  "Either point Report-Only at the stricter policy you intend to adopt, or remove the header so it stops adding weight to every response.": "Laat Report-Only het strengere beleid bevatten dat je wilt invoeren, of verwijder de header zodat hij niet langer elke response zwaarder maakt.",
+  "DNSSEC is not fully set up. Responses cannot be cryptographically verified, so attackers may inject spoofed DNS records.": "DNSSEC is niet volledig ingericht. Antwoorden kunnen niet cryptografisch worden gecontroleerd, dus aanvallers kunnen vervalste DNS-records invoegen.",
+  "Enable DNSSEC at your DNS provider. Publish DNSKEY records and a DS record at the parent zone (registrar). Verify with `dig +dnssec` or dnsviz.net.": "Zet DNSSEC aan bij je DNS-provider. Publiceer DNSKEY-records en een DS-record in de bovenliggende zone (registrar). Controleer met `dig +dnssec` of dnsviz.net.",
+  "CSP Report-Only staged — review violation reports before enforcing": "CSP Report-Only klaargezet — bekijk de rapporten van overtredingen voordat je afdwingt",
+  "Check your CSP reporting tool (the `report-uri`/`report-to` endpoint in the policy, e.g. uriports) for violations attributed to the report-only disposition. No violations after a representative period — including the less-travelled pages such as admin screens — means the staged policy is safe to promote to the enforced header. Any host that does appear is one you must add first.": "Kijk in je CSP-rapportagetool (het endpoint `report-uri`/`report-to` in het beleid, bijv. uriports) naar overtredingen die bij report-only horen. Geen overtredingen na een representatieve periode — ook op minder bezochte pagina's zoals beheerschermen — betekent dat het klaargezette beleid veilig naar de afgedwongen header kan. Elke host die wel verschijnt, moet je eerst toevoegen."
+ },
+ "patterns": [
+  [
+   "The\\ resolved\\ server\\ IP\\ is\\ listed\\ on:\\ (.+?)\\.\\ This\\ scan\\ does\\ not\\ establish\\ that\\ the\\ address\\ sends\\ mail\\ or\\ is\\ controlled\\ exclusively\\ by\\ this\\ domain\\.",
+   "Het IP van de server staat vermeld op: $1. Deze scan stelt niet vast dat het adres mail verstuurt of uitsluitend door dit domein wordt beheerd."
+  ],
+  [
+   "Risky\\ port\\ (.+?)/(.+?)\\ is\\ open",
+   "Riskante poort $1/$2 staat open"
+  ],
+  [
+   "The\\ domain\\ registration\\ expires\\ in\\ (.+?)\\ days\\.",
+   "De registratie van het domein verloopt over $1 dagen."
+  ],
+  [
+   "(.+?)\\ \\(Evidence:\\ (.+?)\\)",
+   "$1 (Bewijs: $2)"
+  ],
+  [
+   "crt\\.sh\\ shows\\ (.+?)\\ related\\ hostnames\\.\\ Unused\\ or\\ forgotten\\ subdomains\\ increase\\ attack\\ surface\\.",
+   "crt.sh toont $1 verwante hostnamen. Ongebruikte of vergeten subdomeinen vergroten het aanvalsoppervlak."
+  ],
+  [
+   "VirusTotal:\\ (.+?)\\ engines\\ flag\\ this\\ domain\\ as\\ malicious",
+   "VirusTotal: $1 engines markeren dit domein als kwaadaardig"
+  ],
+  [
+   "Multiple\\ independent\\ engines\\ currently\\ flag\\ this\\ domain\\ \\((.+?)\\)\\.\\ Independent\\ agreement\\ makes\\ a\\ false\\ positive\\ unlikely\\.",
+   "Meerdere onafhankelijke engines markeren dit domein op dit moment ($1). Onafhankelijke overeenstemming maakt vals alarm onwaarschijnlijk."
+  ],
+  [
+   "(.+?)\\ malicious\\ and\\ (.+?)\\ suspicious\\ verdict\\(s\\)\\ from\\ (.+?)\\.\\ A\\ single\\ engine\\ disagreeing\\ with\\ the\\ rest\\ is\\ commonly\\ a\\ false\\ positive,\\ so\\ this\\ is\\ reported\\ for\\ confirmation,\\ not\\ as\\ a\\ finding\\ about\\ the\\ domain\\.",
+   "$1 kwaadaardig en $2 verdacht oordeel/oordelen van $3. Eén engine die afwijkt van de rest is vaak vals alarm, dus dit wordt gemeld om te controleren, niet als bevinding over het domein."
+  ],
+  [
+   "The\\ server\\ accepted\\ one\\ or\\ more\\ default/weak\\ username/password\\ combinations\\ on\\ protected\\ endpoints:\\ (.+?)\\.",
+   "De server accepteerde één of meer standaard- of zwakke combinaties van gebruikersnaam en wachtwoord op beveiligde endpoints: $1."
+  ],
+  [
+   "Re\\-run\\ DomainLens\\ with\\ the\\ `weak_auth`\\ check\\ for\\ `(.+?)`\\ after\\ remediation\\.\\ Confirm\\ protected\\ endpoints\\ reject\\ default\\ credentials\\ and\\ require\\ MFA\\ where\\ applicable\\.",
+   "Voer DomainLens na herstel opnieuw uit met de check `weak_auth` voor `$1`. Controleer dat beveiligde endpoints standaardinloggegevens weigeren en waar van toepassing MFA vereisen."
+  ],
+  [
+   "Found\\ (.+?)\\ HTTP\\ Basic\\ protected\\ path\\(s\\)\\.\\ No\\ configured\\ default\\ credentials\\ succeeded\\ in\\ this\\ scan\\.",
+   "$1 pad(en) met HTTP Basic-beveiliging gevonden. Geen van de ingestelde standaardinloggegevens werkte in deze scan."
+  ],
+  [
+   "Re\\-run\\ DomainLens\\ with\\ the\\ `active_scan`\\ check\\ for\\ `(.+?)`\\ after\\ remediation\\ to\\ confirm\\ the\\ probe\\ no\\ longer\\ triggers\\.",
+   "Voer DomainLens na herstel opnieuw uit met de check `active_scan` voor `$1` om te bevestigen dat de proef niet meer aanslaat."
+  ],
+  [
+   "Reported\\ on\\ (.+?)",
+   "Gemeld op $1"
+  ],
+  [
+   "Detected\\ CDN\\ edge\\ needs\\ hardening\\ for\\ `(.+?)`\\.",
+   "De gevonden CDN-edge moet worden verhard voor `$1`."
+  ],
+  [
+   "(.+?)\\ does\\ not\\ exist\\ in\\ DNS:\\ the\\ registry\\ reports\\ it\\ as\\ \"(.+?)\"\\.",
+   "$1 bestaat niet in DNS: de registry meldt het als \"$2\"."
+  ],
+  [
+   "(.+?)\\ is\\ not\\ registered\\ and\\ does\\ not\\ exist\\ in\\ DNS\\.",
+   "$1 is niet geregistreerd en bestaat niet in DNS."
+  ],
+  [
+   "(.+?)\\ does\\ not\\ exist\\ in\\ DNS\\ \\(NXDOMAIN\\)",
+   "$1 bestaat niet in DNS (NXDOMAIN)"
+  ],
+  [
+   "(.+?)\\ does\\ not\\ exist\\ in\\ DNS\\ \\(NXDOMAIN\\);\\ the\\ registry\\ reports\\ \"(.+?)\"\\.",
+   "$1 bestaat niet in DNS (NXDOMAIN); de registry meldt \"$2\"."
+  ],
+  [
+   "Scan\\ `(.+?)`\\ again\\ once\\ it\\ resolves\\.",
+   "Scan `$1` opnieuw zodra het weer resolvet."
+  ],
+  [
+   "This\\ domain\\ (.+?)\\.\\ Without\\ SPF,\\ anyone\\ can\\ still\\ send\\ mail\\ claiming\\ to\\ be\\ from\\ it,\\ and\\ receivers\\ have\\ nothing\\ to\\ check\\ that\\ against\\.",
+   "Dit domein $1. Zonder SPF kan iedereen nog steeds mail sturen die van dit domein lijkt te komen, en ontvangers kunnen dat nergens aan toetsen."
+  ],
+  [
+   "This\\ domain\\ (.+?),\\ but\\ its\\ SPF\\ record\\ still\\ authorises\\ senders:\\ `(.+?)`\\.",
+   "Dit domein $1, maar het SPF-record staat nog afzenders toe: `$2`."
+  ],
+  [
+   "This\\ domain\\ (.+?),\\ and\\ publishes\\ no\\ DMARC\\ policy\\.\\ Mail\\ forged\\ from\\ it\\ fails\\ no\\ check,\\ because\\ no\\ check\\ is\\ asked\\ for\\.",
+   "Dit domein $1, en publiceert geen DMARC-beleid. Vervalste mail van dit domein faalt op geen enkele controle, omdat er om geen controle wordt gevraagd."
+  ],
+  [
+   "DMARC\\ is\\ p=(.+?)\\ on\\ a\\ domain\\ that\\ receives\\ no\\ mail",
+   "DMARC staat op p=$1 op een domein dat geen mail ontvangt"
+  ],
+  [
+   "This\\ domain\\ (.+?),\\ but\\ its\\ DMARC\\ policy\\ is\\ `p=(.+?)`,\\ so\\ receivers\\ are\\ not\\ asked\\ to\\ refuse\\ forged\\ mail\\.",
+   "Dit domein $1, maar het DMARC-beleid is `p=$2`, dus ontvangers wordt niet gevraagd vervalste mail te weigeren."
+  ],
+  [
+   "A\\ mail\\ host\\ accepted\\ a\\ recipient\\ in\\ a\\ domain\\ it\\ has\\ no\\ reason\\ to\\ serve\\.\\ An\\ open\\ relay\\ \\((.+?)\\)\\ is\\ used\\ to\\ send\\ spam\\ and\\ phishing\\ in\\ your\\ name,\\ and\\ gets\\ the\\ address\\ blocklisted\\ quickly\\.",
+   "Een mailserver accepteerde een ontvanger in een domein dat hij niet hoort te bedienen. Een open relay ($1) wordt gebruikt om spam en phishing in jouw naam te sturen, en zet het adres snel op blocklists."
+  ],
+  [
+   "An\\ authoritative\\ nameserver\\ also\\ resolves\\ names\\ it\\ has\\ no\\ authority\\ for,\\ for\\ any\\ client\\ that\\ asks\\ \\((.+?)\\)\\.\\ Open\\ resolvers\\ are\\ used\\ to\\ amplify\\ denial\\-of\\-service\\ traffic\\ against\\ third\\ parties\\.",
+   "Een gezaghebbende nameserver lost ook namen op waarvoor hij niet gezaghebbend is, voor elke client die het vraagt ($1). Open resolvers worden gebruikt om denial-of-service-verkeer tegen derden te versterken."
+  ],
+  [
+   "Re\\-run\\ a\\ DomainLens\\ scan\\ for\\ `(.+?)`\\ with\\ SSL/TLS\\ \\+\\ NCSC\\ TLS\\ enabled\\.\\ Confirm\\ the\\ finding\\ is\\ gone\\ and\\ NCSC\\ overall\\ is\\ Good/Sufficient\\ with\\ cipher\\ order\\ OK\\.\\ Cross\\-check\\ on\\ https://internet\\.nl/site/(.+?)/\\ \\(from\\ NL/DE/BE\\ if\\ the\\ site\\ is\\ geo\\-restricted\\)\\.",
+   "Voer een DomainLens-scan uit voor `$1` met SSL/TLS + NCSC TLS aan. Controleer dat de bevinding weg is en NCSC in totaal Goed/Voldoende is met een juiste cipher-volgorde. Controleer ook op https://internet.nl/site/$2/ (vanuit NL/DE/BE als de site geografisch beperkt is)."
+  ],
+  [
+   "These\\ mail\\ exchangers\\ publish\\ no\\ TLSA\\ record:\\ (.+?)\\.\\ A\\ sending\\ server\\ cannot\\ verify\\ the\\ certificate\\ it\\ is\\ offered,\\ so\\ STARTTLS\\ can\\ be\\ stripped\\ or\\ spoofed\\ without\\ detection\\.",
+   "Deze mailservers publiceren geen TLSA-record: $1. Een verzendende server kan het aangeboden certificaat niet controleren, dus STARTTLS kan ongemerkt worden weggehaald of vervalst."
+  ],
+  [
+   "These\\ hosted\\ mail\\ exchangers\\ publish\\ no\\ TLSA\\ record:\\ (.+?)\\.\\ They\\ are\\ outside\\ this\\ domain's\\ DNS\\ zone,\\ so\\ you\\ cannot\\ add\\ the\\ record\\ yourself\\.",
+   "Deze gehoste mailservers publiceren geen TLSA-record: $1. Ze vallen buiten de DNS-zone van dit domein, dus je kunt het record niet zelf toevoegen."
+  ],
+  [
+   "(.+?)\\ weak\\ and\\ (.+?)\\ insecure\\ cipher\\ suites\\ are\\ accepted\\.\\ These\\ include\\ RC4,\\ 3DES,\\ DES,\\ NULL\\ or\\ EXPORT\\ ciphers\\.",
+   "$1 zwakke en $2 onveilige cipher suites worden geaccepteerd. Daaronder vallen RC4-, 3DES-, DES-, NULL- of EXPORT-ciphers."
+  ],
+  [
+   "The\\ certificate\\ carries\\ no\\ OCSP\\ responder\\ URL,\\ so\\ there\\ is\\ no\\ response\\ to\\ staple\\.\\ (.+?)\\ does\\ not\\ offer\\ OCSP\\ for\\ it;\\ revocation\\ is\\ handled\\ through\\ the\\ browser's\\ own\\ lists\\ \\(CRLSets,\\ CRLite\\)\\ instead\\.",
+   "Het certificaat bevat geen URL van een OCSP-responder, dus er is geen antwoord om mee te stapelen. $1 biedt er geen OCSP voor; intrekking loopt via de eigen lijsten van de browser (CRLSets, CRLite)."
+  ],
+  [
+   "Probe\\ country\\ was\\ (.+?);\\ Benelux\\ geo\\-allowlists\\ \\(NL/DE/BE\\)\\ will\\ block\\ scanners\\ elsewhere\\.",
+   "Het land van de proef was $1; geografische toegangslijsten voor de Benelux (NL/DE/BE) blokkeren scanners van elders."
+  ],
+  [
+   "Re\\-run\\ DomainLens\\ SSL/TLS\\ for\\ `(.+?)`\\ and\\ confirm\\ the\\ grade/warnings\\ clear\\.\\ Validate\\ the\\ certificate\\ chain\\ in\\ a\\ browser\\ or\\ with\\ `openssl\\ s_client\\ \\-connect\\ …:443\\ \\-servername\\ …`\\.",
+   "Voer DomainLens SSL/TLS opnieuw uit voor `$1` en controleer dat het cijfer en de waarschuwingen in orde zijn. Controleer de certificaatketen in een browser of met `openssl s_client -connect …:443 -servername …`."
+  ],
+  [
+   "(.+?)\\ The\\ site\\ may\\ still\\ send\\ HSTS\\ to\\ allowed\\ clients\\ \\(as\\ internet\\.nl\\ often\\ shows\\)\\.",
+   "$1 De site kan HSTS nog wel naar toegestane clients sturen (zoals internet.nl vaak laat zien)."
+  ],
+  [
+   "HSTS\\ max\\-age\\ is\\ only\\ (.+?)\\ seconds",
+   "HSTS max-age is maar $1 seconden"
+  ],
+  [
+   "`max\\-age=(.+?)`\\ protects\\ returning\\ visitors,\\ but\\ the\\ preload\\ list\\ requires\\ at\\ least\\ 31536000\\ seconds,\\ so\\ the\\ domain\\ cannot\\ be\\ submitted\\.",
+   "`max-age=$1` beschermt terugkerende bezoekers, maar de preloadlijst vereist minstens 31536000 seconden, dus het domein kan niet worden aangemeld."
+  ],
+  [
+   "Re\\-run\\ DomainLens\\ Network\\ checks\\ for\\ `(.+?)`\\.\\ Confirm\\ the\\ port/blacklist/IPv6\\ finding\\ no\\ longer\\ appears\\.",
+   "Voer de netwerkchecks van DomainLens opnieuw uit voor `$1`. Controleer dat de bevinding over poort, blacklist of IPv6 niet meer verschijnt."
+  ],
+  [
+   "Re\\-run\\ the\\ DomainLens\\ HubSpot/Cloudflare\\ check\\ for\\ `(.+?)`\\ after\\ changing\\ WAF/CDN\\ rules\\.",
+   "Voer de check HubSpot/Cloudflare van DomainLens opnieuw uit voor `$1` nadat je de WAF/CDN-regels hebt gewijzigd."
+  ],
+  [
+   "Re\\-run\\ DomainLens\\ OSINT\\ for\\ `(.+?)`\\ after\\ cleanup;\\ threat\\-feed\\ listings\\ can\\ take\\ time\\ to\\ clear\\.",
+   "Voer DomainLens OSINT na het opruimen opnieuw uit voor `$1`; vermeldingen in dreigingsfeeds kunnen even duren voordat ze verdwijnen."
+  ],
+  [
+   "Re\\-scan\\ matching\\ assets\\ for\\ `(.+?)`\\ in\\ InsightVM/Nexpose\\ after\\ remediation,\\ then\\ re\\-import\\ the\\ export\\ or\\ confirm\\ the\\ finding\\ is\\ closed\\ in\\ Rapid7\\.",
+   "Scan na herstel de bijbehorende assets voor `$1` opnieuw in InsightVM/Nexpose, importeer daarna de export opnieuw of bevestig dat de bevinding in Rapid7 gesloten is."
+  ],
+  [
+   "Re\\-run\\ a\\ full\\ DomainLens\\ scan\\ for\\ `(.+?)`\\ and\\ confirm\\ this\\ item\\ is\\ no\\ longer\\ listed\\.",
+   "Voer een volledige DomainLens-scan uit voor `$1` en controleer dat dit punt niet meer wordt genoemd."
+  ],
+  [
+   "COEP\\ `require\\-corp`\\ blocks\\ every\\ cross\\-origin\\ subresource\\ that\\ does\\ not\\ return\\ a\\ Cross\\-Origin\\-Resource\\-Policy\\ header\\.\\ This\\ site\\ loads\\ subresources\\ from\\ (.+?),\\ which\\ are\\ not\\ yours\\ to\\ add\\ headers\\ to,\\ so\\ enabling\\ it\\ would\\ break\\ them\\.\\ This\\ is\\ not\\ a\\ missing\\ header\\ —\\ it\\ is\\ the\\ correct\\ setting\\ for\\ this\\ site\\.",
+   "COEP `require-corp` blokkeert elk bestand van een andere origin dat geen Cross-Origin-Resource-Policy-header teruggeeft. Deze site laadt bestanden van $1, waar jij geen headers aan kunt toevoegen, dus aanzetten zou ze breken. Dit is geen ontbrekende header — het is de juiste instelling voor deze site."
+  ],
+  [
+   "(.+?)\\ has\\ a\\ value\\ browsers\\ ignore",
+   "$1 heeft een waarde die browsers negeren"
+  ],
+  [
+   "Set\\ `(.+?):\\ (.+?)`\\.",
+   "Zet `$1: $2`."
+  ],
+  [
+   "(.+?)\\ is\\ set\\ to\\ a\\ permissive\\ value",
+   "$1 staat op een ruime waarde"
+  ],
+  [
+   "`(.+?)`\\ is\\ valid,\\ but\\ grants\\ what\\ the\\ header\\ exists\\ to\\ restrict\\.\\ (.+?)",
+   "`$1` is geldig, maar staat toe wat de header juist moet beperken. $2"
+  ],
+  [
+   "Set\\ `(.+?):\\ (.+?)`\\ unless\\ you\\ deliberately\\ need\\ the\\ permissive\\ behaviour\\.",
+   "Zet `$1: $2`, tenzij je het ruime gedrag bewust nodig hebt."
+  ],
+  [
+   "Permissions\\-Policy\\ grants\\ (.+?)\\ to\\ any\\ embedded\\ site",
+   "Permissions-Policy geeft $1 aan elke ingesloten site"
+  ],
+  [
+   "(.+?)\\ Example:\\ `Content\\-Security\\-Policy:\\ default\\-src\\ 'self';\\ script\\-src\\ 'self';\\ style\\-src\\ 'self';\\ img\\-src\\ 'self'\\ data:;\\ font\\-src\\ 'self';\\ connect\\-src\\ 'self';\\ object\\-src\\ 'none';\\ base\\-uri\\ 'self';\\ frame\\-ancestors\\ 'none';\\ form\\-action\\ 'self'`\\.",
+   "$1 Voorbeeld: `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`."
+  ],
+  [
+   "(.+?)\\ header\\ missing",
+   "$1-header ontbreekt"
+  ],
+  [
+   "(.+?)\\ security\\ headers\\ missing",
+   "$1 beveiligingsheaders ontbreken"
+  ],
+  [
+   "Content\\-Security\\-Policy\\ is\\ (.+?)\\ —\\ tighten\\ policy",
+   "Content-Security-Policy is $1 — scherp het beleid aan"
+  ],
+  [
+   "would\\ no\\ longer\\ allow\\ (.+?)",
+   "zou $1 niet meer toestaan"
+  ],
+  [
+   "would\\ additionally\\ allow\\ (.+?)",
+   "zou ook $1 toestaan"
+  ],
+  [
+   "adds\\ (.+?)",
+   "voegt $1 toe"
+  ],
+  [
+   "drops\\ (.+?)",
+   "laat $1 vallen"
+  ],
+  [
+   "A\\ Content\\-Security\\-Policy\\-Report\\-Only\\ header\\ is\\ staged\\ alongside\\ the\\ enforced\\ policy\\.\\ Compared\\ to\\ what\\ is\\ enforced\\ today,\\ it\\ (.+?)\\.\\ (.+?)",
+   "Naast het afgedwongen beleid staat een Content-Security-Policy-Report-Only-header klaar. Vergeleken met wat nu wordt afgedwongen, $1. $2"
+  ]
+ ]
+}

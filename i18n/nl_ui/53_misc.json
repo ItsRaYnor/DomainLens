@@ -1,0 +1,370 @@
+{
+ "text": {
+  "Attacker-controlled value reflected into a client-side redirect (meta-refresh or location.href).": "Waarde van de aanvaller teruggegeven in een doorverwijzing aan de clientkant (meta-refresh of location.href).",
+  "Active scanning is disabled. Enable active_scan.enabled in config only for systems you own or are explicitly authorized to test — this check sends live XSS/redirect/SQLi probes.": "Actief scannen staat uit. Zet active_scan.enabled in de configuratie alleen aan voor systemen die van jou zijn of die je uitdrukkelijk mag testen — deze check stuurt live proeven op XSS, doorverwijzing en SQLi.",
+  "Host does not resolve to a public address": "De host wijst niet naar een publiek adres",
+  "No HTTP response from target": "Geen HTTP-response van het doel",
+  "No query-string parameters or forms discovered to test.": "Geen queryparameters of formulieren gevonden om te testen.",
+  "Output-encode all user-controlled data before writing it into HTML (context-aware encoding), and set a strict Content-Security-Policy as defense in depth.": "Codeer alle gegevens van gebruikers voordat je ze in HTML schrijft (passend bij de context), en zet als extra verdediging een strikt Content-Security-Policy.",
+  "Use parameterized queries / prepared statements everywhere user input reaches SQL. Never build queries via string concatenation. Disable verbose DB error output in production.": "Gebruik overal waar invoer van gebruikers SQL bereikt geparametriseerde queries / prepared statements. Bouw queries nooit op door tekst aan elkaar te plakken. Zet uitgebreide databasefoutmeldingen uit in productie.",
+  "Give the token a name, so it can be recognised when it has to be revoked": "Geef de token een naam, zodat hij herkenbaar is als hij moet worden ingetrokken",
+  "A token cannot hold more rights than its owner": "Een token kan niet meer rechten hebben dan de eigenaar",
+  "Password must include an uppercase letter.": "Het wachtwoord moet een hoofdletter bevatten.",
+  "Password must include a lowercase letter.": "Het wachtwoord moet een kleine letter bevatten.",
+  "Password must include a digit.": "Het wachtwoord moet een cijfer bevatten.",
+  "Password must include a special character.": "Het wachtwoord moet een bijzonder teken bevatten.",
+  "Password must not contain your email local-part.": "Het wachtwoord mag het deel van je e-mailadres vóór de @ niet bevatten.",
+  "API tokens are accepted on /api/ endpoints only": "API-tokens worden alleen geaccepteerd op /api/-endpoints",
+  "Invalid, expired or revoked API token": "Ongeldige, verlopen of ingetrokken API-token",
+  "Your role is read-only (Viewer)": "Je rol is alleen-lezen (Lezer)",
+  "Authentication required": "Authenticatie vereist",
+  "Just-in-time provisioning disabled; user not provisioned": "Just-in-time-provisioning staat uit; gebruiker niet aangemaakt",
+  "Account disabled": "Account uitgeschakeld",
+  "Local login is disabled.": "Lokaal inloggen staat uit.",
+  "Email and password are required.": "E-mail en wachtwoord zijn verplicht.",
+  "Invalid email or password.": "Ongeldig e-mailadres of wachtwoord.",
+  "Account temporarily locked due to failed logins.": "Account tijdelijk geblokkeerd na mislukte inlogpogingen.",
+  "This account has no local password. Sign in with SSO, or ask an admin to set a backup password.": "Dit account heeft geen lokaal wachtwoord. Log in met SSO, of vraag een beheerder een reservewachtwoord in te stellen.",
+  "Disable SHA-1 signature hashes for TLS key exchange": "Zet SHA-1-handtekening-hashes uit voor de TLS-sleuteluitwisseling",
+  "Fix TLS cipher suite order (AEAD first)": "Herstel de volgorde van TLS-cipher suites (AEAD eerst)",
+  "CDN geo-block: verify headers from NL/DE/BE": "Geoblokkade door CDN: controleer de headers vanuit NL/DE/BE",
+  "Deploy / tighten Content-Security-Policy at the CDN edge": "Zet een Content-Security-Policy neer of scherp hem aan op de CDN-edge",
+  "Enforce server cipher preference with AEAD (AES-GCM / AES-CCM / ChaCha20) before CBC phase-out suites; remove CBC-SHA1.": "Dwing de voorkeur van de server af met AEAD (AES-GCM / AES-CCM / ChaCha20) vóór uit te faseren CBC-suites; verwijder CBC-SHA1.",
+  "Re-run DomainLens SSL/TLS + NCSC TLS and confirm no `signature-hash-insufficient` finding. Cross-check internet.nl → HTTPS → “Hashfuncties voor sleuteluitwisseling”. Verify both A and AAAA addresses. From outside NL/DE/BE, TLS still works when Bunny geo-blocks HTTP.": "Voer DomainLens SSL/TLS + NCSC TLS opnieuw uit en controleer dat er geen bevinding `signature-hash-insufficient` meer is. Controleer ook internet.nl → HTTPS → “Hashfuncties voor sleuteluitwisseling”. Controleer zowel de A- als de AAAA-adressen. Van buiten NL/DE/BE werkt TLS nog als Bunny HTTP op locatie blokkeert.",
+  "Certificate Transparency logs could not be read": "De Certificate Transparency-logs konden niet worden gelezen",
+  "No CAA issue property, so any authority may issue and no certificate here is unexpected": "Geen CAA-eigenschap issue, dus elke autoriteit mag uitgeven en geen enkel certificaat hier is onverwacht",
+  "Certificates": "Certificaten",
+  "Certificate issued by an authority CAA does not permit": "Certificaat uitgegeven door een autoriteit die CAA niet toestaat",
+  "Check who requested it. If it is legitimate, add that authority to the CAA record; if not, have the certificate revoked and review who can change this domain's DNS.": "Ga na wie het aanvroeg. Is het legitiem, voeg die autoriteit dan toe aan het CAA-record; zo niet, laat het certificaat intrekken en controleer wie de DNS van dit domein kan wijzigen.",
+  "401 Unauthorized — check the ServiceNow user/password.": "401 Unauthorized — controleer gebruiker en wachtwoord van ServiceNow.",
+  "403 Forbidden — credentials are valid but lack Table API read access.": "403 Forbidden — de inloggegevens kloppen, maar hebben geen leesrechten op de Table API.",
+  "Authenticated successfully against the ServiceNow Table API.": "Geauthenticeerd bij de Table API van ServiceNow.",
+  "401 Unauthorized — check the Console API username/password.": "401 Unauthorized — controleer gebruikersnaam en wachtwoord van de Console API.",
+  "Authenticated successfully against the InsightVM Console API (v3).": "Geauthenticeerd bij de Console API van InsightVM (v3).",
+  "Authenticated successfully against the Insight Platform Cloud API (v4).": "Geauthenticeerd bij de Cloud API van het Insight Platform (v4).",
+  "Neither Console API (username+password+base URL) nor a Cloud API key is fully configured.": "Noch de Console API (gebruikersnaam+wachtwoord+basis-URL) noch een Cloud API-sleutel is volledig ingesteld.",
+  "No connection test is available for this integration.": "Voor deze koppeling is geen verbindingstest beschikbaar.",
+  "No key configured yet.": "Nog geen sleutel ingesteld.",
+  "Unexpected response with no usable A record.": "Onverwacht antwoord zonder bruikbaar A-record.",
+  "NXDOMAIN — the key is not recognised by Spamhaus (check for typos or an unactivated trial).": "NXDOMAIN — Spamhaus herkent de sleutel niet (controleer op typfouten of een niet-geactiveerde proefversie).",
+  "SERVFAIL — Spamhaus rejected the query, which usually means an invalid or blocked key.": "SERVFAIL — Spamhaus weigerde de vraag, wat meestal betekent dat de sleutel ongeldig of geblokkeerd is.",
+  "401 Unauthorized — the Auth-Key was rejected by abuse.ch.": "401 Unauthorized — de Auth-Key werd door abuse.ch geweigerd.",
+  "Authenticated successfully against the ThreatFox API (also covers URLhaus, which shares the same key).": "Geauthenticeerd bij de ThreatFox-API (geldt ook voor URLhaus, dat dezelfde sleutel gebruikt).",
+  "crt.sh returned a non-JSON response": "crt.sh gaf een antwoord dat geen JSON is",
+  "crt.sh returned an unexpected response shape": "crt.sh gaf een antwoord in een onverwachte vorm",
+  "crt.sh lookup failed": "Opzoeking in crt.sh mislukt",
+  "The domain does not resolve to public addresses only": "Het domein wijst niet uitsluitend naar publieke adressen",
+  "An attestation needs a reason, for whoever reads the audit log later": "Een verklaring heeft een reden nodig, voor wie later het auditlog leest",
+  "A unit needs a name": "Een eenheid heeft een naam nodig",
+  "That level already has a unit with this name; use Merge to combine them": "Op dat niveau staat al een eenheid met deze naam; gebruik Samenvoegen om ze te combineren",
+  "A unit cannot be merged into itself": "Een eenheid kan niet in zichzelf worden samengevoegd",
+  "A unit cannot be merged into one of its own units": "Een eenheid kan niet worden samengevoegd in een van haar eigen eenheden",
+  "A unit cannot be placed under itself or one of its own units": "Een eenheid kan niet onder zichzelf of een van haar eigen eenheden worden geplaatst",
+  "Not a domain name": "Geen domeinnaam",
+  "No answer": "Geen antwoord",
+  "Not measured yet": "Nog niet gemeten",
+  "HubSpot CMS path responded": "HubSpot CMS-pad gaf antwoord",
+  "HubSpot detected behind Cloudflare": "HubSpot gevonden achter Cloudflare",
+  "The site serves HubSpot assets/cookies while Cloudflare edge headers are present.": "De site levert bestanden en cookies van HubSpot, terwijl headers van de Cloudflare-edge aanwezig zijn.",
+  "Treat Cloudflare as the security edge and HubSpot as the app/CMS layer. Align WAF allowlists for HubSpot forms, webhooks, and tracking callbacks.": "Zie Cloudflare als de beveiligingsrand en HubSpot als de applicatie- of CMS-laag. Stem de WAF-toegangslijsten af op formulieren, webhooks en tracking-callbacks van HubSpot.",
+  "HubSpot present without Cloudflare edge signals": "HubSpot aanwezig zonder signalen van de Cloudflare-edge",
+  "HubSpot fingerprints were found, but Cloudflare edge markers were not. Origin exposure or incomplete CDN onboarding is possible.": "Er zijn kenmerken van HubSpot gevonden, maar geen kenmerken van de Cloudflare-edge. Mogelijk ligt de origin bloot of is het CDN niet volledig ingericht.",
+  "Confirm DNS is orange-clouded (proxied) in Cloudflare, or enable HubSpot/Cloudflare recommended SSL mode (Full/Strict) for the connected domain.": "Controleer of DNS in Cloudflare via de proxy loopt (oranje wolkje), of zet de door HubSpot/Cloudflare aanbevolen SSL-modus (Full/Strict) aan voor het gekoppelde domein.",
+  "HubSpot tracking cookies without consent banner script": "Tracking-cookies van HubSpot zonder script voor de cookiebanner",
+  "Enable the HubSpot cookie consent banner (or your CMP) and block non-essential HubSpot cookies until consent is granted.": "Zet de cookiebanner van HubSpot (of je CMP) aan en blokkeer niet-noodzakelijke cookies van HubSpot tot er toestemming is.",
+  "HubSpot site missing Content-Security-Policy": "HubSpot-site zonder Content-Security-Policy",
+  "HubSpot assets are loaded without a CSP. XSS impact is higher on marketing CMS pages with forms and chat widgets.": "Bestanden van HubSpot worden zonder CSP geladen. De gevolgen van XSS zijn groter op marketingpagina's met formulieren en chatwidgets.",
+  "In HubSpot domain security settings, enable CSP (or set it at Cloudflare) allowing only required HubSpot hosts such as *.hs-scripts.com and *.hsforms.com.": "Zet in de domeinbeveiligingsinstellingen van HubSpot CSP aan (of stel het in bij Cloudflare) en sta alleen de benodigde HubSpot-hosts toe, zoals *.hs-scripts.com en *.hsforms.com.",
+  "HubSpot domain missing HSTS": "HubSpot-domein zonder HSTS",
+  "No Strict-Transport-Security header on a HubSpot-powered domain.": "Geen Strict-Transport-Security-header op een domein dat op HubSpot draait.",
+  "Enable HSTS in HubSpot domain security settings and/or Cloudflare edge rules (max-age >= 31536000).": "Zet HSTS aan in de domeinbeveiligingsinstellingen van HubSpot en/of in de edge-regels van Cloudflare (max-age >= 31536000).",
+  "HubSpot portal ID is public": "HubSpot-portal-ID is openbaar",
+  "Expected for HubSpot tracking, but lock down form submissions, CORS, and rate limits. Review public forms for spam/abuse.": "Normaal voor tracking door HubSpot, maar beveilig formulierinzendingen, CORS en rate limits. Controleer openbare formulieren op spam en misbruik.",
+  "HubSpot forms behind Cloudflare": "HubSpot-formulieren achter Cloudflare",
+  "HubSpot forms/scripts are loaded through a Cloudflare-protected site.": "Formulieren en scripts van HubSpot worden geladen via een site die door Cloudflare wordt beschermd.",
+  "Allow HubSpot form/API endpoints in Cloudflare WAF and Bot Fight Mode exclusions if legitimate submissions are blocked (check Security → Events).": "Sta formulier- en API-endpoints van HubSpot toe in de WAF en de uitzonderingen van Bot Fight Mode van Cloudflare als legitieme inzendingen worden geblokkeerd (kijk bij Security → Events).",
+  "Cloudflare challenge on HubSpot-related paths": "Cloudflare-challenge op paden van HubSpot",
+  "Cloudflare browser/challenge pages were observed on HubSpot CMS or consent paths.": "Browser- of challengepagina's van Cloudflare gezien op CMS- of toestemmingspaden van HubSpot.",
+  "Create Cloudflare WAF/skip rules for HubSpot operational paths (/_hcms/, cookie management, form callbacks) used by trusted automation and editors.": "Maak WAF- of skip-regels in Cloudflare voor operationele paden van HubSpot (/_hcms/, cookiebeheer, formulier-callbacks) die vertrouwde automatisering en redacteuren gebruiken.",
+  "HubSpot CMS management path responds publicly": "Beheerpad van HubSpot CMS antwoordt publiek",
+  "Ensure only intended CMS routes are public. Restrict editor/admin surfaces with Cloudflare Access or HubSpot permissions.": "Zorg dat alleen bedoelde CMS-routes publiek zijn. Beperk redactie- en beheeronderdelen met Cloudflare Access of rechten in HubSpot.",
+  "Cloudflare returned access denial on HubSpot site": "Cloudflare weigerde de toegang op een HubSpot-site",
+  "Inspect Cloudflare Security Events and HubSpot domain SSL mode. False-positive WAF rules commonly break HubSpot pages, chat, and forms.": "Bekijk de Security Events van Cloudflare en de SSL-modus van het HubSpot-domein. WAF-regels met vals alarm breken vaak HubSpot-pagina's, chat en formulieren.",
+  "Could not fetch site content": "De inhoud van de site kon niet worden opgehaald",
+  "cloudflare cookies present": "Cloudflare-cookies aanwezig",
+  "InsightVM Console API not configured. Set RAPID7_CONSOLE_URL, RAPID7_USERNAME, RAPID7_PASSWORD (and Settings → Rapid7).": "Console API van InsightVM niet ingesteld. Stel RAPID7_CONSOLE_URL, RAPID7_USERNAME en RAPID7_PASSWORD in (en Instellingen → Rapid7).",
+  "InsightVM Cloud API not configured. Set RAPID7_API_KEY (optional RAPID7_CLOUD_API_BASE).": "Cloud API van InsightVM niet ingesteld. Stel RAPID7_API_KEY in (optioneel RAPID7_CLOUD_API_BASE).",
+  "Vulnerability": "Kwetsbaarheid",
+  "No registry record for this address": "Geen registryrecord voor dit adres",
+  "Not a valid IP address": "Geen geldig IP-adres",
+  "Loopback address — nothing to look up": "Loopback-adres — niets op te zoeken",
+  "Private address (RFC 1918 / ULA) — not registered anywhere": "Privéadres (RFC 1918 / ULA) — nergens geregistreerd",
+  "Link-local address — not registered anywhere": "Link-local-adres — nergens geregistreerd",
+  "Multicast address — not assigned to a network operator": "Multicastadres — niet toegewezen aan een netwerkbeheerder",
+  "Reserved address — not assigned to a network operator": "Gereserveerd adres — niet toegewezen aan een netwerkbeheerder",
+  "Bootstrap 3.x/4.0.0 tooltip/affix/collapse data-attribute XSS.": "XSS via data-attributen van tooltip/affix/collapse in Bootstrap 3.x/4.0.0.",
+  "Bootstrap <= 4.3.1 tooltip/popover data-template XSS.": "XSS via data-template van tooltip/popover in Bootstrap <= 4.3.1.",
+  "AngularJS is end-of-life (no more security patches from Google since Jan 2022) and has known sandbox-bypass XSS issues.": "AngularJS wordt niet meer ondersteund (geen beveiligingsupdates van Google meer sinds januari 2022) en heeft bekende XSS-problemen waarmee de sandbox wordt omzeild.",
+  "Lodash <= 4.17.20 is vulnerable to prototype pollution via zipObjectDeep and ReDoS via trim/pad functions.": "Lodash <= 4.17.20 is kwetsbaar voor prototype pollution via zipObjectDeep en voor ReDoS via de functies trim/pad.",
+  "Moment.js <= 2.29.3 has a ReDoS vulnerability in its user-locale parsing.": "Moment.js <= 2.29.3 heeft een ReDoS-kwetsbaarheid bij het verwerken van de taalinstelling van de gebruiker.",
+  "Handlebars <= 4.7.6 allows prototype pollution / RCE via crafted templates.": "Handlebars <= 4.7.6 maakt prototype pollution / RCE mogelijk via gemanipuleerde templates.",
+  "Underscore.js <= 1.12.0 template() function allows arbitrary JS execution via crafted input.": "De functie template() van Underscore.js <= 1.12.0 maakt willekeurige JS-uitvoering mogelijk via gemanipuleerde invoer.",
+  "Old SweetAlert versions have known XSS issues via unsanitized HTML content options.": "Oude versies van SweetAlert hebben bekende XSS-problemen via niet-opgeschoonde HTML-opties.",
+  "Prototype.js <= 1.7.3 has a DoS vulnerability via crafted regular expressions.": "Prototype.js <= 1.7.3 heeft een DoS-kwetsbaarheid via gemanipuleerde reguliere expressies.",
+  "Socket.IO client <= 2.4.0 is affected by a ReDoS vulnerability.": "De client van Socket.IO <= 2.4.0 heeft een ReDoS-kwetsbaarheid.",
+  "Generic Bearer/API secret assignment": "Algemene toewijzing van een Bearer- of API-geheim",
+  "Private Key Block": "Privésleutelblok",
+  "JWT (looks like a live token, not a template)": "JWT (lijkt een echte token, geen sjabloon)",
+  "Firebase URL with implicit database": "Firebase-URL met impliciete database"
+ },
+ "patterns": [
+  [
+   "Unescaped\\ marker\\ `(.+?)`\\ reflected\\ verbatim\\ in\\ the\\ response\\ body\\.",
+   "Niet-ge-escapete markering `$1` letterlijk teruggegeven in de inhoud van de response."
+  ],
+  [
+   "HTTP\\ (.+?)\\ redirected\\ to\\ attacker\\-controlled\\ value:\\ (.+?)",
+   "HTTP $1 verwees door naar een waarde van de aanvaller: $2"
+  ],
+  [
+   "Database\\ error\\ signature\\ triggered\\ by\\ a\\ single\\-quote\\ probe:\\ \"(.+?)\"",
+   "Kenmerk van een databasefout opgewekt door een proef met een enkel aanhalingsteken: \"$1\""
+  ],
+  [
+   "Sent\\ (.+?)\\ test\\ request\\(s\\)\\ across\\ (.+?)\\ URL\\(s\\)\\ /\\ (.+?)\\ parameter\\ target\\(s\\)\\.",
+   "$1 testverzoek(en) verstuurd over $2 URL('s) / $3 parameterdoel(en)."
+  ],
+  [
+   "Stopped\\ at\\ the\\ max_requests_per_scan\\ ceiling\\ \\((.+?)\\)\\.",
+   "Gestopt bij het maximum max_requests_per_scan ($1)."
+  ],
+  [
+   "(.+?)\\ \\(param:\\ (.+?)\\)",
+   "$1 (parameter: $2)"
+  ],
+  [
+   "Expiry\\ must\\ be\\ between\\ 1\\ and\\ (.+?)\\ days",
+   "De looptijd moet tussen 1 en $1 dagen liggen"
+  ],
+  [
+   "Password\\ must\\ be\\ at\\ least\\ (.+?)\\ characters\\.",
+   "Het wachtwoord moet minstens $1 tekens hebben."
+  ],
+  [
+   "(.+?)\\ required",
+   "$1 vereist"
+  ],
+  [
+   "(.+?)\\ role\\ required\\ for\\ this\\ page\\.",
+   "Voor deze pagina is de rol $1 vereist."
+  ],
+  [
+   "(.+?)\\ certificate\\(s\\)\\ issued\\ in\\ the\\ last\\ (.+?)\\ days\\ by\\ (.+?),\\ whose\\ CAA\\ identifier\\ \\((.+?)\\)\\ is\\ not\\ in\\ this\\ domain's\\ CAA\\ record\\.\\ Either\\ the\\ record\\ was\\ added\\ after\\ the\\ certificate\\ was\\ issued,\\ or\\ a\\ certificate\\ exists\\ that\\ the\\ record\\ was\\ meant\\ to\\ prevent\\.",
+   "$1 certifica(a)t(en) uitgegeven in de afgelopen $2 dagen door $3, waarvan de CAA-aanduiding ($4) niet in het CAA-record van dit domein staat. Of het record is toegevoegd nadat het certificaat werd uitgegeven, of er bestaat een certificaat dat het record juist moest voorkomen."
+  ],
+  [
+   "CAA\\ allows:\\ (.+?)",
+   "CAA staat toe: $1"
+  ],
+  [
+   "(.+?)\\ —\\ the\\ key\\ was\\ rejected\\ by\\ AlienVault\\ OTX\\.",
+   "$1 — de sleutel werd door AlienVault OTX geweigerd."
+  ],
+  [
+   "Authenticated\\ successfully\\ as\\ (.+?)\\.",
+   "Geauthenticeerd als $1."
+  ],
+  [
+   "Missing:\\ (.+?)\\.",
+   "Ontbreekt: $1."
+  ],
+  [
+   "Console\\ API\\ request\\ failed:\\ (.+?)",
+   "Verzoek aan de Console API mislukt: $1"
+  ],
+  [
+   "(.+?)\\ —\\ the\\ Insight\\ Platform\\ API\\ key\\ was\\ rejected\\.",
+   "$1 — de API-sleutel van het Insight Platform werd geweigerd."
+  ],
+  [
+   "Cloud\\ API\\ request\\ failed:\\ (.+?)",
+   "Verzoek aan de Cloud API mislukt: $1"
+  ],
+  [
+   "Test\\ crashed:\\ (.+?)",
+   "Test vastgelopen: $1"
+  ],
+  [
+   "Spamhaus\\ returned\\ an\\ error\\ code\\ \\((.+?)\\)\\ —\\ the\\ key\\ is\\ likely\\ invalid,\\ disabled,\\ or\\ over\\ quota,\\ not\\ a\\ real\\ DNSBL\\ result\\.",
+   "Spamhaus gaf een foutcode ($1) — de sleutel is waarschijnlijk ongeldig, uitgeschakeld of over zijn quotum, geen echt DNSBL-resultaat."
+  ],
+  [
+   "Test\\ entry\\ \\(127\\.0\\.0\\.2\\)\\ correctly\\ reported\\ as\\ listed\\ \\((.+?)\\)\\ —\\ the\\ key\\ works\\.",
+   "Testadres (127.0.0.2) correct als vermeld gemeld ($1) — de sleutel werkt."
+  ],
+  [
+   "DNS\\ query\\ failed:\\ (.+?)",
+   "DNS-vraag mislukt: $1"
+  ],
+  [
+   "Unexpected\\ response:\\ query_status=(.+?)",
+   "Onverwacht antwoord: query_status=$1"
+  ],
+  [
+   "Request\\ failed:\\ (.+?)",
+   "Verzoek mislukt: $1"
+  ],
+  [
+   "crt\\.sh\\ returned\\ HTTP\\ (.+?)",
+   "crt.sh gaf HTTP $1"
+  ],
+  [
+   "crt\\.sh\\ request\\ failed:\\ (.+?)",
+   "Verzoek aan crt.sh mislukt: $1"
+  ],
+  [
+   "No\\ reachable\\ nameservers\\ found\\ for\\ (.+?)",
+   "Geen bereikbare nameservers gevonden voor $1"
+  ],
+  [
+   "Query\\ failed:\\ (.+?)",
+   "Vraag mislukt: $1"
+  ],
+  [
+   "Unknown\\ resolver\\(s\\):\\ (.+?)",
+   "Onbekende resolver(s): $1"
+  ],
+  [
+   "(.+?)\\ is\\ not\\ a\\ valid\\ DNS\\ name",
+   "$1 is geen geldige DNS-naam"
+  ],
+  [
+   "(.+?)\\ is\\ not\\ a\\ supported\\ record\\ type\\.\\ Zone\\ transfers\\ and\\ ANY\\ are\\ deliberately\\ not\\ offered\\.",
+   "$1 is geen ondersteund recordtype. Zoneoverdracht en ANY worden bewust niet aangeboden."
+  ],
+  [
+   "Unknown\\ resolver\\ (.+?)\\.\\ Choose\\ one\\ of:\\ (.+?)",
+   "Onbekende resolver $1. Kies uit: $2"
+  ],
+  [
+   "DNS\\ lookup\\ failed:\\ (.+?)",
+   "DNS-opzoeking mislukt: $1"
+  ],
+  [
+   "HTTPS\\ fetch\\ failed:\\ (.+?)",
+   "Ophalen via HTTPS mislukt: $1"
+  ],
+  [
+   "(.+?)\\ returned\\ (.+?)\\ without\\ the\\ token",
+   "$1 gaf $2 zonder de token"
+  ],
+  [
+   "(.+?)\\ is\\ not\\ verified\\ as\\ yours,\\ so\\ no\\ login\\ attempts\\ or\\ attack\\ probes\\ were\\ sent\\.\\ Verify\\ it\\ under\\ Admin\\ →\\ Verified\\ domains\\ \\(a\\ DNS\\ TXT\\ record\\ or\\ a\\ file\\ under\\ /\\.well\\-known/\\)\\.",
+   "$1 is niet als jouw domein geverifieerd, dus er zijn geen inlogpogingen of aanvalsproeven verstuurd. Verifieer het onder Beheer → Geverifieerde domeinen (een DNS-TXT-record of een bestand onder /.well-known/)."
+  ],
+  [
+   "The\\ ownership\\ proof\\ for\\ (.+?)\\ has\\ expired,\\ so\\ no\\ active\\ tests\\ were\\ sent\\.\\ Re\\-check\\ it\\ under\\ Admin\\ →\\ Verified\\ domains\\.",
+   "Het bewijs van eigenaarschap voor $1 is verlopen, dus er zijn geen actieve tests verstuurd. Controleer het opnieuw onder Beheer → Geverifieerde domeinen."
+  ],
+  [
+   "(.+?)\\ is\\ not\\ an\\ e\\-mail\\ address",
+   "$1 is geen e-mailadres"
+  ],
+  [
+   "At\\ most\\ (.+?)\\ addresses\\ per\\ unit",
+   "Hoogstens $1 adressen per eenheid"
+  ],
+  [
+   "At\\ most\\ (.+?)\\ domains\\ in\\ the\\ portfolio",
+   "Hoogstens $1 domeinen in het portfolio"
+  ],
+  [
+   "At\\ most\\ (.+?)\\ domains\\ in\\ the\\ portfolio\\ \\((.+?)\\ now,\\ (.+?)\\ new\\ in\\ this\\ import\\)",
+   "Hoogstens $1 domeinen in het portfolio ($2 nu, $3 nieuw in deze import)"
+  ],
+  [
+   "(.+?)\\ is\\ no\\ longer\\ registered\\ \\(was:\\ (.+?)\\)\\.",
+   "$1 is niet meer geregistreerd (was: $2)."
+  ],
+  [
+   "(.+?)\\ went\\ into\\ quarantine\\.\\ Only\\ the\\ holder\\ can\\ restore\\ it\\ until\\ then\\.",
+   "$1 is in quarantaine gegaan. Tot dan kan alleen de houder het herstellen."
+  ],
+  [
+   "(.+?)\\ went\\ into\\ quarantine;\\ released\\ from\\ (.+?)\\.\\ Only\\ the\\ holder\\ can\\ restore\\ it\\ until\\ then\\.",
+   "$1 is in quarantaine gegaan; vrijgegeven vanaf $2. Tot dan kan alleen de houder het herstellen."
+  ],
+  [
+   "(.+?)\\ changed\\ registrar:\\ (.+?)\\ \\->\\ (.+?)\\.",
+   "$1 veranderde van registrar: $2 -> $3."
+  ],
+  [
+   "(.+?)\\ changed\\ reseller:\\ (.+?)\\ \\->\\ (.+?)\\.",
+   "$1 veranderde van reseller: $2 -> $3."
+  ],
+  [
+   "(.+?)\\ has\\ new\\ name\\ servers:\\ (.+?)\\ \\(was\\ (.+?)\\)\\.",
+   "$1 heeft nieuwe nameservers: $2 (was $3)."
+  ],
+  [
+   "(.+?)\\ has\\ expired\\ \\((.+?)\\)\\.",
+   "$1 is verlopen ($2)."
+  ],
+  [
+   "(.+?)\\ expires\\ in\\ (.+?)\\ days\\ \\((.+?)\\)\\.",
+   "$1 verloopt over $2 dagen ($3)."
+  ],
+  [
+   "(.+?)\\ expires\\ in\\ 1\\ day\\ \\((.+?)\\)\\.",
+   "$1 verloopt over 1 dag ($2)."
+  ],
+  [
+   "(.+?):\\ (.+?)\\ \\->\\ (.+?)\\.",
+   "$1: $2 -> $3."
+  ],
+  [
+   "At\\ most\\ (.+?)\\ domains\\ on\\ the\\ watchlist",
+   "Hoogstens $1 gewenste domeinen"
+  ],
+  [
+   "(.+?)\\ is\\ available\\ to\\ register\\ now\\.",
+   "$1 is nu vrij om te registreren."
+  ],
+  [
+   "(.+?)\\ was\\ registered\\ again\\ on\\ (.+?)\\ —\\ by\\ someone\\ else\\.",
+   "$1 is op $2 opnieuw geregistreerd — door iemand anders."
+  ],
+  [
+   "(.+?)\\ is\\ registered\\ again\\ \\(restored\\ by\\ the\\ holder\\)\\.",
+   "$1 is weer geregistreerd (hersteld door de houder)."
+  ],
+  [
+   "(.+?)\\ went\\ into\\ quarantine\\.",
+   "$1 is in quarantaine gegaan."
+  ],
+  [
+   "(.+?)\\ went\\ into\\ quarantine;\\ released\\ from\\ (.+?)\\.",
+   "$1 is in quarantaine gegaan; vrijgegeven vanaf $2."
+  ],
+  [
+   "HubSpot\\ cookies\\ seen\\ \\((.+?)\\)\\ but\\ js\\.hs\\-banner\\.com\\ was\\ not\\ loaded\\.",
+   "Cookies van HubSpot gezien ($1), maar js.hs-banner.com werd niet geladen."
+  ],
+  [
+   "Portal\\ ID\\(s\\)\\ visible\\ in\\ page\\ scripts:\\ (.+?)\\.",
+   "Portal-ID('s) zichtbaar in paginascripts: $1."
+  ],
+  [
+   "/_hcms/\\ returned\\ HTTP\\ (.+?)\\.",
+   "/_hcms/ gaf HTTP $1."
+  ],
+  [
+   "Final\\ HTTP\\ status\\ (.+?)\\ with\\ both\\ Cloudflare\\ and\\ HubSpot\\ signals\\ present\\.",
+   "Eindstatus HTTP $1 met signalen van zowel Cloudflare als HubSpot."
+  ],
+  [
+   "Registry\\ did\\ not\\ respond\\ within\\ (.+?)s",
+   "De registry antwoordde niet binnen $1s"
+  ]
+ ]
+}

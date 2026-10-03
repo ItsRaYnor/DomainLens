@@ -1,0 +1,182 @@
+# Check results and API messages produced in app.py.
+Cipher order check is not applicable when only Good/Sufficient suites are offered.	De controle op cipher-volgorde is niet van toepassing als alleen Goede/Voldoende suites worden aangeboden.
+No Good/Sufficient TLS 1.2 suites available to prefer over phase-out/insufficient suites.	Geen Goede/Voldoende TLS 1.2-suites beschikbaar om voorrang te geven boven uit te faseren/onvoldoende suites.
+Server preferred {} ({}) over {} ({}). The server is not enforcing a security-descending cipher suite order (internet.nl / NCSC).	De server gaf voorkeur aan {} ({}) boven {} ({}). De server dwingt geen volgorde van cipher suites af die aflopend op veiligheid is (internet.nl / NCSC).
+No pairwise cipher negotiations succeeded	Geen enkele onderhandeling tussen ciphers in paren lukte
+Server prefers Good/Sufficient cipher suites over phase-out/insufficient ones.	De server geeft voorkeur aan Goede/Voldoende cipher suites boven uit te faseren/onvoldoende suites.
+TLS handshake timed out	TLS-handshake duurde te lang
+CDN/WAF blocked this probe; HSTS and security headers are inconclusive from this vantage point.	Een CDN/WAF blokkeerde deze proef; HSTS en beveiligingsheaders zijn vanaf deze plek niet vast te stellen.
+CDN/WAF returned a block from probe country {}. Headers remain inconclusive.	Een CDN/WAF blokkeerde de proef vanuit {}. De headers blijven niet vast te stellen.
+CDN geo-blocked this probe (request country {}; site may allow only NL/DE/BE). HSTS/headers are inconclusive here — verify from NL/DE/BE or internet.nl.	Het CDN blokkeerde deze proef op locatie (land van het verzoek {}; de site staat mogelijk alleen NL/DE/BE toe). HSTS en headers zijn hier niet vast te stellen — controleer vanuit NL/DE/BE of met internet.nl.
+Certificate not trusted	Certificaat niet vertrouwd
+TLS 1.0 supported (deprecated)	TLS 1.0 ondersteund (verouderd)
+TLS 1.1 supported (deprecated)	TLS 1.1 ondersteund (verouderd)
+Neither TLS 1.2 nor 1.3 supported	TLS 1.2 en 1.3 worden geen van beide ondersteund
+TLS 1.3 not supported	TLS 1.3 niet ondersteund
+No forward secrecy	Geen forward secrecy
+TLS compression enabled (CRIME vulnerable)	TLS-compressie ingeschakeld (kwetsbaar voor CRIME)
+No OCSP stapling	Geen OCSP-stapling
+HSTS not set	HSTS niet ingesteld
+HSTS could not be verified (HTTP probe blocked)	HSTS kon niet worden gecontroleerd (HTTP-proef geblokkeerd)
+Signature-hash check applies to TLS 1.2 only; TLS 1.2 not offered.	De controle op handtekening-hashes geldt alleen voor TLS 1.2; TLS 1.2 wordt niet aangeboden.
+Endpoint unreachable or TLS 1.2 probe failed from this scanner	Endpoint onbereikbaar of TLS 1.2-proef mislukt vanaf deze scanner
+Server accepts insufficient signature hash(es) for TLS 1.2 key exchange: {}. NCSC §3.3.5 / RFC 9155 rate SHA-1 (and MD5) as Insufficient; allow only SHA-256/384/512 (SignatureAlgorithms).	De server accepteert onvoldoende handtekening-hash(es) voor de sleuteluitwisseling in TLS 1.2: {}. NCSC §3.3.5 / RFC 9155 beoordelen SHA-1 (en MD5) als Onvoldoende; sta alleen SHA-256/384/512 toe (SignatureAlgorithms).
+Server still accepts phased-out signature hash(es): {}. Prefer SHA-256/384/512 only.	De server accepteert nog uit te faseren handtekening-hash(es): {}. Gebruik bij voorkeur alleen SHA-256/384/512.
+Only Good signature hashes observed for TLS 1.2 key exchange: {}.	Alleen Goede handtekening-hashes gezien bij de sleuteluitwisseling in TLS 1.2: {}.
+Could not determine peer signing digests (openssl probe failed).	De handtekening-digests van de tegenpartij konden niet worden bepaald (openssl-proef mislukt).
+Cipher suite order prefers phase-out/insufficient over Good/Sufficient	Volgorde van cipher suites geeft voorkeur aan uit te faseren/onvoldoende boven Goed/Voldoende
+TLS 1.2 key-exchange signature accepts insufficient hash(es): {}	Handtekening bij de sleuteluitwisseling in TLS 1.2 accepteert onvoldoende hash(es): {}
+Unreadable ({})	Onleesbaar ({})
+HTTPS request failed	HTTPS-verzoek mislukt
+Azure ({})	Azure ({})
+Cloudflare (IP range)	Cloudflare (IP-bereik)
+Authentication required (401)	Authenticatie vereist (401)
+The resource requires credentials (HTTP Basic, Bearer token, API key, etc.).	De resource vereist inloggegevens (HTTP Basic, Bearer-token, API-sleutel, enz.).
+Check the WWW-Authenticate response header for the expected auth scheme and send the correct credentials.	Kijk in de response-header WWW-Authenticate welk authenticatieschema wordt verwacht en stuur de juiste inloggegevens mee.
+Method not allowed (405)	Methode niet toegestaan (405)
+The HTTP method (GET/POST/…) is not accepted for this path.	De HTTP-methode (GET/POST/…) wordt voor dit pad niet geaccepteerd.
+Check the Allow response header for accepted methods.	Kijk in de response-header Allow welke methodes worden geaccepteerd.
+Rate limited (429)	Begrensd (429)
+Too many requests. The server is throttling the client.	Te veel verzoeken. De server remt de client af.
+Check the Retry-After header. Reduce request frequency or use exponential back-off.	Kijk naar de header Retry-After. Verlaag het aantal verzoeken of gebruik exponentiële back-off.
+App-level block: {}	Blokkade in de applicatie: {}
+The header x-deny-reason: {} indicates an explicit access policy at the application or gateway layer — NOT a WAF block.	De header x-deny-reason: {} wijst op een uitdrukkelijk toegangsbeleid in de applicatie of gateway — GEEN WAF-blokkade.
+Contact the application owner to add your host/IP to the allowlist, or verify you are sending the correct Host header and authentication credentials.	Vraag de eigenaar van de applicatie je host/IP op de toegangslijst te zetten, of controleer of je de juiste Host-header en inloggegevens meestuurt.
+Azure WAF block (Front Door)	Azure WAF-blokkade (Front Door)
+Azure Front Door WAF rejected the request (Ref: {}). Body matches Azure WAF block page.	De WAF van Azure Front Door weigerde het verzoek (Ref: {}). De inhoud komt overeen met de blokkeerpagina van Azure WAF.
+Open Azure Portal → Front Door → Security policies → WAF logs. Create an exclusion rule if the block is a false positive.	Open Azure Portal → Front Door → Security policies → WAF-logs. Maak een uitzonderingsregel als de blokkade vals alarm is.
+Azure Front Door returned 403	Azure Front Door gaf 403
+Azure Front Door is in the path. The 403 may originate from WAF rules, geo-filtering, IP access rules, or a custom routing rule.	Azure Front Door zit in het pad. De 403 kan komen van WAF-regels, geofiltering, IP-toegangsregels of een eigen routeringsregel.
+Check Azure Portal: Front Door → Security → WAF policy, and Networking → Access rules / Geo-filtering.	Controleer in Azure Portal: Front Door → Security → WAF policy, en Networking → Access rules / Geo-filtering.
+Azure App Service — possible Access Restriction	Azure App Service — mogelijk een toegangsbeperking
+App Service IP-based access restrictions or EasyAuth may be blocking this request.	Toegangsbeperkingen op IP of EasyAuth in App Service blokkeren dit verzoek mogelijk.
+Azure Portal → App Service → Networking → Access Restrictions. Ensure your IP or subnet is in the allowlist.	Azure Portal → App Service → Networking → Access Restrictions. Zorg dat je IP of subnet op de toegangslijst staat.
+Cloudflare Firewall Rule block (Error 1020)	Blokkade door een Cloudflare-firewallregel (Error 1020)
+CF-Ray: {}. A Cloudflare Firewall Rule explicitly blocks this request.	CF-Ray: {}. Een Cloudflare-firewallregel blokkeert dit verzoek uitdrukkelijk.
+Contact the site owner to whitelist your IP, or check Cloudflare dashboard → Security → Events.	Vraag de eigenaar van de site je IP toe te staan, of kijk in het Cloudflare-dashboard → Security → Events.
+Cloudflare returned 403	Cloudflare gaf 403
+CF-Ray: {}. Could be a WAF rule, Page Rule, or origin returning 403.	CF-Ray: {}. Kan een WAF-regel zijn, een Page Rule, of de origin die 403 teruggeeft.
+Check Cloudflare dashboard → Security → Events for blocked requests and their rule IDs.	Kijk in het Cloudflare-dashboard → Security → Events naar geblokkeerde verzoeken en hun regel-ID's.
+Azure Application Gateway WAF block	WAF-blokkade door Azure Application Gateway
+Response body matches Azure Application Gateway WAF default block page.	De inhoud van de response komt overeen met de standaard blokkeerpagina van de WAF van Azure Application Gateway.
+Check Application Gateway WAF logs in Azure Portal. Consider adding a WAF exclusion for the blocked parameter or rule.	Bekijk de WAF-logs van Application Gateway in Azure Portal. Overweeg een WAF-uitzondering voor de geblokkeerde parameter of regel.
+403 Forbidden — no specific infrastructure indicator	403 Forbidden — geen specifieke aanwijzing over de infrastructuur
+The server rejected the request without infrastructure-specific markers. Possible causes: IP/network blocklist, missing API key or Bearer token, CORS preflight failure, misconfigured ACL.	De server weigerde het verzoek zonder kenmerken van een specifieke infrastructuur. Mogelijke oorzaken: blocklist op IP/netwerk, ontbrekende API-sleutel of Bearer-token, mislukte CORS-preflight, verkeerd ingestelde ACL.
+Try: adding standard headers (User-Agent, Accept, Authorization). Check if the endpoint requires HTTPS. Review server access logs.	Probeer: standaardheaders toevoegen (User-Agent, Accept, Authorization). Controleer of het endpoint HTTPS vereist. Bekijk de toegangslogs van de server.
+WWW-Authenticate: {}	WWW-Authenticate: {}
+Retry-After: {} seconds.	Retry-After: {} seconden.
+script/cookie/cname fingerprint	vingerafdruk via script/cookie/cname
+cloudflare cookie	Cloudflare-cookie
+CDN geo-blocked this probe (request country {}; site may allow only NL/DE/BE). HTTPS redirect is inconclusive — verify from NL/DE/BE or internet.nl.	Het CDN blokkeerde deze proef op locatie (land van het verzoek {}; de site staat mogelijk alleen NL/DE/BE toe). De HTTPS-doorverwijzing is niet vast te stellen — controleer vanuit NL/DE/BE of met internet.nl.
+HTTP probe blocked by CDN/WAF; HTTPS redirect could not be verified.	HTTP-proef geblokkeerd door CDN/WAF; de HTTPS-doorverwijzing kon niet worden gecontroleerd.
+Rapid7 correlation disabled in settings	Koppeling met Rapid7 staat uit in de instellingen
+TLS deep scan required for NCSC assessment	Een diepe TLS-scan is nodig voor de NCSC-beoordeling
+{} is not a resolvable record type here	{} is hier geen opvraagbaar recordtype
+{} record for {} disappeared (now {})	{}-record voor {} verdwenen (nu {})
+{} record for {} reappeared	{}-record voor {} weer verschenen
+{} record for {} changed value	{}-record voor {} heeft een andere waarde
+Baseline created for {}	Beginpunt vastgelegd voor {}
+Observed changes for {}	Wijzigingen gezien voor {}
+{} is now listed on a DNS blacklist	{} staat nu op een DNS-blacklist
+{} accepts weak/default credentials	{} accepteert zwakke of standaardinloggegevens
+{} TLS grade regressed from {} to {}	TLS-cijfer van {} gedaald van {} naar {}
+No changes detected for {}	Geen wijzigingen gevonden voor {}
+Monitor target is not a valid public domain	Het doel van de monitor is geen geldig publiek domein
+Too many lookups in a short time. Wait a moment.	Te veel opzoekingen in korte tijd. Wacht even.
+Target resolves to a private IP address	Het doel wijst naar een privé-IP-adres
+Invalid domain name. Use format: example.com	Ongeldige domeinnaam. Gebruik de vorm: example.com
+Unknown or expired batch	Onbekende of verlopen batch
+No valid domain names in the input	Geen geldige domeinnamen in de invoer
+Not on the watchlist	Staat niet bij de gewenste domeinen
+An internal error occurred	Er is een interne fout opgetreden
+Invalid unit	Ongeldige eenheid
+Upload an .xlsx workbook; paste CSV or text instead	Upload een .xlsx-werkmap; plak anders CSV of tekst
+The workbook is larger than 5 MB	De werkmap is groter dan 5 MB
+This file could not be read as an Excel workbook	Dit bestand kon niet worden gelezen als Excel-werkmap
+Unknown parent unit	Onbekende bovenliggende eenheid
+Unknown unit	Onbekende eenheid
+Choose the unit to merge into	Kies de eenheid om in samen te voegen
+ids must be numbers	ids moeten getallen zijn
+Unknown action	Onbekende actie
+Not in the portfolio	Staat niet in het portfolio
+Invalid domain	Ongeldig domein
+Now monitoring {}.	{} wordt nu gemonitord.
+Now monitoring {} hostnames.	{} hostnamen worden nu gemonitord.
+Hidden	Verborgen
+Shown again	Weer getoond
+{}: {} hostname under {}.	{}: {} hostnaam onder {}.
+{}: {} hostnames under {}.	{}: {} hostnamen onder {}.
+not on the allowlist	niet op de toegangslijst
+assertion rejected	assertion geweigerd
+Current password is incorrect.	Het huidige wachtwoord klopt niet.
+New passwords do not match.	De nieuwe wachtwoorden komen niet overeen.
+MFA is disabled on this instance.	MFA staat uit op deze installatie.
+Invalid MFA code. Try again.	Ongeldige MFA-code. Probeer het opnieuw.
+MFA is required and cannot be disabled.	MFA is verplicht en kan niet worden uitgeschakeld.
+Password required to disable MFA.	Wachtwoord vereist om MFA uit te schakelen.
+Valid MFA code required to disable.	Een geldige MFA-code is vereist om uit te schakelen.
+Unknown API key	Onbekende API-sleutel
+This key is set via an environment variable and cannot be changed here. Remove it from the environment first.	Deze sleutel is ingesteld via een omgevingsvariabele en kan hier niet worden gewijzigd. Haal hem eerst uit de omgeving.
+Could not store the key	De sleutel kon niet worden opgeslagen
+Unknown test target	Onbekend testdoel
+Invalid JSON body	Ongeldige JSON-inhoud
+Unsupported locale	Niet-ondersteunde taal
+Email is required.	E-mail is verplicht.
+A user with that email already exists.	Er bestaat al een gebruiker met dat e-mailadres.
+You cannot disable your own account.	Je kunt je eigen account niet uitschakelen.
+User not found.	Gebruiker niet gevonden.
+Unknown role.	Onbekende rol.
+You cannot remove your own admin role.	Je kunt je eigen beheerdersrol niet weghalen.
+You cannot delete your own account.	Je kunt je eigen account niet verwijderen.
+Appearance is set centrally on this instance	De weergave wordt op deze installatie centraal ingesteld
+Unknown theme	Onbekend thema
+Accent must be a hex colour like #5b8def	De accentkleur moet een hexkleur zijn, zoals #5b8def
+Nothing to set	Niets in te stellen
+Both {}_from and {}_to are required	Zowel {}_from als {}_to is verplicht
+{} is not a date in YYYY-MM-DD form	{} is geen datum in de vorm JJJJ-MM-DD
+Period {} ends before it starts	Periode {} eindigt voordat ze begint
+Enter a valid domain to compare	Voer een geldig domein in om te vergelijken
+Unknown group	Onbekende eenheid
+Invalid domain filter	Ongeldig domeinfilter
+Rate limit exceeded. Try again later.	Limiet bereikt. Probeer het later opnieuw.
+Rapid7 import is disabled in settings	Importeren uit Rapid7 staat uit in de instellingen
+Missing file field (file or export)	Bestandsveld ontbreekt (file of export)
+Empty file	Leeg bestand
+File too large (max 50 MB). Prefer InsightVM Console/Cloud API sync (Settings → Rapid7 → source_mode) or export only Critical/Severe.	Bestand te groot (max. 50 MB). Gebruik bij voorkeur synchronisatie via de API van InsightVM Console/Cloud (Instellingen → Rapid7 → source_mode) of exporteer alleen Critical/Severe.
+Import not found	Import niet gevonden
+Invalid import_id	Ongeldige import_id
+Unknown or expired scan job	Onbekende of verlopen scantaak
+Invalid protected domain	Ongeldig beschermd domein
+Zone import: {}	Zone-import: {}
+Enter a valid public domain name	Voer een geldige publieke domeinnaam in
+That is larger than any security.txt should be	Dat is groter dan een security.txt ooit zou moeten zijn
+Too many checks in a short time. Wait a moment.	Te veel controles in korte tijd. Wacht even.
+That is larger than any armoured key should be	Dat is groter dan een armored sleutel ooit zou moeten zijn
+Too many requests in a short time. Wait a moment.	Te veel verzoeken in korte tijd. Wacht even.
+Scan not found	Scan niet gevonden
+Pass two scan ids: a (older) and b (newer)	Geef twee scan-id's op: a (ouder) en b (nieuwer)
+One or both scans were not found	Eén of beide scans zijn niet gevonden
+Invalid request	Ongeldig verzoek
+Invalid domain or target	Ongeldig domein of doel
+Manual monitor	Handmatige monitor
+Provide a valid domain and zone_text	Geef een geldig domein en zone_text op
+Provide a valid OVH zone_name	Geef een geldige OVH-zone_name op
+OVH credentials are required	OVH-inloggegevens zijn verplicht
+Unsupported import mode	Niet-ondersteunde importmodus
+No monitorable DNS records found	Geen DNS-records gevonden om te monitoren
+Invalid monitor_id	Ongeldige monitor_id
+Monitor not found	Monitor niet gevonden
+Invalid IP	Ongeldig IP
+Invalid IP address format	Ongeldige notatie van het IP-adres
+OVHcloud API: {}	OVHcloud-API: {}
+DNSSEC could not be measured	DNSSEC kon niet worden gemeten
+DNSSEC enabled	DNSSEC ingeschakeld
+DNSSEC not fully configured	DNSSEC niet volledig ingericht
+SPF DNS lookup failed	DNS-opzoeking voor SPF mislukt
+DMARC DNS lookup failed	DNS-opzoeking voor DMARC mislukt
+MTA-STS DNS lookup failed	DNS-opzoeking voor MTA-STS mislukt
+TLS-RPT DNS lookup failed	DNS-opzoeking voor TLS-RPT mislukt
+pending delete	wordt verwijderd
+redemption period	herstelperiode
+client hold	geblokkeerd door de registrar
+server hold	geblokkeerd door de registry

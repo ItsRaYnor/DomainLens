@@ -1,0 +1,250 @@
+{
+ "text": {
+  "Looking up…": "Opzoeken…",
+  "Abuse contact": "Abuse-contact",
+  "The registry record names no abuse address. The parent range may still have one.": "Het registryrecord noemt geen abuse-adres. Het bovenliggende bereik heeft er misschien wel een.",
+  "Registry": "Registry",
+  "Range": "Bereik",
+  "Network name": "Netwerknaam",
+  "Handle": "Handle",
+  "Holder": "Houder",
+  "Registered": "Geregistreerd",
+  "Last changed": "Laatst gewijzigd",
+  "last changed": "laatst gewijzigd",
+  "Operator": "Beheerder",
+  "Hosting/datacentre": "Hosting/datacenter",
+  "Proxy/VPN": "Proxy/VPN",
+  "Reverse DNS": "Reverse DNS",
+  "No PTR record.": "Geen PTR-record.",
+  "Reputation": "Reputatie",
+  "Same name under a different top-level domain.": "Dezelfde naam onder een ander topleveldomein.",
+  "Differs from your domain by one character.": "Verschilt één teken van je domein.",
+  "Contains your domain name as part of a longer name.": "Bevat je domeinnaam als deel van een langere naam.",
+  "Collecting…": "Verzamelen…",
+  "Where to report": "Waar te melden",
+  "unknown": "onbekend",
+  "No abuse address published": "Geen abuse-adres gepubliceerd",
+  "Hosting network": "Hostingnetwerk",
+  "Similarity": "Gelijkenis",
+  "DomainLens measures and describes the resemblance. Whether that amounts to infringement is a question about your mark and their use of it, and stays yours to assert.": "DomainLens meet en beschrijft de gelijkenis. Of dat inbreuk is, is een vraag over jouw merk en hun gebruik ervan, en blijft aan jou om te stellen.",
+  "Registration": "Registratie",
+  "Created": "Aangemaakt",
+  "Updated": "Bijgewerkt",
+  "Registrant organisation": "Organisatie van de registrant",
+  "Registrant country": "Land van de registrant",
+  "Name servers": "Nameservers",
+  "Address": "Adres",
+  "Blocklisted on": "Op blocklist bij",
+  "Page fingerprint": "Vingerafdruk van de pagina",
+  "Bytes": "Bytes",
+  "What is missing": "Wat ontbreekt",
+  "Download as JSON": "Downloaden als JSON",
+  "Your own resolvers:": "Je eigen resolvers:",
+  "Edit the list": "De lijst bewerken",
+  "Query detail": "Details van de vraag",
+  "Section": "Sectie",
+  "Enter a name above first.": "Voer eerst hierboven een naam in.",
+  "Tick at least one resolver.": "Vink minstens één resolver aan.",
+  "Resolvers disagree — the change is still rolling out.": "De resolvers verschillen — de wijziging wordt nog doorgevoerd.",
+  "No verdict": "Geen oordeel",
+  "This is our reach, not their records.": "Dat ligt aan ons bereik, niet aan hun records.",
+  "Answer": "Antwoord",
+  "Seen by": "Gezien door",
+  "Dangling CNAME: target": "Dangling CNAME: doel",
+  "returns NXDOMAIN. The record is stale; claimability depends on whether the provider lets the target be re-registered.": "geeft NXDOMAIN. Het record is verouderd; of het te claimen is, hangt ervan af of de provider het doel opnieuw laat registreren.",
+  "DNSSEC validated": "DNSSEC gevalideerd",
+  "No scans yet": "Nog geen scans",
+  "Could not load recent scans": "Recente scans konden niet worden geladen",
+  "No key information": "Geen sleutelgegevens",
+  "No Encryption: field — optional in RFC 9116, so this is a choice, not a fault. Researchers have no way to encrypt a report.": "Geen veld Encryption: — optioneel in RFC 9116, dus een keuze en geen fout. Onderzoekers kunnen een melding niet versleutelen.",
+  "The Encryption: URL serves a PGP PRIVATE key. Anyone who fetched it can decrypt reports sent to this address.": "De URL bij Encryption: levert een PGP-PRIVÉSLEUTEL. Iedereen die hem heeft opgehaald, kan meldingen aan dit adres ontsleutelen.",
+  "Armoured PGP public key served.": "Armored publieke PGP-sleutel aangeboden.",
+  "Fetching security.txt…": "security.txt ophalen…",
+  "Researchers have no documented way to report a vulnerability to this domain.": "Onderzoekers hebben geen beschreven manier om een kwetsbaarheid bij dit domein te melden.",
+  "Encryption:": "Encryption:",
+  "Armoured": "Armored",
+  "Fingerprint": "Vingerafdruk",
+  "Algorithm": "Algoritme",
+  "Identities": "Identiteiten",
+  "The published key has expired. A researcher following this field cannot encrypt to it.": "De gepubliceerde sleutel is verlopen. Een onderzoeker die dit veld volgt, kan er niet naar versleutelen.",
+  "Field": "Veld",
+  "Raw file": "Ruw bestand",
+  "Paste a file first.": "Plak eerst een bestand.",
+  "this is broken": "dit is kapot",
+  "this could say more": "hier kan meer staan",
+  "Valid against RFC 9116.": "Geldig volgens RFC 9116.",
+  "Not a valid security.txt.": "Geen geldige security.txt.",
+  "Errors": "Fouten",
+  "Warnings": "Waarschuwingen",
+  "Could say more": "Kan meer zeggen",
+  "Paste a key first.": "Plak eerst een sleutel.",
+  "Reading the key…": "De sleutel lezen…",
+  "This is a PGP": "Dit is een PGP-",
+  "private": "privé",
+  "key. If it has been published anywhere, treat it as compromised: revoke it and publish only the exported public half.": "sleutel. Is hij ergens gepubliceerd, beschouw hem dan als gecompromitteerd: trek hem in en publiceer alleen de geëxporteerde publieke helft.",
+  "gpg read this key.": "gpg kon deze sleutel lezen.",
+  "gpg could not read this key": "gpg kon deze sleutel niet lezen",
+  "The private key is passphrase-protected; you will need it to use the key.": "De privésleutel is beveiligd met een wachtwoordzin; die heb je nodig om de sleutel te gebruiken.",
+  "The private key has no passphrase: anyone holding the file can use it.": "De privésleutel heeft geen wachtwoordzin: iedereen die het bestand heeft, kan hem gebruiken.",
+  "Save both halves now.": "Bewaar nu beide helften.",
+  "Download public key": "Publieke sleutel downloaden",
+  "Private key": "Privésleutel",
+  "Public key": "Publieke sleutel",
+  "Enter a domain first.": "Voer eerst een domein in.",
+  "Registration is held at": "De registratie staat op",
+  "Not registered": "Niet geregistreerd",
+  "Reseller": "Reseller",
+  "Paste domain names or choose a file first.": "Plak eerst domeinnamen of kies een bestand.",
+  "Phase": "Fase",
+  "No wanted domains yet.": "Nog geen gewenste domeinen.",
+  "No changes yet.": "Nog geen wijzigingen.",
+  "Already in Wanted domains.": "Staat al in Gewenste domeinen.",
+  "details": "details",
+  "registry": "registry",
+  "Withheld": "Achtergehouden",
+  "In quarantine": "In quarantaine",
+  "Being deleted": "Wordt verwijderd",
+  "Redemption period": "Herstelperiode",
+  "Registered, not in DNS": "Geregistreerd, niet in DNS",
+  "Available to register": "Vrij om te registreren",
+  "Not looked up yet": "Nog niet opgezocht"
+ },
+ "patterns": [
+  [
+   "Registered\\ for\\ (.+?)\\.\\ This\\ is\\ the\\ party\\ that\\ can\\ act\\ on\\ the\\ content\\ hosted\\ here\\.",
+   "Geregistreerd voor $1. Dit is de partij die kan optreden tegen de inhoud die hier gehost wordt."
+  ],
+  [
+   "Listed\\ on\\ (.+?)\\ blocklist\\(s\\)",
+   "Vermeld op $1 blocklist(s)"
+  ],
+  [
+   "Not\\ listed\\ on\\ (.+?)\\ checked\\ blocklist\\(s\\)",
+   "Niet vermeld op $1 gecontroleerde blocklist(s)"
+  ],
+  [
+   "Differs\\ from\\ your\\ domain\\ by\\ (.+?)\\ characters\\.",
+   "Verschilt $1 tekens van je domein."
+  ],
+  [
+   "Edit\\ distance\\ (.+?),\\ similarity\\ (.+?)%\\.",
+   "Bewerkingsafstand $1, gelijkenis $2%."
+  ],
+  [
+   "Observed\\ at\\ (.+?)\\ by\\ DomainLens\\ (.+?)\\.",
+   "Waargenomen op $1 door DomainLens $2."
+  ],
+  [
+   "Asking\\ (.+?)\\ resolvers…",
+   "$1 resolvers bevragen…"
+  ],
+  [
+   "All\\ (.+?)\\ resolvers\\ that\\ answered\\ agree\\.",
+   "Alle $1 resolvers die antwoordden, zijn het eens."
+  ],
+  [
+   "Not\\ enough\\ resolvers\\ answered\\ \\((.+?)\\)\\ to\\ compare\\.",
+   "Te weinig resolvers antwoordden ($1) om te vergelijken."
+  ],
+  [
+   "Could\\ not\\ be\\ measured:\\ (.+?)\\.",
+   "Kon niet worden gemeten: $1."
+  ],
+  [
+   "·\\ TTL\\ (.+?)s",
+   "· TTL $1s"
+  ],
+  [
+   "·\\ (.+?)\\ ms",
+   "· $1 ms"
+  ],
+  [
+   "returns\\ NXDOMAIN\\.\\ It\\ is\\ a\\ (.+?)\\ name\\ that\\ a\\ third\\ party\\ cannot\\ re\\-register\\ —\\ a\\ stale\\ record\\ to\\ clean\\ up,\\ not\\ a\\ claimable\\ takeover\\.",
+   "geeft NXDOMAIN. Het is een naam van $1 die een derde niet opnieuw kan registreren — een verouderd record om op te ruimen, geen overname die iemand kan claimen."
+  ],
+  [
+   "(.+?)\\ does\\ not\\ exist",
+   "$1 bestaat niet"
+  ],
+  [
+   "(.+?)\\ exists\\ but\\ has\\ no\\ (.+?)\\ record",
+   "$1 bestaat, maar heeft geen $2-record"
+  ],
+  [
+   "TTL\\ (.+?)s",
+   "TTL $1s"
+  ],
+  [
+   "(.+?)\\ ms",
+   "$1 ms"
+  ],
+  [
+   "authoritative\\ for\\ (.+?)",
+   "gezaghebbend voor $1"
+  ],
+  [
+   "Could\\ not\\ be\\ checked:\\ (.+?)\\.\\ That\\ is\\ our\\ reach,\\ not\\ their\\ records\\.",
+   "Kon niet worden gecontroleerd: $1. Dat ligt aan ons bereik, niet aan hun records."
+  ],
+  [
+   "The\\ URL\\ does\\ not\\ serve\\ a\\ PGP\\ public\\ key:\\ (.+?)",
+   "De URL levert geen publieke PGP-sleutel: $1"
+  ],
+  [
+   "No\\ security\\.txt\\ at\\ (.+?)",
+   "Geen security.txt op $1"
+  ],
+  [
+   "No\\ security\\.txt\\ at\\ (.+?)\\ \\(HTTP\\ (.+?)\\)",
+   "Geen security.txt op $1 (HTTP $2)"
+  ],
+  [
+   "security\\.txt\\ found\\ at\\ (.+?)",
+   "security.txt gevonden op $1"
+  ],
+  [
+   "(.+?)\\ —\\ expired",
+   "$1 — verlopen"
+  ],
+  [
+   "The\\ key\\ was\\ fetched\\ but\\ could\\ not\\ be\\ read:\\ (.+?)",
+   "De sleutel is opgehaald, maar kon niet worden gelezen: $1"
+  ],
+  [
+   "Released\\ from\\ (.+?)",
+   "Vrijgegeven vanaf $1"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ done",
+   "$1 van $2 klaar"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ done\\ —\\ at\\ most\\ (\\d[\\d.,]*)\\ min\\ to\\ go",
+   "$1 van $2 klaar — nog hoogstens $3 min"
+  ],
+  [
+   "Stopped\\ after\\ (\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\.",
+   "Gestopt na $1 van $2."
+  ],
+  [
+   "The\\ batch\\ stopped:\\ (.+?)",
+   "De batch is gestopt: $1"
+  ],
+  [
+   "Done:\\ (.+?)\\ domains\\.",
+   "Klaar: $1 domeinen."
+  ],
+  [
+   "Skipped,\\ not\\ a\\ domain\\ name:\\ (.+?)",
+   "Overgeslagen, geen domeinnaam: $1"
+  ],
+  [
+   "Last\\ lookup:\\ (.+?)",
+   "Laatste opzoeking: $1"
+  ],
+  [
+   "Watching\\ (.+?)\\ under\\ Monitoring\\ →\\ Wanted\\ domains",
+   "$1 wordt gevolgd onder Monitoring → Gewenste domeinen"
+  ]
+ ]
+}

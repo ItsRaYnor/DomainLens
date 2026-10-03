@@ -171,7 +171,7 @@
     },
     "general": {
       "locale": "Taal",
-      "locale_warning": "Engels is volledig. Nederlands vertaalt de menu's en delen van de scan- en beheerpagina's; de meeste andere pagina's, waaronder monitoring, organisatie en rapportages, blijven Engels, dus met Nederlands lopen beide talen door elkaar.",
+      "locale_warning": "De interface is volledig beschikbaar in het Engels en het Nederlands. Gegevens die van buiten komen, zoals registryantwoorden, headers en namen van cipher suites, blijven zoals ze binnenkomen. Exports, e-mails en meldingen zijn Engels.",
       "app_title": "Applicatietitel",
       "app_subtitle": "Ondertitel",
       "public_url": "Publieke basis-URL (ServiceNow → DomainLens-links)"
@@ -213,7 +213,7 @@
     },
     "weak_auth": {
       "enabled": "Zwakke-auth scan inschakelen",
-      "warning": "Alleen inschakelen voor systemen die u mag testen.",
+      "warning": "Alleen inschakelen voor systemen die je mag testen.",
       "max_attempts": "Max pogingen per scan",
       "delay_seconds": "Pauze tussen pogingen (seconden)",
       "timeout_seconds": "HTTP-timeout (seconden)",
@@ -225,7 +225,7 @@
     },
     "active_scan": {
       "enabled": "Actieve kwetsbaarhedenscan inschakelen",
-      "warning": "Stuurt live XSS/open-redirect/SQL-injectie testverzoeken. Alleen inschakelen voor systemen die u mag testen.",
+      "warning": "Stuurt live XSS/open-redirect/SQL-injectie testverzoeken. Alleen inschakelen voor systemen die je mag testen.",
       "max_requests": "Max verzoeken per scan",
       "max_pages": "Max gecrawlde pagina's",
       "delay_seconds": "Pauze tussen verzoeken (seconden)",
@@ -386,7 +386,7 @@
   },
   "weak_auth_ui": {
     "title": "Zwakke / standaard authenticatie",
-    "hint": "Alleen inschakelen voor systemen die u mag testen.",
+    "hint": "Alleen inschakelen voor systemen die je mag testen.",
     "not_selected": "Zwakke-auth check niet geselecteerd.",
     "disabled": "Uitgeschakeld in instellingen (weak_auth.enabled=false)."
   },

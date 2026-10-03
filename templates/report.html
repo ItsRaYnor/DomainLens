@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en"{{ theme_attr }}>
+<html lang="{{ locale }}"{{ theme_attr }}>
 <head>
     <meta charset="UTF-8">
     <title>DomainLens {{ t('report.title') }} - {{ scan.domain }}</title>
     <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
     <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
     <link rel="stylesheet" href="/static/css/report.css?v={{ asset_token }}">
+    <script src="/static/js/translate.js?v={{ asset_token }}"></script>
 </head>
 <body>
     <header class="report-header">

@@ -77,3 +77,24 @@ def resolve_locale(request=None, user=None, settings_general: dict | None = None
 
 def supported_locales():
     return sorted(_SUPPORTED)
+
+
+_UI_DIR = Path(__file__).resolve().parent / "nl_ui"
+
+
+@lru_cache(maxsize=1)
+def ui_catalogue() -> dict:
+    """The Dutch catalogue for what the browser shows, keyed by English text.
+
+    Kept in several files by area (pages, monitoring, findings, ...) and
+    merged here. A key defined twice must mean the same thing; the later
+    file wins, in name order.
+    """
+    merged = {"text": {}, "blocks": {}, "patterns": []}
+    for path in sorted(_UI_DIR.glob("*.json")):
+        with path.open("r", encoding="utf-8") as handle:
+            part = json.load(handle)
+        merged["text"].update(part.get("text") or {})
+        merged["blocks"].update(part.get("blocks") or {})
+        merged["patterns"].extend(part.get("patterns") or [])
+    return merged
