@@ -45,6 +45,11 @@ _run_lock = threading.Lock()
 
 EXPIRY_WARN_DAYS = (30, 7)      # one notification at each threshold per term
 _SOON = timedelta(days=30)
+# A domain to request or claim is looked up every minute from just before
+# the published release moment until well after it (SIDN releases within
+# an hour), so "free now" is known within a minute, not within the hour.
+_RELEASE_BEFORE = timedelta(minutes=5)
+_RELEASE_AFTER = timedelta(minutes=75)
 
 PHASE_TEXT = {
     "registered": "Registered",
@@ -156,6 +161,7 @@ def init_schema(conn):
         )
         """
     )
+    _adopt_watchlist(conn)
 
 
 _DOMAIN_COLUMNS = {
@@ -173,6 +179,47 @@ def _migrate_domains(conn):
     for name, kind in _DOMAIN_COLUMNS.items():
         if name not in columns:
             conn.execute(f"ALTER TABLE portfolio_domains ADD COLUMN {name} {kind}")
+
+
+def _adopt_watchlist(conn):
+    """Wanted domains were a list of their own (domain_watch); they are
+    portfolio domains with the decision "request or claim" now. Each row is
+    moved once, with its last answer and its history, and marked, so one
+    removed from the portfolio afterwards stays removed. A domain the
+    portfolio already has keeps the decision it has there."""
+    tables = {r["name"] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+    if "watched_domains" not in tables:
+        return
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(watched_domains)").fetchall()}
+    if "moved_to_portfolio_at" not in columns:
+        conn.execute("ALTER TABLE watched_domains ADD COLUMN moved_to_portfolio_at TEXT")
+    rows = conn.execute("SELECT * FROM watched_domains WHERE moved_to_portfolio_at IS NULL").fetchall()
+    if not rows:
+        return
+    present = {r["domain"] for r in conn.execute("SELECT domain FROM portfolio_domains").fetchall()}
+    stamp = _now().isoformat()
+    for row in rows:
+        domain = registrable(str(row["domain"]).lower())
+        if domain not in present:
+            phase = {"available": "not_registered"}.get(row["phase"], row["phase"])
+            if phase not in PHASE_TEXT:
+                phase = "unmeasured"
+            answered = phase != "unmeasured" and not row["last_error"]
+            conn.execute(
+                "INSERT INTO portfolio_domains (domain, note, created_by, created_at, phase, status, "
+                "registered_on, released_from, last_checked_at, last_ok_at, last_error, last_change_at, "
+                "lifecycle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'claim')",
+                (domain, row["note"], row["created_by"], row["created_at"], phase,
+                 row["status"] or "[]", row["registered_on"], row["released_from"],
+                 row["last_checked_at"], row["last_checked_at"] if answered else None,
+                 row["last_error"], row["last_change_at"]))
+            for event in conn.execute("SELECT at, detail FROM watched_domain_events WHERE domain = ? "
+                                      "ORDER BY id", (row["domain"],)).fetchall():
+                conn.execute("INSERT INTO portfolio_events (domain, at, kind, detail) VALUES (?, ?, 'phase', ?)",
+                             (domain, event["at"], event["detail"]))
+            present.add(domain)
+        conn.execute("UPDATE watched_domains SET moved_to_portfolio_at = ? WHERE id = ?", (stamp, row["id"]))
 
 
 def _now():
@@ -775,16 +822,23 @@ def _apply_extras(extras):
 
 
 def import_domains(entries, *, default_group=None, default_group_id=None, created_by=None,
-                   extras=None):
+                   extras=None, default_lifecycle=None, note=None):
     """Add or regroup domains. Returns counts and the names that changed.
 
     A group is a unit path ("Org X > Sales"); missing levels are created. A
     domain already in the portfolio is moved to the unit the import names
     for it; one imported without a unit keeps the unit it has. `extras`
     (from parse_import_full) sets a decision, contact or threat intelligence.
+    `default_lifecycle` is the decision for domains new to the portfolio; one
+    already there keeps its own unless the sheet names another.
     """
     if default_group_id is not None and not get_group(default_group_id):
         raise ValueError("Unknown unit")
+    if default_lifecycle in (None, ""):
+        default_lifecycle = DEFAULT_LIFECYCLE
+    if default_lifecycle not in LIFECYCLE_TEXT:
+        raise ValueError("Unknown decision")
+    note = " ".join(str(note or "").split())[:200] or None
     with db._connect() as conn:
         existing = {r["domain"]: dict(r) for r in
                     conn.execute("SELECT id, domain, group_id FROM portfolio_domains").fetchall()}
@@ -801,8 +855,9 @@ def import_domains(entries, *, default_group=None, default_group_id=None, create
             group_id = ensure_path(group, conn) if group else default_id
             current = existing.get(domain)
             if current is None:
-                conn.execute("INSERT INTO portfolio_domains (domain, group_id, created_by, created_at) "
-                             "VALUES (?, ?, ?, ?)", (domain, group_id, created_by, now))
+                conn.execute("INSERT INTO portfolio_domains (domain, group_id, created_by, created_at, "
+                             "lifecycle, note) VALUES (?, ?, ?, ?, ?, ?)",
+                             (domain, group_id, created_by, now, default_lifecycle, note))
                 added.append(domain)
             elif group_id is not None and group_id != current["group_id"]:
                 conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE id = ?",
@@ -827,6 +882,19 @@ def remove(domain_ids):
     with db._lock, db._connect() as conn:
         return sum(conn.execute("DELETE FROM portfolio_domains WHERE id = ?", (i,)).rowcount
                    for i in ids)
+
+
+def add_wanted(domains, *, note=None, created_by=None):
+    """Domains to request or claim -- from WHOIS, or the former watchlist's
+    API. Returns (added, already in the portfolio); one already there keeps
+    the decision it has, so a held domain is never turned into a wanted one."""
+    names = list(dict.fromkeys(registrable(str(d).lower()) for d in domains))
+    with db._connect() as conn:
+        present = {r["domain"] for r in conn.execute("SELECT domain FROM portfolio_domains").fetchall()}
+    new = [(d, None) for d in names if d not in present]
+    result = import_domains(new, created_by=created_by, default_lifecycle="claim", note=note) if new \
+        else {"added": []}
+    return result["added"], [d for d in names if d in present]
 
 
 def set_lifecycle(domain_ids, value):
@@ -948,6 +1016,8 @@ def _enrich(row, groups, today=None, people=None):
         flags.append("move")
     if out["threat_intel_state"] == "missing":
         flags.append("intel")
+    if out["lifecycle"] == "claim":
+        flags.append("wanted")
     if out["lifecycle"] == "claim" and out["phase"] == "not_registered":
         flags.append("claimable")
     # Whether it is in use is not known yet, so whether it needs threat
@@ -987,7 +1057,7 @@ def summary(domains, groups):
         return {"total": len(items),
                 **{flag: sum(1 for d in items if flag in d["flags"])
                    for flag in ("attention", "expiring", "move", "unmeasured", "intel", "claimable",
-                                "use_unmeasured")}}
+                                "use_unmeasured", "wanted")}}
     per_group = []
     for g in groups:
         below = descendants(g["id"], groups)
@@ -1034,16 +1104,32 @@ def to_csv(domains):
 
 # ---------------------------------------------------------------- checking
 
+def _release_window(domain, now):
+    released = domain.get("released_from")
+    if not released:
+        return False
+    try:
+        at = datetime.fromisoformat(str(released).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return at - _RELEASE_BEFORE <= now <= at + _RELEASE_AFTER
+
+
 def is_due(domain, now=None):
     now = now or _now()
     if not domain.get("last_checked_at"):
         return True
     elapsed = now - datetime.fromisoformat(domain["last_checked_at"])
+    wanted = domain.get("lifecycle") == "claim"
+    if wanted and _release_window(domain, now):
+        return elapsed >= timedelta(seconds=55)
     if domain.get("last_error") or domain.get("phase") in ("quarantine", "pending_delete",
                                                            "redemption", "unmeasured"):
         return elapsed >= timedelta(hours=1)
     days = _days_left(domain.get("expires"), now.date())
-    if days is not None and days <= _SOON.days:
+    if wanted or (days is not None and days <= _SOON.days):
         return elapsed >= timedelta(hours=6)
     return elapsed >= timedelta(hours=24)
 
@@ -1118,12 +1204,26 @@ def _changes_cancelled(domain, old, new):
 
 
 def _changes_wanted(domain, old, new):
-    """A domain still to be requested or claimed: it coming free is the news."""
-    if new["phase"] == old.get("phase"):
+    """A domain still to be requested or claimed: it coming free is the news,
+    and so is it being registered again before you got to it."""
+    was = old.get("phase")
+    if new["phase"] == was:
         return []
-    before = PHASE_TEXT.get(old.get("phase"), old.get("phase"))
+    before = PHASE_TEXT.get(was, was)
     if new["phase"] == "not_registered":
         return [("phase", "high", f"{domain} is no longer registered (was: {before}): it can be requested now.")]
+    if new["phase"] == "registered" and was in ("quarantine", "pending_delete", "redemption", "not_registered"):
+        # Registered on or after the day it was released: a new holder, which
+        # may be you. Before that: the old holder restored it.
+        released = str(old.get("released_from") or new.get("released_from") or "")[:10]
+        registered_on = str(new.get("registered_on") or "")[:10]
+        if registered_on and released and registered_on >= released:
+            return [("phase", "high", f"{domain} was registered again on {registered_on} by a new holder. "
+                                      "If that was not you, it is taken.")]
+        return [("phase", "medium", f"{domain} is registered again (restored by the holder).")]
+    if new["phase"] == "quarantine":
+        when = f"; released from {new['released_from']}" if new.get("released_from") else ""
+        return [("phase", "medium", f"{domain} went into quarantine{when} (to request or claim).")]
     after = PHASE_TEXT.get(new["phase"], new["phase"])
     return [("phase", "medium", f"{domain}: {before} -> {after} (to request or claim).")]
 
@@ -1152,6 +1252,8 @@ def check(row, *, fetch=None, notify=None, now=None, probe=None):
     now = now or _now()
     if probe is None and fetch is None:
         probe = probe_usage
+    if row.get("lifecycle") == "claim":
+        probe = None        # someone else's domain: its use is not ours to measure
     result = (fetch or (lambda d: whois_batch.lookup_paced(d)))(row["domain"])
     new = _answer(result)
     stamp = now.isoformat()

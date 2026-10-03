@@ -1,20 +1,16 @@
 """Knowing the moment a wanted domain comes free, and never guessing it.
 
 A .nl domain in SIDN's quarantine showed as "pending delete" with no word on
-when it would be released, and the only way to catch the release was to
-look by hand at 02:05. The watchlist looks for you, tighter as the release
-comes closer, and tells you once per change. A failed lookup never becomes
-"available": that mistake would send someone to buy a domain still taken.
+when it would be released. These tests cover reading that from the registry
+answer; following a wanted domain until it comes free is the portfolio's
+job now (test_wanted_in_portfolio).
 """
 
 import pathlib
 import unittest
-from datetime import datetime, timedelta, timezone
-from unittest import mock
 
 import rdap
 import whois_batch
-from enterprise_harness import EnterpriseAppTestCase
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 _RELEASE = "2026-10-11T00:05:24Z"
@@ -60,71 +56,6 @@ class WhoisViewTests(unittest.TestCase):
         js = ROOT.joinpath("static", "js", "whois_view.js").read_text(encoding="utf-8")
         self.assertIn("row('Abuse contact', abuse)", js)
         self.assertIn("lifecycleBlock(r) +", js)
-
-
-class WatchTests(EnterpriseAppTestCase):
-    def setUp(self):
-        super().setUp()
-        import domain_watch
-        self.watch = domain_watch
-        self.watch.add(["gone.example.nl"])
-        self.notified = []
-
-    def _entry(self):
-        return self.watch.list_all()[0]
-
-    def _check(self, answer):
-        return self.watch.check(self._entry(), fetch=lambda d: answer,
-                                notify=lambda *a: self.notified.append(a))
-
-    def _quarantine(self):
-        return {"success": True, "status": ["pending delete"], "registered": "1999-08-24",
-                "lifecycle": {"phase": "quarantine", "released_from": _RELEASE}}
-
-    def test_the_first_answer_is_a_baseline_not_news(self):
-        self._check(self._quarantine())
-        self.assertEqual("quarantine", self._entry()["phase"])
-        self.assertEqual([], self.notified)
-
-    def test_coming_free_is_told_once(self):
-        self._check(self._quarantine())
-        self._check({"success": False, "state": "measured", "registered": False})
-        self._check({"success": False, "state": "measured", "registered": False})
-        self.assertEqual(["available"], [n[1] for n in self.notified])
-        self.assertIn("available to register now", self.notified[0][2])
-
-    def test_a_failed_lookup_is_never_available(self):
-        self._check(self._quarantine())
-        self._check({"success": False, "state": "unmeasured", "error": "timeout"})
-        entry = self._entry()
-        self.assertEqual(("quarantine", "timeout"), (entry["phase"], entry["last_error"]))
-        self.assertEqual([], self.notified)
-
-    def test_a_new_registration_after_release_is_someone_else(self):
-        self._check(self._quarantine())
-        self._check({"success": True, "status": ["active"], "registered": "2026-10-11",
-                     "lifecycle": {"phase": "registered"}})
-        self.assertIn("by someone else", self.notified[0][2])
-
-    def test_looked_up_every_minute_in_the_release_hour_only(self):
-        entry = dict(self._entry(), phase="quarantine", released_from=_RELEASE)
-        release = datetime(2026, 10, 11, 0, 5, 24, tzinfo=timezone.utc)
-        entry["last_checked_at"] = (release + timedelta(minutes=9)).isoformat()
-        self.assertTrue(self.watch.is_due(entry, release + timedelta(minutes=10)))
-        entry["last_checked_at"] = (release - timedelta(days=2, minutes=1)).isoformat()
-        self.assertFalse(self.watch.is_due(entry, release - timedelta(days=2)))
-
-    def test_an_analyst_adds_and_removes_a_domain(self):
-        self.login_as("user")
-        resp = self.client.post("/api/watchlist", json={"text": "free.example.nl\nfree.example.nl"})
-        self.assertEqual(["free.example.nl"], resp.get_json()["added"])
-        entry = next(w for w in self.watch.list_all() if w["domain"] == "free.example.nl")
-        self.assertEqual(200, self.client.delete(f"/api/watchlist/{entry['id']}").status_code)
-
-    def test_a_viewer_can_look_but_not_change_it(self):
-        self.login_as("viewer")
-        self.assertEqual(200, self.client.get("/api/watchlist").status_code)
-        self.assertEqual(403, self.client.post("/api/watchlist", json={"text": "x.example.nl"}).status_code)
 
 
 if __name__ == "__main__":

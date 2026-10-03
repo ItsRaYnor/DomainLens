@@ -88,7 +88,16 @@
   "use not measured": "gebruik niet gemeten",
   "Registration not measured": "Registratie niet gemeten",
   "registration not measured": "registratie niet gemeten",
-  "Use not measured yet (mail and web)": "Gebruik nog niet gemeten (mail en web)"
+  "Use not measured yet (mail and web)": "Gebruik nog niet gemeten (mail en web)",
+  "Wanted": "Gewenst",
+  "wanted": "gewenst",
+  "Wanted (request or claim)": "Gewenst (aanvragen of claimen)",
+  "Wanted: to request or claim": "Gewenst: aan te vragen of te claimen",
+  "Decision for new domains": "Besluit voor nieuwe domeinen",
+  "\"Request or claim\" for domains you want but do not hold: they are looked up every minute around their release.": "\"Aanvragen of claimen\" voor domeinen die je wilt hebben maar niet bezit: die worden rond hun vrijkomen elke minuut opgezocht.",
+  "Add as wanted domain": "Toevoegen als gewenst domein",
+  "Wanted domains in the portfolio": "Gewenste domeinen in de portfolio",
+  "Not a wanted domain": "Geen gewenst domein"
  },
  "patterns": [
   [
@@ -206,6 +215,34 @@
   [
    "(\\d[\\d.,]*)\\ registration\\ not\\ measured",
    "$1 registratie niet gemeten"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ wanted",
+   "$1 gewenst"
+  ],
+  [
+   "(.+?)\\ added\\ to\\ the\\ domain\\ portfolio\\ as\\ wanted\\ \\(to\\ request\\ or\\ claim\\)\\.",
+   "$1 toegevoegd aan de domeinportfolio als gewenst (aan te vragen of te claimen)."
+  ],
+  [
+   "(.+?)\\ is\\ already\\ in\\ the\\ domain\\ portfolio\\.",
+   "$1 staat al in de domeinportfolio."
+  ],
+  [
+   "(.+?)\\ was\\ registered\\ again\\ on\\ (.+?)\\ by\\ a\\ new\\ holder\\.\\ If\\ that\\ was\\ not\\ you,\\ it\\ is\\ taken\\.",
+   "$1 is op $2 opnieuw geregistreerd door een nieuwe houder. Was jij dat niet, dan is het bezet."
+  ],
+  [
+   "(.+?)\\ is\\ registered\\ again\\ \\(restored\\ by\\ the\\ holder\\)\\.",
+   "$1 is weer geregistreerd (hersteld door de houder)."
+  ],
+  [
+   "(.+?)\\ went\\ into\\ quarantine\\ \\(to\\ request\\ or\\ claim\\)\\.",
+   "$1 ging in quarantaine (aan te vragen of te claimen)."
+  ],
+  [
+   "(.+?)\\ went\\ into\\ quarantine;\\ released\\ from\\ (.+?)\\ \\(to\\ request\\ or\\ claim\\)\\.",
+   "$1 ging in quarantaine; vrij vanaf $2 (aan te vragen of te claimen)."
   ]
  ]
 }

@@ -77,20 +77,13 @@ class UnitPageTests(Case):
 
 
 class WantedDomainsTests(Case):
-    def test_wanted_domains_sit_under_monitoring_and_whois_still_adds_to_them(self):
+    def test_wanted_domains_are_in_the_portfolio_and_whois_still_adds_to_them(self):
         self.login_as("user")
-        wanted = self.client.get("/monitoring/wanted").get_data(as_text=True)
-        self.assertIn('id="watchTable"', wanted)
         whois = self.client.get("/tools/whois").get_data(as_text=True)
-        self.assertNotIn('id="watchTable"', whois)
         self.assertIn('id="whoisWatchBtn"', whois)
-        self.assertIn('href="/monitoring/wanted"', whois)
-
-    def test_the_watch_button_is_bound_without_the_list_on_the_page(self):
-        """The list moved off the WHOIS page; binding after the list check
-        would have left its button dead."""
+        self.assertIn('href="/monitoring/domains?flag=wanted"', whois)
         init = JS["lookup"][JS["lookup"].index("function initWatchlist"):]
-        self.assertLess(init.index("whoisWatchBtn"), init.index("if (!table) return"))
+        self.assertIn("addToWatchlist(watchBtn.dataset.domain", init)
 
 
 class MonitorTableTests(Case):

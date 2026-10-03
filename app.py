@@ -51,7 +51,6 @@ import whois_batch
 import contacts
 import domain_portfolio
 import management
-import domain_watch
 import maintenance
 import metrics
 import notifications
@@ -3688,8 +3687,6 @@ def _run_scheduler_digest():
     maintenance.maybe_purge()
     # Its own thread: a round of paced registry lookups must not hold up the
     # monitor scans that share this loop. maybe_run skips if one is running.
-    threading.Thread(target=domain_watch.maybe_run, daemon=True,
-                     name="domain-watch").start()
     threading.Thread(target=domain_portfolio.maybe_run, daemon=True,
                      name="domain-portfolio").start()
 
@@ -3908,10 +3905,20 @@ def api_whois_batch_csv(job_id):
         "Content-Disposition": f"attachment; filename=domainlens-whois-{job_id[:8]}.csv"})
 
 
+# The former watchlist's API. Wanted domains are portfolio domains with the
+# decision "request or claim" now; these calls keep working on them.
+def _wanted_domains():
+    return [d for d in domain_portfolio.list_all() if d["lifecycle"] == "claim"]
+
+
 @app.route("/api/watchlist", methods=["GET"])
 def api_watchlist():
-    return jsonify({"domains": domain_watch.list_all(), "events": domain_watch.events(30),
-                    "max": domain_watch.MAX_WATCHED})
+    wanted = _wanted_domains()
+    names = {d["domain"] for d in wanted}
+    domains = [{**d, "phase": "available" if d["phase"] == "not_registered" else d["phase"]}
+               for d in wanted]
+    events = [e for e in domain_portfolio.events(500) if e["domain"] in names][:30]
+    return jsonify({"domains": domains, "events": events, "max": domain_portfolio.MAX_DOMAINS})
 
 
 @app.route("/api/watchlist", methods=["POST"])
@@ -3923,32 +3930,32 @@ def api_watchlist_add():
     if not domains:
         return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
     try:
-        added, existing = domain_watch.add(domains, note=data.get("note"),
-                                           created_by=(auth.current_user() or {}).get("email"))
+        added, existing = domain_portfolio.add_wanted(
+            domains, note=data.get("note"), created_by=(auth.current_user() or {}).get("email"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    audit_log.record("watchlist.add", target_type="watchlist", details={"domains": added})
+    audit_log.record("portfolio.wanted_add", target_type="portfolio", details={"domains": added})
     return jsonify({"added": added, "already_watched": existing, "rejected": rejected[:50]}), 201
 
 
 @app.route("/api/watchlist/<int:watch_id>", methods=["DELETE"])
 @auth.require_role(roles.USER)
 def api_watchlist_remove(watch_id):
-    watch = domain_watch.get(watch_id)
-    if not watch or not domain_watch.remove(watch_id):
-        return jsonify({"error": "Not on the watchlist"}), 404
-    audit_log.record("watchlist.remove", target_type="watchlist", target_id=watch["domain"])
+    wanted = domain_portfolio.get(watch_id)
+    if not wanted or wanted["lifecycle"] != "claim" or not domain_portfolio.remove([watch_id]):
+        return jsonify({"error": "Not a wanted domain"}), 404
+    audit_log.record("portfolio.remove", target_type="portfolio", target_id=wanted["domain"])
     return jsonify({"removed": True})
 
 
 @app.route("/api/watchlist/<int:watch_id>/check", methods=["POST"])
 @auth.require_role(roles.USER)
 def api_watchlist_check(watch_id):
-    watch = domain_watch.get(watch_id)
-    if not watch:
-        return jsonify({"error": "Not on the watchlist"}), 404
-    domain_watch.check(watch)
-    return jsonify(domain_watch.get(watch_id))
+    wanted = domain_portfolio.raw(watch_id)
+    if not wanted or wanted.get("lifecycle") != "claim":
+        return jsonify({"error": "Not a wanted domain"}), 404
+    domain_portfolio.check(wanted)
+    return jsonify(domain_portfolio.get(watch_id))
 
 
 def _unit_arg(source, key="unit_id", legacy="group_id"):
@@ -4027,7 +4034,8 @@ def api_portfolio_import():
         result = domain_portfolio.import_domains(
             entries, default_group=(group or "").strip() or None,
             default_group_id=int(group_id) if group_id not in (None, "") else None,
-            created_by=(auth.current_user() or {}).get("email"), extras=extras)
+            created_by=(auth.current_user() or {}).get("email"), extras=extras,
+            default_lifecycle=(data if upload is None else request.form).get("lifecycle"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     audit_log.record("portfolio.import", target_type="portfolio",
@@ -4304,17 +4312,14 @@ _MONITORING_SUBNAV = [
     ("nav.monitoring_monitors", "/monitoring"),
     ("nav.monitoring_domains", "/monitoring/domains"),
     ("nav.monitoring_organisation", "/monitoring/organisation"),
-    ("nav.monitoring_wanted", "/monitoring/wanted"),
 ]
 
 
 @app.route("/monitoring/wanted")
 def monitoring_wanted_view():
-    """Domains someone wants, watched until they come free. Was a section of
-    Tools -> WHOIS, apart from the domains one holds; it sits with them now."""
-    return render_template(
-        "monitoring_wanted.html", section="monitoring",
-        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/wanted"))
+    """Wanted domains are the portfolio's domains to request or claim; the
+    old address opens the portfolio on them."""
+    return redirect("/monitoring/domains?flag=wanted")
 
 
 @app.route("/monitoring/organisation")

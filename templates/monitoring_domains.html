@@ -30,6 +30,7 @@
                     <option value="unmeasured">Not looked up or last lookup failed</option>
                     <option value="intel">In use, not in threat intelligence</option>
                     <option value="use_unmeasured">Use not measured yet (mail and web)</option>
+                    <option value="wanted">Wanted: to request or claim</option>
                     <option value="claimable">To request or claim, and free now</option>
                 </select>
                 <a class="btn-ghost" id="pfCsvBtn" href="/api/portfolio/csv">Download CSV</a>
@@ -73,6 +74,15 @@
                     <label class="form-field" for="pfImportUnit"><span>Put these domains in</span>
                         <select id="pfImportUnit"></select>
                         <small class="muted">For lines that name no unit themselves.</small>
+                    </label>
+                    <label class="form-field" for="pfImportLifecycle"><span>Decision for new domains</span>
+                        <select id="pfImportLifecycle">
+                            <option value="keep" selected>Keep and renew</option>
+                            <option value="review">To decide</option>
+                            <option value="cancel">Cancel (let it lapse)</option>
+                            <option value="claim">Request or claim</option>
+                        </select>
+                        <small class="muted">"Request or claim" for domains you want but do not hold: they are looked up every minute around their release.</small>
                     </label>
                     <label class="form-field hidden" for="pfImportGroup" id="pfImportNewField"><span>Name of the new unit</span>
                         <input type="text" id="pfImportGroup" list="pfGroupNames" placeholder="e.g. Example BV &gt; Sales" autocomplete="off">

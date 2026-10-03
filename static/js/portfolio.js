@@ -8,7 +8,7 @@ const PF_PHASE_CLASS = {
 const PF_FLAG_TEXT = {
     attention: 'Quarantine / deleted', expiring: 'Expiring ≤ 30 days',
     move: 'To move', intel: 'In use, no threat intel', claimable: 'Free to request',
-    unmeasured: 'Registration not measured', use_unmeasured: 'Use not measured',
+    unmeasured: 'Registration not measured', use_unmeasured: 'Use not measured', wanted: 'Wanted',
 };
 const PF_LIFECYCLE_CLASS = { keep: '', review: 'status-warn', cancel: 'muted', claim: '' };
 const pf = { data: null, selected: new Set(), canEdit: false };
@@ -122,7 +122,7 @@ function pfRow(d) {
 
 function pfCounts(c) {
     return Object.keys(PF_FLAG_TEXT).filter(f => c[f])
-        .map(f => `<span class="${['unmeasured', 'use_unmeasured'].includes(f) ? 'muted' : 'pf-count-warn'}">${c[f]} ${esc(PF_FLAG_TEXT[f].toLowerCase())}</span>`)
+        .map(f => `<span class="${['unmeasured', 'use_unmeasured', 'wanted'].includes(f) ? 'muted' : 'pf-count-warn'}">${c[f]} ${esc(PF_FLAG_TEXT[f].toLowerCase())}</span>`)
         .join(' &middot; ');
 }
 
@@ -189,6 +189,7 @@ function pfRenderChrome() {
         + tile('Expiring within 30 days', t.expiring, 'expiring', 'tile-warn')
         + tile('To move', t.move, 'move', 'tile-warn')
         + tile('In use, no threat intel', t.intel, 'intel', 'tile-warn')
+        + tile('Wanted (request or claim)', t.wanted, 'wanted', '')
         + tile('Use not measured', t.use_unmeasured, 'use_unmeasured', '')
         + tile('Registration not measured', t.unmeasured, 'unmeasured', '');
 
@@ -307,6 +308,9 @@ function initPortfolio() {
     const params = new URLSearchParams(location.search);
     const wanted = params.get('unit') || params.get('group');
     if (wanted) pf.initialGroup = `g${wanted}`;
+    // ?flag=wanted (the former Wanted domains page) and the like: open filtered.
+    const flag = params.get('flag');
+    if (flag && [...$('pfFlagFilter').options].some(o => o.value === flag)) $('pfFlagFilter').value = flag;
     // "+ Domains" on a unit: the add form, open, with that unit chosen.
     if (wanted) pf.importUnit = wanted;
     if (params.get('add') && $('pfImportFold')) {
@@ -413,6 +417,7 @@ function initPortfolio() {
             const newPath = $('pfImportGroup').value.trim();
             if (choice === 'new' && !newPath) { toast('Give the new unit a name first.'); $('pfImportGroup').focus(); return; }
             const target = choice === 'new' ? { unit: newPath } : { unit_id: choice };
+            target.lifecycle = $('pfImportLifecycle').value;
             const known = (pf.data.groups || []).find(g => String(g.id) === choice);
             const unitName = choice === 'new' ? newPath.split('>').map(s => s.trim()).join(' › ') : (known ? known.path : '');
             try {

@@ -134,16 +134,27 @@ delete*) shows when it is released: at a random moment within the hour after the
 time. SIDN shows holder and contacts only on its own website, behind bot protection; this
 tool links there rather than scraping it.
 
-### Watchlist (Wanted domains)
+### Wanted domains
 
-**Monitoring &rarr; Wanted domains** follows domains you want until they come free:
-every six hours, hourly while one is being deleted, and every minute in the hour a `.nl`
-domain leaves quarantine. Each change (into quarantine, restored, available, registered by
-someone else) is recorded and sent through the notification channels
-(Settings &rarr; Notifications). A failed lookup never counts as available. DomainLens is not
-a registrar: register the domain yourself, or use a backorder service. Changing the list
-needs the Analyst role and is audited. API: `GET/POST /api/watchlist`,
-`DELETE /api/watchlist/{id}`, `POST /api/watchlist/{id}/check`.
+Domains you want rather than hold are **portfolio domains with the decision "Request or
+claim"** (see Domain portfolio below): one list, with units, contacts and the import for them
+too. Add them with the import (choose "Request or claim" as the decision for new domains, or a
+Decision column), from Tools &rarr; WHOIS ("Add as wanted domain"), or by setting the decision
+on domains already listed. The tile and filter "Wanted" show them; the old address
+`/monitoring/wanted` opens the portfolio filtered on them.
+
+A wanted domain is looked up every six hours, hourly while it is being deleted, and every
+minute from just before until an hour after a `.nl` domain's published release from
+quarantine. Coming free is reported once ("can be requested now"); registered again on or
+after the release day is a new holder ("if that was not you, it is taken"); registered again
+before it, the old holder restored it. A failed lookup never counts as free. DomainLens is not
+a registrar: register the domain yourself, or use a backorder service.
+
+The former watchlist's entries move into the portfolio once, when this version first starts,
+with their last answer, note and history; a domain already in the portfolio keeps its own
+decision. The old rows stay in the database, marked as moved. `GET/POST /api/watchlist`,
+`DELETE /api/watchlist/{id}` and `POST /api/watchlist/{id}/check` keep working on the wanted
+domains; the ids are now portfolio ids.
 
 ## Domain portfolio
 
@@ -579,9 +590,9 @@ domains (**Monitor security**), and the portfolio marks domains that are already
 
 ### Wanted domains
 
-Domains you want rather than hold &mdash; taken, expiring or in quarantine &mdash; are under
-**Monitoring &rarr; Wanted domains** (formerly the watchlist under Tools &rarr; WHOIS; the
-"Watch this domain" button there still adds to it).
+Domains you want rather than hold &mdash; taken, expiring or in quarantine &mdash; are portfolio
+domains with the decision "Request or claim" (filter "Wanted" in the domain portfolio); the
+"Add as wanted domain" button under Tools &rarr; WHOIS adds one.
 
 ### One rating
 

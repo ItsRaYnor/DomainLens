@@ -169,17 +169,19 @@ def spec():
             "A batch as CSV", "WHOIS", {"200": {"description": "CSV file"}},
             params=[_param("job_id", "path")])},
         "/api/watchlist": {
-            "get": _op("Watched domains and recent changes", "WHOIS", _ok("Watchlist")),
-            "post": _op("Watch domains until they become available", "WHOIS",
+            "get": _op("Wanted domains (portfolio domains to request or claim) and recent changes",
+                       "WHOIS", _ok("Watchlist")),
+            "post": _op("Add wanted domains: portfolio domains with the decision request or claim",
+                        "WHOIS",
                         {"201": {"description": "Added"}}, role="user",
                         body=_body({"type": "object", "required": ["text"], "properties": {
                             "text": {"type": "string"}, "note": {"type": "string"}}})),
         },
         "/api/watchlist/{watch_id}": {"delete": _op(
-            "Stop watching a domain", "WHOIS", _ok("Removed"), role="user",
+            "Remove a wanted domain (a portfolio id)", "WHOIS", _ok("Removed"), role="user",
             params=[_param("watch_id", "path", {"type": "integer"})])},
         "/api/watchlist/{watch_id}/check": {"post": _op(
-            "Look a watched domain up now", "WHOIS", _ok("Updated entry"), role="user",
+            "Look a wanted domain up now (a portfolio id)", "WHOIS", _ok("Updated entry"), role="user",
             params=[_param("watch_id", "path", {"type": "integer"})])},
         "/api/portfolio": {"get": _op(
             "Portfolio domains per group, with counts and recent changes", "Portfolio",
