@@ -14,7 +14,7 @@ defusedxml==0.7.1
 # 4.0.4 suggestion, which is still broken with cryptography 50.x.
 signxml==5.1.0
 lxml==6.1.1
-PyJWT==2.14.0
+PyJWT==2.15.0
 # pyOpenSSL: the only way to request and observe a stapled OCSP response.
 # stdlib ssl exposes neither the status_request extension nor an OCSP
 # callback, so without this the stapling check cannot run at all and reports
