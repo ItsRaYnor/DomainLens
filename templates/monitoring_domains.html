@@ -14,6 +14,7 @@
         <section class="card">
             <h2 data-i18n="nav.monitoring_domains">{{ t('nav.monitoring_domains') }}</h2>
             <p class="ct-desc">The domains you hold, per organisation unit (company, business unit, department): at which registrar each one is, until when it is registered, and whether it is in quarantine. Give a unit the registrar its domains belong at, and every domain that is elsewhere is marked <strong>to move</strong>. DomainLens looks each domain up at its registry &mdash; daily, every six hours in the month before it expires, hourly while it is being deleted &mdash; and sends every change through your notification channels (Settings &rarr; Notifications).</p>
+            <p class="ct-desc">Each domain also has a <strong>decision</strong> &mdash; keep and renew (the default), to decide, cancel, or request or claim &mdash; and a <strong>contact</strong>. The warnings follow the decision: an expiry is news for a domain you keep, and the plan for one you cancel. Whether a domain is <strong>in use</strong> (it receives or sends mail, or has a web address) is measured with each lookup; a domain in use belongs with your <strong>threat intelligence</strong> service, one that is not in use does not need it.</p>
             <div class="portfolio-tiles" id="pfTiles"></div>
         </section>
 
@@ -27,6 +28,8 @@
                     <option value="expiring">Expiring within 30 days</option>
                     <option value="move">To move to another registrar</option>
                     <option value="unmeasured">Not looked up or last lookup failed</option>
+                    <option value="intel">In use, not in threat intelligence</option>
+                    <option value="claimable">To request or claim, and free now</option>
                 </select>
                 <a class="btn-ghost" id="pfCsvBtn" href="/api/portfolio/csv">Download CSV</a>
             </div>
@@ -43,6 +46,17 @@
                 <button class="btn-ghost" id="pfMonitorBtn" type="button" title="Create a security monitor (a scheduled full scan) for each selected domain that has none">Monitor security</button>
                 <button class="btn-ghost danger" id="pfRemoveBtn" type="button">Remove from portfolio</button>
             </div>
+            <div class="discovered-tools portfolio-bulk">
+                <select id="pfLifecycleValue" aria-label="Decision"></select>
+                <button class="btn-ghost" id="pfLifecycleBtn" type="button">Set decision</button>
+                <select id="pfIntelValue" aria-label="Threat intelligence">
+                    <option value="true">In threat intelligence</option>
+                    <option value="false">Not in threat intelligence</option>
+                </select>
+                <button class="btn-ghost" id="pfIntelBtn" type="button">Set threat intelligence</button>
+                <span class="contact-pick"><select id="pfContactValue" aria-label="Contact"></select></span>
+                <button class="btn-ghost" id="pfContactBtn" type="button">Set contact</button>
+            </div>
             {% endif %}
             <div id="pfGroups"><p class="muted">Loading&hellip;</p></div>
         </section>
@@ -52,6 +66,7 @@
             <details class="monitor-fold" id="pfImportFold">
                 <summary><h4>Add domains</h4></summary>
                 <p class="ct-desc">Paste one domain per line, optionally followed by its unit (<code>example.nl;Sales</code>, or a path: <code>example.nl;Org X &gt; Sales</code>; missing levels are created), or choose a CSV, text or Excel (.xlsx) file. With a header row that names the columns &mdash; for example <code>Domain</code> and <code>Company</code>, or <code>Domein</code> and <code>Bedrijf</code> (or <code>Unit</code>, <code>Eenheid</code>) &mdash; only those columns are used and the others are ignored. A subdomain or web address is added as its registered domain (<code>https://shop.example.nl/x</code> becomes <code>example.nl</code>), and the result lists what was converted. A domain already in the portfolio moves to the unit named for it; lines without a unit go to the unit chosen below. At most 2,000 domains in all.</p>
+                <p class="ct-desc">A header row may also name a Decision (Besluit) column &mdash; keep, to decide, cancel, or request/claim, in English or Dutch &mdash; a Contact (Contactpersoon) column with a name, an e-mail address or "Name &lt;address&gt;", an E-mail column, and a Threat intel column (yes or no). A contact is found by e-mail address or name, made from the account with that address, or added. An empty cell changes nothing.</p>
                 <textarea id="pfImportInput" rows="8" class="mono" placeholder="example.nl;Sales&#10;example.com;Holding&#10;example.org" spellcheck="false"></textarea>
                 <div class="form-grid">
                     <label class="form-field" for="pfImportUnit"><span>Put these domains in</span>
@@ -72,7 +87,7 @@
             </details>
         </section>
 
-        <p class="ct-desc">Units, their place in the organisation and the registrar each should be at are managed under <a href="/monitoring/organisation">Organisation</a>.</p>
+        <p class="ct-desc">Units, their place in the organisation, the registrar each should be at and their contacts are managed under <a href="/monitoring/organisation">Organisation</a>. A domain has the contact of its unit unless you link one to the domain itself.</p>
         {% endif %}
 
         <section class="card">
@@ -86,6 +101,7 @@
     <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
     <script type="application/json" id="pfCanEdit">{{ (can_edit and true or false)|tojson }}</script>
     <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/contact_picker.js?v={{ asset_token }}"></script>
     <script src="/static/js/portfolio.js?v={{ asset_token }}"></script>
     <script src="/static/js/theme.js?v={{ asset_token }}"></script>
 </body>

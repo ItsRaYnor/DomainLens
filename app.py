@@ -48,6 +48,7 @@ import discovery
 import overview
 import rdap
 import whois_batch
+import contacts
 import domain_portfolio
 import management
 import domain_watch
@@ -3971,6 +3972,11 @@ def api_portfolio():
     for d in domains:
         d["monitored"] = d["domain"] in watched
     return jsonify({"domains": domains, "groups": groups,
+                    "contacts": contacts.list_contacts(),
+                    # A list, not an object: JSON objects come out sorted, and
+                    # the order is keep, decide, cancel, claim.
+                    "lifecycles": [{"value": k, "text": v}
+                                   for k, v in domain_portfolio.LIFECYCLE_TEXT.items()],
                     "summary": domain_portfolio.summary(domains, groups),
                     "events": domain_portfolio.events(30), "max": domain_portfolio.MAX_DOMAINS,
                     "scheduler_enabled": bool(_scheduler_config().get("enabled"))})
@@ -4013,7 +4019,7 @@ def api_portfolio_import():
     else:
         data = request.get_json(silent=True) or {}
         text, group = str(data.get("text") or ""), _unit_arg(data, "unit", "group")
-    entries, rejected, converted = domain_portfolio.parse_import(text)
+    entries, rejected, converted, extras = domain_portfolio.parse_import_full(text)
     if not entries:
         return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
     try:
@@ -4021,7 +4027,7 @@ def api_portfolio_import():
         result = domain_portfolio.import_domains(
             entries, default_group=(group or "").strip() or None,
             default_group_id=int(group_id) if group_id not in (None, "") else None,
-            created_by=(auth.current_user() or {}).get("email"))
+            created_by=(auth.current_user() or {}).get("email"), extras=extras)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     audit_log.record("portfolio.import", target_type="portfolio",
@@ -4042,7 +4048,8 @@ def api_portfolio_group_add():
         group_id = domain_portfolio.ensure_group(data.get("name"), parent_id=parent_id)
         group = domain_portfolio.update_group(
             group_id, expected_registrar=data.get("expected_registrar"),
-            notify_emails=data.get("notify_emails"))
+            notify_emails=data.get("notify_emails"),
+            **({"contact_id": data["contact_id"]} if data.get("contact_id") not in (None, "") else {}))
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc) or "Invalid unit"}), 400
     audit_log.record("portfolio.group_add", target_type="portfolio", target_id=group["path"])
@@ -4065,6 +4072,8 @@ def api_portfolio_group(group_id):
                "notify_emails": data.get("notify_emails")}
     if "parent_id" in data:
         changes["parent_id"] = data.get("parent_id") or None
+    if "contact_id" in data:
+        changes["contact_id"] = data.get("contact_id")
     try:
         group = domain_portfolio.update_group(group_id, **changes)
     except (TypeError, ValueError) as exc:
@@ -4160,7 +4169,8 @@ def api_portfolio_assign():
 @app.route("/api/portfolio/domains", methods=["POST"])
 @auth.require_role(roles.USER)
 def api_portfolio_domains():
-    """Bulk actions on selected domains: move to a group, or remove."""
+    """Bulk actions on selected domains: move to a unit, remove, or set the
+    decision, threat intelligence enrolment or contact."""
     data = request.get_json(silent=True) or {}
     try:
         ids = [int(i) for i in data.get("ids") or []][:domain_portfolio.MAX_DOMAINS]
@@ -4177,10 +4187,71 @@ def api_portfolio_domains():
             count = domain_portfolio.move(ids, int(group_id) if group_id not in (None, "") else None)
         except (TypeError, ValueError) as exc:
             return jsonify({"error": str(exc) or "Unknown group"}), 400
+    elif action in ("lifecycle", "threat_intel", "contact"):
+        value = data.get("value")
+        try:
+            if action == "lifecycle":
+                count = domain_portfolio.set_lifecycle(ids, value)
+            elif action == "threat_intel":
+                if not isinstance(value, bool):
+                    raise ValueError("value must be true or false")
+                count = domain_portfolio.set_threat_intel(ids, value)
+            else:
+                count = domain_portfolio.set_contact(ids, int(value) if value not in (None, "") else None)
+        except (TypeError, ValueError) as exc:
+            return jsonify({"error": str(exc) or "Invalid value"}), 400
+        audit_log.record(f"portfolio.{action}", target_type="portfolio",
+                         details={"count": count, "value": value})
+        return jsonify({"count": count})
     else:
         return jsonify({"error": "Unknown action"}), 400
     audit_log.record(f"portfolio.{action}", target_type="portfolio", details={"count": count})
     return jsonify({"count": count})
+
+
+def _can_edit():
+    return (not auth.config().get("enabled")) or roles.at_least(auth.current_role(), roles.USER)
+
+
+@app.route("/api/contacts", methods=["GET"])
+def api_contacts():
+    """Contacts, and for those who may add one, the accounts to choose from."""
+    body = {"contacts": contacts.list_contacts()}
+    if _can_edit():
+        body["accounts"] = contacts.accounts()
+    return jsonify(body)
+
+
+@app.route("/api/contacts", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_contact_add():
+    data = request.get_json(silent=True) or {}
+    try:
+        contact = contacts.create(name=data.get("name"), email=data.get("email"),
+                                  phone=data.get("phone"), user_id=data.get("user_id"))
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Invalid contact"}), 400
+    audit_log.record("contact.add", target_type="contact", target_id=str(contact["id"]))
+    return jsonify(contact), 201
+
+
+@app.route("/api/contacts/<int:contact_id>", methods=["PUT", "DELETE"])
+@auth.require_role(roles.USER)
+def api_contact(contact_id):
+    if not contacts.get(contact_id):
+        return jsonify({"error": "Unknown contact"}), 404
+    if request.method == "DELETE":
+        contacts.delete(contact_id)
+        audit_log.record("contact.remove", target_type="contact", target_id=str(contact_id))
+        return jsonify({"removed": True})
+    data = request.get_json(silent=True) or {}
+    try:
+        contact = contacts.update(contact_id, name=data.get("name"), email=data.get("email"),
+                                  phone=data.get("phone"))
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Invalid contact"}), 400
+    audit_log.record("contact.update", target_type="contact", target_id=str(contact_id))
+    return jsonify(contact)
 
 
 @app.route("/api/portfolio/domains/<int:domain_id>/check", methods=["POST"])

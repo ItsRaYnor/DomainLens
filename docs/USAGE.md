@@ -167,10 +167,62 @@ cancels), so those show "Not published"; for them quarantine is the signal that 
 failed lookup keeps the previous answer and says so. Lookups run with the scheduler; with
 the scheduler off use "Check now".
 
+### Decision, threat intelligence and contact
+
+Every domain carries a **decision**, set for selected domains in the portfolio:
+
+| Decision | Meaning | Warnings |
+|---|---|---|
+| Keep and renew (default) | The domain is held until someone decides otherwise | All: expiry, quarantine, registrar and name server changes, to move |
+| To decide | A domain whose future is still open | As for keep: it is still yours |
+| Cancel (let it lapse) | The domain is to be cancelled at the registrar | Expiry and quarantine are the plan: recorded at low severity, no expiry warnings, nothing to move. A registrar or name server change is still high: until it lapses it is yours |
+| Request or claim | Not (yet) the organisation's: to request when it is free, or to claim from its holder | Coming free is the news: "can be requested now" (high) and the filter "free now". No expiry warnings, nothing to move |
+
+With each lookup DomainLens measures whether a registered domain is **in use**: mail
+(an MX other than the null MX `0 .`, or an SPF record that lets someone send; `v=spf1 -all`
+means no mail) and web (an A or AAAA record on the domain or `www.`, which a parking page has
+too). A domain without DNS (not registered, quarantine, not in DNS) is measurably unused; a
+DNS question that got no answer leaves the use "not measured", never "no". The **Threat
+intel** column records whether the domain is enrolled with your threat intelligence service:
+a domain in use and not enrolled is flagged ("In use, no threat intel"); one that is unused,
+or being cancelled or claimed, does not need it.
+
+A **contact** belongs with a company or business unit: give a unit its contact under
+**Organisation** (when adding the unit, or in "Edit, move or merge units"), and every unit and
+domain below it has that contact unless it names its own, the way the expected registrar is
+inherited. A domain gets its own contact with "Link contact" in its row ("From the unit" says
+it has its unit's); choosing "The unit's contact" there removes the domain's own again.
+Contacts are kept under "Contacts" on the Organisation page, one card per person showing the
+units they are the contact for: link one more from the card, or unlink one with its &times;.
+"+ Add contact" takes a name, e-mail and phone, or an account, and optionally the unit the
+person is the contact for. A contact is entered by hand or made from an account (local or single sign-on): its name and e-mail address then
+follow the account, as SCIM or each sign-in keeps it current. Wherever a contact is chosen,
+"New contact…" adds one on the spot. When the account is removed the contact keeps the last
+known name and says "Account removed". Deleting a contact leaves its units and domains
+without one of their own.
+
+Threat intelligence is switched on or off per domain with the switch in its row, or for many
+at once with the buttons above the table.
+
+The import reads these columns too when a header row names them: **Decision**/`Besluit`
+(keep, to decide, cancel, request or claim, in English or Dutch, e.g. `Opzeggen`, `Behouden`),
+**Contact**/`Contactpersoon`/`Owner`/`Eigenaar` (a name, an address, or `Name <address>`),
+**E-mail**, and **Threat intel** (`yes`/`no`, `ja`/`nee`). A contact is found by its address,
+then by its name; an address of an account makes a contact of that account; otherwise a
+contact is added. An empty cell changes nothing, and a value that is not understood is listed
+in the result and left as it was.
+
+The CSV export has the columns `decision`, `threat_intel`, `mail`, `web` (`yes`, `no`, or
+empty for not measured), `contact`, `contact_email` and `contact_from` (`domain` or `unit`).
+
 Changing the portfolio needs the Analyst role and is audited. API: `GET /api/portfolio`,
 `GET /api/portfolio/csv`, `POST /api/portfolio/import` (JSON `text`, or a multipart `file` .xlsx), `POST /api/portfolio/groups`,
-`PUT/DELETE /api/portfolio/groups/{id}`, `POST /api/portfolio/domains` (move or remove),
-`POST /api/portfolio/domains/{id}/check`.
+`PUT/DELETE /api/portfolio/groups/{id}`, `POST /api/portfolio/domains` (`action`: `move`,
+`remove`, `lifecycle` with `value` keep/review/cancel/claim, `threat_intel` with `value`
+true/false, or `contact` with `value` a contact id or null),
+`POST /api/portfolio/domains/{id}/check`, `GET/POST /api/contacts` (`{name, email, phone}` or
+`{user_id}`), `PUT/DELETE /api/contacts/{id}`; a unit's contact is `contact_id` on
+`POST /api/organisation/units` and `PUT /api/organisation/units/{id}` (null clears it).
 
 ## DNS propagation check
 

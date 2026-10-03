@@ -1,0 +1,111 @@
+# Decision, threat intelligence, use and contacts in the domain portfolio.
+# Before 53_misc: "{}: {} -> {} (marked to cancel)." must match here before "{}: {} -> {}." does there.
+To request or claim, and free now	Aan te vragen of te claimen, en nu vrij
+In use, not in threat intelligence	In gebruik, niet in threat intelligence
+In threat intelligence	In threat intelligence
+Not in threat intelligence	Niet in threat intelligence
+Threat intelligence	Threat intelligence
+Set threat intelligence	Threat intelligence instellen
+Decision	Besluit
+Set decision	Besluit instellen
+Set contact	Contactpersoon instellen
+Contacts	Contactpersonen
+The people to ask about a domain. A contact is kept once and chosen for each domain, so someone who leaves is replaced in one place. With accounts (single sign-on or local), choose an account: its name and e-mail address then follow the account.	De mensen bij wie je terecht kunt over een domein. Een contactpersoon wordt één keer vastgelegd en per domein gekozen, zodat iemand die vertrekt op één plek wordt vervangen. Met accounts (single sign-on of lokaal) kies je een account: naam en e-mailadres volgen dan het account.
+An account	Een account
+Name and e-mail address come from the account.	Naam en e-mailadres komen uit het account.
+Or a name	Of een naam
+e.g. Sam Example	bijv. Sam Example
+E-mail	E-mail
+e.g. domains@example.com	bijv. domains@example.com
+Phone	Telefoon
+Add contact	Contactpersoon toevoegen
+Threat intel	Threat intel
+In use, no threat intel	In gebruik, geen threat intel
+in use, no threat intel	in gebruik, geen threat intel
+Free to request	Vrij om aan te vragen
+free to request	vrij om aan te vragen
+{n} in use, no threat intel	{} in gebruik, geen threat intel
+{n} free to request	{} vrij om aan te vragen
+Enrolled	Aangemeld
+Not enrolled	Niet aangemeld
+In use: it belongs with the threat intelligence service	In gebruik: hoort bij de threat intelligence-dienst
+Not needed	Niet nodig
+Use not measured yet	Gebruik nog niet gemeten
+Mail yes	Mail ja
+Mail no	Mail nee
+Mail not measured	Mail niet gemeten
+Web yes	Web ja
+Web no	Web nee
+Web not measured	Web niet gemeten
+Keep and renew	Behouden en verlengen
+To decide	Nog te besluiten
+Cancel (let it lapse)	Opzeggen (laten verlopen)
+Request or claim	Aanvragen of claimen
+Free: can be requested now	Vrij: kan nu worden aangevraagd
+Account removed	Account verwijderd
+Account disabled	Account uitgeschakeld
+Comes from the account	Komt uit het account
+No contact	Geen contactpersoon
+No contacts yet.	Nog geen contactpersonen.
+Choose an account	Kies een account
+Choose an account, or give a name or e-mail address.	Kies een account, of geef een naam of e-mailadres.
+Contact saved.	Contactpersoon opgeslagen.
+Delete the contact {}? Its domains keep no contact.	Contactpersoon {} verwijderen? De domeinen ervan houden geen contactpersoon.
+{n} domain(s) changed.	{} domein(en) aangepast.
+{} is no longer registered (was: {}): it can be requested now.	{} is niet meer geregistreerd (was: {}): het kan nu worden aangevraagd.
+{}: {} -> {} (marked to cancel).	{}: {} -> {} (gemarkeerd om op te zeggen).
+{}: {} -> {} (to request or claim).	{}: {} -> {} (aan te vragen of te claimen).
+Give the contact a name or an e-mail address	Geef de contactpersoon een naam of een e-mailadres
+Unknown contact	Onbekende contactpersoon
+Unknown decision	Onbekend besluit
+Looked up {}	Opgezocht {}
+Account	Account
+A header row may also name a Decision (Besluit) column — keep, to decide, cancel, or request/claim, in English or Dutch — a Contact (Contactpersoon) column with a name, an e-mail address or "Name <address>", an E-mail column, and a Threat intel column (yes or no). A contact is found by e-mail address or name, made from the account with that address, or added. An empty cell changes nothing.	Een kopregel kan ook een kolom Besluit (Decision) noemen — behouden, nog te besluiten, opzeggen, of aanvragen/claimen, in het Nederlands of Engels — een kolom Contactpersoon (Contact) met een naam, een e-mailadres of "Naam <adres>", een kolom E-mail, en een kolom Threat intel (ja of nee). Een contactpersoon wordt gevonden op e-mailadres of naam, gemaakt van het account met dat adres, of toegevoegd. Een lege cel verandert niets.
+The people to ask about a company, a business unit and its domains. Give a unit its contact; the units and domains below it have that contact unless they name their own. A contact is kept once, so someone who leaves is replaced in one place. With accounts (single sign-on or local), choose an account: its name and e-mail address then follow the account.	De mensen bij wie je terecht kunt over een bedrijf, een bedrijfsonderdeel en de domeinen ervan. Geef een eenheid een contactpersoon; de eenheden en domeinen eronder hebben die contactpersoon, tenzij ze een eigen noemen. Een contactpersoon wordt één keer vastgelegd, zodat iemand die vertrekt op één plek wordt vervangen. Met accounts (single sign-on of lokaal) kies je een account: naam en e-mailadres volgen dan het account.
+Units and domains below it have this contact unless they name their own.	Eenheden en domeinen eronder hebben deze contactpersoon, tenzij ze een eigen noemen.
+Remove from threat intelligence	Uit threat intelligence halen
+Add to threat intelligence	Aan threat intelligence toevoegen
+Threat intelligence for {}	Threat intelligence voor {}
+Link contact	Contactpersoon koppelen
+Change contact	Contactpersoon wijzigen
+From the unit	Van de eenheid
+The unit's contact	Contactpersoon van de eenheid
+Accounts	Accounts
+New contact…	Nieuwe contactpersoon…
+Cancel	Annuleren
+Contact for {}	Contactpersoon voor {}
+Give the new contact a name or an e-mail address.	Geef de nieuwe contactpersoon een naam of een e-mailadres.
+Delete the contact {}? Its units and domains keep no contact of their own.	Contactpersoon {} verwijderen? De eenheden en domeinen ervan houden geen eigen contactpersoon.
+None, or the one of the unit above	Geen, of die van de eenheid erboven
+Inherited: {}	Overgenomen: {}
+Contact: {}	Contactpersoon: {}
+Decision set for {n} domain(s).	Besluit ingesteld voor {} domein(en).
+Contact linked to {n} domain(s).	Contactpersoon gekoppeld aan {} domein(en).
+New contacts: {}.	Nieuwe contactpersonen: {}.
+Threat intelligence set for {n} domain(s).	Threat intelligence ingesteld voor {} domein(en).
+Not understood, left as it was: {}.	Niet begrepen, ongewijzigd gelaten: {}.
+Not an e-mail address: {}	Geen e-mailadres: {}
++ Add contact	+ Contactpersoon toevoegen
+From an account	Vanuit een account
+The company or unit this person is the contact for.	Het bedrijf of de eenheid waarvoor deze persoon contactpersoon is.
+Single sign-on or local: name and e-mail address then follow the account.	Single sign-on of lokaal: naam en e-mailadres volgen dan het account.
+The people to ask about a company, a business unit and its domains. Link a contact to a unit; the units and domains below it have that contact unless they name their own. A contact is kept once, so someone who leaves is replaced in one place.	De mensen bij wie je terecht kunt over een bedrijf, een bedrijfsonderdeel en de domeinen ervan. Koppel een contactpersoon aan een eenheid; de eenheden en domeinen eronder hebben die contactpersoon, tenzij ze een eigen noemen. Een contactpersoon wordt één keer vastgelegd, zodat iemand die vertrekt op één plek wordt vervangen.
+Contact for	Contactpersoon voor
+Edit	Bewerken
+Link	Koppelen
+Not yet	Nog niet
+Unlink	Ontkoppelen
+Unlink {}	{} ontkoppelen
+Link {} to a unit	{} aan een eenheid koppelen
+Link to a company or unit…	Koppelen aan een bedrijf of eenheid…
+{} (contact: {})	{} (contactpersoon: {})
+SSO account	SSO-account
+Local account	Lokaal account
+Not linked to a unit yet	Nog niet aan een eenheid gekoppeld
+No e-mail or phone	Geen e-mail of telefoon
+Also the contact of {n} domain(s) of its own	Ook contactpersoon van {} domein(en) met een eigen koppeling
+No contacts yet. Add the people to ask about your companies and units.	Nog geen contactpersonen. Voeg de mensen toe bij wie je terecht kunt over je bedrijven en eenheden.
+None: enter a name below	Geen: vul hieronder een naam in
+Choose a company or unit first.	Kies eerst een bedrijf of eenheid.
+{} has {} as its contact. Make it {}?	{} heeft {} als contactpersoon. {} ervan maken?
+Contact added: {}.	Contactpersoon toegevoegd: {}.

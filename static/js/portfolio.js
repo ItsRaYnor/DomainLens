@@ -7,8 +7,10 @@ const PF_PHASE_CLASS = {
 };
 const PF_FLAG_TEXT = {
     attention: 'Quarantine / deleted', expiring: 'Expiring ≤ 30 days',
-    move: 'To move', unmeasured: 'Not measured',
+    move: 'To move', intel: 'In use, no threat intel', claimable: 'Free to request',
+    unmeasured: 'Not measured',
 };
+const PF_LIFECYCLE_CLASS = { keep: '', review: 'status-warn', cancel: 'muted', claim: '' };
 const pf = { data: null, selected: new Set(), canEdit: false };
 
 function pfWhen(iso) {
@@ -35,11 +37,72 @@ function pfTransfer(d) {
     return '';
 }
 
+// Mail and web, each measured yes or no, or not measured: never "no" for unknown.
+function pfUse(d) {
+    const word = v => v === 'yes' ? 'yes' : v === 'no' ? 'no' : 'not measured';
+    if (!d.uses_mail && !d.uses_web) return '<div class="muted">Use not measured yet</div>';
+    return `<div class="muted">Mail ${word(d.uses_mail)} &middot; Web ${word(d.uses_web)}</div>`;
+}
+
+function pfIntel(d) {
+    // An editor switches enrolment right here; the state text says what it means.
+    if (!pf.canEdit) return pfIntelState(d);
+    return '<div class="pf-intel-cell">'
+        + `<button type="button" class="switch pf-intel" role="switch" aria-checked="${d.threat_intel}" `
+        + `aria-label="Threat intelligence for ${esc(d.domain)}" `
+        + `title="${d.threat_intel ? 'Remove from threat intelligence' : 'Add to threat intelligence'}"></button>`
+        + `<span>${pfIntelState(d)}</span></div>`;
+}
+
+function pfIntelState(d) {
+    const s = d.threat_intel_state;
+    if (s === 'enrolled') return '<span class="status-pass">Enrolled</span>' + pfUse(d);
+    if (s === 'missing') return '<span class="status-warn" title="In use: it belongs with the threat intelligence service">Not enrolled</span>' + pfUse(d);
+    if (s === 'not_needed') {
+        return '<span class="muted">Not needed</span>'
+            + (['cancel', 'claim'].includes(d.lifecycle) ? '' : pfUse(d));
+    }
+    return '<span class="muted">Use not measured yet</span>';
+}
+
+function pfLifecycle(d) {
+    return `<span class="${PF_LIFECYCLE_CLASS[d.lifecycle] || ''}">${esc(d.lifecycle_text)}</span>`
+        + (d.flags.includes('claimable') ? '<div class="status-pass">Free: can be requested now</div>' : '');
+}
+
+function pfContact(d) {
+    const c = d.contact;
+    const link = pf.canEdit
+        ? `<div><button type="button" class="btn-ghost-sm pf-contact-link">${c && !d.contact_inherited ? 'Change contact' : 'Link contact'}</button></div>` : '';
+    if (!c) return '<span class="muted">&mdash;</span>' + link;
+    const gone = c.account && c.account.state !== 'enabled'
+        ? `<div class="status-warn">${c.account.state === 'removed' ? 'Account removed' : 'Account disabled'}</div>` : '';
+    return esc(c.name) + (c.email && c.email !== c.name ? `<div class="muted">${esc(c.email)}</div>` : '')
+        + (d.contact_inherited ? '<div class="muted">From the unit</div>' : '') + gone + link;
+}
+
+// The picker in a contact cell: a contact, an account, or a new one; blank
+// goes back to the unit's contact.
+function pfContactEdit(cell, d) {
+    cell.innerHTML = '<div class="contact-pick">'
+        + `<select class="pf-contact-choice" aria-label="Contact for ${esc(d.domain)}">`
+        + contactOptions("The unit's contact", d.contact && !d.contact_inherited ? d.contact.id : '') + '</select>'
+        + contactNewFields('row') + '</div>'
+        + '<div class="nowrap"><button type="button" class="btn-ghost-sm pf-contact-save">Save</button> '
+        + '<button type="button" class="btn-ghost-sm pf-contact-cancel">Cancel</button></div>';
+    const select = cell.querySelector('.pf-contact-choice');
+    // Nobody to choose yet: start with a new one.
+    if (!contactBook.contacts.length && !contactBook.accounts.length) select.value = 'new';
+    contactToggleNew(select);
+    if (select.value !== 'new') select.focus();
+}
+
 function pfRow(d) {
     const phase = `<span class="${PF_PHASE_CLASS[d.phase] || ''}">${esc(d.phase_text)}</span>`
         + (d.released_from ? `<div class="muted">Released from ${esc(pfWhen(d.released_from))}</div>` : '')
         + (d.stale ? `<div class="muted" title="${esc(d.last_error)}">Last lookup failed; showing the answer from ${esc(pfWhen(d.last_ok_at))}</div>` : '')
-        + (d.phase === 'unmeasured' && d.last_error ? `<div class="muted">${esc(d.last_error)}</div>` : '');
+        + (d.phase === 'unmeasured' && d.last_error ? `<div class="muted">${esc(d.last_error)}</div>` : '')
+        + (d.last_checked_at ? `<div class="muted">Looked up ${esc(pfWhen(d.last_checked_at))}</div>` : '');
     const registrar = d.registrar ? esc(d.registrar) + (d.reseller ? `<div class="muted">via ${esc(d.reseller)}</div>` : '') : '<span class="muted">&mdash;</span>';
     const check = pf.canEdit
         ? `<td><input type="checkbox" class="pf-select" value="${d.id}"${pf.selected.has(String(d.id)) ? ' checked' : ''} aria-label="Select ${esc(d.domain)}"></td>` : '';
@@ -51,7 +114,9 @@ function pfRow(d) {
         + `<td>${registrar}<div>${pfTransfer(d)}</div></td>`
         + `<td class="nowrap">${pfExpiry(d)}</td>`
         + `<td>${phase}</td>`
-        + `<td class="nowrap">${d.last_checked_at ? esc(pfWhen(d.last_checked_at)) : '&mdash;'}</td>`
+        + `<td>${pfIntel(d)}</td>`
+        + `<td>${pfLifecycle(d)}</td>`
+        + `<td>${pfContact(d)}</td>`
         + `<td class="nowrap">${actions}</td></tr>`;
 }
 
@@ -66,7 +131,8 @@ function pfMatches(d) {
     const flag = $('pfFlagFilter').value;
     if (flag && !d.flags.includes(flag)) return false;
     if (!q) return true;
-    return [d.domain, d.registrar, d.reseller, d.note, d.group].some(v => v && v.toLowerCase().includes(q));
+    return [d.domain, d.registrar, d.reseller, d.note, d.group, d.lifecycle_text, d.contact && d.contact.name,
+        d.contact && d.contact.email].some(v => v && v.toLowerCase().includes(q));
 }
 
 function pfRender() {
@@ -97,7 +163,8 @@ function pfRender() {
         const head = pf.canEdit ? '<th><input type="checkbox" class="pf-select-all" aria-label="Select all in this unit"></th>' : '';
         const table = shown.length
             ? `<div class="users-table-wrap"><table class="data-table portfolio-table">`
-              + `<tr>${head}<th>Domain</th><th>Registrar</th><th>Expires</th><th>Status</th><th>Last looked up</th><th></th></tr>`
+              + `<tr>${head}<th>Domain</th><th>Registrar</th><th>Expires</th><th>Status</th>`
+              + `<th>Threat intel</th><th>Decision</th><th>Contact</th><th></th></tr>`
               + shown.map(pfRow).join('') + '</table></div>'
             : `<p class="muted">${all.length ? 'No domains in this unit match the filter.' : 'No domains in this unit yet.'}</p>`;
         const counts = pfCounts(summaries[s.key] || {});
@@ -121,6 +188,7 @@ function pfRenderChrome() {
         + tile('Quarantine or deleted', t.attention, 'attention', 'tile-bad')
         + tile('Expiring within 30 days', t.expiring, 'expiring', 'tile-warn')
         + tile('To move', t.move, 'move', 'tile-warn')
+        + tile('In use, no threat intel', t.intel, 'intel', 'tile-warn')
         + tile('Not measured', t.unmeasured, 'unmeasured', '');
 
     const current = pf.initialGroup || $('pfGroupFilter').value;
@@ -143,6 +211,18 @@ function pfRenderChrome() {
             + '<option value="new">New unit…</option>';
         unit.value = chosen === 'new' || data.groups.some(g => String(g.id) === String(chosen)) ? String(chosen) : '';
         $('pfImportNewField').classList.toggle('hidden', unit.value !== 'new');
+    }
+    if ($('pfLifecycleValue')) {
+        const life = $('pfLifecycleValue').value;
+        $('pfLifecycleValue').innerHTML = (data.lifecycles || [])
+            .map(l => `<option value="${esc(l.value)}">${esc(l.text)}</option>`).join('');
+        if (life) $('pfLifecycleValue').value = life;
+        const person = $('pfContactValue').value;
+        $('pfContactValue').innerHTML = contactOptions("The unit's contact");
+        if ([...$('pfContactValue').options].some(o => o.value === person)) $('pfContactValue').value = person;
+        if (!$('pfContactValue').parentElement.querySelector('.contact-new')) {
+            $('pfContactValue').insertAdjacentHTML('afterend', contactNewFields('bulk'));
+        }
     }
     const groupKey = current.startsWith('g') ? current.slice(1) : '';
     $('pfCsvBtn').href = '/api/portfolio/csv' + (groupKey ? `?unit=${encodeURIComponent(groupKey)}` : '');
@@ -191,18 +271,24 @@ function pfShowImport(res, unitName) {
             + res.converted.map(c => `${c.from} → ${c.to}`).join(', ') + '.');
     }
     if (res.rejected.length) parts.push(`Not a domain name: ${res.rejected.join(', ')}.`);
+    if (res.decisions) parts.push(`Decision set for ${res.decisions} domain(s).`);
+    if (res.contacts) parts.push(`Contact linked to ${res.contacts} domain(s).`);
+    if (res.contacts_created && res.contacts_created.length) parts.push(`New contacts: ${res.contacts_created.join(', ')}.`);
+    if (res.threat_intel) parts.push(`Threat intelligence set for ${res.threat_intel} domain(s).`);
+    if (res.not_understood && res.not_understood.length) parts.push(`Not understood, left as it was: ${res.not_understood.join('; ')}.`);
     if (res.added.length) parts.push('New domains are looked up within a few minutes.');
     $('pfImportResult').textContent = parts.join(' ');
 }
 
-async function pfBulk(action) {
+async function pfBulk(action, value) {
     if (!pf.selected.size) { toast('Select domains first.'); return; }
     const body = { action, ids: [...pf.selected] };
+    if (value !== undefined) body.value = value;
     if (action === 'move') body.group_id = $('pfMoveTarget').value;
     if (action === 'remove' && !confirm(`Remove ${pf.selected.size} domain(s) from the portfolio?`)) return;
     try {
         const res = await pfPost('/api/portfolio/domains', body);
-        toast(`${res.count} domain(s) ${action === 'move' ? 'moved' : 'removed'}.`);
+        toast(`${res.count} domain(s) ${action === 'move' ? 'moved' : action === 'remove' ? 'removed' : 'changed'}.`);
         pf.selected.clear();
     } catch (err) { toast(err.message); }
     pfLoad();
@@ -256,6 +342,53 @@ function initPortfolio() {
     if (pf.canEdit) {
         $('pfMoveBtn').addEventListener('click', () => pfBulk('move'));
         $('pfRemoveBtn').addEventListener('click', () => pfBulk('remove'));
+        $('pfLifecycleBtn').addEventListener('click', () => pfBulk('lifecycle', $('pfLifecycleValue').value));
+        $('pfIntelBtn').addEventListener('click', () => pfBulk('threat_intel', $('pfIntelValue').value === 'true'));
+        $('pfContactValue').addEventListener('change', () => contactToggleNew($('pfContactValue')));
+        $('pfContactBtn').addEventListener('click', async () => {
+            if (!pf.selected.size) { toast('Select domains first.'); return; }
+            try { pfBulk('contact', await contactResolve($('pfContactValue'))); } catch (err) { toast(err.message); }
+        });
+        // Threat intelligence on or off, one domain at a time.
+        $('pfGroups').addEventListener('click', async e => {
+            const toggle = e.target.closest('.pf-intel');
+            if (!toggle) return;
+            const id = toggle.closest('tr[data-id]').dataset.id;
+            const on = toggle.getAttribute('aria-checked') !== 'true';
+            toggle.setAttribute('aria-checked', String(on));
+            toggle.disabled = true;
+            try {
+                await pfPost('/api/portfolio/domains', { action: 'threat_intel', ids: [Number(id)], value: on });
+            } catch (err) { toast(err.message); }
+            pfLoad();
+        });
+        $('pfGroups').addEventListener('click', async e => {
+            const cell = e.target.closest('td');
+            const row = e.target.closest('tr[data-id]');
+            if (!cell || !row) return;
+            const d = pf.data.domains.find(x => String(x.id) === row.dataset.id);
+            if (e.target.classList.contains('pf-contact-link')) {
+                pfContactEdit(cell, d);
+            } else if (e.target.classList.contains('pf-contact-cancel')) {
+                cell.innerHTML = pfContact(d);
+            } else if (e.target.classList.contains('pf-contact-save')) {
+                e.target.disabled = true;
+                try {
+                    const contact = await contactResolve(cell.querySelector('.pf-contact-choice'));
+                    await pfPost('/api/portfolio/domains', { action: 'contact', ids: [d.id], value: contact });
+                } catch (err) { toast(err.message); e.target.disabled = false; return; }
+                pfLoad();
+            }
+        });
+        $('pfGroups').addEventListener('change', e => {
+            if (e.target.classList.contains('pf-contact-choice')) contactToggleNew(e.target);
+        });
+        $('pfGroups').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && e.target.closest('.contact-new')) {
+                e.target.closest('td').querySelector('.pf-contact-save').click();
+            }
+        });
+        contactBookLoad().then(() => { if (pf.data) pfRenderChrome(); });
         $('pfMonitorBtn').addEventListener('click', async () => {
             if (!pf.selected.size) { toast('Select domains first.'); return; }
             const schedule = $('pfMonitorSchedule');

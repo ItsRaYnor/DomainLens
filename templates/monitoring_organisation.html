@@ -35,6 +35,10 @@
                     <input type="text" id="orgNewRegistrar" placeholder="e.g. Example Registrar" autocomplete="off">
                     <small class="muted">Domains of this unit registered elsewhere are marked to move. Units below inherit it.</small>
                 </label>
+                <label class="form-field" for="orgNewContact"><span>Contact <span class="muted">(optional)</span></span>
+                    <span class="contact-pick"><select id="orgNewContact"></select></span>
+                    <small class="muted">Units and domains below it have this contact unless they name their own.</small>
+                </label>
                 <label class="form-field" for="orgNewNotify"><span>Alert e-mail <span class="muted">(optional)</span></span>
                     <input type="text" id="orgNewNotify" placeholder="e.g. team@example.com" autocomplete="off">
                     <small class="muted">Also gets the alerts about this unit's domains, besides the general channels.</small>
@@ -57,6 +61,40 @@
         </section>
 
         {% if can_edit %}
+        <section class="card" id="orgContacts">
+            <div class="contact-head">
+                <h3>Contacts</h3>
+                <button class="btn-primary-lite" id="orgContactNewBtn" type="button">+ Add contact</button>
+            </div>
+            <p class="ct-desc">The people to ask about a company, a business unit and its domains. Link a contact to a unit; the units and domains below it have that contact unless they name their own. A contact is kept once, so someone who leaves is replaced in one place.</p>
+            <div class="contact-form hidden" id="orgContactForm">
+                <div class="form-grid">
+                    <label class="form-field" for="orgContactAccount" id="orgContactAccountField"><span>From an account</span>
+                        <select id="orgContactAccount"></select>
+                        <small class="muted">Single sign-on or local: name and e-mail address then follow the account.</small>
+                    </label>
+                    <label class="form-field" for="orgContactName"><span>Name</span>
+                        <input type="text" id="orgContactName" placeholder="e.g. Sam Example" autocomplete="off">
+                    </label>
+                    <label class="form-field" for="orgContactEmail"><span>E-mail</span>
+                        <input type="email" id="orgContactEmail" placeholder="e.g. domains@example.com" autocomplete="off">
+                    </label>
+                    <label class="form-field" for="orgContactPhone"><span>Phone <span class="muted">(optional)</span></span>
+                        <input type="tel" id="orgContactPhone" autocomplete="off">
+                    </label>
+                    <label class="form-field" for="orgContactUnit"><span>Contact for <span class="muted">(optional)</span></span>
+                        <select id="orgContactUnit"></select>
+                        <small class="muted">The company or unit this person is the contact for.</small>
+                    </label>
+                </div>
+                <div class="contact-link">
+                    <button class="btn-primary-lite" id="orgContactAddBtn" type="button">Add contact</button>
+                    <button class="btn-ghost" id="orgContactCancelBtn" type="button">Cancel</button>
+                </div>
+            </div>
+            <div class="contact-list" id="orgContactList"></div>
+        </section>
+
         <section class="card">
             <details class="monitor-fold" id="orgManage">
                 <summary><h4>Edit, move or merge units</h4></summary>
@@ -82,6 +120,7 @@
     <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
     <script type="application/json" id="orgCanEdit">{{ (can_edit and true or false)|tojson }}</script>
     <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/contact_picker.js?v={{ asset_token }}"></script>
     <script src="/static/js/organisation.js?v={{ asset_token }}"></script>
     <script src="/static/js/theme.js?v={{ asset_token }}"></script>
 </body>

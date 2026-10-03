@@ -46,6 +46,7 @@ function unitRender(d) {
     const notify = (d.unit.notify_emails || '').split(',').filter(Boolean);
     $('unitSub').textContent = (d.unit.effective_registrar
         ? `Registrar: ${d.unit.effective_registrar}${d.unit.registrar_inherited ? ' (inherited)' : ''} · ` : '')
+        + (d.unit.contact ? `Contact: ${d.unit.contact.name}${d.unit.contact_inherited ? ' (inherited)' : ''} · ` : '')
         + (notify.length ? `Alerts also to ${notify.join(', ')} · ` : '')
         + 'Figures include the units below it.';
     unitKpis(d);

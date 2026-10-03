@@ -18,6 +18,13 @@ Three states, kept apart as elsewhere: a lookup that failed keeps the last
 known answer and says it is stale; it is never shown as "not registered",
 and a missing expiry date for .nl (SIDN publishes none: the registrar renews
 until the holder cancels) is "not published", not "unknown".
+
+Each domain also carries a decision -- keep it, decide later, let it lapse,
+or request or claim it -- and the warnings follow that decision: an expiry
+is news for a domain you keep and the plan for one you cancel. Whether a
+domain is in use (it receives or sends mail, or has a web address) is
+measured with each lookup; a domain in use belongs with the threat
+intelligence service, one that is not does not need it.
 """
 
 from __future__ import annotations
@@ -49,6 +56,21 @@ PHASE_TEXT = {
     "unmeasured": "Not looked up yet",
 }
 _ATTENTION_PHASES = ("quarantine", "pending_delete", "redemption", "not_in_dns", "not_registered")
+
+# What the organisation means to do with a domain. Keep is the default: a
+# domain in the portfolio is held until someone decides otherwise.
+LIFECYCLE_TEXT = {
+    "keep": "Keep and renew",
+    "review": "To decide",
+    "cancel": "Cancel (let it lapse)",
+    "claim": "Request or claim",
+}
+DEFAULT_LIFECYCLE = "keep"
+# Not (or no longer) the organisation's to look after: no expiry warnings,
+# no registrar to move to, no threat intelligence.
+_NOT_HELD = ("cancel", "claim")
+# Phases in which a domain has no DNS at all, so it is measurably unused.
+_NO_DNS_PHASES = ("not_registered", "quarantine", "not_in_dns")
 _NO_EXPIRY_TLDS = ("nl",)
 
 
@@ -59,6 +81,7 @@ _GROUPS_TABLE = """
             parent_id INTEGER,
             expected_registrar TEXT,
             notify_emails TEXT,
+            contact_id INTEGER,
             created_at TEXT NOT NULL
         )
         """
@@ -75,6 +98,8 @@ def _migrate_groups(conn):
     if "parent_id" in columns:
         if "notify_emails" not in columns:
             conn.execute("ALTER TABLE portfolio_groups ADD COLUMN notify_emails TEXT")
+        if "contact_id" not in columns:
+            conn.execute("ALTER TABLE portfolio_groups ADD COLUMN contact_id INTEGER")
         return
     conn.execute("BEGIN")
     try:
@@ -119,6 +144,7 @@ def init_schema(conn):
         )
         """
     )
+    _migrate_domains(conn)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS portfolio_events (
@@ -130,6 +156,23 @@ def init_schema(conn):
         )
         """
     )
+
+
+_DOMAIN_COLUMNS = {
+    "lifecycle": "TEXT NOT NULL DEFAULT 'keep'",
+    "threat_intel": "INTEGER NOT NULL DEFAULT 0",
+    "contact_id": "INTEGER",
+    "uses_mail": "TEXT",      # 'yes', 'no', or NULL: not measured
+    "uses_web": "TEXT",
+    "usage_checked_at": "TEXT",
+}
+
+
+def _migrate_domains(conn):
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(portfolio_domains)").fetchall()}
+    for name, kind in _DOMAIN_COLUMNS.items():
+        if name not in columns:
+            conn.execute(f"ALTER TABLE portfolio_domains ADD COLUMN {name} {kind}")
 
 
 def _now():
@@ -148,10 +191,12 @@ _PATH_SPLIT = re.compile(r"\s*(?:>|/|›)\s*")
 
 
 def list_groups():
-    """Every unit, depth first, with its path, depth and the registrar it
-    is held to (its own, or the nearest ancestor's)."""
+    """Every unit, depth first, with its path, depth, the registrar it is
+    held to and its contact (each its own, or the nearest ancestor's)."""
+    import contacts
     with db._connect() as conn:
         rows = [dict(r) for r in conn.execute("SELECT * FROM portfolio_groups").fetchall()]
+        people = contacts.by_id(conn)
     by_id = {r["id"]: r for r in rows}
     children = {}
     for r in rows:
@@ -159,18 +204,21 @@ def list_groups():
         children.setdefault(parent, []).append(r)
     out = []
 
-    def walk(parent, path, depth, inherited, seen):
+    def walk(parent, path, depth, inherited, person, seen):
         for r in sorted(children.get(parent, []), key=lambda g: g["name"].lower()):
             if r["id"] in seen:          # a cycle written by hand; never loop on it
                 continue
             names = path + [r["name"]]
             expected = r.get("expected_registrar") or inherited
+            own = people.get(r.get("contact_id"))
+            contact = own or person
             out.append({**r, "path": PATH_SEPARATOR.join(names), "depth": depth,
                         "effective_registrar": expected,
-                        "registrar_inherited": bool(expected and not r.get("expected_registrar"))})
-            walk(r["id"], names, depth + 1, expected, seen | {r["id"]})
+                        "registrar_inherited": bool(expected and not r.get("expected_registrar")),
+                        "contact": contact, "contact_inherited": bool(contact and not own)})
+            walk(r["id"], names, depth + 1, expected, contact, seen | {r["id"]})
 
-    walk(None, [], 0, None, frozenset())
+    walk(None, [], 0, None, None, frozenset())
     return out
 
 
@@ -278,7 +326,7 @@ def unit_recipients(hostname):
 
 
 def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNSET,
-                 notify_emails=None):
+                 notify_emails=None, contact_id=_UNSET):
     group = get_group(group_id)
     if not group:
         raise ValueError("Unknown unit")
@@ -296,6 +344,13 @@ def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNS
     if notify_emails is not None:
         fields.append("notify_emails = ?")
         values.append(",".join(clean_recipients(notify_emails)) or None)
+    if contact_id is not _UNSET:
+        import contacts
+        contact_id = int(contact_id) if contact_id not in (None, "") else None
+        if contact_id is not None and not contacts.get(contact_id):
+            raise ValueError("Unknown contact")
+        fields.append("contact_id = ?")
+        values.append(contact_id)
     with db._lock, db._connect() as conn:
         clash = _find(conn, new_name, new_parent)
         if clash and clash != int(group_id):
@@ -348,10 +403,14 @@ def merge_group(source_id, target_id):
             else:
                 conn.execute("UPDATE portfolio_groups SET parent_id = ? WHERE id = ?", (dst, child["id"]))
                 counts["units_moved"] += 1
-        own = conn.execute("SELECT expected_registrar FROM portfolio_groups WHERE id = ?", (src,)).fetchone()
+        own = conn.execute("SELECT expected_registrar, contact_id FROM portfolio_groups WHERE id = ?",
+                           (src,)).fetchone()
         if own and own["expected_registrar"]:
             conn.execute("UPDATE portfolio_groups SET expected_registrar = ? "
                          "WHERE id = ? AND expected_registrar IS NULL", (own["expected_registrar"], dst))
+        if own and own["contact_id"]:
+            conn.execute("UPDATE portfolio_groups SET contact_id = ? "
+                         "WHERE id = ? AND contact_id IS NULL", (own["contact_id"], dst))
         conn.execute("DELETE FROM portfolio_groups WHERE id = ?", (src,))
 
     with db._lock, db._connect() as conn:
@@ -448,6 +507,43 @@ _GROUP_HEADERS = {"group", "groep", "company", "bedrijf", "afdeling", "departmen
                   "organization", "organisatie", "entity", "entiteit", "customer", "klant",
                   "label", "unit", "eenheid", "org unit", "organisation unit",
                   "organisatieonderdeel"}
+_DECISION_HEADERS = {"decision", "besluit", "beslissing", "lifecycle", "action", "actie", "plan",
+                     "keep", "behouden", "verlengen", "renew"}
+_CONTACT_HEADERS = {"contact", "contactpersoon", "contact person", "contact name", "owner",
+                    "eigenaar", "domain owner", "verantwoordelijke", "responsible",
+                    "aanspreekpunt", "beheerder"}
+_EMAIL_HEADERS = {"e-mail", "email", "mail", "contact e-mail", "contact email", "e-mailadres",
+                  "emailadres", "owner e-mail", "owner email"}
+_INTEL_HEADERS = {"threat intel", "threat intelligence", "ti", "threatintel", "cti"}
+
+# What people write in a decision column, in English or Dutch. The first
+# word decides when the whole cell is not known ("Cancel (let it lapse)").
+_DECISION_WORDS = {
+    "keep": "keep", "renew": "keep", "keep and renew": "keep", "behouden": "keep",
+    "behouden en verlengen": "keep", "verlengen": "keep", "houden": "keep", "behoud": "keep",
+    "review": "review", "to decide": "review", "decide": "review", "undecided": "review",
+    "nog te besluiten": "review", "besluiten": "review", "twijfel": "review", "onbekend": "review",
+    "cancel": "cancel", "lapse": "cancel", "let it lapse": "cancel", "drop": "cancel",
+    "opzeggen": "cancel", "laten verlopen": "cancel", "opheffen": "cancel", "verwijderen": "cancel",
+    "claim": "claim", "request": "claim", "request or claim": "claim", "acquire": "claim",
+    "claimen": "claim", "aanvragen": "claim", "aanvragen of claimen": "claim",
+    "verwerven": "claim", "registreren": "claim",
+}
+_YES = {"yes", "ja", "y", "j", "true", "1", "x", "on", "aan", "enrolled", "aangemeld"}
+_NO = {"no", "nee", "n", "false", "0", "off", "uit", "not enrolled", "niet aangemeld"}
+
+
+def decision_of(text):
+    """The decision a cell names, None for an empty cell, "" for one not understood."""
+    words = " ".join(re.sub(r"[^\w\s-]", " ", str(text or "").lower()).split())
+    if not words:
+        return None
+    return _DECISION_WORDS.get(words) or _DECISION_WORDS.get(words.split()[0]) or ""
+
+
+def _intel_of(text):
+    value = " ".join(str(text or "").lower().split())
+    return True if value in _YES else False if value in _NO else None
 
 
 def registrable(domain):
@@ -467,18 +563,27 @@ def _domain_of(token):
 
 
 def _header(cells):
-    """(domain column, group column) when this row is a header, else None."""
+    """{"domain", "group", "decision", "contact", "email", "intel": column}
+    when this row is a header, else None."""
     names = [" ".join(c.lower().replace("_", " ").split()) for c in cells]
     if any(_domain_of(c) for c in cells if c):
         return None
-    domain_col = next((i for i, n in enumerate(names) if n in _DOMAIN_HEADERS), None)
-    group_col = next((i for i, n in enumerate(names) if n in _GROUP_HEADERS), None)
-    if domain_col is None and group_col is None:
+    found = {}
+    for key, known in (("domain", _DOMAIN_HEADERS), ("group", _GROUP_HEADERS),
+                       ("decision", _DECISION_HEADERS), ("contact", _CONTACT_HEADERS),
+                       ("email", _EMAIL_HEADERS), ("intel", _INTEL_HEADERS)):
+        found[key] = next((i for i, n in enumerate(names) if n in known), None)
+    if found["domain"] is None and found["group"] is None:
         return None
-    return domain_col, group_col
+    return found
 
 
 def parse_import(text):
+    """(entries, rejected, converted): see parse_import_full."""
+    return parse_import_full(text)[:3]
+
+
+def parse_import_full(text):
     """Domains and their groups from a paste, a CSV or a converted sheet.
 
     Returns (entries, rejected, converted): entries are (domain, group or
@@ -490,8 +595,14 @@ def parse_import(text):
     names the columns ("Domain;Company;Notes"), only those columns are read,
     so a notes column is never taken for the group. A dotted token that is
     not a domain name is rejected rather than guessed.
+
+    A header may also name a decision, a contact (a name, an address, or
+    "Name <address>"), a contact e-mail and threat intelligence column; the
+    fourth value returned maps each domain to what those cells said. An
+    empty cell says nothing, so an import never clears what is set.
     """
     entries, rejected, converted, seen = [], [], {}, set()
+    extras = {}
     columns = None
     for line in (text or "").splitlines():
         if not line.strip():
@@ -504,8 +615,11 @@ def parse_import(text):
                 continue
         cells = [c for c in raw if c]
         names, others = [], []
-        if columns and columns[0] is not None:
-            cell = raw[columns[0]] if columns[0] < len(raw) else ""
+        def at(key):
+            col = columns.get(key) if columns else None
+            return raw[col].strip() if col is not None and col < len(raw) else ""
+        if columns and columns["domain"] is not None:
+            cell = raw[columns["domain"]] if columns["domain"] < len(raw) else ""
             domain = _domain_of(cell)
             if domain:
                 names.append(domain)
@@ -526,8 +640,8 @@ def parse_import(text):
             if not columns and cells and "." in cells[0] and " " not in cells[0]:
                 rejected.append(cells[0])
             continue          # a header, or a line without a domain
-        if columns and columns[1] is not None:
-            group = raw[columns[1]] if columns[1] < len(raw) else ""
+        if columns and columns["group"] is not None:
+            group = raw[columns["group"]] if columns["group"] < len(raw) else ""
             # "example.com, example.org" under a header is a list on one
             # line, not a domain in a group called example.org.
             if _domain_of(group):
@@ -544,7 +658,11 @@ def parse_import(text):
             if domain not in seen:
                 seen.add(domain)
                 entries.append((domain, " ".join(group.split())[:80] if group else None))
-    return entries, rejected, converted
+                extra = {"decision": at("decision"), "contact": at("contact"),
+                         "email": at("email"), "intel": at("intel")}
+                if any(extra.values()):
+                    extras[domain] = extra
+    return entries, rejected, converted, extras
 
 
 MAX_SHEET_ROWS = 10000
@@ -574,12 +692,83 @@ def _delimiter(line):
     return ","
 
 
-def import_domains(entries, *, default_group=None, default_group_id=None, created_by=None):
+def _contact_for(name, email, people, made):
+    """The contact a sheet names: an existing one by address or name, an
+    account with that address, or a new contact. None when the cells name
+    no one; ValueError for an address that is not one."""
+    import contacts
+    if "<" in name and name.rstrip().endswith(">") and not email:
+        name, _, email = name.rstrip(">").partition("<")
+    name, email = " ".join(name.split()), email.strip().lower()
+    if not email and "@" in name and " " not in name:
+        name, email = "", name.lower()
+    if not (name or email):
+        return None
+    for c in people:
+        if email and (c.get("email") or "").lower() == email:
+            return c["id"]
+    if not email:
+        for c in people:
+            if (c.get("name") or "").lower() == name.lower():
+                return c["id"]
+    if email:
+        user = db.get_user_by_email(email)
+        if user:
+            contact = contacts.create(user_id=user["id"])
+            people.append(contact)
+            return contact["id"]
+    contact = contacts.create(name=name or None, email=email or None)
+    people.append(contact)
+    made.append(contact["name"])
+    return contact["id"]
+
+
+def _apply_extras(extras):
+    """Decision, contact and threat intelligence from the sheet's columns."""
+    import contacts
+    report = {"decisions": 0, "contacts": 0, "threat_intel": 0, "contacts_created": [],
+              "not_understood": []}
+    if not extras:
+        return report
+    people = contacts.list_contacts()
+    with db._connect() as conn:
+        ids = {r["domain"]: r["id"] for r in conn.execute("SELECT id, domain FROM portfolio_domains")}
+    for domain, extra in extras.items():
+        domain_id = ids.get(domain)
+        if domain_id is None:
+            continue
+        decision = decision_of(extra.get("decision"))
+        if decision:
+            set_lifecycle([domain_id], decision)
+            report["decisions"] += 1
+        elif decision == "":
+            report["not_understood"].append(f"{domain}: {extra['decision']}")
+        intel = _intel_of(extra.get("intel"))
+        if intel is not None:
+            set_threat_intel([domain_id], intel)
+            report["threat_intel"] += 1
+        elif extra.get("intel"):
+            report["not_understood"].append(f"{domain}: {extra['intel']}")
+        try:
+            contact_id = _contact_for(extra.get("contact") or "", extra.get("email") or "",
+                                      people, report["contacts_created"])
+        except ValueError as exc:
+            report["not_understood"].append(f"{domain}: {exc}")
+            continue
+        if contact_id is not None:
+            set_contact([domain_id], contact_id)
+            report["contacts"] += 1
+    return report
+
+
+def import_domains(entries, *, default_group=None, default_group_id=None, created_by=None,
+                   extras=None):
     """Add or regroup domains. Returns counts and the names that changed.
 
     A group is a unit path ("Org X > Sales"); missing levels are created. A
     domain already in the portfolio is moved to the unit the import names
-    for it; one imported without a unit keeps the unit it has.
+    for it; one imported without a unit keeps the unit it has. `extras`
+    (from parse_import_full) sets a decision, contact or threat intelligence.
     """
     if default_group_id is not None and not get_group(default_group_id):
         raise ValueError("Unknown unit")
@@ -608,7 +797,7 @@ def import_domains(entries, *, default_group=None, default_group_id=None, create
                 moved.append(domain)
             else:
                 unchanged.append(domain)
-    return {"added": added, "moved": moved, "unchanged": unchanged}
+    return {"added": added, "moved": moved, "unchanged": unchanged, **_apply_extras(extras)}
 
 
 def move(domain_ids, group_id):
@@ -625,6 +814,31 @@ def remove(domain_ids):
     with db._lock, db._connect() as conn:
         return sum(conn.execute("DELETE FROM portfolio_domains WHERE id = ?", (i,)).rowcount
                    for i in ids)
+
+
+def set_lifecycle(domain_ids, value):
+    if value not in LIFECYCLE_TEXT:
+        raise ValueError("Unknown decision")
+    return _set(domain_ids, "lifecycle", value)
+
+
+def set_threat_intel(domain_ids, enrolled):
+    return _set(domain_ids, "threat_intel", 1 if enrolled else 0)
+
+
+def set_contact(domain_ids, contact_id):
+    if contact_id is not None:
+        import contacts
+        if not contacts.get(contact_id):
+            raise ValueError("Unknown contact")
+    return _set(domain_ids, "contact_id", contact_id)
+
+
+def _set(domain_ids, column, value):
+    ids = [int(i) for i in domain_ids]
+    with db._lock, db._connect() as conn:
+        return sum(conn.execute(f"UPDATE portfolio_domains SET {column} = ? WHERE id = ?",
+                                (value, i)).rowcount for i in ids)
 
 
 # ---------------------------------------------------------------- reading
@@ -666,7 +880,28 @@ def expiry_state(domain, today=None):
     return "unmeasured", None
 
 
-def _enrich(row, groups, today=None):
+def usage_state(domain):
+    """"in_use" (mail or web measured), "unused" (both measured absent) or
+    "unmeasured". One answer missing is not enough to call a domain unused."""
+    mail, web = domain.get("uses_mail"), domain.get("uses_web")
+    if "yes" in (mail, web):
+        return "in_use"
+    if mail == "no" and web == "no":
+        return "unused"
+    return "unmeasured"
+
+
+def threat_intel_state(domain):
+    """"enrolled", "missing" (in use, not enrolled), "not_needed" (unused, or
+    a domain being cancelled or claimed) or "unmeasured" (use not known)."""
+    if domain.get("threat_intel"):
+        return "enrolled"
+    if domain.get("lifecycle") in _NOT_HELD:
+        return "not_needed"
+    return {"in_use": "missing", "unused": "not_needed"}.get(usage_state(domain), "unmeasured")
+
+
+def _enrich(row, groups, today=None, people=None):
     out = dict(row)
     out["status"] = json.loads(out.get("status") or "[]")
     out["nameservers"] = (out.get("nameservers") or "").split()
@@ -674,34 +909,58 @@ def _enrich(row, groups, today=None):
     group = groups.get(out.get("group_id"))
     out["group"] = group["path"] if group else None
     out["unit"], out["unit_id"] = out["group"], out.get("group_id")
-    out["transfer"] = transfer_state(out, group)
+    out["lifecycle"] = out.get("lifecycle") or DEFAULT_LIFECYCLE
+    out["lifecycle_text"] = LIFECYCLE_TEXT.get(out["lifecycle"], out["lifecycle"])
+    held = out["lifecycle"] not in _NOT_HELD
+    # A domain being let go or still to be acquired has no registrar to move to.
+    out["transfer"] = transfer_state(out, group) if held else "not_applicable"
     out["expiry_state"], out["days_left"] = expiry_state(out, today)
+    out["threat_intel"] = bool(out.get("threat_intel"))
+    out["usage"] = usage_state(out)
+    out["threat_intel_state"] = threat_intel_state(out)
+    # A domain's own contact, or else the one of its unit (or a unit above).
+    own = (people or {}).get(out.get("contact_id")) if out.get("contact_id") else None
+    out["contact"] = own or (group or {}).get("contact")
+    out["contact_inherited"] = bool(out["contact"] and not own)
     # The last lookup failed, so what is shown is the answer before it.
     out["stale"] = bool(out.get("last_error")) and out["phase"] != "unmeasured"
     flags = []
-    if out["phase"] in _ATTENTION_PHASES:
+    # Quarantine or an expiry is a problem for a domain you hold, and the
+    # plan (or the opportunity) for one you cancel or want to acquire.
+    if held and out["phase"] in _ATTENTION_PHASES:
         flags.append("attention")
-    if out["days_left"] is not None and out["days_left"] <= _SOON.days:
+    if held and out["days_left"] is not None and out["days_left"] <= _SOON.days:
         flags.append("expiring")
     if out["transfer"] == "move":
         flags.append("move")
+    if out["threat_intel_state"] == "missing":
+        flags.append("intel")
+    if out["lifecycle"] == "claim" and out["phase"] == "not_registered":
+        flags.append("claimable")
     if out["phase"] == "unmeasured" or out["stale"]:
         flags.append("unmeasured")
     out["flags"] = flags
     return out
 
 
+def _people():
+    import contacts
+    return {c["id"]: {k: c[k] for k in ("id", "name", "email", "phone", "account")}
+            for c in contacts.list_contacts()}
+
+
 def list_all(today=None):
     groups = {g["id"]: g for g in list_groups()}
+    people = _people()
     with db._connect() as conn:
         rows = conn.execute("SELECT * FROM portfolio_domains ORDER BY domain").fetchall()
-    return [_enrich(r, groups, today) for r in rows]
+    return [_enrich(r, groups, today, people) for r in rows]
 
 
 def get(domain_id):
     with db._connect() as conn:
         row = conn.execute("SELECT * FROM portfolio_domains WHERE id = ?", (int(domain_id),)).fetchone()
-    return _enrich(row, {g["id"]: g for g in list_groups()}) if row else None
+    return _enrich(row, {g["id"]: g for g in list_groups()}, people=_people()) if row else None
 
 
 def summary(domains, groups):
@@ -710,7 +969,7 @@ def summary(domains, groups):
     def counts(items):
         return {"total": len(items),
                 **{flag: sum(1 for d in items if flag in d["flags"])
-                   for flag in ("attention", "expiring", "move", "unmeasured")}}
+                   for flag in ("attention", "expiring", "move", "unmeasured", "intel", "claimable")}}
     per_group = []
     for g in groups:
         below = descendants(g["id"], groups)
@@ -730,7 +989,8 @@ def events(limit=50):
 
 CSV_COLUMNS = ["domain", "unit", "phase", "registrar", "reseller", "transfer", "expires",
                "days_left", "registered_on", "dnssec", "nameservers", "status", "last_checked_at",
-               "last_error"]
+               "last_error", "decision", "threat_intel", "mail", "web", "contact", "contact_email",
+               "contact_from"]
 
 
 def to_csv(domains):
@@ -741,7 +1001,15 @@ def to_csv(domains):
         values = {**d, "nameservers": " ".join(d.get("nameservers") or []),
                   "status": "; ".join(d.get("status") or []),
                   "expires": d.get("expires") or ("not published" if d["expiry_state"] == "not_published" else ""),
-                  "days_left": "" if d.get("days_left") is None else d["days_left"]}
+                  "days_left": "" if d.get("days_left") is None else d["days_left"],
+                  "decision": d.get("lifecycle"),
+                  "threat_intel": d.get("threat_intel_state"),
+                  # yes / no / empty: empty is "not measured", never "no".
+                  "mail": d.get("uses_mail") or "", "web": d.get("uses_web") or "",
+                  "contact": (d.get("contact") or {}).get("name"),
+                  "contact_from": ("" if not d.get("contact")
+                                   else "unit" if d.get("contact_inherited") else "domain"),
+                  "contact_email": (d.get("contact") or {}).get("email")}
         writer.writerow([whois_batch._csv_safe(values.get(c)) for c in CSV_COLUMNS])
     return out.getvalue()
 
@@ -786,6 +1054,11 @@ def _answer(result):
 
 def _changes(domain, old, new):
     """[(kind, severity, text)] worth telling someone about."""
+    lifecycle = old.get("lifecycle") or DEFAULT_LIFECYCLE
+    if lifecycle == "cancel":
+        return _changes_cancelled(domain, old, new)
+    if lifecycle == "claim":
+        return _changes_wanted(domain, old, new)
     out = []
     if new["phase"] != old.get("phase"):
         before = PHASE_TEXT.get(old.get("phase"), old.get("phase"))
@@ -809,6 +1082,34 @@ def _changes(domain, old, new):
     return out
 
 
+def _changes_cancelled(domain, old, new):
+    """A domain being let go: lapsing is the plan, recorded but not alarming.
+    A takeover while it is still registered to you is still news."""
+    out = []
+    if new["phase"] != old.get("phase"):
+        before = PHASE_TEXT.get(old.get("phase"), old.get("phase"))
+        after = PHASE_TEXT.get(new["phase"], new["phase"])
+        out.append(("phase", "low", f"{domain}: {before} -> {after} (marked to cancel)."))
+    for field, label in (("registrar", "registrar"), ("reseller", "reseller")):
+        if new.get(field) and old.get(field) and new[field] != old[field]:
+            out.append((field, "high", f"{domain} changed {label}: {old[field]} -> {new[field]}."))
+    if new.get("nameservers") and old.get("nameservers") and new["nameservers"] != old["nameservers"]:
+        out.append(("nameservers", "high",
+                    f"{domain} has new name servers: {new['nameservers']} (was {old['nameservers']})."))
+    return out
+
+
+def _changes_wanted(domain, old, new):
+    """A domain still to be requested or claimed: it coming free is the news."""
+    if new["phase"] == old.get("phase"):
+        return []
+    before = PHASE_TEXT.get(old.get("phase"), old.get("phase"))
+    if new["phase"] == "not_registered":
+        return [("phase", "high", f"{domain} is no longer registered (was: {before}): it can be requested now.")]
+    after = PHASE_TEXT.get(new["phase"], new["phase"])
+    return [("phase", "medium", f"{domain}: {before} -> {after} (to request or claim).")]
+
+
 def _expiry_warning(domain, row, new, today):
     """(threshold, text) when an expiry threshold is newly crossed."""
     days = _days_left(new.get("expires"), today)
@@ -823,9 +1124,16 @@ def _expiry_warning(domain, row, new, today):
     return threshold, f"{domain} {when} ({new['expires']})."
 
 
-def check(row, *, fetch=None, notify=None, now=None):
-    """Look one domain up, store the answer, and report what changed."""
+def check(row, *, fetch=None, notify=None, now=None, probe=None):
+    """Look one domain up, store the answer, and report what changed.
+
+    `probe` measures whether the domain is in use. A caller that brings its
+    own `fetch` brings its own probe too, or none: then the use stays as it
+    was rather than being measured against the live DNS.
+    """
     now = now or _now()
+    if probe is None and fetch is None:
+        probe = probe_usage
     result = (fetch or (lambda d: whois_batch.lookup_paced(d)))(row["domain"])
     new = _answer(result)
     stamp = now.isoformat()
@@ -837,7 +1145,8 @@ def check(row, *, fetch=None, notify=None, now=None):
             return []
         baseline = row.get("phase") == "unmeasured"
         changes = [] if baseline else _changes(row["domain"], row, new)
-        warning = _expiry_warning(row["domain"], row, new, now.date())
+        held = (row.get("lifecycle") or DEFAULT_LIFECYCLE) not in _NOT_HELD
+        warning = _expiry_warning(row["domain"], row, new, now.date()) if held else None
         expiry_warned = row.get("expiry_warned") if row.get("expires") == new.get("expires") else None
         if warning:
             expiry_warned = warning[0]
@@ -853,9 +1162,70 @@ def check(row, *, fetch=None, notify=None, now=None):
         for kind, _, text in changes:
             conn.execute("INSERT INTO portfolio_events (domain, at, kind, detail) VALUES (?, ?, ?, ?)",
                          (row["domain"], stamp, kind, text))
+    _store_usage(row, new["phase"], probe, stamp)
     for _, severity, text in changes:
         (notify or _notify)(row["domain"], severity, text)
     return [{"domain": row["domain"], "kind": k, "severity": s, "detail": t} for k, s, t in changes]
+
+
+def _store_usage(row, phase, probe, stamp):
+    """Mail and web use: measured for a registered domain, "no" for one that
+    has no DNS at all, and left as it was when it could not be measured."""
+    if phase in _NO_DNS_PHASES:
+        mail = web = "no"
+    elif probe is not None and phase == "registered":
+        try:
+            found = probe(row["domain"]) or {}
+        except Exception:
+            found = {}
+        word = {True: "yes", False: "no"}
+        mail, web = word.get(found.get("mail")), word.get(found.get("web"))
+        if mail is None and web is None:
+            return
+    else:
+        return
+    with db._lock, db._connect() as conn:
+        conn.execute("UPDATE portfolio_domains SET uses_mail = COALESCE(?, uses_mail), "
+                     "uses_web = COALESCE(?, uses_web), usage_checked_at = ? WHERE id = ?",
+                     (mail, web, stamp, row["id"]))
+
+
+def _sends_mail(spf):
+    """An SPF record that allows any sender. "v=spf1 -all" is the opposite:
+    the domain declares that it sends no mail at all."""
+    terms = spf.lower().split()[1:]
+    return any(not t.endswith("all") and not t.startswith(("exp=", "-", "~")) for t in terms) \
+        or any(t in ("all", "+all", "?all") for t in terms)
+
+
+def probe_usage(domain, query=None):
+    """{"mail": bool|None, "web": bool|None}: None where DNS gave no answer.
+
+    Mail: an MX other than the null MX ("0 ."), or an SPF record that lets
+    someone send. Web: an address (A or AAAA) on the domain or www. -- which a
+    parking page has too, so "web" means reachable, not "a real site".
+    """
+    if query is None:
+        import dns_tools
+        query = dns_tools.query
+
+    def records(name, rtype):
+        try:
+            r = query(name, rtype)
+        except Exception:
+            return None
+        if r.get("error") or r.get("rcode") not in ("NOERROR", "NXDOMAIN"):
+            return None
+        return r.get("records") or []
+
+    mx = records(domain, "MX")
+    txt = records(domain, "TXT")
+    has_mx = None if mx is None else any(r.split()[-1:] != ["."] for r in mx)
+    spf = None if txt is None else any(t.lower().startswith("v=spf1") and _sends_mail(t) for t in txt)
+    mail = True if (has_mx or spf) else (None if None in (has_mx, spf) else False)
+    answers = [records(n, t) for n in (domain, f"www.{domain}") for t in ("A", "AAAA")]
+    web = True if any(answers) else (None if None in answers else False)
+    return {"mail": mail, "web": web}
 
 
 def _notify(domain, severity, detail):

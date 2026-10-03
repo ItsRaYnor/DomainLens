@@ -203,12 +203,27 @@ def spec():
                           _ok("Removed"), role="user",
                           params=[_param("group_id", "path", {"type": "integer"})]),
         },
+        "/api/contacts": {
+            "get": _op("Contacts, and the accounts an editor can make one of", "Portfolio",
+                       {"200": {"description": "Contacts"}}),
+            "post": _op("Add a contact by hand ({name, email, phone}) or for an account ({user_id})",
+                        "Portfolio", {"201": {"description": "The contact"}}, role="user"),
+        },
+        "/api/contacts/{contact_id}": {
+            "put": _op("Change a contact", "Portfolio", {"200": {"description": "The contact"}}, role="user"),
+            "delete": _op("Remove a contact; its domains keep no contact", "Portfolio",
+                          {"200": {"description": "Removed"}}, role="user"),
+        },
         "/api/portfolio/domains": {"post": _op(
-            "Move selected domains to a group, or remove them", "Portfolio", _ok("Count"),
+            "Move or remove selected domains, or set their decision, threat intelligence or contact",
+            "Portfolio", _ok("Count"),
             role="user", body=_body({"type": "object", "required": ["action", "ids"], "properties": {
-                "action": {"type": "string", "enum": ["move", "remove"]},
+                "action": {"type": "string",
+                           "enum": ["move", "remove", "lifecycle", "threat_intel", "contact"]},
                 "ids": {"type": "array", "items": {"type": "integer"}},
-                "group_id": {"type": "integer"}}}))},
+                "group_id": {"type": "integer"},
+                "value": {"description": "lifecycle: keep, review, cancel or claim; "
+                                         "threat_intel: true or false; contact: a contact id or null"}}}))},
         "/api/portfolio/groups/{group_id}/merge": {"post": _op(
             "Merge a unit into another, with its domains and units", "Portfolio",
             _ok("Counts and the resulting unit"), role="user",
