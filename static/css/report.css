@@ -54,12 +54,12 @@ a { color: var(--accent); word-break: break-all; }
 .report-meta strong { color: var(--text); }
 
 .print-toolbar {
-    display: flex; gap: 10px; margin: 0 0 20px; padding: 10px; border-radius: 6px; background: var(--bg-subtle);
+    display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; padding: 10px; border-radius: 6px; background: var(--bg-subtle);
 }
 .print-toolbar button, .print-toolbar .btn-link {
     padding: 8px 14px; border: 1px solid var(--border); border-radius: 6px;
     background: var(--bg-card); color: var(--text); font-weight: 500; cursor: pointer;
-    text-decoration: none; font-size: 0.9rem;
+    text-decoration: none; font-size: 0.9rem; white-space: nowrap;
 }
 .print-toolbar button:hover { background: var(--accent); color: var(--text-on-solid); border-color: var(--accent); }
 
@@ -76,7 +76,10 @@ a { color: var(--accent); word-break: break-all; }
     border-radius: 8px;
     background: var(--bg-subtle);
 }
-.stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+.stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; hyphens: auto; }
+/* A word instead of a number ("Onvoldoende") at this size is wider than a
+   narrow tile; it gets a size that fits rather than spilling out. */
+.stat-value.stat-word { font-size: 1.15rem; }
 .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
 
 .grade {
@@ -146,7 +149,7 @@ a { color: var(--accent); word-break: break-all; }
     letter-spacing: 0.05em;
 }
 
-.rec-body p { margin: 6px 0; font-size: 0.92rem; }
+.rec-body p { margin: 6px 0; font-size: 0.92rem; overflow-wrap: anywhere; }
 .rec-problem strong { color: var(--sev-high); }
 .rec-fix strong { color: var(--green); }
 .rec-ref { font-size: 0.85rem; }
@@ -176,6 +179,12 @@ table.data th, table.data td {
 }
 table.data th { background: var(--bg-subtle); font-weight: 600; }
 table.data tr { page-break-inside: avoid; }
+
+/* A table wider than the page scrolls within it instead of pushing the page
+   sideways, at any width; on paper it keeps its full width. */
+.table-wrap { overflow-x: auto; max-width: 100%; margin-bottom: 12px; }
+.table-wrap table.data { margin-bottom: 0; }
+@media print { .table-wrap { overflow: visible; } }
 
 .mono { font-family: var(--font-mono); font-size: 0.82rem; word-break: break-all; }
 .ok { color: var(--green); font-weight: 600; }

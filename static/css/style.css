@@ -10,6 +10,8 @@
 
 .fade-in { animation: fadeIn 0.35s ease-out; }
 .hidden { display: none !important; }
+/* Used on table cells across the pages, and missing until now. */
+.nowrap { white-space: nowrap; }
 /* A card, tab or tile for a check this scan did not run. */
 .not-run { display: none !important; }
 
@@ -575,12 +577,16 @@ main {
 }
 
 /* ===== Status Indicators ===== */
+/* Inline-block, not inline-flex: in a flex row every text run, <code> and
+   link became an item of one line that could not wrap, so a status sentence
+   with a long setting name pushed the page sideways on a phone. */
 .status {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
+    display: inline-block;
+    max-width: 100%;
     font-weight: 500;
+    overflow-wrap: break-word;
 }
+.status::before { margin-right: 0.4rem; }
 
 .status-pass::before { content: "\2713"; color: var(--green); font-weight: 700; }
 .status-fail::before { content: "\2717"; color: var(--red); font-weight: 700; }
