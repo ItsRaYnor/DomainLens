@@ -194,6 +194,10 @@ table.data tr { page-break-inside: avoid; }
 @media print { .table-wrap { overflow: visible; } }
 
 .mono { font-family: var(--font-mono); font-size: 0.82rem; word-break: break-all; }
+/* An identifier (a finding id, a cipher name) is read as one word: broken
+   at every letter in a narrow column, "cipher-insufficient" was unreadable.
+   It stays whole; where the table is too wide, the table scrolls. */
+.mono-id { word-break: normal; overflow-wrap: normal; white-space: nowrap; }
 .ok { color: var(--green); font-weight: 600; }
 .bad { color: var(--red); font-weight: 600; }
 .muted { color: var(--muted); }

@@ -40,6 +40,15 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(all(t.endswith('<div class="table-wrap">') for t in tables), tables)
         self.assertIn("overflow-x: auto", _rule(REPORT_CSS, ".table-wrap"))
 
+    def test_identifiers_stay_whole(self):
+        """.mono breaks anywhere, which suits a long URL; a finding id such as
+        "cipher-insufficient" came out one letter per line."""
+        self.assertIn('<td class="mono mono-id">{{ f.id }}</td>', self.REPORT)
+        self.assertIn('<td class="mono mono-id">{{ p.cipher or \'-\' }}</td>', self.REPORT)
+        rule = _rule(REPORT_CSS, ".mono-id")
+        self.assertIn("word-break: normal", rule)
+        self.assertIn("white-space: nowrap", rule)
+
     def test_the_report_toolbar_wraps_instead_of_squeezing_its_buttons(self):
         """In one unbroken row each button was 61px wide and 342px high."""
         self.assertIn("flex-wrap: wrap", _rule(REPORT_CSS, ".print-toolbar"))

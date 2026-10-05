@@ -97,7 +97,7 @@
             {% for f in ncsc.findings %}
                 <tr>
                     <td class="sev-{{ f.severity }}">{{ f.severity }}</td>
-                    <td class="mono">{{ f.id }}</td>
+                    <td class="mono mono-id">{{ f.id }}</td>
                     <td>{{ f.title }}</td>
                     <td>{{ f.problem }}</td>
                 </tr>
@@ -393,7 +393,7 @@
                 <tr>
                     <td>{{ p.name }}</td>
                     <td class="{{ 'ok' if p.supported else 'muted' }}">{{ 'Yes' if p.supported else 'No' }}</td>
-                    <td class="mono">{{ p.cipher or '-' }}</td>
+                    <td class="mono mono-id">{{ p.cipher or '-' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
