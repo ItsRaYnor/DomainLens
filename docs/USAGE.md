@@ -201,7 +201,14 @@ With each lookup DomainLens measures whether a registered domain is **in use**: 
 (an MX other than the null MX `0 .`, or an SPF record that lets someone send; `v=spf1 -all`
 means no mail) and web (an A or AAAA record on the domain or `www.`, which a parking page has
 too). A domain without DNS (not registered, quarantine, not in DNS) is measurably unused; a
-DNS question that got no answer leaves the use "not measured", never "no". The **Threat
+DNS question that got no answer leaves the use "not measured", never "no". When not one
+question gets an answer, the name servers the registry delegates the domain to are asked
+directly: if none of them answers, the domain is flagged **Name servers do not answer** (a red
+tile and filter, and a line under its status). It resolves nowhere, and if those name servers'
+own domain lapses, someone else could take over its DNS. Going silent and answering again
+are each reported once for a domain you hold. If the name servers do answer, the failure was
+on our side and the use simply stays "not measured". The CSV column `dns` says `ok`,
+`no_answer` or nothing (not measured). The **Threat
 intel** column records whether the domain is enrolled with your threat intelligence service:
 a domain in use and not enrolled is flagged ("In use, no threat intel"); one that is unused,
 or being cancelled or claimed, does not need it.

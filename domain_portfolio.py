@@ -173,6 +173,7 @@ _DOMAIN_COLUMNS = {
     "uses_mail": "TEXT",      # 'yes', 'no', or NULL: not measured
     "uses_web": "TEXT",
     "usage_checked_at": "TEXT",
+    "dns_state": "TEXT",      # 'ok', 'no_answer' (its name servers do not answer), NULL
 }
 
 
@@ -1036,9 +1037,12 @@ def _enrich(row, groups, today=None, people=None):
         flags.append("wanted")
     if out["lifecycle"] == "claim" and out["phase"] == "not_registered":
         flags.append("claimable")
+    # A delegation nobody answers for: measured, and the reason use is unknown.
+    if held and out.get("dns_state") == "no_answer":
+        flags.append("dns_dead")
     # Whether it is in use is not known yet, so whether it needs threat
     # intelligence is not known either: a third answer, counted on its own.
-    if held and out["usage"] == "unmeasured":
+    elif held and out["usage"] == "unmeasured":
         flags.append("use_unmeasured")
     if out["phase"] == "unmeasured" or out["stale"]:
         flags.append("unmeasured")
@@ -1073,7 +1077,7 @@ def summary(domains, groups):
         return {"total": len(items),
                 **{flag: sum(1 for d in items if flag in d["flags"])
                    for flag in ("attention", "expiring", "move", "unmeasured", "intel", "claimable",
-                                "use_unmeasured", "wanted")}}
+                                "use_unmeasured", "wanted", "dns_dead")}}
     per_group = []
     for g in groups:
         below = descendants(g["id"], groups)
@@ -1094,7 +1098,7 @@ def events(limit=50):
 CSV_COLUMNS = ["domain", "unit", "phase", "registrar", "reseller", "transfer", "expires",
                "days_left", "registered_on", "dnssec", "nameservers", "status", "last_checked_at",
                "last_error", "decision", "threat_intel", "mail", "web", "contact", "contact_email",
-               "contact_from"]
+               "contact_from", "dns"]
 
 
 def to_csv(domains):
@@ -1110,6 +1114,8 @@ def to_csv(domains):
                   "threat_intel": d.get("threat_intel_state"),
                   # yes / no / empty: empty is "not measured", never "no".
                   "mail": d.get("uses_mail") or "", "web": d.get("uses_web") or "",
+                  # ok, no_answer (its name servers do not answer), or empty: not measured.
+                  "dns": d.get("dns_state") or "",
                   "contact": (d.get("contact") or {}).get("name"),
                   "contact_from": ("" if not d.get("contact")
                                    else "unit" if d.get("contact_inherited") else "domain"),
@@ -1298,7 +1304,14 @@ def check(row, *, fetch=None, notify=None, now=None, probe=None):
         for kind, _, text in changes:
             conn.execute("INSERT INTO portfolio_events (domain, at, kind, detail) VALUES (?, ?, ?, ?)",
                          (row["domain"], stamp, kind, text))
-    _store_usage(row, new["phase"], probe, stamp)
+    dns = _store_usage(row, new["phase"], probe, stamp)
+    if (row.get("lifecycle") or DEFAULT_LIFECYCLE) not in _NOT_HELD:
+        change = _dns_change(row["domain"], row.get("dns_state"), dns)
+        if change:
+            changes.append(("dns",) + change)
+            with db._lock, db._connect() as conn:
+                conn.execute("INSERT INTO portfolio_events (domain, at, kind, detail) VALUES (?, ?, 'dns', ?)",
+                             (row["domain"], stamp, change[1]))
     for _, severity, text in changes:
         (notify or _notify)(row["domain"], severity, text)
     return [{"domain": row["domain"], "kind": k, "severity": s, "detail": t} for k, s, t in changes]
@@ -1306,7 +1319,9 @@ def check(row, *, fetch=None, notify=None, now=None, probe=None):
 
 def _store_usage(row, phase, probe, stamp):
     """Mail and web use: measured for a registered domain, "no" for one that
-    has no DNS at all, and left as it was when it could not be measured."""
+    has no DNS at all, and left as it was when it could not be measured.
+    Returns the domain's DNS state when it was measured, else None."""
+    dns = None
     if phase in _NO_DNS_PHASES:
         mail = web = "no"
     elif probe is not None and phase == "registered":
@@ -1316,14 +1331,28 @@ def _store_usage(row, phase, probe, stamp):
             found = {}
         word = {True: "yes", False: "no"}
         mail, web = word.get(found.get("mail")), word.get(found.get("web"))
-        if mail is None and web is None:
-            return
+        dns = found.get("dns")
+        if mail is None and web is None and dns is None:
+            return None
     else:
-        return
+        return None
     with db._lock, db._connect() as conn:
         conn.execute("UPDATE portfolio_domains SET uses_mail = COALESCE(?, uses_mail), "
-                     "uses_web = COALESCE(?, uses_web), usage_checked_at = ? WHERE id = ?",
-                     (mail, web, stamp, row["id"]))
+                     "uses_web = COALESCE(?, uses_web), dns_state = ?, usage_checked_at = ? WHERE id = ?",
+                     (mail, web, dns, stamp, row["id"]))
+    return dns
+
+
+def _dns_change(domain, was, now):
+    """(severity, text) when a held domain's name servers stop or start
+    answering. The first measurement is a baseline, as elsewhere."""
+    if was == "ok" and now == "no_answer":
+        return "high", (f"{domain}: its name servers do not answer; the domain resolves nowhere "
+                        "(no web, no mail). If the name servers' own domain lapses, someone else "
+                        "could take over its DNS.")
+    if was == "no_answer" and now == "ok":
+        return "medium", f"{domain}: its name servers answer again."
+    return None
 
 
 def _sends_mail(spf):
@@ -1334,16 +1363,22 @@ def _sends_mail(spf):
         or any(t in ("all", "+all", "?all") for t in terms)
 
 
-def probe_usage(domain, query=None):
-    """{"mail": bool|None, "web": bool|None}: None where DNS gave no answer.
+def probe_usage(domain, query=None, delegation=None):
+    """{"mail": bool|None, "web": bool|None, "dns": "ok"|"no_answer"|None}.
 
     Mail: an MX other than the null MX ("0 ."), or an SPF record that lets
     someone send. Web: an address (A or AAAA) on the domain or www. -- which a
     parking page has too, so "web" means reachable, not "a real site".
+
+    When not one question gets an answer, the name servers the registry
+    delegates the domain to are asked themselves: if none of them answers,
+    the domain resolves nowhere ("no_answer"), which is a finding about the
+    domain. If they do answer, the failure was ours, and use stays unknown.
     """
-    if query is None:
+    if query is None or delegation is None:
         import dns_tools
-        query = dns_tools.query
+        query = query or dns_tools.query
+        delegation = delegation or dns_tools.nameservers_answer
 
     def records(name, rtype):
         try:
@@ -1361,7 +1396,15 @@ def probe_usage(domain, query=None):
     mail = True if (has_mx or spf) else (None if None in (has_mx, spf) else False)
     answers = [records(n, t) for n in (domain, f"www.{domain}") for t in ("A", "AAAA")]
     web = True if any(answers) else (None if None in answers else False)
-    return {"mail": mail, "web": web}
+    if all(a is None for a in [mx, txt] + answers):
+        try:
+            answered = delegation(domain)
+        except Exception:
+            answered = None
+        dns = "no_answer" if answered is False else None
+    else:
+        dns = "ok"
+    return {"mail": mail, "web": web, "dns": dns}
 
 
 def _notify(domain, severity, detail):

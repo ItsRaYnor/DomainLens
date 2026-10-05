@@ -177,6 +177,71 @@ def _query_addresses(name, rtype, resolver_key, addresses, want_ad=True):
     return result
 
 
+def nameservers_answer(domain, timeout=4.0):
+    """Whether a name server the domain is delegated to answers for it.
+
+    True: one gave an authoritative answer (SOA). False: the registry
+    delegates the domain to name servers of which none does -- they are
+    unreachable, refuse, or do not know the zone -- so the domain resolves
+    nowhere. None: the delegation itself could not be read (our own lookup
+    failed), which says nothing about the domain.
+
+    The delegation is read from the TLD's servers rather than through a
+    resolver: for a domain like this the resolver only answers SERVFAIL,
+    which cannot tell a dead delegation from a resolver that failed.
+    """
+    domain = domain.strip().rstrip(".").lower()
+    tld = domain.rsplit(".", 1)[-1]
+
+    def addresses(host):
+        found = []
+        for family in ("A", "AAAA"):
+            try:
+                found += [r.address for r in dns.resolver.resolve(host, family, lifetime=timeout)]
+            except dns.exception.DNSException:
+                continue
+        return found
+
+    try:
+        parent_hosts = [str(r.target) for r in dns.resolver.resolve(tld + ".", "NS", lifetime=timeout)]
+    except dns.exception.DNSException:
+        return None
+    question = dns.message.make_query(domain, dns.rdatatype.NS)
+    question.flags &= ~dns.flags.RD
+    referral = None
+    for host in parent_hosts[:3]:
+        for address in addresses(host)[:1]:
+            try:
+                referral = dns.query.udp_with_fallback(question, address, timeout=timeout)[0]
+                break
+            except (dns.exception.DNSException, OSError):
+                continue
+        if referral is not None:
+            break
+    if referral is None:
+        return None
+    delegated = [str(rd.target) for rrset in list(referral.authority) + list(referral.answer)
+                 if rrset.rdtype == dns.rdatatype.NS for rd in rrset]
+    if not delegated:
+        return None
+    glue = {}
+    for rrset in referral.additional:
+        if rrset.rdtype in (dns.rdatatype.A, dns.rdatatype.AAAA):
+            glue.setdefault(str(rrset.name), []).extend(rd.address for rd in rrset)
+    soa = dns.message.make_query(domain, dns.rdatatype.SOA)
+    soa.flags &= ~dns.flags.RD
+    for host in delegated[:4]:
+        for address in (glue.get(host) or addresses(host))[:2]:
+            try:
+                response = dns.query.udp_with_fallback(soa, address, timeout=timeout)[0]
+            except (dns.exception.DNSException, OSError):
+                continue    # unreachable (no IPv6 here, say) or no answer: the next one
+            if (response.rcode() == dns.rcode.NOERROR and response.flags & dns.flags.AA
+                    and any(r.rdtype == dns.rdatatype.SOA for r in response.answer)):
+                return True
+    return False
+
+
 def query(name, rtype="A", resolver="system", custom=None):
     """Resolve one name and return the answer with its metadata."""
     custom = custom or {}

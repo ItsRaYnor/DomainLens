@@ -9,6 +9,7 @@ const PF_FLAG_TEXT = {
     attention: 'Quarantine / deleted', expiring: 'Expiring ≤ 30 days',
     move: 'To move', intel: 'In use, no threat intel', claimable: 'Free to request',
     unmeasured: 'Registration not measured', use_unmeasured: 'Use not measured', wanted: 'Wanted',
+    dns_dead: 'Name servers do not answer',
 };
 const PF_LIFECYCLE_CLASS = { keep: '', review: 'status-warn', cancel: 'muted', claim: '' };
 const pf = { data: null, selected: new Set(), canEdit: false };
@@ -40,6 +41,9 @@ function pfTransfer(d) {
 // Mail and web, each measured yes or no, or not measured: never "no" for unknown.
 function pfUse(d) {
     const word = v => v === 'yes' ? 'yes' : v === 'no' ? 'no' : 'not measured';
+    if (d.dns_state === 'no_answer' && !d.uses_mail && !d.uses_web) {
+        return '<div class="muted">Use cannot be measured: no DNS answer</div>';
+    }
     if (!d.uses_mail && !d.uses_web) return '<div class="muted">Use not measured yet</div>';
     return `<div class="muted">Mail ${word(d.uses_mail)} &middot; Web ${word(d.uses_web)}</div>`;
 }
@@ -102,6 +106,8 @@ function pfRow(d) {
         + (d.released_from ? `<div class="muted">Released from ${esc(pfWhen(d.released_from))}</div>` : '')
         + (d.stale ? `<div class="muted" title="${esc(d.last_error)}">Last lookup failed; showing the answer from ${esc(pfWhen(d.last_ok_at))}</div>` : '')
         + (d.phase === 'unmeasured' && d.last_error ? `<div class="muted">${esc(d.last_error)}</div>` : '')
+        + (d.dns_state === 'no_answer'
+            ? '<div class="status-fail" title="The name servers the registry delegates this domain to do not answer for it: it resolves nowhere.">Name servers do not answer</div>' : '')
         + (d.last_checked_at ? `<div class="muted">Looked up ${esc(pfWhen(d.last_checked_at))}</div>` : '')
         // "Check now" sits with the answer it renews, not in a column of its own.
         + (pf.canEdit ? '<div><button class="btn-ghost-sm pf-check" type="button">Check now</button></div>' : '');
@@ -190,6 +196,7 @@ function pfRenderChrome() {
         + tile('To move', t.move, 'move', 'tile-warn')
         + tile('In use, no threat intel', t.intel, 'intel', 'tile-warn')
         + tile('Wanted (request or claim)', t.wanted, 'wanted', '')
+        + tile('Name servers do not answer', t.dns_dead, 'dns_dead', 'tile-bad')
         + tile('Use not measured', t.use_unmeasured, 'use_unmeasured', '')
         + tile('Registration not measured', t.unmeasured, 'unmeasured', '');
 

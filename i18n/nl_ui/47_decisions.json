@@ -112,7 +112,11 @@
   "Delete everything": "Alles verwijderen",
   "Unit to merge into": "Eenheid om mee samen te voegen",
   "contents must be lift or delete": "contents moet lift of delete zijn",
-  "There is no other unit to merge into.": "Er is geen andere eenheid om mee samen te voegen."
+  "There is no other unit to merge into.": "Er is geen andere eenheid om mee samen te voegen.",
+  "Name servers do not answer": "Nameservers antwoorden niet",
+  "name servers do not answer": "nameservers antwoorden niet",
+  "The name servers the registry delegates this domain to do not answer for it: it resolves nowhere.": "De nameservers waaraan de registry dit domein delegeert, antwoorden er niet voor: het domein resolvet nergens.",
+  "Use cannot be measured: no DNS answer": "Gebruik niet te meten: geen DNS-antwoord"
  },
  "patterns": [
   [
@@ -290,6 +294,18 @@
   [
    "(\\d[\\d.,]*)\\ domain\\(s\\)",
    "$1 domein(en)"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ name\\ servers\\ do\\ not\\ answer",
+   "$1 nameservers antwoorden niet"
+  ],
+  [
+   "(.+?):\\ its\\ name\\ servers\\ do\\ not\\ answer;\\ the\\ domain\\ resolves\\ nowhere\\ \\(no\\ web,\\ no\\ mail\\)\\.\\ If\\ the\\ name\\ servers'\\ own\\ domain\\ lapses,\\ someone\\ else\\ could\\ take\\ over\\ its\\ DNS\\.",
+   "$1: de nameservers antwoorden niet; het domein resolvet nergens (geen web, geen mail). Als het domein van die nameservers vervalt, kan iemand anders de DNS overnemen."
+  ],
+  [
+   "(.+?):\\ its\\ name\\ servers\\ answer\\ again\\.",
+   "$1: de nameservers antwoorden weer."
   ]
  ]
 }

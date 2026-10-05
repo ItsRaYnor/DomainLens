@@ -118,7 +118,7 @@ class UsageTests(unittest.TestCase):
         """"0 ." and "v=spf1 -all" are how a domain says it has no mail."""
         found = domain_portfolio.probe_usage("example.nl", _dns({
             ("example.nl", "MX"): ["0 ."], ("example.nl", "TXT"): ["v=spf1 -all"]}))
-        self.assertEqual({"mail": False, "web": False}, found)
+        self.assertEqual({"mail": False, "web": False, "dns": "ok"}, found)
 
     def test_a_domain_that_only_sends_mail_is_in_use(self):
         found = domain_portfolio.probe_usage("example.nl", _dns({
@@ -130,7 +130,7 @@ class UsageTests(unittest.TestCase):
         and so as not needing threat intelligence."""
         found = domain_portfolio.probe_usage("example.nl", _dns({
             ("example.nl", "MX"): "SERVFAIL", ("www.example.nl", "A"): ["192.0.2.1"]}))
-        self.assertEqual({"mail": None, "web": True}, found)
+        self.assertEqual({"mail": None, "web": True, "dns": "ok"}, found)
 
 
 class ThreatIntelTests(DecisionTestCase):
