@@ -4,6 +4,7 @@
 
 const MG_RATING_COLOR = {
     A: 'var(--grade-a)', B: 'var(--grade-b)', C: 'var(--grade-c)', D: 'var(--grade-d)', F: 'var(--grade-f)',
+    'A+': 'var(--grade-a)', 'A-': 'var(--grade-a)',
 };
 const MG_SEV_COLOR = {
     critical: 'var(--sev-critical-badge)', high: 'var(--sev-high-badge)',
@@ -103,7 +104,7 @@ function mgRender(d) {
     $('mgRatingChart').innerHTML = d.kpis.domains ? mgDonut(d.ratings, 190) : '<p class="muted">No domains were scanned in this period.</p>';
     $('mgRatingLegend').innerHTML = Object.entries(d.ratings).map(([r, n]) =>
         `<li><span class="mgmt-swatch" style="background:${MG_RATING_COLOR[r]}"></span>`
-        + `<span><strong>${r}</strong> &middot; ${n} (${mgPct(n, d.kpis.domains)}%) <span class="muted">${esc(d.rating_text[r])}</span></span></li>`).join('');
+        + `<span><strong>${r}</strong> &middot; ${n} (${mgPct(n, d.kpis.domains)}%) <span class="muted">${esc((d.band_text || d.rating_text)[r])}</span></span></li>`).join('');
     // Before the first scan there is nothing to count; a zero there would
     // read as a clean start.
     $('mgTrendChart').innerHTML = mgLine(d.trend.filter(p => p.domains), 'open_findings');

@@ -96,6 +96,13 @@ a { color: var(--accent); word-break: break-all; }
 .grade-d { background: var(--orange); }
 .grade-f, .grade-t { background: var(--red); }
 .grade-n { background: var(--muted); }
+/* The rating, A+ to F: the finer A letters share A's colour family. */
+.rating-aplus, .rating-a, .rating-aminus { background: var(--green); }
+.rating-b { background: var(--grade-b); }
+.rating-c { background: var(--orange); }
+.rating-d { background: var(--grade-d); }
+.rating-f { background: var(--red); }
+.stat-rating { border-color: var(--accent); }
 
 .sev-critical { color: var(--sev-critical); }
 .sev-high { color: var(--sev-high); }

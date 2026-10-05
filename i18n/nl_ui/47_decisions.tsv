@@ -164,3 +164,12 @@ The name servers the registry delegates this domain to do not answer for it: it 
 Use cannot be measured: no DNS answer	Gebruik niet te meten: geen DNS-antwoord
 {}: its name servers do not answer; the domain resolves nowhere (no web, no mail). If the name servers' own domain lapses, someone else could take over its DNS.	{}: de nameservers antwoorden niet; het domein resolvet nergens (geen web, geen mail). Als het domein van die nameservers vervalt, kan iemand anders de DNS overnemen.
 {}: its name servers answer again.	{}: de nameservers antwoorden weer.
+No open findings, notes at most	Geen open bevindingen, hooguit notities
+Only low findings open	Alleen bevindingen van lage ernst open
+One or two medium findings, nothing worse	Een of twee bevindingen van middelmatige ernst, niets ernstigers
+Three or more medium findings, nothing worse	Drie of meer bevindingen van middelmatige ernst, niets ernstigers
+A+, A or A-: nothing high or critical, at most two medium findings	A+, A of A-: niets hoog of kritiek, hooguit twee bevindingen van middelmatige ernst
+Content-Security-Policy is {} — refine policy	Content-Security-Policy is {} — verfijn het beleid
+Inline scripts and event handlers run, which is what most cross-site scripting needs. Use nonces or hashes.	Inline scripts en event handlers worden uitgevoerd, en dat is wat de meeste cross-site scripting nodig heeft. Gebruik nonces of hashes.
+Browsers that support the nonce or hash beside it ignore 'unsafe-inline'; it only matters for very old ones.	Browsers die de nonce of hash ernaast ondersteunen, negeren 'unsafe-inline'; het telt alleen voor heel oude browsers.
+Inline styles cannot run code; injected CSS can at most deface pages or leak data through selectors.	Inline styles kunnen geen code uitvoeren; geïnjecteerde CSS kan hooguit pagina's bekladden of gegevens lekken via selectors.

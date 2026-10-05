@@ -124,7 +124,7 @@ class RatingTests(Case):
 
     def test_the_rating_follows_the_open_findings(self):
         self.assertEqual("F", management.posture([{"severity": "critical"}])["rating"])
-        self.assertEqual("A", management.posture([{"severity": "critical", "accepted": True}])["rating"])
+        self.assertEqual("A+", management.posture([{"severity": "critical", "accepted": True}])["rating"])
 
 
 if __name__ == "__main__":

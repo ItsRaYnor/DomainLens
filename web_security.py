@@ -66,18 +66,40 @@ def analyze_csp(policy: str | None) -> dict[str, Any]:
             "detail": "Without a baseline, browsers fall back to allowing almost anything.",
         })
 
+    # Which directive actually governs scripts and styles: their own, or
+    # default-src when they have none. 'unsafe-inline' that reaches scripts
+    # lets injected code run (high); on styles it cannot run code (low). A
+    # nonce, hash or 'strict-dynamic' beside it makes browsers ignore it --
+    # it is then only a fallback for very old ones (low).
+    script_from = "script-src" if "script-src" in directives else "default-src"
+    style_from = "style-src" if "style-src" in directives else "default-src"
+
+    def _governs(directive):
+        return {d for d, src in (("scripts", script_from), ("styles", style_from)) if src == directive}
+
     for directive in ("default-src", "script-src", "style-src", "img-src", "connect-src", "font-src"):
         sources = directives.get(directive) or []
         joined = " ".join(sources).lower()
-        if "'unsafe-inline'" in joined and directive in {"default-src", "script-src", "style-src"}:
-            sev = "high" if directive in {"default-src", "script-src"} else "medium"
+        governs = _governs(directive) if directive in {"default-src", "script-src", "style-src"} else set()
+        if "'unsafe-inline'" in joined and governs:
+            neutralised = any(s.startswith(("'nonce-", "'sha256-", "'sha384-", "'sha512-"))
+                              or s == "'strict-dynamic'" for s in (x.lower() for x in sources))
+            if "scripts" in governs and not neutralised:
+                sev, detail = "high", ("Inline scripts and event handlers run, which is what most "
+                                       "cross-site scripting needs. Use nonces or hashes.")
+            elif "scripts" in governs:
+                sev, detail = "low", ("Browsers that support the nonce or hash beside it ignore "
+                                      "'unsafe-inline'; it only matters for very old ones.")
+            else:
+                sev, detail = "low", ("Inline styles cannot run code; injected CSS can at most "
+                                      "deface pages or leak data through selectors.")
             issues.append({
                 "id": f"csp_unsafe_inline_{directive.replace('-', '_')}",
                 "severity": sev,
                 "title": f"CSP {directive} allows 'unsafe-inline'",
-                "detail": "Inline scripts/styles defeat XSS protections. Prefer nonces or hashes.",
+                "detail": detail,
             })
-        if "'unsafe-eval'" in joined and directive in {"default-src", "script-src"}:
+        if "'unsafe-eval'" in joined and "scripts" in governs:
             issues.append({
                 "id": f"csp_unsafe_eval_{directive.replace('-', '_')}",
                 "severity": "high",

@@ -38,6 +38,10 @@
     <section class="summary">
         <h2>{{ t('report.executive_summary') }}</h2>
         <div class="summary-grid">
+            <div class="stat stat-rating" title="{{ posture.text }}">
+                <div class="stat-value grade rating-{{ posture.rating|replace('+', 'plus')|replace('-', 'minus')|lower }}">{{ posture.rating }}</div>
+                <div class="stat-label">Rating</div>
+            </div>
             <div class="stat">
                 <div class="stat-value grade grade-{{ (scan.grade or 'N')|lower }}">{{ scan.grade or 'N/A' }}</div>
                 <div class="stat-label">{{ t('report.tls_grade') }}</div>

@@ -33,8 +33,13 @@ def results(domain, **overrides):
 
 class RatingTests(unittest.TestCase):
     def test_the_rating_follows_the_worst_open_findings(self):
+        """One medium finding was a B: the same letter as ten. Nothing open
+        and only low ones were both an A."""
+        self.assertEqual("A+", management.rating({}))
+        self.assertEqual("A+", management.rating({"info": 3}))
         self.assertEqual("A", management.rating({"low": 4}))
-        self.assertEqual("B", management.rating({"medium": 1}))
+        self.assertEqual("A-", management.rating({"medium": 2, "low": 1}))
+        self.assertEqual("B", management.rating({"medium": 3}))
         self.assertEqual("C", management.rating({"high": 2}))
         self.assertEqual("D", management.rating({"high": 3}))
         self.assertEqual("F", management.rating({"critical": 1, "high": 0}))

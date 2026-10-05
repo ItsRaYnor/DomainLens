@@ -183,6 +183,12 @@ def init_db():
         }
         if "rating" not in metric_columns:
             conn.execute("ALTER TABLE scan_metrics ADD COLUMN rating TEXT")
+        # The scale gained A+ and A-: a stored A may now be A+, a stored B may
+        # be A-. Those are cleared once and worked out again when first asked
+        # for; C, D and F mean what they meant. The column marks it as done.
+        if "rating_scale" not in metric_columns:
+            conn.execute("ALTER TABLE scan_metrics ADD COLUMN rating_scale INTEGER")
+            conn.execute("UPDATE scan_metrics SET rating = NULL WHERE rating IN ('A', 'B')")
 
         conn.execute(
             """

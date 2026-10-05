@@ -25,13 +25,28 @@ import recommendations
 
 SEVERITIES = ("critical", "high", "medium", "low")
 
+# Best first. The letter follows from the counts of open findings alone, so
+# a reader can check it against them: no weights, no points.
+RATINGS = ("A+", "A", "A-", "B", "C", "D", "F")
 RATING_TEXT = {
-    "A": "No open findings of medium severity or worse",
-    "B": "Only medium findings open",
+    "A+": "No open findings, notes at most",
+    "A": "Only low findings open",
+    "A-": "One or two medium findings, nothing worse",
+    "B": "Three or more medium findings, nothing worse",
     "C": "One or two high findings, nothing critical",
     "D": "Three or more high findings, nothing critical",
     "F": "At least one critical finding",
 }
+# Charts count A+, A and A- together as A, so they stay readable and
+# comparable with periods rated before the finer letters existed.
+BANDS = "ABCDF"
+BAND_TEXT = {"A": "A+, A or A-: nothing high or critical, at most two medium findings",
+             **{b: RATING_TEXT[b] for b in "BCDF"}}
+
+
+def band(letter):
+    """The chart band of a rating: A+, A and A- are A."""
+    return str(letter)[:1] if letter else None
 
 _CACHE_MAX = 5000
 # (scan id, created_at) -> summary. A stored scan never changes, but SQLite
@@ -107,15 +122,21 @@ CONTROLS = [
 
 
 def rating(counts):
+    """A+ to F from the counts of open findings (see RATING_TEXT). One or two
+    medium findings were a B before: the same letter as a domain with ten."""
     if counts.get("critical"):
         return "F"
     if counts.get("high", 0) >= 3:
         return "D"
     if counts.get("high"):
         return "C"
-    if counts.get("medium"):
+    if counts.get("medium", 0) >= 3:
         return "B"
-    return "A"
+    if counts.get("medium"):
+        return "A-"
+    if counts.get("low"):
+        return "A"
+    return "A+"
 
 
 def rating_of(recs):
@@ -290,7 +311,7 @@ def dashboard(days=90, group_id=None, now=None):
                         "counts": s["counts"], "accepted": s["accepted"],
                         "previous_rating": prev["rating"] if prev else None})
 
-    ratings = Counter(d["rating"] for d in domains)
+    ratings = Counter(band(d["rating"]) for d in domains)
     totals = {sev: sum(d["counts"][sev] for d in domains) for sev in SEVERITIES}
 
     controls = []
@@ -318,7 +339,7 @@ def dashboard(days=90, group_id=None, now=None):
          for (s, t), ds in common.items() if s in ("critical", "high", "medium")),
         key=lambda f: (order[f["severity"]], -f["domains"], f["title"]))[:10]
 
-    rank = {r: i for i, r in enumerate("FDCBA")}
+    rank = {r: i for i, r in enumerate(reversed(RATINGS))}
     attention = sorted((d for d in domains if d["rating"] in ("F", "D", "C")),
                        key=lambda d: (rank[d["rating"]], -d["counts"]["critical"],
                                       -d["counts"]["high"], d["domain"]))[:10]
@@ -332,6 +353,7 @@ def dashboard(days=90, group_id=None, now=None):
         "days": days,
         "group": group_name,
         "rating_text": RATING_TEXT,
+        "band_text": BAND_TEXT,
         "kpis": {
             "domains": len(domains),
             "in_order": in_order,
@@ -341,7 +363,7 @@ def dashboard(days=90, group_id=None, now=None):
             "improved": len(improved), "worsened": len(worsened), "compared": len(compared),
             "not_rescanned": len(stale),
         },
-        "ratings": {r: ratings.get(r, 0) for r in "ABCDF"},
+        "ratings": {r: ratings.get(r, 0) for r in BANDS},
         "totals": totals,
         "controls": controls,
         "by_category": dict(sorted(by_category.items(),
@@ -416,7 +438,7 @@ def organisation(days=90, now=None):
         return seen or [None]
 
     def blank():
-        return {"scanned": 0, "ratings": {r: 0 for r in "ABCDF"}, "critical": 0, "high": 0,
+        return {"scanned": 0, "ratings": {r: 0 for r in BANDS}, "critical": 0, "high": 0,
                 "monitors": 0, "monitors_enabled": 0,
                 "events": {s: 0 for s in ("critical", "high", "medium", "low", "info")}}
 
@@ -432,7 +454,7 @@ def organisation(days=90, now=None):
         for unit in chain(host):
             bucket = security[unit]
             bucket["scanned"] += 1
-            bucket["ratings"][s["rating"]] += 1
+            bucket["ratings"][band(s["rating"])] += 1
             bucket["critical"] += s["counts"]["critical"]
             bucket["high"] += s["counts"]["high"]
 

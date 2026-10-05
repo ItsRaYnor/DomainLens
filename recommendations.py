@@ -922,6 +922,19 @@ def _headers(results):
                 "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP",
                 domain=domain,
             ))
+        elif [i for i in issues if i.get("severity") == "low"]:
+            # Only refinements left (inline styles, base-uri, form-action...):
+            # said, at the weight they have, rather than dropped.
+            low_issues = [i for i in issues if i.get("severity") == "low"]
+            out.append(_r(
+                SEVERITY_LOW,
+                "Web",
+                f"Content-Security-Policy is {grade} — refine policy",
+                _csp_problem_from_analysis(csp, low_issues),
+                _csp_fix_from_analysis(csp),
+                "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP",
+                domain=domain,
+            ))
         elif grade in {"good", "strong"} and any(i.get("id") == "csp_no_reporting" for i in issues):
             out.append(_r(
                 SEVERITY_INFO,

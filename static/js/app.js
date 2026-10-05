@@ -2220,7 +2220,8 @@ function renderCompareHtml(data) {
 // The A-F rating, the same letter the dashboard and the lists use. It is
 // worked out from the open findings; the TLS grade stays in the TLS tab.
 function postureClass(letter) {
-    return 'g-' + String(letter || 'na').toLowerCase();
+    // "A+" and "A-" are not class names: aplus, aminus.
+    return 'g-' + String(letter || 'na').toLowerCase().replace('+', 'plus').replace('-', 'minus');
 }
 
 function renderPosture(posture) {

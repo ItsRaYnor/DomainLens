@@ -1,7 +1,8 @@
 // Monitoring -> Organisation -> one unit. Uses $, esc, requestJson and toast
 // from lookup.js.
 
-const UNIT_RATING_CLASS = r => 'history-grade mini g-' + String(r || 'na').toLowerCase();
+const UNIT_RATING_CLASS = r => 'history-grade mini g-'
+    + String(r || 'na').toLowerCase().replace('+', 'plus').replace('-', 'minus');
 const UNIT_SEV_COLOR = {
     critical: 'var(--sev-critical-badge)', high: 'var(--sev-high-badge)',
     medium: 'var(--sev-medium-badge)', low: 'var(--text-faint)',

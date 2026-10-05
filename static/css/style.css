@@ -1045,6 +1045,7 @@ main {
     flex-shrink: 0;
 }
 .history-grade.g-a, .history-grade.g-aplus { background: var(--green); }
+.history-grade.g-aminus { background: var(--green); }
 .history-grade.g-b { background: var(--grade-b); }
 .history-grade.g-c { background: var(--orange); }
 .history-grade.g-d { background: var(--grade-d); }

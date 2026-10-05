@@ -618,10 +618,28 @@ domains with the decision "Request or claim" (filter "Wanted" in the domain port
 
 ### One rating
 
-Every list uses the same A&ndash;F rating as the dashboard, worked out from the open findings:
-the scan result shows it beside the title, the scan history and the start page show it per
-scan, and the Monitors table per host, with the open critical and high findings and the last
-change. The TLS grade is named as such in the history line and in the TLS tab.
+Every list uses the same rating as the dashboard, worked out from the open findings alone
+(accepted risks left out), so it can be checked against them:
+
+| Rating | Open findings |
+|---|---|
+| A+ | none (notes at most) |
+| A | only low |
+| A&minus; | one or two medium, nothing worse |
+| B | three or more medium, nothing worse |
+| C | one or two high, nothing critical |
+| D | three or more high, nothing critical |
+| F | at least one critical |
+
+The scan result shows it beside the title, the report as its first tile (beside the TLS grade,
+which only describes TLS), the scan history and the start page per scan, and the Monitors
+table per host. Charts count A+, A and A&minus; together as A. Scans stored under the earlier
+scale (where one medium finding made a B) are rated again the first time they are listed.
+
+A Content-Security-Policy weakness counts for what it reaches: `'unsafe-inline'` or
+`'unsafe-eval'` that applies to scripts (in `script-src`, or `default-src` without one) is high;
+`'unsafe-inline'` that applies only to styles is low, as inline CSS cannot run code; and
+`'unsafe-inline'` beside a nonce, hash or `'strict-dynamic'` is low, as browsers then ignore it.
 
 ### When nothing runs on its own
 

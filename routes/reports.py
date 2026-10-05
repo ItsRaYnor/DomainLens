@@ -16,12 +16,16 @@ def register(app, *, db, recommendations):
             abort(404)
         recs = recommendations.generate(record["data"])
         counts = recommendations.summarize_counts(recs)
+        import management
         return render_template(
             "report.html",
             scan=record,
             results=record["data"],
             recommendations=recs,
             counts=counts,
+            # The rating the dashboard and the lists show; the TLS grade
+            # beside it only ever describes TLS.
+            posture=management.posture(recs),
             app_version=app_version.get_version(),
         )
 
