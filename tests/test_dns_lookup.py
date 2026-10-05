@@ -90,42 +90,58 @@ class ResultShapeTests(unittest.TestCase):
         # to_text() re-quotes and escapes; the record's actual content is what
         # you are checking when you look up an SPF or DKIM value.
         response = self._response("example.com.", "TXT", ['"v=spf1 -all"'])
-        with mock.patch("dns.query.udp", return_value=response):
+        with mock.patch("dns.query.udp_with_fallback", return_value=(response, False)):
             result = dns_tools.query("example.com", "TXT", "cloudflare")
         self.assertEqual(result["records"], ["v=spf1 -all"])
 
+    def test_an_answer_too_large_for_udp_is_asked_again_over_tcp(self):
+        """A domain with twenty TXT records answers with the TC flag and an
+        empty answer over UDP; read as it was, that said "no TXT records" --
+        and no SPF -- for a domain that has them."""
+        truncated = self._response("example.com.", "TXT", [])
+        truncated.flags |= dns.flags.TC
+        full = self._response("example.com.", "TXT",
+                              [f'"verification-{i}=example"' for i in range(20)] + ['"v=spf1 -all"'])
+        with mock.patch("dns.query.udp", side_effect=dns.message.Truncated(message=truncated)), \
+                mock.patch("dns.query.tcp", return_value=full) as tcp:
+            result = dns_tools.query("example.com", "TXT", "cloudflare")
+        tcp.assert_called_once()
+        self.assertEqual(21, len(result["records"]))
+        self.assertIn("v=spf1 -all", result["records"])
+        self.assertTrue(result["over_tcp"])
+
     def test_ttl_and_timing_are_reported(self):
         response = self._response("example.com.", "A", ["192.0.2.1"], ttl=42)
-        with mock.patch("dns.query.udp", return_value=response):
+        with mock.patch("dns.query.udp_with_fallback", return_value=(response, False)):
             result = dns_tools.query("example.com", "A", "google")
         self.assertEqual(result["ttl"], 42)
         self.assertIsInstance(result["elapsed_ms"], int)
 
     def test_dnssec_validation_is_reported(self):
         response = self._response("example.com.", "A", ["192.0.2.1"], ad=True)
-        with mock.patch("dns.query.udp", return_value=response):
+        with mock.patch("dns.query.udp_with_fallback", return_value=(response, False)):
             self.assertTrue(dns_tools.query("example.com", "A", "quad9")["authenticated"])
 
     def test_an_unvalidated_answer_is_reported_as_such(self):
         response = self._response("example.com.", "A", ["192.0.2.1"], ad=False)
-        with mock.patch("dns.query.udp", return_value=response):
+        with mock.patch("dns.query.udp_with_fallback", return_value=(response, False)):
             self.assertFalse(dns_tools.query("example.com", "A", "quad9")["authenticated"])
 
     def test_nxdomain_is_distinct_from_an_empty_answer(self):
         nx = self._response("nope.example.com.", "A", [], rcode=dns.rcode.NXDOMAIN)
-        with mock.patch("dns.query.udp", return_value=nx):
+        with mock.patch("dns.query.udp_with_fallback", return_value=(nx, False)):
             result = dns_tools.query("nope.example.com", "A", "google")
         self.assertEqual(result["rcode"], "NXDOMAIN")
         self.assertEqual(result["records"], [])
 
         empty = self._response("example.com.", "AAAA", [])
-        with mock.patch("dns.query.udp", return_value=empty):
+        with mock.patch("dns.query.udp_with_fallback", return_value=(empty, False)):
             result = dns_tools.query("example.com", "AAAA", "google")
         self.assertEqual(result["rcode"], "NOERROR")
         self.assertEqual(result["records"], [])
 
     def test_a_network_failure_is_an_error_not_an_empty_answer(self):
-        with mock.patch("dns.query.udp", side_effect=dns.exception.Timeout()):
+        with mock.patch("dns.query.udp_with_fallback", side_effect=dns.exception.Timeout()):
             result = dns_tools.query("example.com", "A", "google")
         self.assertIsNotNone(result["error"])
         self.assertEqual(result["records"], [])
@@ -134,7 +150,7 @@ class ResultShapeTests(unittest.TestCase):
         response = self._response("example.com.", "A", ["192.0.2.1"])
         with mock.patch.object(dns_tools, "_authoritative_addresses",
                                return_value=("example.com", ["192.0.2.53"])), \
-             mock.patch("dns.query.udp", return_value=response):
+             mock.patch("dns.query.udp_with_fallback", return_value=(response, False)):
             result = dns_tools.query("example.com", "A", "authoritative")
         self.assertEqual(result["authoritative_zone"], "example.com")
         self.assertEqual(result["nameservers"], ["192.0.2.53"])

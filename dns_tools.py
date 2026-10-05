@@ -149,8 +149,13 @@ def _query_addresses(name, rtype, resolver_key, addresses, want_ad=True):
     last = None
     for address in list(addresses)[:4]:
         try:
-            response = dns.query.udp(request, str(address), timeout=_TIMEOUT)
+            # A large answer (many TXT records) does not fit one UDP packet:
+            # the server sets TC and the question must be asked again over
+            # TCP. Without that the truncated, empty answer read as "no
+            # records" -- an SPF or verification record that was there.
+            response, over_tcp = dns.query.udp_with_fallback(request, str(address), timeout=_TIMEOUT)
             result["answered_by"] = str(address)
+            result["over_tcp"] = over_tcp
             break
         except dns.exception.DNSException as exc:
             last = exc
