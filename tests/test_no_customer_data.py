@@ -34,6 +34,10 @@ class NoCustomerIdentifiersInSourceTests(unittest.TestCase):
         "example.nl",           # RFC 2606 style placeholder
         "sidn.nl",              # .nl registry's public WHOIS page (rdap.py)
         "dnsbelgium.be",        # .be registry's public WHOIS page (rdap.py)
+        "dns.be",               # .be registry's public WHOIS server (whois_port43.py)
+        "example.be",           # placeholders in the .be, .it parser tests
+        "example-free.be",      # idem
+        "example.it",           # idem
         "com.pl",               # registry second-level suffix (domain_portfolio.py)
         "com.es",               # idem
     }

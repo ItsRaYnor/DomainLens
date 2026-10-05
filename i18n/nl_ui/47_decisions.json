@@ -97,7 +97,22 @@
   "\"Request or claim\" for domains you want but do not hold: they are looked up every minute around their release.": "\"Aanvragen of claimen\" voor domeinen die je wilt hebben maar niet bezit: die worden rond hun vrijkomen elke minuut opgezocht.",
   "Add as wanted domain": "Toevoegen als gewenst domein",
   "Wanted domains in the portfolio": "Gewenste domeinen in de portfolio",
-  "Not a wanted domain": "Geen gewenst domein"
+  "Not a wanted domain": "Geen gewenst domein",
+  "Type the name of the unit to confirm": "Typ ter bevestiging de naam van de eenheid",
+  "Delete unit": "Eenheid verwijderen",
+  "Delete unit…": "Eenheid verwijderen…",
+  "Delete the unit and everything in it": "De eenheid en alles erin verwijderen",
+  "Its domains leave the domain portfolio and the units below it are deleted. Monitors and scans are kept; they count as not in a unit afterwards. This cannot be undone.": "De domeinen verdwijnen uit de domeinportfolio en de eenheden eronder worden verwijderd. Monitors en scans blijven bestaan; die tellen daarna als niet in een eenheid. Dit kan niet ongedaan worden gemaakt.",
+  "Move them one level up": "Een niveau omhoog verplaatsen",
+  "Merge into another unit": "Samenvoegen met een andere eenheid",
+  "Its domains and units move there, with their contacts and settings; this unit is removed.": "De domeinen en eenheden gaan daarheen, met hun contactpersonen en instellingen; deze eenheid verdwijnt.",
+  "This unit holds no domains and no units. It is removed; nothing else changes.": "Deze eenheid bevat geen domeinen en geen eenheden. Ze wordt verwijderd; verder verandert er niets.",
+  "They become companies of their own, or domains not in a unit; this unit is removed.": "Ze worden zelfstandige bedrijven, of domeinen zonder eenheid; deze eenheid verdwijnt.",
+  "Merge and remove": "Samenvoegen en verwijderen",
+  "Delete everything": "Alles verwijderen",
+  "Unit to merge into": "Eenheid om mee samen te voegen",
+  "contents must be lift or delete": "contents moet lift of delete zijn",
+  "There is no other unit to merge into.": "Er is geen andere eenheid om mee samen te voegen."
  },
  "patterns": [
   [
@@ -243,6 +258,38 @@
   [
    "(.+?)\\ went\\ into\\ quarantine;\\ released\\ from\\ (.+?)\\ \\(to\\ request\\ or\\ claim\\)\\.",
    "$1 ging in quarantaine; vrij vanaf $2 (aan te vragen of te claimen)."
+  ],
+  [
+   "This\\ unit\\ holds\\ (.+?)\\ and\\ (.+?)\\.\\ What\\ should\\ happen\\ to\\ them\\?",
+   "Deze eenheid bevat $1 en $2. Wat moet ermee gebeuren?"
+  ],
+  [
+   "This\\ unit\\ holds\\ (.+?)\\.\\ What\\ should\\ happen\\ to\\ them\\?",
+   "Deze eenheid bevat $1. Wat moet ermee gebeuren?"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ unit\\(s\\)\\ below\\ it",
+   "$1 eenheid/eenheden eronder"
+  ],
+  [
+   "They\\ go\\ to\\ (.+?);\\ this\\ unit\\ is\\ removed\\.",
+   "Ze gaan naar $1; deze eenheid verdwijnt."
+  ],
+  [
+   "(.+?)\\ merged\\ into\\ (.+?)\\.",
+   "$1 samengevoegd met $2."
+  ],
+  [
+   "(.+?)\\ deleted,\\ with\\ (\\d[\\d.,]*)\\ unit\\(s\\)\\ and\\ (\\d[\\d.,]*)\\ domain\\(s\\)\\.",
+   "$1 verwijderd, met $2 eenheid/eenheden en $3 domein(en)."
+  ],
+  [
+   "(.+?)\\ deleted\\.",
+   "$1 verwijderd."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)",
+   "$1 domein(en)"
   ]
  ]
 }

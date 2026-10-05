@@ -119,6 +119,14 @@ through IANA) with port-43 WHOIS as a fallback. For `.nl` that shows status, reg
 reseller, DNSSEC, name servers and dates. Holder and contacts are withheld by most
 registries; the page says so and links to the registry's own lookup (SIDN for `.nl`).
 
+Some country registries offer no RDAP at all &mdash; `.be`, `.eu`, `.de`, `.at` among them. For
+those the registry's own port-43 WHOIS is asked and read into the same overview (source
+"WHOIS (port 43)"): registered or free, quarantine, registrar where the registry publishes one
+(DENIC and nic.at do not), name servers, DNSSEC and the registration date. The domain
+portfolio and the batch lookup use the same fallback, so domains there are measured instead
+of staying "not measured". `.be`, `.de`, `.eu` and `.at` publish no expiry date; that shows
+as "Not published", as for `.nl`.
+
 **Batch lookup** on the same page takes a pasted list or a CSV/text file (every cell that
 is a domain name, at most 500) and runs in the background. It is paced so no registry
 blocks this server: one request per two seconds per registry, a `429` honoured for as long
@@ -542,8 +550,15 @@ a domain in a unit:
 
 Choosing a unit for a monitor or scan adds the registered domain to the portfolio, so it is
 then also watched for quarantine and expiry. A unit may name the registrar its domains belong
-at; units below inherit it unless they name their own. Deleting a unit moves its domains and
-units one level up.
+at; units below inherit it unless they name their own.
+
+**Delete** (in a unit's row, in "Edit, move or merge units", or "Delete unit…" on its page)
+removes an empty unit after a confirmation. A unit that holds domains or units asks what
+should happen to them: **merge** them into another unit, **move them one level up**, or
+**delete the unit and everything in it** &mdash; its domains leave the portfolio and the units
+below it are deleted; monitors and scans are kept and count as not in a unit. The last needs
+the unit's name typed to confirm. API: `DELETE /api/organisation/units/{id}` with
+`?contents=lift` (the default) or `?contents=delete`; merging is `POST .../merge`.
 
 To move a unit with everything below it — to another company, say — choose its new place
 under **Under** and save. A move onto a name that already exists at that level is refused;

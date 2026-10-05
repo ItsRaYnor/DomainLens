@@ -26,6 +26,7 @@
                 <button type="button" class="btn-primary-lite" id="unitMonitorBtn" title="Create a security monitor for every domain of this unit that has none">Monitor security of all domains</button>
                 <a class="btn-ghost" id="unitAddDomains" href="/monitoring/domains?unit={{ unit.id }}&amp;add=1">+ Domains</a>
                 <a class="btn-ghost" id="unitAddSub" href="/monitoring/organisation?parent={{ unit.id }}#orgAdd">+ Unit under it</a>
+                <a class="btn-ghost danger" id="unitDelete" href="/monitoring/organisation?delete={{ unit.id }}">Delete unit&hellip;</a>
                 {% endif %}
                 <a class="btn-ghost" href="/reports/dashboard?unit={{ unit.id }}">Dashboard / PDF</a>
             </div>

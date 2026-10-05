@@ -48,6 +48,7 @@ import discovery
 import overview
 import rdap
 import whois_batch
+import whois_port43
 import contacts
 import domain_portfolio
 import management
@@ -489,9 +490,19 @@ def lookup_whois(domain):
     registrar address); RDAP returns those as structured data for every
     registry. Either one succeeding is a result.
     """
+    registration = rdap.lookup(domain)
+    if registration.get("state") == "not_applicable":
+        # No RDAP at this registry (.be, .eu, .de, .at, ...): its own WHOIS,
+        # read into the same structured shape, instead of the general parser
+        # that missed the registrar and took a free domain for an error.
+        port43 = whois_port43.lookup(domain)
+        if port43.get("success") or port43.get("registered") is False:
+            port43.update(domain=domain, registry_lookup=registration.get("registry_lookup")
+                          or rdap.registry_lookup(domain))
+            return {"success": True, "data": {}, "rdap": port43}
     result = _lookup_whois_text(domain)
-    result["rdap"] = rdap.lookup(domain)
-    if not result["success"] and result["rdap"].get("success"):
+    result["rdap"] = registration
+    if not result["success"] and registration.get("success"):
         result["success"] = True
         result.setdefault("data", {})
     return result
@@ -3868,8 +3879,7 @@ def api_whois_batch_start():
     data = request.get_json(silent=True) or {}
     domains, rejected = whois_batch.parse_domains(str(data.get("text") or ""))
     try:
-        job = whois_batch.start(domains, text_lookup=_lookup_whois_text,
-                                owner=(auth.current_user() or {}).get("email"))
+        job = whois_batch.start(domains, owner=(auth.current_user() or {}).get("email"))
     except ValueError as exc:
         return jsonify({"error": str(exc), "rejected": rejected[:50]}), 400
     audit_log.record("whois.batch", target_type="whois_batch", target_id=job["id"],
@@ -4072,9 +4082,15 @@ def api_portfolio_group(group_id):
     if not group:
         return jsonify({"error": "Unknown unit"}), 404
     if request.method == "DELETE":
-        domain_portfolio.delete_group(group_id)
-        audit_log.record("portfolio.group_remove", target_type="portfolio", target_id=group["path"])
-        return jsonify({"removed": True})
+        # ?contents=lift (the default): its domains and units move one level
+        # up. ?contents=delete: they go with it. Merging is POST .../merge.
+        contents = request.args.get("contents", "lift")
+        if contents not in ("lift", "delete"):
+            return jsonify({"error": "contents must be lift or delete"}), 400
+        deleted = domain_portfolio.delete_group(group_id, with_contents=contents == "delete")
+        audit_log.record("portfolio.group_remove", target_type="portfolio", target_id=group["path"],
+                         details={"contents": contents, **(deleted or {})})
+        return jsonify({"removed": True, "contents": contents, **(deleted or {})})
     data = request.get_json(silent=True) or {}
     changes = {"name": data.get("name"), "expected_registrar": data.get("expected_registrar"),
                "notify_emails": data.get("notify_emails")}

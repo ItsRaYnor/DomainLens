@@ -2737,3 +2737,30 @@ button.switch[aria-checked="true"]::after { transform: translate(1.05rem, -50%);
    rule lived only in the admin stylesheet, so elsewhere a wide table spilled
    over the card's edge. */
 .users-table-wrap { overflow-x: auto; max-width: 100%; }
+
+/* A confirmation that asks a question: deleting a unit that holds something. */
+dialog.modal {
+    border: 1px solid var(--border); border-radius: var(--radius-lg, 12px); padding: 0;
+    background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-lg);
+    width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+    margin: auto;   /* the page's reset sets margin 0, which pinned it top-left */
+}
+.modal-choice:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
+dialog.modal::backdrop { background: var(--bg-overlay); }
+.modal-body { padding: 1.25rem 1.4rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.modal-body h3 { margin: 0; }
+.modal-unit { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.modal-choices { display: flex; flex-direction: column; gap: 0.5rem; }
+.modal-choice { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.modal-choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.modal-choice-danger:has(input:checked) { border-color: var(--red); background: var(--red-bg); }
+.modal-choice input { margin-top: 0.25rem; }
+.modal-choice span { display: flex; flex-direction: column; gap: 0.15rem; }
+.modal-choice small { color: var(--text-muted); font-size: 0.8rem; line-height: 1.35; }
+.modal-indent { margin-left: 1.9rem; }
+.modal-indent select, .modal-indent input { width: 100%; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem; }
+button.btn-danger { background: var(--red); border-color: var(--red); color: var(--text-on-solid); }
+button.btn-danger:hover:not(:disabled) { background: var(--red); border-color: var(--red); filter: brightness(1.08); }
+.btn-ghost.danger { color: var(--red); }

@@ -25,6 +25,7 @@ import uuid
 from urllib.parse import urlparse
 
 import rdap
+import whois_port43
 
 MAX_DOMAINS = 500
 MIN_INTERVAL = 2.0          # seconds between requests to one registry server
@@ -121,7 +122,8 @@ def _row(domain, result):
             released_from=(result.get("lifecycle") or {}).get("released_from") or "",
         )
     elif result.get("registered") is False:
-        base.update(state="not_registered", detail=result.get("error", ""), source="rdap")
+        base.update(state="not_registered", detail=result.get("error", ""),
+                    source=result.get("source") or "rdap")
     else:
         base.update(state="unmeasured", detail=result.get("error", "No answer"),
                     source=result.get("source", ""))
@@ -150,8 +152,15 @@ def _whois_text_fallback(domain, text_lookup):
 
 
 def lookup_paced(domain, *, pacer=None, fetch=None, text_lookup=None):
-    """One domain: RDAP within the pace, a 429 honoured, WHOIS as fallback."""
+    """One domain: RDAP within the pace, a 429 honoured, WHOIS as fallback.
+
+    The fallback is the registry's own port-43 WHOIS (whois_port43), read
+    into RDAP's shape: .be, .eu, .de, .at and others offer no RDAP at all,
+    so without it a domain there is never measured. A caller that brings its
+    own `fetch` brings its own `text_lookup` too, or gets no fallback.
+    """
     pacer = pacer or _pacer
+    port43 = text_lookup is None and fetch is None
     fetch = fetch or rdap.lookup
     try:
         server = rdap.server_for(domain) or f"whois:{domain.rsplit('.', 1)[-1]}"
@@ -166,9 +175,15 @@ def lookup_paced(domain, *, pacer=None, fetch=None, text_lookup=None):
             break
         pacer.hold(server, min(float(retry_after), MAX_RETRY_AFTER))
     # Not after a 429: port 43 is the same registry, and stricter.
-    if (result.get("state") in ("not_applicable", "unmeasured") and text_lookup is not None
+    if (result.get("state") in ("not_applicable", "unmeasured") and (text_lookup is not None or port43)
             and not result.get("retry_after")):
         pacer.wait(f"whois:{domain.rsplit('.', 1)[-1]}")
+        if port43:
+            fallback = whois_port43.lookup(domain)
+            # "Not registered" from the registry is an answer as well.
+            if fallback.get("success") or fallback.get("registered") is False:
+                return {**fallback, "registry_lookup": rdap.registry_lookup(domain)}
+            return result if result.get("state") == "unmeasured" else fallback
         fallback = _whois_text_fallback(domain, text_lookup)
         if fallback.get("success"):
             return fallback

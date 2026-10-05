@@ -114,6 +114,47 @@
         </section>
         {% endif %}
     </main>
+    {% if can_edit %}
+    {# Deleting a unit that holds something asks what should happen to it:
+       merged elsewhere, moved one level up, or deleted with it. #}
+    <dialog class="modal" id="orgDeleteDialog" aria-labelledby="orgDeleteTitle">
+        <div class="modal-body">
+            <h3 id="orgDeleteTitle">Delete unit</h3>
+            <p class="modal-unit" id="orgDeleteName"></p>
+            <p class="ct-desc" id="orgDeleteSummary"></p>
+            <div id="orgDeleteChoices" class="modal-choices">
+                <label class="modal-choice">
+                    <input type="radio" name="orgDeleteMode" value="merge" checked>
+                    <span><strong>Merge into another unit</strong>
+                        <small>Its domains and units move there, with their contacts and settings; this unit is removed.</small>
+                        <small class="hidden" id="orgDeleteNoMerge">There is no other unit to merge into.</small></span>
+                </label>
+                <div class="modal-indent" id="orgDeleteMergeRow">
+                    <select id="orgDeleteInto" aria-label="Unit to merge into"></select>
+                </div>
+                <label class="modal-choice">
+                    <input type="radio" name="orgDeleteMode" value="lift">
+                    <span><strong>Move them one level up</strong>
+                        <small id="orgDeleteLiftTo"></small></span>
+                </label>
+                <label class="modal-choice modal-choice-danger">
+                    <input type="radio" name="orgDeleteMode" value="delete">
+                    <span><strong>Delete the unit and everything in it</strong>
+                        <small>Its domains leave the domain portfolio and the units below it are deleted. Monitors and scans are kept; they count as not in a unit afterwards. This cannot be undone.</small></span>
+                </label>
+                <div class="modal-indent hidden" id="orgDeleteConfirmRow">
+                    <label class="form-field" for="orgDeleteConfirm"><span>Type the name of the unit to confirm</span>
+                        <input type="text" id="orgDeleteConfirm" autocomplete="off" spellcheck="false">
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-ghost" id="orgDeleteCancel">Cancel</button>
+                <button type="button" class="btn-danger" id="orgDeleteGo">Delete unit</button>
+            </div>
+        </div>
+    </dialog>
+    {% endif %}
     <div id="errorToast" class="toast hidden"></div>
     {% include "partials/footer.html" %}
     <script src="/static/js/i18n.js?v={{ asset_token }}"></script>

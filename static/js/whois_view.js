@@ -77,7 +77,8 @@
             row('Last changed', esc(r.updated || '')),
             row('Expires', esc(r.expires || '')),
         ].join('');
-        const source = r.server ? `RDAP &middot; ${esc(r.server.replace(/^https?:\/\//, '').replace(/\/$/, ''))}` : 'RDAP';
+        const kind = r.source === 'whois' ? 'WHOIS (port 43)' : 'RDAP';
+        const source = r.server ? `${kind} &middot; ${esc(r.server.replace(/^https?:\/\//, '').replace(/\/$/, ''))}` : kind;
         return lifecycleBlock(r) + `<table class="data-table">${rows}</table><p class="ct-desc">Source: ${source}</p>`;
     }
 

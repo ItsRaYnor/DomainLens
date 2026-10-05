@@ -51,7 +51,8 @@ function orgRow(u) {
         + `<a href="/monitoring?unit=${u.id}">Monitors</a> &middot; <a href="/monitoring/domains?unit=${u.id}">Domains</a>`
         + (org.canEdit
             ? `<div class="org-row-add"><button type="button" class="btn-ghost-sm org-add-sub" data-id="${u.id}">+ Unit under it</button> `
-              + `<a class="btn-ghost-sm" href="/monitoring/domains?unit=${u.id}&amp;add=1">+ Domains</a></div>`
+              + `<a class="btn-ghost-sm" href="/monitoring/domains?unit=${u.id}&amp;add=1">+ Domains</a> `
+              + `<button type="button" class="btn-ghost-sm danger org-delete-open" data-id="${u.id}">Delete</button></div>`
             : '');
     const parent = org.units.some(c => c.parent_id === u.id);
     const toggle = parent
@@ -120,6 +121,7 @@ async function orgLoad() {
         ? `Not in any unit: ${un.scanned} scanned domain(s) and ${un.monitors} monitor(s). Put their domains in a unit to count them here.`
         : '';
     if (org.canEdit) orgRenderManage();
+    if (org.openDeleteAfterLoad) { const id = org.openDeleteAfterLoad; org.openDeleteAfterLoad = null; orgOpenDelete(id); }
 }
 
 function orgRenderManage() {
@@ -152,7 +154,7 @@ function orgRenderManage() {
                 + `<td>${contact}</td>`
                 + `<td><input type="text" class="org-notify" value="${esc((u.notify_emails || []).join(', '))}" placeholder="e-mail addresses" aria-label="Notify"></td>`
                 + '<td class="nowrap"><button class="btn-ghost-sm org-save" type="button">Save</button> '
-                + '<button class="btn-ghost-sm danger org-delete" type="button">Delete</button></td></tr>';
+                + `<button class="btn-ghost-sm danger org-delete-open" type="button" data-id="${u.id}">Delete</button></td></tr>`;
         }).join('')
         : '<tr><td class="muted">No units yet.</td></tr>';
     $('orgManageTable').querySelectorAll('tr[data-id]').forEach(row => {
@@ -250,9 +252,6 @@ function initOrganisation() {
                             contact_id: await contactResolve(row.querySelector('.org-contact')) }),
                     });
                     toast('Unit saved.');
-                } else if (e.target.classList.contains('org-delete')) {
-                    if (!confirm('Delete this unit? Its domains and units move one level up.')) return;
-                    await requestJson(url, { method: 'DELETE' });
                 } else {
                     return;
                 }
@@ -260,8 +259,118 @@ function initOrganisation() {
             orgLoad();
         });
     }
-    if (org.canEdit) orgWireContacts();
+    if (org.canEdit) { orgWireContacts(); orgWireDelete(); }
     orgLoad();
+}
+
+// Deleting a unit: an empty one after a plain confirmation, one that holds
+// domains or units after choosing what happens to them.
+function orgUnitContents(u) {
+    const below = orgDescendants(org.units, u.id);
+    const totals = (org.data.units.find(x => x.id === u.id) || {}).registration || {};
+    return { units: below.size - 1, domains: totals.total || 0, exclude: below };
+}
+
+function orgOpenDelete(id) {
+    const u = org.units.find(x => x.id === Number(id));
+    if (!u) return;
+    const dlg = $('orgDeleteDialog');
+    const c = orgUnitContents(u);
+    org.deleting = u;
+    $('orgDeleteName').textContent = u.path;
+    const empty = !c.units && !c.domains;
+    $('orgDeleteChoices').classList.toggle('hidden', empty);
+    if (empty) {
+        $('orgDeleteSummary').textContent = 'This unit holds no domains and no units. It is removed; nothing else changes.';
+    } else {
+        const parts = [];
+        if (c.domains) parts.push(`${c.domains} domain(s)`);
+        if (c.units) parts.push(`${c.units} unit(s) below it`);
+        $('orgDeleteSummary').textContent = `This unit holds ${parts.join(' and ')}. What should happen to them?`;
+        const parent = org.units.find(x => x.id === u.parent_id);
+        $('orgDeleteLiftTo').textContent = parent
+            ? `They go to ${parent.path}; this unit is removed.`
+            : 'They become companies of their own, or domains not in a unit; this unit is removed.';
+        $('orgDeleteInto').innerHTML = orgUnitOptions(org.units, { blank: 'Choose a unit', exclude: c.exclude });
+        // Nothing outside this unit to merge into (a sole company): that
+        // choice is shown, but off, and moving up is the starting point.
+        const canMerge = $('orgDeleteInto').options.length > 1;
+        const merge = dlg.querySelector('input[value="merge"]');
+        merge.disabled = !canMerge;
+        $('orgDeleteNoMerge').classList.toggle('hidden', canMerge);
+        dlg.querySelector(`input[value="${canMerge ? 'merge' : 'lift'}"]`).checked = true;
+        $('orgDeleteConfirm').value = '';
+    }
+    orgDeleteModeChanged();
+    dlg.showModal();
+}
+
+function orgDeleteMode() {
+    if ($('orgDeleteChoices').classList.contains('hidden')) return 'lift';
+    return ($('orgDeleteDialog').querySelector('input[name="orgDeleteMode"]:checked') || {}).value || 'merge';
+}
+
+function orgDeleteModeChanged() {
+    const mode = orgDeleteMode();
+    $('orgDeleteMergeRow').classList.toggle('hidden', mode !== 'merge');
+    $('orgDeleteConfirmRow').classList.toggle('hidden', mode !== 'delete');
+    $('orgDeleteGo').textContent = mode === 'merge' ? 'Merge and remove'
+        : mode === 'delete' ? 'Delete everything' : 'Delete unit';
+    orgDeleteReady();
+}
+
+// "Delete everything" waits for the unit's name: a slip of the mouse should
+// not take a company's domains with it.
+function orgDeleteReady() {
+    const mode = orgDeleteMode();
+    const u = org.deleting;
+    $('orgDeleteGo').disabled = !u
+        || (mode === 'merge' && !$('orgDeleteInto').value)
+        || (mode === 'delete' && $('orgDeleteConfirm').value.trim().toLowerCase() !== u.name.toLowerCase());
+}
+
+async function orgDeleteRun() {
+    const u = org.deleting;
+    const mode = orgDeleteMode();
+    const btn = $('orgDeleteGo');
+    btn.disabled = true;
+    try {
+        if (mode === 'merge') {
+            const into = org.units.find(x => String(x.id) === $('orgDeleteInto').value);
+            await requestJson(`/api/organisation/units/${u.id}/merge`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ into: into.id }) });
+            toast(`${u.path} merged into ${into.path}.`);
+        } else {
+            const res = await requestJson(`/api/organisation/units/${u.id}?contents=${mode}`, { method: 'DELETE' });
+            toast(mode === 'delete'
+                ? `${u.path} deleted, with ${res.units} unit(s) and ${res.domains} domain(s).`
+                : `${u.path} deleted.`);
+        }
+        $('orgDeleteDialog').close();
+    } catch (err) { toast(err.message); btn.disabled = false; return; }
+    org.deleting = null;
+    orgLoad();
+}
+
+function orgWireDelete() {
+    document.addEventListener('click', e => {
+        const open = e.target.closest('.org-delete-open');
+        if (open) orgOpenDelete(open.dataset.id);
+    });
+    $('orgDeleteDialog').addEventListener('change', e => {
+        if (e.target.name === 'orgDeleteMode') orgDeleteModeChanged();
+        if (e.target.id === 'orgDeleteInto') orgDeleteReady();
+    });
+    $('orgDeleteConfirm').addEventListener('input', orgDeleteReady);
+    $('orgDeleteCancel').addEventListener('click', () => $('orgDeleteDialog').close());
+    $('orgDeleteGo').addEventListener('click', orgDeleteRun);
+    // From a unit page: /monitoring/organisation?delete=ID opens the dialog.
+    const wanted = new URLSearchParams(location.search).get('delete');
+    if (wanted) {
+        org.openDeleteAfterLoad = wanted;
+        // Once: a reload should not ask again.
+        history.replaceState(null, '', location.pathname);
+    }
 }
 
 // Contacts are managed here: they belong with a company or business unit.

@@ -76,7 +76,9 @@ DEFAULT_LIFECYCLE = "keep"
 _NOT_HELD = ("cancel", "claim")
 # Phases in which a domain has no DNS at all, so it is measurably unused.
 _NO_DNS_PHASES = ("not_registered", "quarantine", "not_in_dns")
-_NO_EXPIRY_TLDS = ("nl",)
+# Registries that publish no expiry date: the registrar renews until the
+# holder cancels. Their missing date is "not published", not "unknown".
+_NO_EXPIRY_TLDS = ("nl", "be", "de", "eu", "at")
 
 
 _GROUPS_TABLE = """
@@ -471,17 +473,31 @@ def merge_group(source_id, target_id):
     return counts
 
 
-def delete_group(group_id):
-    """Remove a unit; its domains and units move up to its parent."""
+def delete_group(group_id, *, with_contents=False):
+    """Remove a unit. Its domains and units move up to its parent, or, with
+    `with_contents`, go as well: every unit below it is deleted and their
+    domains leave the portfolio. Monitors and scans are not touched; they
+    count as "not in a unit" afterwards.
+
+    Returns {"domains": n, "units": n} that were deleted, or None for a
+    unit that does not exist."""
     group = get_group(group_id)
     if not group:
-        return False
+        return None
     with db._lock, db._connect() as conn:
+        if with_contents:
+            ids = sorted(descendants(group["id"]))
+            marks = ",".join("?" * len(ids))
+            domains = conn.execute(f"DELETE FROM portfolio_domains WHERE group_id IN ({marks})",
+                                   ids).rowcount
+            units = conn.execute(f"DELETE FROM portfolio_groups WHERE id IN ({marks})", ids).rowcount
+            return {"domains": domains, "units": units}
         conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE group_id = ?",
                      (group["parent_id"], group["id"]))
         conn.execute("UPDATE portfolio_groups SET parent_id = ? WHERE parent_id = ?",
                      (group["parent_id"], group["id"]))
-        return conn.execute("DELETE FROM portfolio_groups WHERE id = ?", (group["id"],)).rowcount > 0
+        units = conn.execute("DELETE FROM portfolio_groups WHERE id = ?", (group["id"],)).rowcount
+        return {"domains": 0, "units": units}
 
 
 def host_of(target):
