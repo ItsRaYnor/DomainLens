@@ -676,9 +676,12 @@ the address keeps the choice, so a link opens the same view. **Print / PDF** pri
 light, two-column report.
 
 Each domain is judged on its latest scan in the period and rated on its open findings:
-A no finding of medium severity or worse, B only medium, C one or two high, D three or more
-high, F any critical. This is not the stored TLS grade, which only describes TLS. Accepted
-risks are not counted as open. A control that could not be measured is shown apart and
+A+ no open findings, A only low, A- one or two medium, B three or more medium, C one or two
+high, D three or more high, F any critical. This is not the stored TLS grade, which only
+describes TLS. Accepted risks are not counted as open. An admin accepts one from the finding
+itself: **Accept risk…** under each finding of a report or scan result opens
+Admin → Accepted risks on that finding, to fill in a reason, an owner and an end date. Only a
+finding of the domain's latest scan can be accepted; the link is not printed. A control that could not be measured is shown apart and
 counts neither as in place nor as missing. A domain not scanned in the period is left out
 and listed by name. API: `GET /api/reporting/dashboard?days=90&group={id}`.
 

@@ -237,7 +237,7 @@
                         {{ t('advies.intro') }}
                     </p>
                     <div id="remediationPlan" class="remediation-plan"></div>
-                    <div id="recommendationsContent"></div>
+                    <div id="recommendationsContent"{% if can_accept_risks %} data-can-accept="1"{% endif %}></div>
                 </div>
             </div>
 

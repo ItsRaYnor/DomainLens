@@ -3757,6 +3757,10 @@ def _inject_auth():
     return {
         "auth_status": auth.status_payload(),
         "current_user": auth.current_user(),
+        # Who may accept a risk (routes/risks.py): the report and the scan
+        # result offer it per finding only to them.
+        "can_accept_risks": (not auth.config().get("enabled"))
+                            or roles.at_least(auth.current_role(), roles.ADMIN),
     }
 
 @app.after_request

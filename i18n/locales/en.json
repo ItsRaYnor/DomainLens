@@ -121,7 +121,8 @@
     "evidence": "Evidence",
     "accepted": "Accepted risk",
     "accepted_by": "Owner",
-    "accepted_until": "until"
+    "accepted_until": "until",
+    "accept": "Accept risk…"
   },
   "common": {
     "pass": "Pass",

@@ -252,6 +252,13 @@ table.data tr { page-break-inside: avoid; }
     opacity: 0.72;
 }
 
+/* "Accept risk" per finding: on screen, for an admin, never on paper. */
+.btn-ghost-sm {
+    display: inline-block; padding: 0.2rem 0.6rem; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 0.85rem; color: var(--accent); text-decoration: none;
+}
+.btn-ghost-sm:hover { border-color: var(--accent); }
+
 .rec-accepted {
     margin: 0 0 0.5rem;
     padding: 0.35rem 0.6rem;

@@ -183,3 +183,57 @@ class AcceptanceRoutesTests(EnterpriseAppTestCase):
         self.login_as("admin")
         self.client.post("/admin/risks", data=self._form())
         self.assertIn(b"rec-is-accepted", self.client.get(f"/report/{scan_id}").data)
+
+
+class AcceptFromTheReportTests(EnterpriseAppTestCase):
+    """The report showed a finding as accepted, but gave no way to accept
+    one: the only route was a form under Admin that nothing pointed to."""
+
+    _scan = AcceptanceRoutesTests._scan
+    _key = AcceptanceRoutesTests._key
+    _form = AcceptanceRoutesTests._form
+
+    def _link(self):
+        from urllib.parse import quote
+        return f"/admin/risks?domain=example.com&amp;finding={quote(self._key(), safe='')}#finding"
+
+    def test_an_admin_gets_a_link_per_finding(self):
+        scan_id = self._scan()
+        self.login_as("admin")
+        self.assertIn(self._link().encode(), self.client.get(f"/report/{scan_id}").data)
+
+    def test_others_do_not(self):
+        scan_id = self._scan()
+        self.login_as("user")
+        self.assertNotIn(b"/admin/risks?domain=", self.client.get(f"/report/{scan_id}").data)
+
+    def test_an_accepted_finding_offers_no_second_acceptance(self):
+        scan_id = self._scan()
+        self.login_as("admin")
+        self.client.post("/admin/risks", data=self._form())
+        self.assertNotIn(self._link().encode(), self.client.get(f"/report/{scan_id}").data)
+
+    def test_the_link_lands_on_that_finding_ready_to_fill_in(self):
+        from urllib.parse import quote
+        self._scan()
+        self.login_as("admin")
+        page = self.client.get(f"/admin/risks?domain=example.com&finding={quote(self._key(), safe='')}").data
+        self.assertIn(b'rec-focus" id="finding"', page)
+        self.assertIn(b"required autofocus", page)
+
+    def test_a_finding_the_latest_scan_no_longer_has_is_said(self):
+        """A report of an older scan can name one; landing on a page without
+        it, and without a word why, looked like the link was broken."""
+        self._scan()
+        self.login_as("admin")
+        page = self.client.get("/admin/risks?domain=example.com&finding=gone:away").data
+        self.assertIn(b"not in the latest scan", page)
+
+    def test_the_scan_result_offers_it_too(self):
+        import pathlib
+        self.login_as("admin")
+        self.assertIn(b'data-can-accept="1"', self.client.get("/").data)
+        js = (pathlib.Path(__file__).resolve().parent.parent / "static/js/app.js").read_text(encoding="utf-8")
+        self.assertIn("el.dataset.canAccept === '1'", js)
+        self.login_as("user")
+        self.assertNotIn(b'data-can-accept="1"', self.client.get("/").data)

@@ -41,7 +41,8 @@
                 {% else %}
                 <p class="muted">{{ t('risks.latest_scan') }}: <a href="/report/{{ scan.id }}">#{{ scan.id }}</a> · {{ scan.created_at|last_login }}</p>
                 {% for f in findings %}
-                <article class="rec sev-{{ f.severity }}">
+                {% set focused = focus and f.finding_key == focus %}
+                <article class="rec sev-{{ f.severity }}{% if focused %} rec-focus{% endif %}"{% if focused %} id="finding"{% endif %}>
                     <div class="rec-head">
                         <span class="rec-badge sev-{{ f.severity }}">{{ f.severity|upper }}</span>
                         <span class="rec-category">{{ f.category }}</span>
@@ -54,7 +55,7 @@
                         <form class="audit-filters" method="post" action="/admin/risks">
                             <input type="hidden" name="domain" value="{{ domain }}">
                             <input type="hidden" name="finding_key" value="{{ f.finding_key }}">
-                            <label>{{ t('risks.reason') }} <input type="text" name="reason" required></label>
+                            <label>{{ t('risks.reason') }} <input type="text" name="reason" required{% if focused %} autofocus{% endif %}></label>
                             <label>{{ t('risks.owner') }} <input type="text" name="owner" required></label>
                             <label>{{ t('risks.expires') }} <input type="date" name="expires_on" value="{{ default_expiry }}" max="{{ max_expiry }}" required></label>
                             <button type="submit" class="btn-ghost-sm">{{ t('risks.accept') }}</button>

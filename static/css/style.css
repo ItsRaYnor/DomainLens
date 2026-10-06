@@ -2342,6 +2342,9 @@ footer, .app-footer {
     font-size: 0.88rem;
 }
 
+/* The finding "Accept risk" on a report or scan result came for. */
+.rec.rec-focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .rec-accepted-chip {
     background: var(--orange-bg);
     color: var(--orange);

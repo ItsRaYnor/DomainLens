@@ -2045,12 +2045,16 @@ function renderRecommendations(data) {
     }
     summary += '</div>';
 
+    // Only an admin may accept a risk; the server says so on the container.
+    const canAccept = el.dataset.canAccept === '1' && data.domain;
     let html = summary;
     recs.forEach(r => {
         const retest = r.retest || defaultRetest(r.category, r.title, data.domain);
         const accepted = r.accepted
             ? `<p class="rec-accepted"><strong>${escapeHtml(t('advies.accepted'))}</strong> ${escapeHtml(t('advies.accepted_until'))} ${escapeHtml(r.accepted.expires_on || '')} · ${escapeHtml(t('advies.accepted_by'))}: ${escapeHtml(r.accepted.owner || '')} — ${escapeHtml(r.accepted.reason || '')}</p>`
-            : '';
+            : canAccept && r.finding_key && r.severity !== 'info'
+                ? `<p><a class="btn-ghost-sm" href="/admin/risks?domain=${encodeURIComponent(data.domain)}&finding=${encodeURIComponent(r.finding_key)}#finding">${escapeHtml(t('advies.accept'))}</a></p>`
+                : '';
         html += `<article class="rec sev-${escapeHtml(r.severity)}${r.accepted ? ' rec-is-accepted' : ''}">
             <div class="rec-head">
                 <span class="rec-badge sev-${escapeHtml(r.severity)}">${escapeHtml(r.severity.toUpperCase())}</span>

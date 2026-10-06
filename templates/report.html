@@ -135,6 +135,9 @@
                 <div class="rec-body">
                     {% if r.accepted %}
                     <p class="rec-accepted"><strong>{{ t('advies.accepted') }}</strong> {{ t('advies.accepted_until') }} {{ r.accepted.expires_on }} · {{ t('advies.accepted_by') }}: {{ r.accepted.owner }} — {{ r.accepted.reason }}</p>
+                    {% elif can_accept_risks and r.finding_key and r.severity != 'info' %}
+                    {# Not printed: the report is also the document that is handed on. #}
+                    <p class="no-print"><a class="btn-ghost-sm" href="/admin/risks?domain={{ scan.domain|urlencode }}&amp;finding={{ r.finding_key|urlencode }}#finding">{{ t('advies.accept') }}</a></p>
                     {% endif %}
                     <p class="rec-problem"><strong>{{ t('report.problem') }}:</strong> {{ r.problem }}</p>
                     <p class="rec-fix"><strong>{{ t('report.fix') }}:</strong> {{ r.fix }}</p>

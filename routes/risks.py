@@ -34,6 +34,13 @@ def register(app, *, auth, db, normalize_domain, is_valid_domain):
         domain = normalize_domain(request.args.get("domain") or "")
         domain = domain if is_valid_domain(domain) else ""
         scan, findings = _latest_findings(domain) if domain else (None, [])
+        # Coming from "Accept risk" on a report or a scan result: that
+        # finding is the one to fill in. A report of an older scan may name
+        # one the latest scan no longer has, and that is said, not hidden.
+        focus = request.args.get("finding") or ""
+        error = request.args.get("error")
+        if focus and scan and not any(f.get("finding_key") == focus for f in findings):
+            error = error or "That finding is not in the latest scan of this domain."
         is_admin = (not auth.config().get("enabled")) or roles.at_least(auth.current_role(), roles.ADMIN)
         return render_template(
             "admin_risks.html",
@@ -43,11 +50,12 @@ def register(app, *, auth, db, normalize_domain, is_valid_domain):
             domain=domain,
             scan=scan,
             findings=findings,
+            focus=focus,
             is_admin=is_admin,
             default_expiry=(date.today() + timedelta(days=90)).isoformat(),
             max_expiry=(date.today() + timedelta(days=risk_acceptance.MAX_DAYS)).isoformat(),
             message=request.args.get("message"),
-            error=request.args.get("error"),
+            error=error,
         )
 
     @app.route("/admin/risks", methods=["POST"])

@@ -121,7 +121,8 @@
     "evidence": "Bewijs",
     "accepted": "Geaccepteerd risico",
     "accepted_by": "Eigenaar",
-    "accepted_until": "tot"
+    "accepted_until": "tot",
+    "accept": "Risico accepteren…"
   },
   "common": {
     "pass": "OK",
