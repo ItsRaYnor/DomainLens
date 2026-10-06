@@ -284,6 +284,17 @@ def _auth_results(msg):
         m = re.search(rf"\b{re.escape(key)}=([^;\s]+)", flat, re.I)
         if m:
             out[key] = m.group(1).lower()
+    # Each DKIM result with the signature it is about (domain, selector and
+    # the start of the signature value), to compare with our own check.
+    out["dkim"] = []
+    for part in flat.split(";"):
+        m = re.match(r"\s*dkim=(\w+)", part, re.I)
+        if not m:
+            continue
+        attrs = {k.lower(): v for k, v in re.findall(r"\b(header\.[a-z]+)=([^\s;]+)", part, re.I)}
+        domain = attrs.get("header.d") or (attrs.get("header.i") or "").rsplit("@", 1)[-1]
+        out["dkim"].append({"result": m.group(1).lower(), "domain": domain.lower().rstrip("."),
+                            "selector": attrs.get("header.s", ""), "b": attrs.get("header.b", "")})
     return out
 
 
@@ -354,7 +365,24 @@ class _Collect(logging.Handler):
         self.lines.append(record.getMessage())
 
 
-def _dkim(lookups, raw, msg, has_body):
+def _receiver_verified(receiver, sig, b_value):
+    """Whether the receiving system wrote that it verified this signature."""
+    compact = re.sub(r"\s+", "", b_value or "")
+    for entry in (receiver or {}).get("dkim", []):
+        if (entry["result"] == "pass" and entry["domain"] == sig["domain"]
+                and (not entry["selector"] or entry["selector"] == sig["selector"])
+                and (not entry["b"] or compact.startswith(entry["b"]))):
+            return True
+    return False
+
+
+_ALTERED = ("The receiving system verified this signature on arrival, so the message given here "
+            "is not the one that was signed. It was altered on the way here: copying the source from "
+            "a web page drops spaces and line breaks. Upload the original message file "
+            "(Gmail: Download original) to verify it.")
+
+
+def _dkim(lookups, raw, msg, has_body, receiver=None):
     import dkim
     # Each signature costs a DNS lookup; a message is not a way to make this
     # server send hundreds. Real mail carries one to three.
@@ -407,6 +435,12 @@ def _dkim(lookups, raw, msg, has_body):
                                else f"The signature could not be checked: {text}"))
         finally:
             logger.removeHandler(collect)
+        # The receiver checked the message as it arrived; a mismatch here,
+        # with its "pass" on record, says the copy changed since -- not the
+        # sending side. That is not measured, never a fail.
+        if (sig["result"] == "fail" and not sig["reason"].startswith("No key")
+                and _receiver_verified(receiver, sig, tags.get("b"))):
+            sig.update(state="unmeasured", result=None, reason=_ALTERED, receiver="pass")
     state = ("measured" if all(s["state"] == "measured" for s in signatures) else "unmeasured") \
         if signatures else "measured"
     return {"state": state, "signatures": signatures}
@@ -784,7 +818,8 @@ def analyse(raw, *, lookups=None, ip=None):
 
     from_domain = _headers(msg, findings)
     spf = _spf(lookups, sending_ip, mail_from, helo)
-    dkim_result = _dkim(lookups, raw, msg, has_body)
+    receiver = _auth_results(msg)
+    dkim_result = _dkim(lookups, raw, msg, has_body, receiver)
     dmarc = _dmarc(lookups, from_domain, spf, dkim_result)
     _auth_findings(findings, spf, dkim_result, dmarc, from_domain)
     server = _server(lookups, hop, findings)
@@ -814,7 +849,7 @@ def analyse(raw, *, lookups=None, ip=None):
         "spf": spf,
         "dkim": dkim_result,
         "dmarc": dmarc,
-        "receiver": _auth_results(msg),
+        "receiver": receiver,
         "received_spf": received_spf,
         "arc": arc,
         "server": server,

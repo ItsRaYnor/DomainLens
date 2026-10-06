@@ -132,7 +132,10 @@
   "Only headers were given; the signature covers the body too.": "Er zijn alleen headers gegeven; de handtekening dekt ook de body.",
   "Upload the whole message to verify it.": "Upload het hele bericht om hem te verifiëren.",
   "The body was changed after signing (a footer, a re-encoding, a forward).": "De body is na het ondertekenen gewijzigd (een voettekst, een hercodering, een doorsturing).",
-  "The signature does not match the signed headers.": "De handtekening klopt niet met de ondertekende headers."
+  "The signature does not match the signed headers.": "De handtekening klopt niet met de ondertekende headers.",
+  "The receiving system verified this signature on arrival, so the message given here is not the one that was signed.": "Het ontvangende systeem heeft deze handtekening bij aankomst geverifieerd, dus het bericht dat hier is gegeven is niet het bericht dat werd ondertekend.",
+  "It was altered on the way here: copying the source from a web page drops spaces and line breaks.": "Het is onderweg hierheen veranderd: bij het kopiëren van de broncode van een webpagina vallen spaties en regeleinden weg.",
+  "Upload the original message file (Gmail: Download original) to verify it.": "Upload het originele berichtbestand (Gmail: Origineel downloaden) om hem te verifiëren."
  },
  "patterns": [
   [

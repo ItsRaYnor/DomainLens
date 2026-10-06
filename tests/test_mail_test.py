@@ -166,6 +166,30 @@ class DkimTests(unittest.TestCase):
         self.assertEqual("fail", sig["result"])
         self.assertIn("body was changed", sig["reason"])
 
+    def _altered_with_verdict(self, verdict):
+        """A signed message whose body changed after the receiver judged it,
+        with that receiver's Authentication-Results on top."""
+        raw = _message()
+        b = mail_test._tags(raw.split(b"DKIM-Signature:", 1)[1].split(b"\r\nFrom:", 1)[0].decode())["b"]
+        stamp = (f"Authentication-Results: mx.example.net; dkim={verdict} header.i=@example.org "
+                 f"header.s=sel1 header.b={b.replace(' ', '')[:8]}\r\n").encode()
+        return stamp + raw.replace(b"Hello there.", b"Hello there. ")
+
+    def test_a_copy_altered_after_the_receiver_verified_it_is_not_a_fail(self):
+        """A source copied from a mail program's page lost whitespace: both
+        signatures were reported as failing, high, while the receiver had
+        verified them on arrival. The copy changed, not the sending side."""
+        result = mail_test.analyse(self._altered_with_verdict("pass"), lookups=FakeLookups())
+        sig = result["dkim"]["signatures"][0]
+        self.assertEqual(("unmeasured", None), (sig["state"], sig["result"]))
+        self.assertIn("Download original", sig["reason"])
+        self.assertFalse([t for t in _titles(result) if t.startswith("DKIM signature of")])
+
+    def test_without_the_receivers_pass_an_altered_body_still_fails(self):
+        result = mail_test.analyse(self._altered_with_verdict("fail"), lookups=FakeLookups())
+        self.assertEqual("fail", result["dkim"]["signatures"][0]["result"])
+        self.assertIn("DKIM signature of example.org fails", _titles(result))
+
     def test_pasted_text_with_bare_newlines_still_verifies(self):
         """A browser textarea turns CRLF into LF; the signature is over CRLF."""
         pasted = _message().decode().replace("\r\n", "\n")
