@@ -243,3 +243,5 @@ Time	Tijd
 Blocklist	Blocklist
 Listed	Vermeld
 No threat lists are configured (Admin -> Settings -> Mail analysis).	Er zijn geen dreigingslijsten ingesteld (Beheer -> Instellingen -> Mailanalyse).
+The receiver verified it; this copy was altered. Upload the .eml file	De ontvanger heeft hem geverifieerd; deze kopie is veranderd. Upload het .eml-bestand
+The key could not be looked up	De sleutel kon niet worden opgevraagd

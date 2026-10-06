@@ -26,6 +26,15 @@ function mtDkimPart(dkim) {
     return { state: 'measured', result: 'fail' };
 }
 
+// Why DKIM could not be judged, under the verdict: "not measured" alone
+// read as a fault, while the usual cause is a copy that is not the original.
+function mtDkimWhy(dkim, s) {
+    if (!s.has_body) return 'Headers only: signature not verified';
+    if (mtDkimPart(dkim).state === 'measured') return '';
+    if (dkim.signatures.some(sig => sig.receiver === 'pass')) return 'The receiver verified it; this copy was altered. Upload the .eml file';
+    return dkim.signatures.some(sig => sig.state !== 'measured') ? 'The key could not be looked up' : '';
+}
+
 function mtTlsPart(server) {
     if (server.tls === true) return { state: 'measured', result: 'pass' };
     if (server.tls === false) return { state: 'measured', result: 'fail' };
@@ -265,7 +274,7 @@ function mtRender(d) {
     }[d.border_source] || '';
     const verdicts = '<div class="mgmt-kpis">'
         + mtVerdict('SPF', spf, spf.ip ? `Checked ${spf.ip} for ${spf.domain || '?'}` : 'No sending address found')
-        + mtVerdict('DKIM', mtDkimPart(d.dkim), s.has_body ? '' : 'Headers only: signature not verified')
+        + mtVerdict('DKIM', mtDkimPart(d.dkim), mtDkimWhy(d.dkim, s))
         + mtVerdict('DMARC', dmarc, dmarc.policy ? `p=${dmarc.policy}` : '')
         + mtVerdict('TLS on arrival', mtTlsPart(server), server.tls_version || '')
         + '</div>';

@@ -437,6 +437,12 @@ class PageLayoutTests(unittest.TestCase):
         self.assertIn("vertical-align: top", rule)
         self.assertIn("'$1<wbr>'", self.JS)
 
+    def test_the_dkim_verdict_says_why_it_was_not_measured(self):
+        """A pasted copy showed DKIM "not measured" with no word why, while
+        the receiver had verified it and the .eml file passes."""
+        self.assertIn("sig.receiver === 'pass'", self.JS)
+        self.assertIn("Upload the .eml file", self.JS)
+
     def test_the_chain_reads_oldest_first_with_its_delays(self):
         self.assertIn("const hops = d.hops.slice().reverse();", self.JS)
         self.assertIn("<th>Delay</th>", self.JS)
