@@ -526,6 +526,27 @@ def unit_of(hostname):
     return {"id": group["id"], "path": group["path"]} if group else None
 
 
+def contact_of(hostname):
+    """The contact a hostname answers to through its registered domain: the
+    domain's own, or else its unit's (or a unit above). {"contact", "source":
+    "domain" | "unit", "unit"} or None when there is none."""
+    import contacts
+    domain = registrable(host_of(hostname))
+    with db._connect() as conn:
+        row = conn.execute("SELECT contact_id, group_id FROM portfolio_domains WHERE domain = ?",
+                           (domain,)).fetchone()
+    if not row:
+        return None
+    if row["contact_id"]:
+        own = contacts.get(row["contact_id"])
+        if own:
+            return {"contact": own, "source": "domain", "unit": None}
+    group = get_group(row["group_id"]) if row["group_id"] is not None else None
+    if group and group.get("contact"):
+        return {"contact": group["contact"], "source": "unit", "unit": group["path"]}
+    return None
+
+
 def units_by_domain():
     """{registered domain: unit id} for every grouped portfolio domain."""
     with db._connect() as conn:

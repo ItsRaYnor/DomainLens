@@ -237,3 +237,84 @@ class AcceptFromTheReportTests(EnterpriseAppTestCase):
         self.assertIn("el.dataset.canAccept === '1'", js)
         self.login_as("user")
         self.assertNotIn(b'data-can-accept="1"', self.client.get("/").data)
+
+
+class RiskOwnerTests(EnterpriseAppTestCase):
+    """The risk owner was a free-text field: "CISO", "J. Example", "jan" --
+    nothing tied it to the people the organisation already keeps as contacts,
+    and nobody could see which risks one person carries. The owner is now a
+    contact: the domain's (or its unit's) is offered first, or any other
+    contact or account, or someone new."""
+
+    _scan = AcceptanceRoutesTests._scan
+    _key = AcceptanceRoutesTests._key
+
+    def _form(self, **overrides):
+        form = {"domain": "example.com", "finding_key": self._key(), "reason": "known",
+                "expires_on": (_utc_today() + timedelta(days=30)).isoformat()}
+        form.update(overrides)
+        return form
+
+    def _unit_with_contact(self):
+        import contacts
+        import domain_portfolio
+        person = contacts.create(name="Sam Example", email="sam@example.com")
+        unit = domain_portfolio.ensure_group("Marketing")
+        domain_portfolio.update_group(unit, contact_id=person["id"])
+        domain_portfolio.assign("example.com", unit)
+        return person
+
+    def test_the_units_contact_is_offered_first_and_chosen(self):
+        person = self._unit_with_contact()
+        self._scan()
+        self.login_as("admin")
+        page = self.client.get("/admin/risks?domain=example.com").data.decode()
+        self.assertIn(f'<option value="c{person["id"]}" selected>Sam Example (sam@example.com)', page)
+        self.assertIn("contact of Marketing", page)
+
+    def test_a_chosen_contact_is_stored_with_the_name_it_had(self):
+        import risk_acceptance
+        person = self._unit_with_contact()
+        self._scan()
+        self.login_as("admin")
+        self.client.post("/admin/risks", data=self._form(owner_contact=f"c{person['id']}"))
+        entry = risk_acceptance.list_all("example.com")[0]
+        self.assertEqual(("Sam Example (sam@example.com)", person["id"]),
+                         (entry["owner"], entry["owner_contact_id"]))
+
+    def test_someone_new_becomes_a_contact(self):
+        import contacts
+        import risk_acceptance
+        self._scan()
+        self.login_as("admin")
+        self.client.post("/admin/risks", data=self._form(owner_contact="new", owner_name="Alex Example",
+                                                         owner_email="alex@example.com"))
+        made = [c for c in contacts.list_contacts() if c["name"] == "Alex Example"]
+        self.assertEqual(1, len(made))
+        self.assertEqual(made[0]["id"], risk_acceptance.list_all("example.com")[0]["owner_contact_id"])
+
+    def test_an_account_becomes_a_contact(self):
+        import risk_acceptance
+        self._scan()
+        self.login_as("admin")
+        self.client.post("/admin/risks", data=self._form(owner_contact=f"u{self.users['user']}"))
+        entry = risk_acceptance.list_all("example.com")[0]
+        self.assertIn("user@example.com", entry["owner"])
+        self.assertIsNotNone(entry["owner_contact_id"])
+
+    def test_a_form_that_fails_makes_no_contact(self):
+        """A missing reason sent the form back -- after the new owner had
+        already been added to the contacts."""
+        import contacts
+        self._scan()
+        self.login_as("admin")
+        self.client.post("/admin/risks", data=self._form(reason="", owner_contact="new", owner_name="Alex Example"))
+        self.assertEqual([], [c for c in contacts.list_contacts() if c["name"] == "Alex Example"])
+
+    def test_without_a_contact_for_the_domain_nobody_is_chosen_for_you(self):
+        self._scan()
+        self.login_as("admin")
+        page = self.client.get("/admin/risks?domain=example.com").data.decode()
+        owner = page[page.index('name="owner_contact"'):page.index("</select>", page.index('name="owner_contact"'))]
+        self.assertNotIn("selected", owner)
+        self.assertIn('<option value="new">Someone else (new contact)</option>', owner)

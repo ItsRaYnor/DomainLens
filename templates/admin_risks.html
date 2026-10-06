@@ -56,7 +56,39 @@
                             <input type="hidden" name="domain" value="{{ domain }}">
                             <input type="hidden" name="finding_key" value="{{ f.finding_key }}">
                             <label>{{ t('risks.reason') }} <input type="text" name="reason" required{% if focused %} autofocus{% endif %}></label>
-                            <label>{{ t('risks.owner') }} <input type="text" name="owner" required></label>
+                            {# The owner is a contact: the domain's own (or its unit's)
+                               first and chosen, any other contact or account, or
+                               someone new. A typed name matched nobody. #}
+                            {% set no_one = not owner_default and not owner_contacts and not owner_accounts %}
+                            <label>{{ t('risks.owner') }}
+                                <select name="owner_contact" class="risk-owner" required>
+                                    <option value="">{{ t('risks.owner_choose') }}</option>
+                                    {% if owner_default %}{% set oc = owner_default.contact %}
+                                    <optgroup label="{{ t('risks.owner_of_domain') }}">
+                                        <option value="c{{ oc.id }}" selected>{{ oc.name }}{% if oc.email and oc.email != oc.name %} ({{ oc.email }}){% endif %} — {% if owner_default.source == 'unit' %}{{ t('risks.owner_from_unit', unit=owner_default.unit) }}{% else %}{{ t('risks.owner_from_domain') }}{% endif %}</option>
+                                    </optgroup>
+                                    {% endif %}
+                                    {% if owner_contacts %}
+                                    <optgroup label="{{ t('risks.owner_contacts') }}">
+                                        {% for c in owner_contacts if not owner_default or c.id != owner_default.contact.id %}
+                                        <option value="c{{ c.id }}">{{ c.name }}{% if c.email and c.email != c.name %} ({{ c.email }}){% endif %}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endif %}
+                                    {% if owner_accounts %}
+                                    <optgroup label="{{ t('risks.owner_accounts') }}">
+                                        {% for a in owner_accounts %}
+                                        <option value="u{{ a.id }}">{{ a.name ~ ' (' ~ a.email ~ ')' if a.name else a.email }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endif %}
+                                    <option value="new"{% if no_one %} selected{% endif %}>{{ t('risks.owner_new') }}</option>
+                                </select>
+                            </label>
+                            <span class="risk-owner-new">
+                                <label>{{ t('risks.owner_name') }} <input type="text" name="owner_name" autocomplete="off"></label>
+                                <label>{{ t('risks.owner_email') }} <input type="email" name="owner_email" autocomplete="off"></label>
+                            </span>
                             <label>{{ t('risks.expires') }} <input type="date" name="expires_on" value="{{ default_expiry }}" max="{{ max_expiry }}" required></label>
                             <button type="submit" class="btn-ghost-sm">{{ t('risks.accept') }}</button>
                         </form>
@@ -116,5 +148,6 @@
     <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
     <script src="/static/js/page_boot.js?v={{ asset_token }}"></script>
     <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+    <script src="/static/js/risks.js?v={{ asset_token }}"></script>
 </body>
 </html>

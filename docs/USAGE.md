@@ -718,7 +718,10 @@ high, D three or more high, F any critical. This is not the stored TLS grade, wh
 describes TLS. Accepted risks are not counted as open. An admin accepts one from the finding
 itself: **Accept risk…** under each finding of a report or scan result opens
 Admin → Accepted risks on that finding, to fill in a reason, an owner and an end date. Only a
-finding of the domain's latest scan can be accepted; the link is not printed. A control that could not be measured is shown apart and
+finding of the domain's latest scan can be accepted; the link is not printed. The risk owner
+is a contact: the domain's own contact, or else its unit's, is offered first and chosen;
+any other contact or account can be picked, or someone new, who is then added to the
+contacts. The acceptance keeps the link to the contact and the name as it was on the day. A control that could not be measured is shown apart and
 counts neither as in place nor as missing. A domain not scanned in the period is left out
 and listed by name. API: `GET /api/reporting/dashboard?days=90&group={id}`.
 

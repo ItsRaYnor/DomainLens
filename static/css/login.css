@@ -234,6 +234,12 @@
     font-size: 0.85rem;
 }
 
+/* A long contact name in the risk owner list stays within the card. */
+.audit-filters label { min-width: 0; max-width: 100%; }
+.audit-filters select.risk-owner { max-width: 100%; }
+.risk-owner-new { display: contents; }
+.risk-owner-new.hidden { display: none; }
+
 .audit-table code {
     font-size: 0.8rem;
 }

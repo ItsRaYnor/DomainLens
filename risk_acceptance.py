@@ -65,6 +65,12 @@ def init_schema(conn):
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_exceptions_domain ON finding_exceptions(domain, finding_key)")
+    # The owner as a contact (contacts.py), beside the name as it was when the
+    # risk was accepted: the contact may be renamed or removed later, and the
+    # record of who decided must not change with it.
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(finding_exceptions)").fetchall()}
+    if "owner_contact_id" not in columns:
+        conn.execute("ALTER TABLE finding_exceptions ADD COLUMN owner_contact_id INTEGER")
 
 
 def _today():
@@ -77,13 +83,12 @@ def _row(row):
     return out
 
 
-def create(*, domain, finding_key, title, severity, reason, owner, expires_on, created_by):
+def check_terms(reason, expires_on):
+    """The reason and the expiry, checked: (reason, expiry date). Separate so
+    a form can be checked before it makes a new contact for the owner."""
     reason = (reason or "").strip()
-    owner = (owner or "").strip()
     if not reason:
         raise ValueError("State why the risk is accepted; that is what an auditor will ask")
-    if not owner:
-        raise ValueError("Name who owns the risk until it expires")
     try:
         expiry = date.fromisoformat(str(expires_on))
     except ValueError:
@@ -92,12 +97,22 @@ def create(*, domain, finding_key, title, severity, reason, owner, expires_on, c
         raise ValueError("Expiry is in the past")
     if expiry > _today() + timedelta(days=MAX_DAYS):
         raise ValueError("Accept a risk for at most a year; renew it when it expires")
+    return reason, expiry
+
+
+def create(*, domain, finding_key, title, severity, reason, owner, expires_on, created_by,
+           owner_contact_id=None):
+    reason, expiry = check_terms(reason, expires_on)
+    owner = (owner or "").strip()
+    if not owner:
+        raise ValueError("Name who owns the risk until it expires")
     with db._lock, db._connect() as conn:
         cursor = conn.execute(
             "INSERT INTO finding_exceptions (domain, finding_key, title, severity, reason, owner, "
-            "created_by, created_at, expires_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "created_by, created_at, expires_on, owner_contact_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (domain.strip().lower(), finding_key, title, severity, reason, owner, created_by,
-             datetime.now(timezone.utc).isoformat(), expiry.isoformat()),
+             datetime.now(timezone.utc).isoformat(), expiry.isoformat(),
+             int(owner_contact_id) if owner_contact_id else None),
         )
         exception_id = cursor.lastrowid
     _invalidate()

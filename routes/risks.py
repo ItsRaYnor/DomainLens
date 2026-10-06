@@ -13,10 +13,38 @@ from datetime import date, timedelta
 from flask import jsonify, redirect, render_template, request, url_for
 
 import audit_log
+import contacts
+import domain_portfolio
 import recommendations
 import risk_acceptance
 import roles
 from routes.admin_nav import subnav
+
+
+def _owner_label(contact):
+    """The owner as stored with the acceptance: the name as it is now."""
+    name, email = contact.get("name"), contact.get("email")
+    return f"{name} ({email})" if email and email != name else (name or email or "")
+
+
+def _resolve_owner(form):
+    """(owner text, contact id) from the form. The owner is a contact, an
+    account (made a contact), or someone new; a client that still sends the
+    free-text field gets that."""
+    choice = (form.get("owner_contact") or "").strip()
+    if not choice:
+        return (form.get("owner") or "").strip(), None
+    if choice == "new":
+        made = contacts.create(name=form.get("owner_name"), email=form.get("owner_email"))
+    elif choice.startswith("u") and choice[1:].isdigit():
+        made = contacts.create(user_id=int(choice[1:]))
+    elif choice.startswith("c") and choice[1:].isdigit():
+        made = contacts.get(int(choice[1:]))
+        if not made:
+            raise ValueError("That contact no longer exists.")
+    else:
+        raise ValueError("Choose who owns the risk.")
+    return _owner_label(made), made["id"]
 
 
 def register(app, *, auth, db, normalize_domain, is_valid_domain):
@@ -51,6 +79,11 @@ def register(app, *, auth, db, normalize_domain, is_valid_domain):
             scan=scan,
             findings=findings,
             focus=focus,
+            # Who can own the risk: the domain's contact (or its unit's)
+            # first, then every contact and account, or someone new.
+            owner_default=domain_portfolio.contact_of(domain) if domain else None,
+            owner_contacts=contacts.list_contacts() if is_admin and findings else [],
+            owner_accounts=contacts.accounts() if is_admin and findings else [],
             is_admin=is_admin,
             default_expiry=(date.today() + timedelta(days=90)).isoformat(),
             max_expiry=(date.today() + timedelta(days=risk_acceptance.MAX_DAYS)).isoformat(),
@@ -74,16 +107,18 @@ def register(app, *, auth, db, normalize_domain, is_valid_domain):
                                     error="That finding is not in the latest scan of this domain."))
         user = auth.current_user() or {}
         try:
+            risk_acceptance.check_terms(request.form.get("reason"), request.form.get("expires_on"))
+            owner, owner_contact_id = _resolve_owner(request.form)
             exception_id = risk_acceptance.create(
                 domain=domain, finding_key=key, title=finding["title"],
                 severity=finding["severity"], reason=request.form.get("reason"),
-                owner=request.form.get("owner"), expires_on=request.form.get("expires_on"),
-                created_by=user.get("email"))
+                owner=owner, expires_on=request.form.get("expires_on"),
+                created_by=user.get("email"), owner_contact_id=owner_contact_id)
         except ValueError as exc:
-            return redirect(url_for("risks_page", domain=domain, error=str(exc)))
+            return redirect(url_for("risks_page", domain=domain, finding=key, error=str(exc)))
         audit_log.record("risk.accept", target_type="domain", target_id=domain, details={
             "exception_id": exception_id, "finding": finding["title"],
-            "severity": finding["severity"], "owner": request.form.get("owner"),
+            "severity": finding["severity"], "owner": owner, "owner_contact_id": owner_contact_id,
             "expires_on": request.form.get("expires_on"), "reason": request.form.get("reason")})
         return redirect(url_for("risks_page", domain=domain, message="Risk accepted."))
 
