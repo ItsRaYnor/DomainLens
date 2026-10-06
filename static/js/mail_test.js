@@ -57,7 +57,7 @@ function mtFindings(findings) {
 // own under it: in a cell it squeezed the column to a letter's width.
 function mtSignatures(sigs) {
     if (!sigs.length) return '<p class="muted">No DKIM signature in this message.</p>';
-    return '<div class="dns-detail-table-wrap"><table class="data-table mt-table"><tr><th>Domain</th><th>Selector</th>'
+    return '<div class="dns-detail-table-wrap"><table class="data-table mt-table stack-table"><tr><th>Domain</th><th>Selector</th>'
         + '<th>Algorithm</th><th>Key</th><th>Result</th></tr>'
         + sigs.map(s => `<tr><td><code>${esc(s.domain)}</code></td><td><code>${esc(s.selector)}</code></td>`
             + `<td>${esc(s.algorithm)}</td><td class="nowrap">${s.key_bits ? esc(`${s.key_bits} bits ${s.key_type || ''}`) : '<span class="muted">—</span>'}</td>`

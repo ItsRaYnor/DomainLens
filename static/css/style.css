@@ -2884,3 +2884,15 @@ button.btn-danger:hover:not(:disabled) { background: var(--red); border-color: v
     .stack-table tr.mt-border { border-color: var(--accent); background: var(--accent-glow); }
     .stack-table tr.mt-border td { background: none; }
 }
+@media (max-width: 720px) {
+    /* A signature's reason closes its card instead of floating under it. */
+    .stack-table tr:has(+ tr.mt-reason) { margin-bottom: 0; border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; }
+    .stack-table tr.mt-reason {
+        display: block; margin: 0 0 0.6rem; padding: 0 0.75rem 0.75rem;
+        border: 1px solid var(--border); border-top: 0; border-radius: 0 0 var(--radius) var(--radius);
+        background: var(--bg-card);
+    }
+}
+/* The mail analysis tables built by rows(): words stay whole ("spf=pass"
+   broke as "spf=p / ass"); only a token longer than the line is split. */
+#mailTestResult .data-table td { word-break: normal; overflow-wrap: anywhere; }

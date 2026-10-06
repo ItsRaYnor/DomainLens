@@ -437,6 +437,13 @@ class PageLayoutTests(unittest.TestCase):
         self.assertIn("vertical-align: top", rule)
         self.assertIn("'$1<wbr>'", self.JS)
 
+    def test_on_a_phone_every_table_is_cards(self):
+        """The signature table scrolled sideways on a phone (569px in 321px),
+        and "spf=pass" broke as "spf=p / ass" in the name-value tables."""
+        self.assertIn('<table class="data-table mt-table stack-table"><tr><th>Domain</th>', self.JS)
+        self.assertIn('class="data-table mt-table mt-hops stack-table"', self.JS)
+        self.assertIn("#mailTestResult .data-table td { word-break: normal; overflow-wrap: anywhere; }", self.CSS)
+
     def test_the_dkim_verdict_says_why_it_was_not_measured(self):
         """A pasted copy showed DKIM "not measured" with no word why, while
         the receiver had verified it and the .eml file passes."""
