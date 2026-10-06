@@ -3018,7 +3018,7 @@ def _build_check_map(domain, apex, extra_dkim_selectors=None, force_refresh=Fals
         "dnssec": lambda: check_dnssec(apex),
         "spf": lambda: check_spf(apex),
         "dmarc": lambda: check_dmarc(apex),
-        # Selectors seen in real mail of this domain (the mail test) are
+        # Selectors seen in real mail of this domain (the mail analysis) are
         # checked too: they are the keys actually in use, not guesses.
         "dkim": lambda: check_dkim(apex, extra_selectors=list(extra_dkim_selectors or [])
                                    + mail_test.learned_selectors(apex)),
@@ -3705,7 +3705,7 @@ def _run_scheduler_digest():
     # monitor scans that share this loop. maybe_run skips if one is running.
     threading.Thread(target=domain_portfolio.maybe_run, daemon=True,
                      name="domain-portfolio").start()
-    # The mail test's threat lists, downloaded whole twice a day.
+    # The mail analysis's threat lists, downloaded whole twice a day.
     threading.Thread(target=link_check.maybe_refresh, daemon=True,
                      name="link-feeds").start()
 
@@ -6055,7 +6055,7 @@ def mail_test_view():
 
 
 class _MailLookups(mail_test.Lookups):
-    """The mail test's lookups, with the blocklists the scan uses."""
+    """The mail analysis's lookups, with the blocklists the scan uses."""
 
     def blocklist(self, ip):
         result = check_blacklist(ip)
@@ -6118,7 +6118,7 @@ def api_mail_test_checks():
 def api_mail_test_feeds_refresh():
     """Download the threat lists now instead of waiting for the scheduler."""
     if not link_check.feed_status():
-        return jsonify({"error": "No threat lists are configured (Admin -> Settings -> Mail test)."}), 400
+        return jsonify({"error": "No threat lists are configured (Admin -> Settings -> Mail analysis)."}), 400
     threading.Thread(target=link_check.refresh, daemon=True, name="link-feeds").start()
     audit_log.record("mailtest.feeds_refresh", target_type="settings")
     return jsonify({"started": True}), 202

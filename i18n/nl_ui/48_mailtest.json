@@ -186,7 +186,8 @@
   "Delay": "Vertraging",
   "Time": "Tijd",
   "Blocklist": "Blocklist",
-  "Listed": "Vermeld"
+  "Listed": "Vermeld",
+  "No threat lists are configured (Admin -> Settings -> Mail analysis).": "Er zijn geen dreigingslijsten ingesteld (Beheer -> Instellingen -> Mailanalyse)."
  },
  "patterns": [
   [

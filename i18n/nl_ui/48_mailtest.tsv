@@ -1,4 +1,4 @@
-# Tools -> Mail test: the page, the result and the findings it names.
+# Tools -> Mail analysis: the page, the result and the findings it names.
 Analyse	Analyseren
 Or paste the source	Of plak de broncode
 Message file (.eml)	Berichtbestand (.eml)
@@ -242,3 +242,4 @@ Delay	Vertraging
 Time	Tijd
 Blocklist	Blocklist
 Listed	Vermeld
+No threat lists are configured (Admin -> Settings -> Mail analysis).	Er zijn geen dreigingslijsten ingesteld (Beheer -> Instellingen -> Mailanalyse).

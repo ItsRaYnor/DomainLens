@@ -11,7 +11,7 @@ built to leak nothing, or as little as can be:
     worked out locally. "examp1e.com" in a mail while you hold example.com.
   * Threat lists (feeds) downloaded whole by the scheduler and searched
     locally: per link nothing leaves the server. Which feeds, if any, is the
-    admin's choice (Admin -> Settings -> Mail test).
+    admin's choice (Admin -> Settings -> Mail analysis).
   * VirusTotal, only when an admin switches it on, and only by hash: the
     SHA-256 of the URL is asked about, the URL is never sent and nothing is
     ever submitted. A URL VirusTotal does not know stays unknown to it.

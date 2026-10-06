@@ -1,4 +1,4 @@
-// Tools -> Mail test. Uses $, esc, requestJson, toast and rows from lookup.js.
+// Tools -> Mail analysis. Uses $, esc, requestJson, toast and rows from lookup.js.
 // Everything taken from the message is shown as text: its HTML is never
 // rendered and its links are never made clickable.
 

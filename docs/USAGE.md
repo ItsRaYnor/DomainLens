@@ -297,9 +297,9 @@ host the server can reach. Only literal IP addresses are accepted, a label
 cannot shadow a built-in resolver name, and a malformed line is skipped rather
 than breaking the page.
 
-## Mail test
+## Mail analysis
 
-**Tools → Mail test** judges one received message instead of the DNS records alone. Send a
+**Tools → Mail analysis** judges one received message instead of the DNS records alone. Send a
 message from the mail system you want to test to a mailbox you can read, and give DomainLens
 the message as received: upload the `.eml` file (Gmail: *Show original → Download original*;
 Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*) or paste the source.
@@ -334,11 +334,11 @@ Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*) or paste t
     under another TLD, one typo away, written with look-alike characters (digits, Cyrillic or
     Greek letters), or with a word attached (`example-login.com`). The sender's domain and the
     reply address are compared too.
-  - *Threat lists* (Admin → Settings → Mail test: links): each list is downloaded whole every
+  - *Threat lists* (Admin → Settings → Mail analysis: links): each list is downloaded whole every
     12 hours and searched on the server; no link from a message is sent anywhere. Plain lists
     with one URL per line, or CSV with the URL in a column, over https, for example the URLhaus
     list of online URLs (an abuse.ch key is sent along when set) or the OpenPhish community
-    feed. Admins can refresh them at once from the mail test page.
+    feed. Admins can refresh them at once from the mail analysis page.
   - *VirusTotal*, off by default: when switched on (and with the VirusTotal API key), only
     the SHA-256 of a link is asked about -- never the link, and nothing is ever submitted.
     A link VirusTotal has not seen is "not known", never "clean"; at most four lookups per
