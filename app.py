@@ -51,6 +51,7 @@ import whois_batch
 import whois_port43
 import contacts
 import domain_portfolio
+import mail_test
 import management
 import maintenance
 import metrics
@@ -3016,7 +3017,10 @@ def _build_check_map(domain, apex, extra_dkim_selectors=None, force_refresh=Fals
         "dnssec": lambda: check_dnssec(apex),
         "spf": lambda: check_spf(apex),
         "dmarc": lambda: check_dmarc(apex),
-        "dkim": lambda: check_dkim(apex, extra_selectors=extra_dkim_selectors),
+        # Selectors seen in real mail of this domain (the mail test) are
+        # checked too: they are the keys actually in use, not guesses.
+        "dkim": lambda: check_dkim(apex, extra_selectors=list(extra_dkim_selectors or [])
+                                   + mail_test.learned_selectors(apex)),
         "mta_sts": lambda: check_mta_sts(apex),
         "tlsrpt": lambda: check_tlsrpt(apex),
         # Subdomain / host-specific checks
@@ -3834,6 +3838,7 @@ _TOOLS_SUBNAV = [
     ("nav.tools_dns", "/tools/dns"),
     ("nav.tools_impersonation", "/tools/impersonation"),
     ("nav.tools_disclosure", "/tools/disclosure"),
+    ("nav.tools_mail", "/tools/mail"),
 ]
 _REPORTS_SUBNAV = [
     ("nav.reports_history", "/reports"),
@@ -6036,6 +6041,53 @@ def lookup_pgp_view():
 @app.route("/lookup/pgp")
 def lookup_pgp_view_legacy():
     return redirect("/tools/disclosure", code=301)
+
+
+@app.route("/tools/mail")
+def mail_test_view():
+    return render_template(
+        "lookup_mail.html", section="tools",
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/mail"))
+
+
+class _MailLookups(mail_test.Lookups):
+    """The mail test's lookups, with the blocklists the scan uses."""
+
+    def blocklist(self, ip):
+        result = check_blacklist(ip)
+        return None if result.get("error") else result
+
+
+@app.route("/api/mailtest", methods=["POST"])
+def api_mail_test():
+    """Judge one received message, sent as an .eml file or pasted text.
+
+    The message is analysed and not kept; only the DKIM selectors it shows
+    to be in use are remembered, for later scans of that domain.
+    """
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    upload = request.files.get("file")
+    if upload is not None:
+        raw = upload.read(mail_test.MAX_BYTES + 1)
+        ip = request.form.get("ip")
+    else:
+        data = request.get_json(silent=True) or {}
+        raw = str(data.get("message") or "").encode("utf-8", "surrogateescape")
+        ip = data.get("ip")
+    if len(raw) > mail_test.MAX_BYTES:
+        return jsonify({"error": "The message is larger than 10 MB."}), 413
+    if not raw.strip():
+        return jsonify({"error": "Paste the message source or choose an .eml file."}), 400
+    if b":" not in raw.lstrip().split(b"\n", 1)[0]:
+        return jsonify({"error": "This does not look like a message: it should start with header lines."}), 400
+    try:
+        result = mail_test.analyse(raw, lookups=_MailLookups(), ip=(ip or None))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if result["learned"]:
+        mail_test.remember((x["domain"], x["selector"]) for x in result["learned"])
+    return jsonify(result)
 
 
 @app.route("/api/pgp/inspect", methods=["GET"])

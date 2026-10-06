@@ -2768,3 +2768,10 @@ dialog.modal::backdrop { background: var(--bg-overlay); }
 button.btn-danger { background: var(--red); border-color: var(--red); color: var(--text-on-solid); }
 button.btn-danger:hover:not(:disabled) { background: var(--red); border-color: var(--red); filter: brightness(1.08); }
 .btn-ghost.danger { color: var(--red); }
+
+/* Tools -> Mail test */
+.mt-form { display: grid; gap: 0.75rem; margin-top: 0.75rem; }
+.mt-form label { display: grid; gap: 0.3rem; font-size: 0.85rem; color: var(--text-muted); }
+.mt-form textarea { width: 100%; font-family: var(--font-mono); font-size: 0.8rem; resize: vertical; }
+.mt-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.data-table tr.mt-border td { background: var(--accent-glow); }

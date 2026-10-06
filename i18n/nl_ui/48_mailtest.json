@@ -1,0 +1,283 @@
+{
+ "text": {
+  "Analyse": "Analyseren",
+  "Or paste the source": "Of plak de broncode",
+  "Message file (.eml)": "Berichtbestand (.eml)",
+  "Send a message from the mail system you want to test to a mailbox you can read, then give DomainLens that message as it was received. It checks SPF, DKIM and DMARC on the message itself, the server that sent it, and the content. The message is analysed and not stored.": "Stuur een bericht vanuit het mailsysteem dat je wilt testen naar een mailbox die je kunt lezen, en geef DomainLens dat bericht zoals het is ontvangen. Het controleert SPF, DKIM en DMARC op het bericht zelf, de server die het verstuurde en de inhoud. Het bericht wordt geanalyseerd en niet bewaard.",
+  "Soft fail": "Softfail",
+  "Neutral": "Neutraal",
+  "Broken record": "Record defect",
+  "Selector": "Selector",
+  "Key": "Sleutel",
+  "Result": "Resultaat",
+  "Date": "Datum",
+  "By": "Door",
+  "With": "Met",
+  "Findings": "Bevindingen",
+  "Content": "Inhoud",
+  "Attachment": "Bijlage",
+  "Verdict": "Oordeel",
+  "Blocklists": "Blocklists",
+  "Not listed": "Niet vermeld",
+  "Results": "Resultaten",
+  "Reported by": "Gemeld door",
+  "Analysing…": "Bezig met analyseren…",
+  "Received by": "Ontvangen door",
+  "HELO name": "HELO-naam",
+  "Unsubscribe": "Afmelden",
+  "Bulk mail": "Bulkmail",
+  "TLS on arrival": "TLS bij ontvangst",
+  "No sending address found": "Geen verzendend adres gevonden",
+  "Headers only: signature not verified": "Alleen headers: handtekening niet geverifieerd",
+  "Nothing to remark.": "Niets op aan te merken.",
+  "No DKIM signature in this message.": "Geen DKIM-handtekening in dit bericht.",
+  "The message has no Received headers.": "Het bericht heeft geen Received-headers.",
+  "Newest first. The marked hop is where the message entered the receiving side; SPF and the server checks are about the address in it. If that is the wrong one, choose another.": "Nieuwste eerst. De gemarkeerde stap is waar het bericht de ontvangende kant binnenkwam; SPF en de servercontroles gaan over het adres daarin. Is dat de verkeerde, kies dan een andere.",
+  "Judged": "Beoordeeld",
+  "Judge from this hop": "Beoordeel vanaf deze stap",
+  "Sending address from the receiver's Received-SPF header.": "Verzendend adres uit de Received-SPF-header van de ontvanger.",
+  "Sending address read from the Received chain.": "Verzendend adres gelezen uit de Received-keten.",
+  "Sending address chosen by you.": "Verzendend adres door jou gekozen.",
+  "Envelope sender": "Envelope-afzender",
+  "None (bounce or not in the headers)": "Geen (bounce, of niet in de headers)",
+  "DMARC policy found at": "DMARC-beleid gevonden op",
+  "SPF aligned with From": "SPF in lijn met From",
+  "DKIM aligned with From": "DKIM in lijn met From",
+  "As reported by the receiving system": "Zoals gemeld door het ontvangende systeem",
+  "From the newest Authentication-Results header. Shown for comparison; the verdict above is worked out by DomainLens.": "Uit de nieuwste Authentication-Results-header. Ter vergelijking; het oordeel hierboven bepaalt DomainLens zelf.",
+  "ARC chain": "ARC-keten",
+  "Reverse DNS points back": "Reverse DNS wijst terug",
+  "Not stated in the header": "Niet vermeld in de header",
+  "Goes to": "Gaat naar",
+  "Shown as": "Getoond als",
+  "Sending server": "Verzendende server",
+  "Received chain": "Received-keten",
+  "DKIM signatures": "DKIM-handtekeningen",
+  "No sending address found in the headers.": "Geen verzendend adres gevonden in de headers.",
+  "Plain-text part": "Tekstdeel",
+  "HTML part": "HTML-deel",
+  "One-click": "One-click",
+  "Not one-click": "Geen one-click",
+  "Not applicable (not bulk mail)": "Niet van toepassing (geen bulkmail)",
+  "Only headers were given, so the content was not checked.": "Er zijn alleen headers gegeven, dus de inhoud is niet gecontroleerd.",
+  "Paste the message source or choose an .eml file.": "Plak de broncode van het bericht of kies een .eml-bestand.",
+  "The message is larger than 10 MB.": "Het bericht is groter dan 10 MB.",
+  "This does not look like a message: it should start with header lines.": "Dit lijkt geen bericht: het hoort te beginnen met headerregels.",
+  "Not an IP address": "Geen IP-adres",
+  "The sending address has no reverse DNS": "Het verzendende adres heeft geen reverse DNS",
+  "Many receivers reject or mark mail from such addresses.": "Veel ontvangers weigeren of markeren mail van zulke adressen.",
+  "Reverse DNS does not point back": "Reverse DNS wijst niet terug",
+  "The HELO name is not a full host name": "De HELO-naam is geen volledige hostnaam",
+  "Use its own fully qualified name.": "Gebruik zijn eigen volledige hostnaam.",
+  "The message arrived without TLS": "Het bericht kwam binnen zonder TLS",
+  "TLS 1.0 and 1.1 are outdated.": "TLS 1.0 en 1.1 zijn verouderd.",
+  "Use TLS 1.2 or newer on the sending server.": "Gebruik TLS 1.2 of nieuwer op de verzendende server.",
+  "The sending address is on a blocklist": "Het verzendende adres staat op een blocklist",
+  "A program or script is attached": "Er is een programma of script bijgevoegd",
+  "An attachment type used for phishing": "Een bijlagetype dat voor phishing wordt gebruikt",
+  "HTML only, no plain-text part": "Alleen HTML, geen tekstdeel",
+  "Add a text/plain alternative: spam filters weigh its absence, and some readers need it.": "Voeg een text/plain-alternatief toe: spamfilters rekenen het ontbreken mee, en sommige lezers hebben het nodig.",
+  "Mostly images, hardly any text": "Vooral afbeeldingen, nauwelijks tekst",
+  "A message that is one picture is what spam looks like to a filter; put the text in as text.": "Een bericht dat uit één plaatje bestaat, ziet er voor een filter uit als spam; zet de tekst erin als tekst.",
+  "A link shows one address and leads to another": "Een link toont het ene adres en leidt naar een ander",
+  "A link points to a bare IP address": "Een link wijst naar een kaal IP-adres",
+  "A link uses a URL shortener": "Een link gebruikt een URL-verkorter",
+  "Links over plain http": "Links via onversleuteld http",
+  "Bulk mail without List-Unsubscribe": "Bulkmail zonder List-Unsubscribe",
+  "Gmail and Yahoo require a List-Unsubscribe header on bulk mail.": "Gmail en Yahoo eisen een List-Unsubscribe-header op bulkmail.",
+  "Unsubscribe is not one-click": "Afmelden is geen one-click",
+  "Add an https:// address to List-Unsubscribe and the header List-Unsubscribe-Post: List-Unsubscribe=One-Click (RFC 8058).": "Voeg een https://-adres toe aan List-Unsubscribe, en de header List-Unsubscribe-Post: List-Unsubscribe=One-Click (RFC 8058).",
+  "The message does not have exactly one From address": "Het bericht heeft niet precies één From-adres",
+  "The message does not have exactly one From address.": "Het bericht heeft niet precies één From-adres.",
+  "Receivers reject such messages, and DMARC cannot be evaluated for them.": "Ontvangers weigeren zulke berichten, en DMARC kan er niet voor worden beoordeeld.",
+  "The display name shows another address": "De weergavenaam toont een ander adres",
+  "Replies go to another domain": "Antwoorden gaan naar een ander domein",
+  "Often intended, sometimes a sign of misuse.": "Vaak zo bedoeld, soms een teken van misbruik.",
+  "No Message-ID": "Geen Message-ID",
+  "Every message should carry a Message-ID; Gmail requires one for bulk senders.": "Elk bericht hoort een Message-ID te hebben; Gmail eist er een van bulkafzenders.",
+  "No valid Date header": "Geen geldige Date-header",
+  "No Date header": "Geen Date-header",
+  "A missing or unreadable date counts against a message in spam filters.": "Een ontbrekende of onleesbare datum telt in spamfilters tegen een bericht.",
+  "No subject": "Geen onderwerp",
+  "A message without subject is more often filtered.": "Een bericht zonder onderwerp wordt vaker gefilterd.",
+  "SPF fails for this sender": "SPF faalt voor deze afzender",
+  "Add the service that sends this mail.": "Voeg de dienst toe die deze mail verstuurt.",
+  "SPF soft-fails for this sender": "SPF geeft een softfail voor deze afzender",
+  "SPF does not vouch for this sender": "SPF staat niet in voor deze afzender",
+  "The SPF record is broken": "Het SPF-record is defect",
+  "The message is not DKIM-signed": "Het bericht is niet met DKIM ondertekend",
+  "Sign outgoing mail with DKIM for your own domain; without it DMARC rests on SPF alone, and SPF breaks on every forward.": "Onderteken uitgaande mail met DKIM voor je eigen domein; zonder DKIM rust DMARC alleen op SPF, en SPF breekt bij elke doorsturing.",
+  "Keys under 1024 bits can be broken and are ignored by large receivers.": "Sleutels onder 1024 bits zijn te kraken en worden door grote ontvangers genegeerd.",
+  "Use 2048 bits.": "Gebruik 2048 bits.",
+  "1024 bits still passes, but 2048 bits is the current advice.": "1024 bits volstaat nog, maar 2048 bits is het huidige advies.",
+  "rsa-sha1 is deprecated (RFC 8301) and treated as unsigned by some receivers.": "rsa-sha1 is verouderd (RFC 8301) en wordt door sommige ontvangers als niet-ondertekend behandeld.",
+  "Use rsa-sha256.": "Gebruik rsa-sha256.",
+  "Signed, but not by the From domain": "Ondertekend, maar niet door het From-domein",
+  "Let the sending service sign with a key under your own domain.": "Laat de verzendende dienst ondertekenen met een sleutel onder je eigen domein.",
+  "DMARC fails for this message": "DMARC faalt voor dit bericht",
+  "rejected": "geweigerd",
+  "put in spam": "in spam gezet",
+  "delivered anyway, for now": "voorlopig toch afgeleverd",
+  "No DMARC policy for the From domain": "Geen DMARC-beleid voor het From-domein",
+  "DMARC passes, but the policy only monitors": "DMARC slaagt, maar het beleid monitort alleen",
+  "p=none: messages that fail are still delivered.": "p=none: berichten die falen worden toch afgeleverd.",
+  "Move to quarantine or reject.": "Ga over naar quarantine of reject.",
+  "Neither SPF nor DKIM passed.": "SPF noch DKIM slaagde.",
+  "SPF and DKIM": "SPF en DKIM",
+  "Not every part could be checked, and the parts that could did not pass aligned.": "Niet alles kon worden gecontroleerd, en wat wel kon, slaagde niet in lijn.",
+  "The DMARC record could not be looked up.": "Het DMARC-record kon niet worden opgevraagd.",
+  "The headers name no sending address.": "De headers noemen geen verzendend adres.",
+  "The message has no envelope sender (Return-Path) and no HELO name.": "Het bericht heeft geen envelope-afzender (Return-Path) en geen HELO-naam.",
+  "The signature names no domain or selector.": "De handtekening noemt geen domein of selector.",
+  "Only headers were given; the signature covers the body too.": "Er zijn alleen headers gegeven; de handtekening dekt ook de body.",
+  "Upload the whole message to verify it.": "Upload het hele bericht om hem te verifiëren.",
+  "The body was changed after signing (a footer, a re-encoding, a forward).": "De body is na het ondertekenen gewijzigd (een voettekst, een hercodering, een doorsturing).",
+  "The signature does not match the signed headers.": "De handtekening klopt niet met de ondertekende headers."
+ },
+ "patterns": [
+  [
+   "Checked\\ (.+?)\\ for\\ (.+?)",
+   "$1 gecontroleerd voor $2"
+  ],
+  [
+   "Listed\\ on\\ (.+?)",
+   "Vermeld op $1"
+  ],
+  [
+   "(.+?)\\ \\(Spamhaus\\ not\\ queried:\\ no\\ DQS\\ key\\)",
+   "$1 (Spamhaus niet bevraagd: geen DQS-sleutel)"
+  ],
+  [
+   "DKIM\\ selector\\ (.+?)\\ of\\ (.+?)\\ is\\ remembered:\\ scans\\ of\\ that\\ domain\\ now\\ check\\ it\\.",
+   "DKIM-selector $1 van $2 is onthouden: scans van dat domein controleren hem nu."
+  ],
+  [
+   "(.+?)\\ has\\ no\\ PTR\\ record\\.",
+   "$1 heeft geen PTR-record."
+  ],
+  [
+   "(.+?)\\ names\\ (.+?),\\ but\\ that\\ name\\ does\\ not\\ resolve\\ to\\ (.+?)\\.",
+   "$1 verwijst naar $2, maar die naam verwijst niet terug naar $3."
+  ],
+  [
+   "The\\ server\\ introduced\\ itself\\ as\\ \"(.+?)\"\\.",
+   "De server stelde zich voor als \"$1\"."
+  ],
+  [
+   "(.+?)\\ received\\ it\\ unencrypted:\\ anyone\\ on\\ the\\ path\\ could\\ read\\ it\\.",
+   "$1 ontving het onversleuteld: iedereen onderweg kon het lezen."
+  ],
+  [
+   "The\\ message\\ arrived\\ over\\ (.+?)",
+   "Het bericht kwam binnen via $1"
+  ],
+  [
+   "(.+?)\\ is\\ listed\\ on\\ (.+?)\\.",
+   "$1 staat op $2."
+  ],
+  [
+   "\"(.+?)\"\\ can\\ run\\ code\\ when\\ opened;\\ receivers\\ block\\ or\\ quarantine\\ it\\.",
+   "\"$1\" kan code uitvoeren bij openen; ontvangers blokkeren het of zetten het in quarantaine."
+  ],
+  [
+   "\"(.+?)\":\\ macros\\ or\\ a\\ web\\ page\\ in\\ an\\ attachment\\ are\\ a\\ common\\ lure\\.",
+   "\"$1\": macro's of een webpagina in een bijlage zijn een bekend lokmiddel."
+  ],
+  [
+   "(.+?)\\.\\ This\\ is\\ the\\ pattern\\ phishing\\ filters\\ look\\ for\\.",
+   "$1. Dit is het patroon waar phishingfilters op letten."
+  ],
+  [
+   "(.+?)\\.\\ Link\\ to\\ a\\ host\\ name\\.",
+   "$1. Link naar een hostnaam."
+  ],
+  [
+   "(.+?)\\.\\ Shorteners\\ hide\\ the\\ destination\\ and\\ are\\ often\\ filtered\\.",
+   "$1. Verkorters verbergen de bestemming en worden vaak gefilterd."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ link\\(s\\)\\ use\\ http://\\ instead\\ of\\ https://\\.",
+   "$1 link(s) gebruiken http:// in plaats van https://."
+  ],
+  [
+   "The\\ name\\ reads\\ \"(.+?)\"\\ while\\ the\\ message\\ is\\ from\\ (.+?):\\ readers\\ believe\\ the\\ name,\\ and\\ filters\\ flag\\ it\\.",
+   "De naam luidt \"$1\" terwijl het bericht van $2 komt: lezers geloven de naam, en filters markeren het."
+  ],
+  [
+   "Reply\\-To\\ points\\ to\\ (.+?)\\.",
+   "Reply-To wijst naar $1."
+  ],
+  [
+   "(.+?)\\ is\\ not\\ allowed\\ by\\ the\\ SPF\\ record\\ of\\ (.+?)\\.",
+   "$1 is niet toegestaan door het SPF-record van $2."
+  ],
+  [
+   "(.+?)\\ is\\ not\\ in\\ the\\ SPF\\ record\\ of\\ (.+?)\\ \\(\\~all\\)\\.",
+   "$1 staat niet in het SPF-record van $2 (~all)."
+  ],
+  [
+   "(.+?)\\ has\\ no\\ SPF\\ record\\.",
+   "$1 heeft geen SPF-record."
+  ],
+  [
+   "(.+?)\\ says\\ nothing\\ about\\ (.+?)\\ \\(\\?all\\)\\.",
+   "$1 zegt niets over $2 (?all)."
+  ],
+  [
+   "The\\ SPF\\ record\\ of\\ (.+?)\\ cannot\\ be\\ evaluated\\ \\(permerror\\):\\ (.+?)",
+   "Het SPF-record van $1 kan niet worden beoordeeld (permerror): $2"
+  ],
+  [
+   "DKIM\\ signature\\ of\\ (.+?)\\ fails",
+   "DKIM-handtekening van $1 faalt"
+  ],
+  [
+   "DKIM\\ key\\ of\\ (.+?)\\ is\\ (\\d[\\d.,]*)\\ bits",
+   "DKIM-sleutel van $1 is $2 bits"
+  ],
+  [
+   "DKIM\\ signature\\ of\\ (.+?)\\ uses\\ SHA\\-1",
+   "DKIM-handtekening van $1 gebruikt SHA-1"
+  ],
+  [
+   "Signed\\ by\\ (.+?),\\ not\\ by\\ (.+?)\\.",
+   "Ondertekend door $1, niet door $2."
+  ],
+  [
+   "With\\ p=(.+?)\\ it\\ is\\ (.+?)\\.",
+   "Met p=$1 wordt het $2."
+  ],
+  [
+   "(.+?)\\ publishes\\ no\\ DMARC\\ policy,\\ so\\ receivers\\ decide\\ on\\ their\\ own\\.",
+   "$1 publiceert geen DMARC-beleid, dus ontvangers beslissen zelf."
+  ],
+  [
+   "SPF\\ passed\\ for\\ (.+?),\\ which\\ is\\ not\\ aligned\\ with\\ (.+?)\\.",
+   "SPF slaagde voor $1, dat niet in lijn is met $2."
+  ],
+  [
+   "DKIM\\ passed\\ for\\ (.+?),\\ which\\ is\\ not\\ aligned\\ with\\ (.+?)\\.",
+   "DKIM slaagde voor $1, dat niet in lijn is met $2."
+  ],
+  [
+   "(.+?)\\ passed\\ for\\ a\\ domain\\ aligned\\ with\\ (.+?)\\.",
+   "$1 slaagde voor een domein in lijn met $2."
+  ],
+  [
+   "SPF\\ could\\ not\\ be\\ evaluated:\\ (.+?)",
+   "SPF kon niet worden beoordeeld: $1"
+  ],
+  [
+   "The\\ key\\ at\\ (.+?)\\ could\\ not\\ be\\ looked\\ up\\.",
+   "De sleutel op $1 kon niet worden opgevraagd."
+  ],
+  [
+   "No\\ key\\ is\\ published\\ at\\ (.+?)\\.",
+   "Er is geen sleutel gepubliceerd op $1."
+  ],
+  [
+   "The\\ signature\\ could\\ not\\ be\\ checked:\\ (.+?)",
+   "De handtekening kon niet worden gecontroleerd: $1"
+  ]
+ ]
+}

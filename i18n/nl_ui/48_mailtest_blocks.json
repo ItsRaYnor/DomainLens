@@ -1,0 +1,5 @@
+{
+  "blocks": {
+    "Where to find the source: in Gmail Show original, then Download original; in Thunderbird Ctrl+U; in Apple Mail View → Message → Raw Source. Outlook only shows the headers (File → Properties): that is enough for everything except verifying the DKIM signature, which covers the body too.": "Waar je de broncode vindt: in Gmail <strong>Origineel weergeven</strong>, dan <strong>Origineel downloaden</strong>; in Thunderbird <code>Ctrl+U</code>; in Apple Mail <strong>Weergave → Bericht → Ruwe bron</strong>. Outlook toont alleen de headers (<strong>Bestand → Eigenschappen</strong>): dat is genoeg voor alles behalve het verifiëren van de DKIM-handtekening, want die dekt ook de body."
+  }
+}

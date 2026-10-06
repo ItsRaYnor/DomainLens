@@ -297,6 +297,43 @@ host the server can reach. Only literal IP addresses are accepted, a label
 cannot shadow a built-in resolver name, and a malformed line is skipped rather
 than breaking the page.
 
+## Mail test
+
+**Tools → Mail test** judges one received message instead of the DNS records alone. Send a
+message from the mail system you want to test to a mailbox you can read, and give DomainLens
+the message as received: upload the `.eml` file (Gmail: *Show original → Download original*;
+Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*) or paste the source.
+
+- **SPF** is evaluated for the address that handed the message to the receiving side. That
+  address comes from the receiver's own `Received-SPF` header when it adds one, otherwise
+  from the Received chain: the newest hop from a public address whose name belongs to
+  another organisation than the receiving server. The chain is shown; if the wrong hop was
+  taken, **Judge from this hop** runs it again for another address.
+- **DKIM**: every signature is verified against the key in DNS, with the key length and the
+  reason when it fails (a body changed after signing, a missing key).
+- **DMARC**: alignment of SPF and DKIM with the From domain, against the policy of that
+  domain or its organisational domain. SPF passing for a sending service's bounce domain is
+  not alignment, and is named as such.
+- **Sending server**: reverse DNS and whether it points back, the HELO name, TLS on arrival
+  as the receiving server recorded it, and the blocklists the scan uses.
+- **Content**: one From address, a display name that shows another address, Message-ID,
+  Date, an HTML part without text, image-only mail, links that show one domain and lead to
+  another, bare IP links, URL shorteners, plain http, programs and macro documents attached,
+  and for bulk mail a one-click `List-Unsubscribe` (RFC 8058).
+- What the receiving system concluded itself (its `Authentication-Results`) is shown apart,
+  for comparison: a sender can write such a header too.
+
+Only headers (Outlook shows no more, under *File → Properties*) is enough for everything
+except the DKIM signature, which covers the body: that is then *not measured*, never failed.
+Likewise a DNS lookup that fails, or a chain without a sending address, leaves the part not
+measured.
+
+The message is analysed and not stored. Only the DKIM selectors it shows to be in use are
+remembered, and the DKIM check of later scans of that domain looks them up too: they are the
+keys actually in use, where the scan otherwise guesses selector names. The message HTML is
+never rendered and its links are never followed. API: `POST /api/mailtest` with JSON
+`{"message": "...", "ip": null}` or a multipart `file`; at most 10 MB.
+
 ## Responsible disclosure: your own security.txt and PGP key
 
 DomainLens checks other people's `security.txt`. It can publish one of its own

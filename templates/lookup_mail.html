@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.tools_mail') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.tools_mail">{{ t('nav.tools_mail') }}</h2>
+            <p class="ct-desc">Send a message from the mail system you want to test to a mailbox you can read, then give DomainLens that message as it was received. It checks SPF, DKIM and DMARC on the message itself, the server that sent it, and the content. The message is analysed and not stored.</p>
+            <p class="ct-desc">Where to find the source: in Gmail <strong>Show original</strong>, then <strong>Download original</strong>; in Thunderbird <code>Ctrl+U</code>; in Apple Mail <strong>View → Message → Raw Source</strong>. Outlook only shows the headers (<strong>File → Properties</strong>): that is enough for everything except verifying the DKIM signature, which covers the body too.</p>
+            <div class="mt-form">
+                <label class="mt-file">Message file (.eml)
+                    <input type="file" id="mailTestFile" accept=".eml,.txt,message/rfc822,text/plain">
+                </label>
+                <label class="mt-paste">Or paste the source
+                    <textarea id="mailTestSource" rows="8" spellcheck="false" placeholder="Received: from …"></textarea>
+                </label>
+                <div class="mt-actions">
+                    <button class="btn-primary-lite" id="mailTestBtn" type="button">Analyse</button>
+                    <button class="btn-ghost-sm" id="mailTestClear" type="button">Clear</button>
+                </div>
+            </div>
+        </section>
+        <div id="mailTestResult"></div>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/mail_test.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

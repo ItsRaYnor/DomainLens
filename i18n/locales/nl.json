@@ -29,6 +29,7 @@
     "tools_dns": "DNS-record",
     "tools_impersonation": "Impersonatie",
     "tools_disclosure": "Responsible disclosure",
+    "tools_mail": "Mailtest",
     "monitoring_monitors": "Monitors",
     "monitoring_domains": "Domeinportfolio",
     "monitoring_organisation": "Organisatie",
