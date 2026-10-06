@@ -27,6 +27,11 @@
                     <button class="btn-ghost-sm" id="mailTestClear" type="button">Clear</button>
                 </div>
             </div>
+            <div class="mt-checks">
+                <p class="ct-desc" id="mailTestChecks"></p>
+                {# can_accept_risks: an admin, or no sign-in at all -- who may refresh. #}
+                {% if can_accept_risks %}<button class="btn-ghost-sm hidden" id="mailTestFeedsRefresh" type="button">Refresh threat lists now</button>{% endif %}
+            </div>
         </section>
         <div id="mailTestResult"></div>
     </main>

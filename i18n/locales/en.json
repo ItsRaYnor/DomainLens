@@ -157,6 +157,7 @@
       "updates": "Updates",
       "weak_auth": "Weak authentication",
       "active_scan": "Active vulnerability scan",
+      "mail_test": "Mail test: links",
       "js_scan": "JS dependency & secret scan",
       "auth_local": "Local authentication",
       "auth_oauth": "OAuth / OIDC",
@@ -234,6 +235,11 @@
       "timeout_seconds": "HTTP timeout (seconds)",
       "include_http": "Also probe HTTP (not only HTTPS)",
       "extra_params": "Extra parameter names to test (one per line)"
+    },
+    "mail_test": {
+      "link_feeds": "Threat lists for links (one https:// address per line). Each list is downloaded whole every 12 hours and searched on this server: no link from a message is sent anywhere. For example the URLhaus list of online URLs (with an abuse.ch key) or the OpenPhish community feed.",
+      "virustotal_links": "Look links up at VirusTotal by hash (needs the VirusTotal API key). Only the SHA-256 of a link is sent, never the link itself, and nothing is ever submitted.",
+      "virustotal_max_links": "VirusTotal lookups per message (the free API allows 4 per minute)"
     },
     "js_scan": {
       "enabled": "Enable JS dependency & secret scanning (passive, safe)"

@@ -32,7 +32,6 @@
   "Nothing to remark.": "Niets op aan te merken.",
   "No DKIM signature in this message.": "Geen DKIM-handtekening in dit bericht.",
   "The message has no Received headers.": "Het bericht heeft geen Received-headers.",
-  "Newest first. The marked hop is where the message entered the receiving side; SPF and the server checks are about the address in it. If that is the wrong one, choose another.": "Nieuwste eerst. De gemarkeerde stap is waar het bericht de ontvangende kant binnenkwam; SPF en de servercontroles gaan over het adres daarin. Is dat de verkeerde, kies dan een andere.",
   "Judged": "Beoordeeld",
   "Judge from this hop": "Beoordeel vanaf deze stap",
   "Sending address from the receiver's Received-SPF header.": "Verzendend adres uit de Received-SPF-header van de ontvanger.",
@@ -135,7 +134,59 @@
   "The signature does not match the signed headers.": "De handtekening klopt niet met de ondertekende headers.",
   "The receiving system verified this signature on arrival, so the message given here is not the one that was signed.": "Het ontvangende systeem heeft deze handtekening bij aankomst geverifieerd, dus het bericht dat hier is gegeven is niet het bericht dat werd ondertekend.",
   "It was altered on the way here: copying the source from a web page drops spaces and line breaks.": "Het is onderweg hierheen veranderd: bij het kopiëren van de broncode van een webpagina vallen spaties en regeleinden weg.",
-  "Upload the original message file (Gmail: Download original) to verify it.": "Upload het originele berichtbestand (Gmail: Origineel downloaden) om hem te verifiëren."
+  "Upload the original message file (Gmail: Download original) to verify it.": "Upload het originele berichtbestand (Gmail: Origineel downloaden) om hem te verifiëren.",
+  "Mail flow": "Mailflow",
+  "Sender": "Afzender",
+  "Relay": "Relay",
+  "Relays": "Relays",
+  "Receiving server": "Ontvangende server",
+  "Mailbox": "Mailbox",
+  "No envelope sender": "Geen envelope-afzender",
+  "Not DKIM-signed": "Niet met DKIM ondertekend",
+  "SPF: not measured": "SPF: niet gemeten",
+  "Reverse DNS: not measured": "Reverse DNS: niet gemeten",
+  "Blocklists: not measured": "Blocklists: niet gemeten",
+  "No reverse DNS": "Geen reverse DNS",
+  "On a blocklist": "Op een blocklist",
+  "No TLS": "Geen TLS",
+  "TLS not stated": "TLS niet vermeld",
+  "Not found": "Niet gevonden",
+  "The headers name no address where the message was handed over.": "De headers noemen geen adres waar het bericht werd overgedragen.",
+  "Via 1 internal hop": "Via 1 interne stap",
+  "Oldest step first. Each check sits on the step it is about: DKIM with the sender, SPF with the server that handed the message over, TLS on the hand-over, DMARC where it is judged. Green passed, red failed, grey could not be measured.": "Oudste stap eerst. Elke controle staat bij de stap waar hij over gaat: DKIM bij de afzender, SPF bij de server die het bericht overdroeg, TLS op de overdracht, DMARC waar het wordt beoordeeld. Groen is geslaagd, rood is gefaald, grijs kon niet worden gemeten.",
+  "On a threat list": "Op een dreigingslijst",
+  "Host has listed links": "Host heeft links op een lijst",
+  "Not checked": "Niet gecontroleerd",
+  "Not known to VirusTotal": "Niet bekend bij VirusTotal",
+  "Could not be checked": "Kon niet worden gecontroleerd",
+  "Lookalike": "Lookalike",
+  "Threat lists": "Dreigingslijsten",
+  "No own domains to compare lookalikes with": "Geen eigen domeinen om lookalikes mee te vergelijken",
+  "Threat lists searched on this server": "Dreigingslijsten doorzocht op deze server",
+  "No threat lists configured": "Geen dreigingslijsten ingesteld",
+  "VirusTotal asked by hash only": "VirusTotal alleen op hash bevraagd",
+  "VirusTotal off": "VirusTotal uit",
+  "VirusTotal on, but no API key": "VirusTotal aan, maar geen API-sleutel",
+  "The sender's domain looks like your own": "Het domein van de afzender lijkt op dat van jezelf",
+  "This is how impersonation mail is sent.": "Zo wordt imitatiemail verstuurd.",
+  "Replies go to a lookalike of your domain": "Antwoorden gaan naar een lookalike van je domein",
+  "A link goes to a lookalike of your domain": "Een link gaat naar een lookalike van je domein",
+  "A link is on a threat list": "Een link staat op een dreigingslijst",
+  "A link goes to a host with listed addresses": "Een link gaat naar een host met adressen op een lijst",
+  "VirusTotal engines flag a link as malicious": "VirusTotal-engines markeren een link als kwaadaardig",
+  "VirusTotal engines flag a link as suspicious": "VirusTotal-engines markeren een link als verdacht",
+  "Refresh threat lists now": "Dreigingslijsten nu verversen",
+  "less than an hour ago": "minder dan een uur geleden",
+  "1 hour ago": "1 uur geleden",
+  "no threat lists configured": "geen dreigingslijsten ingesteld",
+  "VirusTotal by hash only": "VirusTotal alleen op hash",
+  "Downloading the threat lists. This can take a minute.": "De dreigingslijsten worden gedownload. Dat kan een minuut duren.",
+  "Oldest first. The marked hop is where the message entered the receiving side; SPF and the server checks are about the address in it. If that is the wrong one, choose another.": "Oudste eerst. De gemarkeerde stap is waar het bericht de ontvangende kant binnenkwam; SPF en de servercontroles gaan over het adres daarin. Is dat de verkeerde, kies dan een andere.",
+  "Hop": "Stap",
+  "Delay": "Vertraging",
+  "Time": "Tijd",
+  "Blocklist": "Blocklist",
+  "Listed": "Vermeld"
  },
  "patterns": [
   [
@@ -281,6 +332,82 @@
   [
    "The\\ signature\\ could\\ not\\ be\\ checked:\\ (.+?)",
    "De handtekening kon niet worden gecontroleerd: $1"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ more",
+   "$1 meer"
+  ],
+  [
+   "DKIM\\ (.+?)\\ \\(not\\ aligned\\):\\ (.+?)",
+   "DKIM $1 (niet in lijn): $2"
+  ],
+  [
+   "DKIM\\ (.+?):\\ (.+?)",
+   "DKIM $1: $2"
+  ],
+  [
+   "SPF:\\ (.+?)",
+   "SPF: $1"
+  ],
+  [
+   "DMARC:\\ (.+?)",
+   "DMARC: $1"
+  ],
+  [
+   "DMARC\\ p=(.+?):\\ (.+?)",
+   "DMARC p=$1: $2"
+  ],
+  [
+   "Via\\ (\\d[\\d.,]*)\\ internal\\ hops",
+   "Via $1 interne stappen"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ engines:\\ malicious",
+   "$1 van $2 engines: kwaadaardig"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ engines:\\ suspicious",
+   "$1 van $2 engines: verdacht"
+  ],
+  [
+   "Known,\\ no\\ detections\\ \\((\\d[\\d.,]*)\\ engines\\)",
+   "Bekend, geen detecties ($1 engines)"
+  ],
+  [
+   "Looks\\ like\\ (.+?)",
+   "Lijkt op $1"
+  ],
+  [
+   "Lookalikes\\ compared\\ with\\ (\\d[\\d.,]*)\\ own\\ domain\\(s\\)",
+   "Lookalikes vergeleken met $1 eigen domein(en)"
+  ],
+  [
+   "(.+?)\\ looks\\ like\\ (.+?),\\ which\\ is\\ yours\\.",
+   "$1 lijkt op $2, en dat is van jou."
+  ],
+  [
+   "Reply\\-To\\ is\\ (.+?);\\ (.+?)\\ looks\\ like\\ (.+?),\\ which\\ is\\ yours\\.",
+   "Reply-To is $1; $2 lijkt op $3, en dat is van jou."
+  ],
+  [
+   "(.+?)\\.\\ This\\ exact\\ link\\ is\\ not\\ on\\ the\\ list,\\ other\\ links\\ on\\ that\\ host\\ are\\.",
+   "$1. Deze link zelf staat niet op de lijst, andere links op die host wel."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ hours\\ ago",
+   "$1 uur geleden"
+  ],
+  [
+   "Links\\ are\\ checked\\ on\\ this\\ server:\\ lookalikes\\ of\\ (\\d[\\d.,]*)\\ own\\ domain\\(s\\)\\ ·\\ (.+?)\\ ·\\ (.+?)\\.\\ Links\\ are\\ never\\ opened\\.",
+   "Links worden op deze server gecontroleerd: lookalikes van $1 eigen domein(en) · $2 · $3. Links worden nooit geopend."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ threat\\ list\\(s\\),\\ (\\d[\\d.,]*)\\ links,\\ refreshed\\ (.+?)",
+   "$1 dreigingslijst(en), $2 links, ververst $3"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ threat\\ list\\(s\\),\\ (\\d[\\d.,]*)\\ links,\\ not\\ downloaded\\ yet",
+   "$1 dreigingslijst(en), $2 links, nog niet gedownload"
   ]
  ]
 }

@@ -416,3 +416,28 @@ class RouteTests(EnterpriseAppTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PageLayoutTests(unittest.TestCase):
+    """The reason under a DKIM result sat in the last cell and squeezed it
+    to a letter's width; the row grew so tall that the other columns, set
+    in its middle, fell out of view. Host names broke one letter per line."""
+
+    import pathlib as _p
+    ROOT = _p.Path(__file__).resolve().parent.parent
+    JS = (ROOT / "static" / "js" / "mail_test.js").read_text(encoding="utf-8")
+    CSS = (ROOT / "static" / "css" / "style.css").read_text(encoding="utf-8")
+
+    def test_a_reason_has_a_row_of_its_own(self):
+        self.assertIn('<tr class="mt-reason"><td colspan="5">', self.JS)
+
+    def test_cells_break_between_words_and_start_at_the_top(self):
+        rule = self.CSS[self.CSS.index(".data-table.mt-table td {"):].split("}", 1)[0]
+        self.assertIn("overflow-wrap: break-word", rule)
+        self.assertIn("vertical-align: top", rule)
+        self.assertIn("'$1<wbr>'", self.JS)
+
+    def test_the_chain_reads_oldest_first_with_its_delays(self):
+        self.assertIn("const hops = d.hops.slice().reverse();", self.JS)
+        self.assertIn("<th>Delay</th>", self.JS)
+        self.assertIn("<h3>Mail flow</h3>", self.JS)

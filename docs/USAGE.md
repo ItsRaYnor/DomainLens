@@ -322,6 +322,29 @@ Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*) or paste t
   and for bulk mail a one-click `List-Unsubscribe` (RFC 8058).
 - What the receiving system concluded itself (its `Authentication-Results`) is shown apart,
   for comparison: a sender can write such a header too.
+- **Mail flow**: the path of the message as a picture, oldest step first -- the sender with its
+  DKIM signatures, relays on the sending side, the server that handed it over (SPF, reverse
+  DNS, blocklists), the hand-over (TLS), the receiving server (DMARC, and what it reported
+  itself) and the mailbox, with the delay between steps where the clocks allow. Green passed,
+  red failed, grey could not be measured. On a phone the steps run top to bottom.
+- **Links**, checked without handing them to anyone (a link often carries a reset token or a
+  customer number, and a submission to a reputation service is searchable by its
+  subscribers):
+  - *Lookalikes* of the domains in the domain portfolio, worked out locally: the same name
+    under another TLD, one typo away, written with look-alike characters (digits, Cyrillic or
+    Greek letters), or with a word attached (`example-login.com`). The sender's domain and the
+    reply address are compared too.
+  - *Threat lists* (Admin → Settings → Mail test: links): each list is downloaded whole every
+    12 hours and searched on the server; no link from a message is sent anywhere. Plain lists
+    with one URL per line, or CSV with the URL in a column, over https, for example the URLhaus
+    list of online URLs (an abuse.ch key is sent along when set) or the OpenPhish community
+    feed. Admins can refresh them at once from the mail test page.
+  - *VirusTotal*, off by default: when switched on (and with the VirusTotal API key), only
+    the SHA-256 of a link is asked about -- never the link, and nothing is ever submitted.
+    A link VirusTotal has not seen is "not known", never "clean"; at most four lookups per
+    message by default (the free API allows four a minute), answers are reused for a day.
+  Each link shows its state per check: on a list, not on a list, not checked, or could not
+  be checked. Links are never opened or followed.
 
 Only headers (Outlook shows no more, under *File → Properties*) is enough for everything
 except the DKIM signature, which covers the body: that is then *not measured*, never failed.

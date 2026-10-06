@@ -157,6 +157,7 @@
       "updates": "Updates",
       "weak_auth": "Zwakke authenticatie",
       "active_scan": "Actieve kwetsbaarhedenscan",
+      "mail_test": "Mailtest: links",
       "js_scan": "JS-dependency- en secrets-scan",
       "auth_local": "Lokale authenticatie",
       "auth_oauth": "OAuth / OIDC",
@@ -234,6 +235,11 @@
       "timeout_seconds": "HTTP-timeout (seconden)",
       "include_http": "Ook HTTP testen (niet alleen HTTPS)",
       "extra_params": "Extra parameternamen om te testen (één per regel)"
+    },
+    "mail_test": {
+      "link_feeds": "Dreigingslijsten voor links (één https://-adres per regel). Elke lijst wordt elke 12 uur in zijn geheel gedownload en op deze server doorzocht: geen enkele link uit een bericht wordt ergens heen gestuurd. Bijvoorbeeld de URLhaus-lijst met online URL's (met een abuse.ch-sleutel) of de community-feed van OpenPhish.",
+      "virustotal_links": "Links opzoeken bij VirusTotal op hash (vereist de VirusTotal-API-sleutel). Alleen de SHA-256 van een link wordt verstuurd, nooit de link zelf, en er wordt nooit iets ingediend.",
+      "virustotal_max_links": "VirusTotal-opzoekingen per bericht (de gratis API staat er 4 per minuut toe)"
     },
     "js_scan": {
       "enabled": "JS-dependency- en secrets-scan inschakelen (passief, veilig)"

@@ -138,6 +138,15 @@ class Lookups:
     def blocklist(self, ip):
         return None
 
+    def own_domains(self):
+        """The organisation's own registered domains, to spot lookalikes."""
+        return set()
+
+    def check_links(self, urls):
+        """{"feeds": {url: state} or None, "virustotal": {"state", "results"}}
+        -- see link_check.py. Here: nothing checked."""
+        return {"feeds": None, "virustotal": {"state": "off", "results": {}}}
+
 
 # --------------------------------------------------------------- parsing
 
@@ -651,7 +660,8 @@ def _content(msg, findings):
         if parsed.scheme.lower() not in ("http", "https"):
             continue
         host = (parsed.hostname or "").lower()
-        out["links"].append({"host": host, "text": label[:120], "https": parsed.scheme.lower() == "https"})
+        out["links"].append({"host": host, "text": label[:120], "https": parsed.scheme.lower() == "https",
+                             "url": href[:2000]})
         if parsed.scheme.lower() == "http":
             insecure += 1
         if _ip(host):
@@ -690,6 +700,65 @@ def _content(msg, findings):
             _finding(findings, "medium", "content", "Unsubscribe is not one-click",
                      "Add an https:// address to List-Unsubscribe and the header "
                      "List-Unsubscribe-Post: List-Unsubscribe=One-Click (RFC 8058).")
+    return out
+
+
+_MAX_CHECKED_LINKS = 100
+
+
+def _link_checks(lookups, msg, from_domain, content, findings):
+    """Lookalikes of the organisation's own domains (sender, reply address,
+    links) and the threat-list and VirusTotal state of every link. Returns
+    what was checked, for the page to say so."""
+    import link_check
+    own = lookups.own_domains() or set()
+    out = {"own_domains": len(own), "feeds": "not_configured", "virustotal": "off"}
+    if own:
+        imitated = link_check.lookalike(from_domain, own) if from_domain else None
+        if imitated:
+            _finding(findings, "high", "headers", "The sender's domain looks like your own",
+                     f"{from_domain} looks like {imitated}, which is yours. This is how impersonation mail is sent.")
+        replies = email.utils.getaddresses([str(r) for r in (msg.get_all("Reply-To") or [])])
+        for _, addr in replies:
+            domain = _address_domain(addr)
+            imitated = link_check.lookalike(domain, own) if domain else None
+            if imitated:
+                _finding(findings, "high", "headers", "Replies go to a lookalike of your domain",
+                         f"Reply-To is {addr}; {domain} looks like {imitated}, which is yours.")
+    if not content or not content["links"]:
+        return out
+    links = content["links"]
+    seen = []
+    for link in links:
+        link["lookalike"] = link_check.lookalike(link["host"], own) if own else None
+        if link["url"] not in seen:
+            seen.append(link["url"])
+    imitations = sorted({f"{l['host']} → {l['lookalike']}" for l in links if l["lookalike"]})
+    if imitations:
+        _finding(findings, "high", "content", "A link goes to a lookalike of your domain",
+                 "; ".join(imitations) + ".")
+    checked = lookups.check_links(seen[:_MAX_CHECKED_LINKS]) or {}
+    feeds = checked.get("feeds")
+    out["feeds"] = "not_configured" if feeds is None else "checked"
+    vt = checked.get("virustotal") or {"state": "off", "results": {}}
+    out["virustotal"] = vt.get("state", "off")
+    for link in links:
+        link["feed"] = (feeds or {}).get(link["url"], "not_checked") if feeds is not None else "not_checked"
+        link["virustotal"] = (vt.get("results") or {}).get(link["url"], {"state": "not_checked"})
+    listed = sorted({l["host"] for l in links if l["feed"] == "listed"})
+    if listed:
+        _finding(findings, "high", "content", "A link is on a threat list", ", ".join(listed) + ".")
+    host_listed = sorted({l["host"] for l in links if l["feed"] == "host_listed"} - set(listed))
+    if host_listed:
+        _finding(findings, "medium", "content", "A link goes to a host with listed addresses",
+                 ", ".join(host_listed) + ". This exact link is not on the list, other links on that host are.")
+    flagged = sorted({f"{l['host']} ({l['virustotal'].get('malicious', 0)} of {l['virustotal'].get('engines', 0)})"
+                      for l in links if l["virustotal"].get("state") == "malicious"})
+    if flagged:
+        _finding(findings, "high", "content", "VirusTotal engines flag a link as malicious", ", ".join(flagged) + ".")
+    suspicious = sorted({l["host"] for l in links if l["virustotal"].get("state") == "suspicious"})
+    if suspicious:
+        _finding(findings, "medium", "content", "VirusTotal engines flag a link as suspicious", ", ".join(suspicious) + ".")
     return out
 
 
@@ -821,9 +890,12 @@ def analyse(raw, *, lookups=None, ip=None):
     receiver = _auth_results(msg)
     dkim_result = _dkim(lookups, raw, msg, has_body, receiver)
     dmarc = _dmarc(lookups, from_domain, spf, dkim_result)
+    for sig in dkim_result["signatures"]:
+        sig["aligned"] = bool(from_domain) and _aligned(sig["domain"], from_domain, "r")
     _auth_findings(findings, spf, dkim_result, dmarc, from_domain)
     server = _server(lookups, hop, findings)
     content = _content(msg, findings) if has_body else None
+    link_checks = _link_checks(lookups, msg, from_domain, content, findings)
 
     arc_seals = msg.get_all("ARC-Seal") or []
     arc = None
@@ -854,6 +926,7 @@ def analyse(raw, *, lookups=None, ip=None):
         "arc": arc,
         "server": server,
         "content": content,
+        "link_checks": link_checks,
         "findings": findings,
         "learned": [{"domain": d, "selector": s} for d, s in learned],
     }

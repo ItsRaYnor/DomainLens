@@ -104,6 +104,11 @@ FIELD_META = {
     "js_scan": {
         "enabled": {"type": "bool", "label": "settings.js_scan.enabled"},
     },
+    "mail_test": {
+        "link_feeds": {"type": "lines", "label": "settings.mail_test.link_feeds"},
+        "virustotal_links": {"type": "bool", "label": "settings.mail_test.virustotal_links"},
+        "virustotal_max_links": {"type": "int", "min": 1, "max": 50, "label": "settings.mail_test.virustotal_max_links"},
+    },
     "auth_local": {
         "enabled": {"type": "bool", "label": "settings.auth_local.enabled"},
         "require_login": {"type": "bool", "label": "settings.auth_local.require_login"},
@@ -241,7 +246,7 @@ FIELD_META = {
 SETTING_CATEGORIES = [
     {"key": "settings.categories.general", "sections": ["appearance", "general"]},
     {"key": "settings.categories.scanning",
-     "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra"]},
+     "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra", "mail_test"]},
     {"key": "settings.categories.automation", "sections": ["scheduler", "reporting"]},
     {"key": "settings.categories.integrations",
      "sections": ["api_keys", "notifications", "servicenow", "rapid7"]},
@@ -269,6 +274,7 @@ ADMIN_SECTIONS = [
     "weak_auth",
     "active_scan",
     "js_scan",
+    "mail_test",
     "auth_local",
     "auth_oauth",
     "auth_saml",

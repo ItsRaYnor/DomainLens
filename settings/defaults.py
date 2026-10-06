@@ -113,6 +113,14 @@ DEFAULTS = {
         # instead of asking them again on every scan of the same domain.
         "external_cache": {"enabled": True, "ttl_hours": 24, "max_stale_hours": 168},
     },
+    # Tools -> Mail test: how the links in a message are checked. Threat
+    # lists are downloaded whole and searched locally; VirusTotal is asked
+    # by hash only, and only when switched on here (link_check.py).
+    "mail_test": {
+        "link_feeds": [],
+        "virustotal_links": False,
+        "virustotal_max_links": 4,
+    },
     # Responsible disclosure: what /.well-known/security.txt publishes, and
     # the public half of the contact key. The private half is never stored --
     # it is handed to the operator once at generation and forgotten.

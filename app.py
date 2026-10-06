@@ -51,6 +51,7 @@ import whois_batch
 import whois_port43
 import contacts
 import domain_portfolio
+import link_check
 import mail_test
 import management
 import maintenance
@@ -3704,6 +3705,9 @@ def _run_scheduler_digest():
     # monitor scans that share this loop. maybe_run skips if one is running.
     threading.Thread(target=domain_portfolio.maybe_run, daemon=True,
                      name="domain-portfolio").start()
+    # The mail test's threat lists, downloaded whole twice a day.
+    threading.Thread(target=link_check.maybe_refresh, daemon=True,
+                     name="link-feeds").start()
 
 
 def _scheduler_config():
@@ -6057,6 +6061,17 @@ class _MailLookups(mail_test.Lookups):
         result = check_blacklist(ip)
         return None if result.get("error") else result
 
+    def own_domains(self):
+        return link_check.own_domains()
+
+    def check_links(self, urls):
+        # Threat lists are searched here; VirusTotal is asked by hash, and
+        # only when an admin switched it on (link_check.py).
+        state = link_check.virustotal_state()
+        return {"feeds": link_check.check_feeds(urls),
+                "virustotal": {"state": state,
+                               "results": link_check.check_virustotal(urls) if state == "on" else {}}}
+
 
 @app.route("/api/mailtest", methods=["POST"])
 def api_mail_test():
@@ -6088,6 +6103,25 @@ def api_mail_test():
     if result["learned"]:
         mail_test.remember((x["domain"], x["selector"]) for x in result["learned"])
     return jsonify(result)
+
+
+@app.route("/api/mailtest/checks", methods=["GET"])
+def api_mail_test_checks():
+    """How links are checked here: the threat lists and their age, whether
+    VirusTotal is on, how many own domains lookalikes are compared with."""
+    return jsonify({"feeds": link_check.feed_status(), "virustotal": link_check.virustotal_state(),
+                    "own_domains": len(link_check.own_domains())})
+
+
+@app.route("/api/mailtest/feeds/refresh", methods=["POST"])
+@auth.require_admin
+def api_mail_test_feeds_refresh():
+    """Download the threat lists now instead of waiting for the scheduler."""
+    if not link_check.feed_status():
+        return jsonify({"error": "No threat lists are configured (Admin -> Settings -> Mail test)."}), 400
+    threading.Thread(target=link_check.refresh, daemon=True, name="link-feeds").start()
+    audit_log.record("mailtest.feeds_refresh", target_type="settings")
+    return jsonify({"started": True}), 202
 
 
 @app.route("/api/pgp/inspect", methods=["GET"])
