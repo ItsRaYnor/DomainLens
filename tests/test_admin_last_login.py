@@ -153,7 +153,7 @@ class AdminUserListShowsLastLoginTests(unittest.TestCase):
         import re
         self._add_user("someone@example.com")
         body = self.client.get("/admin/users").data.decode()
-        table = body[body.index('class="users-table"'):]
+        table = body[body.index('class="users-table'):]
         headers = len(re.findall(r"<th", table[:table.index("</thead>")]))
         first_row = table[table.index("<tbody>"):table.index("</tr>", table.index("<tbody>"))]
         self.assertEqual(headers, len(re.findall(r"<td", first_row)))

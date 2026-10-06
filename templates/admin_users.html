@@ -25,7 +25,7 @@
         <section class="account-section">
             <h2 data-i18n="admin.existing_users">{{ t('admin.existing_users') }}</h2>
             <div class="users-table-wrap">
-                <table class="users-table">
+                <table class="users-table stack-table">
                     <thead>
                         <tr>
                             <th>Email</th>
@@ -115,7 +115,7 @@
             <h2>API tokens</h2>
             <p class="login-hint">Every token on this instance. Revoking one takes effect on its next request.</p>
             <div class="users-table-wrap">
-                <table class="users-table">
+                <table class="users-table stack-table">
                     <thead><tr><th>Owner</th><th>Name</th><th>Token</th><th>Role</th><th>Expires</th><th>Last used</th><th></th></tr></thead>
                     <tbody>
                     {% for tok in all_tokens %}

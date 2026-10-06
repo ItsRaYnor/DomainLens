@@ -86,7 +86,7 @@ class PageOrderTests(EnterpriseAppTestCase):
         a risk gets accepted."""
         self.login_as("admin")
         html = self.client.get("/admin/risks").get_data(as_text=True)
-        self.assertLess(html.index('action="/admin/risks"'), html.index('class="users-table"'))
+        self.assertLess(html.index('action="/admin/risks"'), html.index('class="users-table'))
 
     def test_the_user_list_comes_before_the_create_form(self):
         self.login_as("admin")

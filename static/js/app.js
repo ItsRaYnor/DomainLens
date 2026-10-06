@@ -2606,7 +2606,7 @@ function renderMonitorList(monitors) {
     const sorted = shown.slice().sort((a, b) => rank(a) - rank(b) || String(a.target).localeCompare(String(b.target)));
 
     const table = document.createElement('table');
-    table.className = 'data-table monitor-table';
+    table.className = 'data-table monitor-table stack-table';
     table.innerHTML = '<thead><tr><th>Host</th><th>Rating</th><th>Last change</th><th>Reports</th><th></th></tr></thead>';
     const body = document.createElement('tbody');
     let currentHeading = null;

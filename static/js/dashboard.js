@@ -152,7 +152,7 @@ function mgRender(d) {
     $('mgPortfolioCard').classList.toggle('hidden', !p);
     if (p) {
         $('mgPortfolio').innerHTML = (p.groups.length
-            ? `<div class="users-table-wrap"><table class="data-table mgmt-table"><tr><th>Unit</th><th>Domains</th>`
+            ? `<div class="users-table-wrap"><table class="data-table mgmt-table stack-table"><tr><th>Unit</th><th>Domains</th>`
               + `<th>At risk</th><th>Expiring ≤ 30 d</th><th>To move</th><th>Not measured</th></tr>`
               + p.groups.map(g => `<tr><td>${esc(g.name)}</td><td>${g.total}</td><td>${g.attention}</td>`
                 + `<td>${g.expiring}</td><td>${g.move}</td><td>${g.unmeasured}</td></tr>`).join('') + '</table></div>' : '')

@@ -13,6 +13,8 @@
 {% include "partials/_icons.html" %}
 {# Dutch for the whole page when the language is Dutch; does nothing otherwise. #}
 <script src="/static/js/translate.js?v={{ asset_token }}"></script>
+{# Wide tables become cards on a phone, each value under its column name. #}
+<script src="/static/js/stack_tables.js?v={{ asset_token }}"></script>
 <a class="skip-link" href="#main" data-i18n="nav.skip_to_content">{{ t('nav.skip_to_content') }}</a>
 <header class="app-header">
     <div class="header-content">

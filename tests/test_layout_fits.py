@@ -58,6 +58,48 @@ class ReportTests(unittest.TestCase):
         self.assertIn(".stat-value.stat-word", REPORT_CSS)
 
 
+class PhoneListTests(unittest.TestCase):
+    """On a phone the domain portfolio scrolled sideways through eight
+    columns and showed only the first; the organisation, monitors, unit,
+    dashboard and admin lists did the same. Those lists are cards there,
+    each value under its column name."""
+
+    JS = ROOT / "static" / "js"
+
+    def test_every_page_with_the_menu_loads_the_card_script(self):
+        nav = (TEMPLATES / "partials" / "nav.html").read_text(encoding="utf-8")
+        self.assertIn("/static/js/stack_tables.js", nav)
+
+    def test_the_wide_lists_are_marked(self):
+        marked = {
+            self.JS / "portfolio.js": "portfolio-table stack-table",
+            self.JS / "app.js": "monitor-table stack-table",
+            self.JS / "dashboard.js": "mgmt-table stack-table",
+            TEMPLATES / "monitoring_organisation.html": 'org-manage-table stack-table" id="orgManageTable"',
+            TEMPLATES / "monitoring_unit.html": 'stack-table" id="unitDomains"',
+            TEMPLATES / "admin_audit.html": "audit-table stack-table",
+            TEMPLATES / "admin_risks.html": "users-table stack-table",
+        }
+        for path, needle in marked.items():
+            self.assertIn(needle, path.read_text(encoding="utf-8"), path.name)
+
+    def test_rows_become_cards_with_their_column_names_on_a_phone_only(self):
+        self.assertIn(".stack-label, .stack-only { display: none; }", STYLE)
+        phone = STYLE[STYLE.index("@media (max-width: 720px) {\n    .stack-table"):]
+        self.assertIn("display: grid", _rule(phone, "    .stack-table tr"))
+        self.assertIn(".stack-label {", phone)
+        script = (self.JS / "stack_tables.js").read_text(encoding="utf-8")
+        self.assertIn("headerOf(table)", script)
+        self.assertIn("MutationObserver", script)
+
+    def test_a_units_counts_wrap_instead_of_widening_the_page(self):
+        """"2 domains · 1 wanted" pushed the portfolio 46px past a phone."""
+        self.assertIn("flex-wrap: wrap", _rule(STYLE, ".monitor-fold > summary"))
+
+    def test_section_tabs_wrap_instead_of_scrolling_out_of_sight(self):
+        self.assertNotIn(".subnav { padding: .4rem .75rem; overflow-x: auto; flex-wrap: nowrap; }", STYLE)
+
+
 class StyleTests(unittest.TestCase):
     def test_a_status_sentence_wraps_like_text(self):
         rule = _rule(STYLE, ".status")

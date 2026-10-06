@@ -102,7 +102,7 @@ function pfContactEdit(cell, d) {
 }
 
 function pfRow(d) {
-    const phase = `<span class="${PF_PHASE_CLASS[d.phase] || ''}">${esc(d.phase_text)}</span>`
+    const phase = `<span class="pf-phase ${PF_PHASE_CLASS[d.phase] || ''}">${esc(d.phase_text)}</span>`
         + (d.released_from ? `<div class="muted">Released from ${esc(pfWhen(d.released_from))}</div>` : '')
         + (d.stale ? `<div class="muted" title="${esc(d.last_error)}">Last lookup failed; showing the answer from ${esc(pfWhen(d.last_ok_at))}</div>` : '')
         + (d.phase === 'unmeasured' && d.last_error ? `<div class="muted">${esc(d.last_error)}</div>` : '')
@@ -166,9 +166,11 @@ function pfRender() {
         if (!all.length && data.groups.some(g => String(g.parent_id) === s.key)) {
             return `<h4 class="pf-unit-heading" style="margin-left:${s.depth * 1.25}rem">${esc(s.name)}</h4>`;
         }
-        const head = pf.canEdit ? '<th><input type="checkbox" class="pf-select-all" aria-label="Select all in this unit"></th>' : '';
+        const head = pf.canEdit
+            ? '<th><label class="nowrap"><input type="checkbox" class="pf-select-all" aria-label="Select all in this unit">'
+              + ' <span class="stack-only">Select all</span></label></th>' : '';
         const table = shown.length
-            ? `<div class="users-table-wrap"><table class="data-table portfolio-table">`
+            ? `<div class="users-table-wrap"><table class="data-table portfolio-table stack-table">`
               + `<tr>${head}<th>Domain</th><th>Registrar</th><th>Expires</th><th>Status</th>`
               + `<th>Threat intel</th><th>Decision</th><th>Contact</th></tr>`
               + shown.map(pfRow).join('') + '</table></div>'
