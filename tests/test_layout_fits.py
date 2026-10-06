@@ -35,10 +35,18 @@ class ReportTests(unittest.TestCase):
     REPORT = (TEMPLATES / "report.html").read_text(encoding="utf-8")
 
     def test_every_report_table_scrolls_within_the_page(self):
-        tables = re.findall(r"(.{0,30})<table class=\"data\">", self.REPORT)
+        tables = re.findall(r"(.{0,30})<table class=\"data stack-table\">", self.REPORT)
         self.assertTrue(tables)
         self.assertTrue(all(t.endswith('<div class="table-wrap">') for t in tables), tables)
         self.assertIn("overflow-x: auto", _rule(REPORT_CSS, ".table-wrap"))
+
+    def test_on_a_phone_the_tables_are_cards_and_on_paper_tables(self):
+        """Scrolled sideways, a report table on a phone showed the first
+        column and hid what each finding was about."""
+        self.assertNotIn('<table class="data">', self.REPORT)
+        self.assertIn("/static/js/stack_tables.js", self.REPORT)
+        self.assertIn("@media screen and (max-width: 720px)", REPORT_CSS)
+        self.assertIn(".stack-label {", REPORT_CSS[REPORT_CSS.index("@media screen and (max-width: 720px)"):])
 
     def test_identifiers_stay_whole(self):
         """.mono breaks anywhere, which suits a long URL; a finding id such as

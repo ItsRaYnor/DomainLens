@@ -198,6 +198,33 @@ table.data tr { page-break-inside: avoid; }
    at every letter in a narrow column, "cipher-insufficient" was unreadable.
    It stays whole; where the table is too wide, the table scrolls. */
 .mono-id { word-break: normal; overflow-wrap: normal; white-space: nowrap; }
+
+/* On a phone screen each table row is a card, each value under its column
+   name (stack_tables.js copies the names from the header row); a two-column
+   "name: value" table shows the name above the value. Scrolled tables
+   showed the first column and hid what the finding was about. Screen only:
+   on paper the tables keep their columns. */
+.stack-label { display: none; }
+@media screen and (max-width: 720px) {
+    .table-wrap { overflow-x: visible; }
+    table.data.stack-table, table.data.stack-table thead, table.data.stack-table tbody { display: block; width: 100%; }
+    table.data.stack-table tr {
+        display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.35rem;
+        padding: 0.7rem 0.8rem; margin-bottom: 0.6rem;
+        border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card);
+    }
+    table.data.stack-table th, table.data.stack-table td {
+        display: block; border: 0; padding: 0; background: none; min-width: 0;
+    }
+    table.data.stack-table tr.stack-head { display: none; }
+    table.data.stack-table th { font-size: 0.8rem; color: var(--muted); }
+    table.data.stack-table .stack-main { font-weight: 600; }
+    .stack-label {
+        display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.03em;
+        text-transform: uppercase; color: var(--muted); margin-bottom: 0.1rem;
+    }
+    table.data.stack-table .mono, table.data.stack-table .mono-id { white-space: normal; overflow-wrap: anywhere; word-break: normal; }
+}
 .ok { color: var(--green); font-weight: 600; }
 .bad { color: var(--red); font-weight: 600; }
 .muted { color: var(--muted); }
