@@ -105,6 +105,7 @@ FIELD_META = {
         "enabled": {"type": "bool", "label": "settings.js_scan.enabled"},
     },
     "mail_test": {
+        "urlhaus_list": {"type": "bool", "label": "settings.mail_test.urlhaus_list"},
         "link_feeds": {"type": "lines", "label": "settings.mail_test.link_feeds"},
         "virustotal_links": {"type": "bool", "label": "settings.mail_test.virustotal_links"},
         "virustotal_max_links": {"type": "int", "min": 1, "max": 50, "label": "settings.mail_test.virustotal_max_links"},

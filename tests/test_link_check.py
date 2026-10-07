@@ -90,6 +90,59 @@ class FeedTests(EnterpriseAppTestCase):
         self.assertIsNone(link_check.check_feeds(["https://bad.example.net/login"]))
 
 
+class UrlhausTests(EnterpriseAppTestCase):
+    """The abuse.ch key was set for the OSINT tab, yet using URLhaus for
+    links meant finding its download address and typing it in, key and all,
+    into a settings field anyone with the settings page could read."""
+
+    KEY = "secret-abusech-key-123"
+
+    def _with_key(self, settings=None):
+        return (mock.patch("settings.api_keys.resolve", lambda name, **kw: self.KEY if name == "ABUSECH_AUTH_KEY" else ""),
+                mock.patch.object(link_check, "_settings", return_value=settings or {}))
+
+    def test_the_key_already_set_is_enough(self):
+        keyed, settings = self._with_key()
+        with keyed, settings:
+            sources = link_check.configured_sources()
+        self.assertEqual([link_check.URLHAUS], [name for name, _ in sources])
+        self.assertIn(f"/exports/{self.KEY}/", sources[0][1])
+
+    def test_without_the_key_or_when_switched_off_it_is_not_used(self):
+        with mock.patch.object(link_check, "_settings", return_value={}):
+            self.assertEqual([], link_check.configured_sources())
+        keyed, settings = self._with_key({"urlhaus_list": False})
+        with keyed, settings:
+            self.assertEqual([], link_check.configured_sources())
+
+    def test_the_key_never_reaches_a_message_or_the_status(self):
+        def fail(url, headers):
+            raise RuntimeError(f"404 Client Error: Not Found for url: {url}")
+        keyed, settings = self._with_key()
+        with keyed, settings:
+            report = link_check.refresh(get=fail)
+            status = link_check.feed_status()
+        self.assertNotIn(self.KEY, str(report))
+        self.assertNotIn(self.KEY, str(status))
+        self.assertIn(link_check.URLHAUS, status[0]["error"])
+
+    def test_a_zipped_export_is_read(self):
+        import io
+        import zipfile
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("recent.csv", '"id","dateadded","url"\n"1","2026-10-06","https://bad.example.net/x"\n')
+        link_check.refresh([("zipped", "https://lists.example.com/recent.zip")],
+                           get=lambda url, headers: _ZipResp(buffer.getvalue()))
+        self.assertEqual("listed", link_check.check_feeds(["https://bad.example.net/x"])["https://bad.example.net/x"])
+
+
+class _ZipResp(_Resp):
+    def __init__(self, body):
+        super().__init__(200)
+        self._text = body
+
+
 class VirusTotalTests(EnterpriseAppTestCase):
     URL = "https://login.example.net/reset?token=SECRET-123"
 

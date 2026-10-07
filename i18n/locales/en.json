@@ -237,7 +237,8 @@
       "extra_params": "Extra parameter names to test (one per line)"
     },
     "mail_test": {
-      "link_feeds": "Threat lists for links (one https:// address per line). Each list is downloaded whole every 12 hours and searched on this server: no link from a message is sent anywhere. For example the URLhaus list of online URLs (with an abuse.ch key) or the OpenPhish community feed.",
+      "urlhaus_list": "Use the URLhaus list of malware links, with the abuse.ch key set under API keys. The list is downloaded whole every 12 hours and searched on this server.",
+      "link_feeds": "Other threat lists for links (one https:// address per line; plain text or CSV). Each is downloaded whole every 12 hours and searched on this server: no link from a message is sent anywhere. Check a list's terms: some free feeds forbid use for security operations.",
       "virustotal_links": "Look links up at VirusTotal by hash (needs the VirusTotal API key). Only the SHA-256 of a link is sent, never the link itself, and nothing is ever submitted.",
       "virustotal_max_links": "VirusTotal lookups per message (the free API allows 4 per minute)"
     },

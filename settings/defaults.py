@@ -117,6 +117,9 @@ DEFAULTS = {
     # lists are downloaded whole and searched locally; VirusTotal is asked
     # by hash only, and only when switched on here (link_check.py).
     "mail_test": {
+        # URLhaus with the abuse.ch key set under API keys; nothing happens
+        # without that key.
+        "urlhaus_list": True,
         "link_feeds": [],
         "virustotal_links": False,
         "virustotal_max_links": 4,

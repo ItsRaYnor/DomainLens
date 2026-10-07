@@ -9,9 +9,10 @@ built to leak nothing, or as little as can be:
 
   * Lookalikes of the organisation's own domains (the domain portfolio):
     worked out locally. "examp1e.com" in a mail while you hold example.com.
-  * Threat lists (feeds) downloaded whole by the scheduler and searched
-    locally: per link nothing leaves the server. Which feeds, if any, is the
-    admin's choice (Admin -> Settings -> Mail analysis).
+  * Threat lists downloaded whole by the scheduler and searched locally:
+    per link nothing leaves the server. URLhaus is built in and uses the
+    abuse.ch key already set; an admin can add lists of their own
+    (Admin -> Settings -> Mail analysis).
   * VirusTotal, only when an admin switches it on, and only by hash: the
     SHA-256 of the URL is asked about, the URL is never sent and nothing is
     ever submitted. A URL VirusTotal does not know stays unknown to it.
@@ -171,27 +172,65 @@ def _feed_lines(text):
             yield found.group(0)
 
 
-def refresh(sources=None, *, get=None):
-    """Download each configured list whole and replace what it held. Nothing
-    about any message is sent: the same request goes out whatever is asked."""
-    import requests
+# Built in: URLhaus, with the abuse.ch key already set for the OSINT tab.
+# abuse.ch takes the key in the path of an export URL; "recent" holds the
+# malware URLs added in the past 30 days. The URL with the key is built at
+# download time only: it is never stored, shown or written to an error.
+URLHAUS = "URLhaus (abuse.ch)"
+_URLHAUS_EXPORT = "https://urlhaus-api.abuse.ch/v2/files/exports/{key}/recent.csv"
+
+
+def configured_sources():
+    """[(name, url)]: the built-in lists whose key is set, then the admin's own."""
     from settings import api_keys
-    sources = list(sources if sources is not None else (_settings().get("link_feeds") or []))
+    settings = _settings()
+    out = []
+    if settings.get("urlhaus_list", True):
+        key = api_keys.resolve("ABUSECH_AUTH_KEY")
+        if key:
+            out.append((URLHAUS, _URLHAUS_EXPORT.format(key=urllib.parse.quote(key, safe=""))))
+    for line in settings.get("link_feeds") or []:
+        line = str(line).strip()
+        if line:
+            out.append((line, line))
+    return out
+
+
+def _unpack(body):
+    """A list as text: a zip archive (an export may come zipped) is opened
+    and its first file read."""
+    if body[:2] == b"PK":
+        import io
+        import zipfile
+        with zipfile.ZipFile(io.BytesIO(body)) as archive:
+            names = [n for n in archive.namelist() if not n.endswith("/")]
+            if not names:
+                raise ValueError("empty archive")
+            with archive.open(names[0]) as member:
+                body = member.read(_FEED_MAX_BYTES + 1)
+            if len(body) > _FEED_MAX_BYTES:
+                raise ValueError("list larger than 64 MB")
+    return body.decode("utf-8", "replace")
+
+
+def refresh(sources=None, *, get=None):
+    """Download each list whole and replace what it held. Nothing about any
+    message is sent: the same request goes out whatever is asked.
+
+    sources: [(name, url)] or plain URLs; by default the configured ones."""
+    import requests
+    sources = [(s, s) if isinstance(s, str) else tuple(s)
+               for s in (sources if sources is not None else configured_sources())]
     get = get or (lambda url, headers: requests.get(url, headers=headers, timeout=60, stream=True))
     report = {}
     with _refresh_lock:
-        for source in sources:
-            source = str(source).strip()
-            if not source.startswith("https://"):
-                report[source] = "skipped: only https:// lists are fetched"
+        for name, url in sources:
+            name, url = str(name).strip(), str(url).strip()
+            if not url.startswith("https://"):
+                report[name] = "skipped: only https:// lists are fetched"
                 continue
-            headers = {"User-Agent": "DomainLens"}
-            if host_of(source).endswith("abuse.ch"):
-                key = api_keys.resolve("ABUSECH_AUTH_KEY")
-                if key:
-                    headers["Auth-Key"] = key
             try:
-                resp = get(source, headers)
+                resp = get(url, {"User-Agent": "DomainLens"})
                 resp.raise_for_status()
                 body = b""
                 for chunk in resp.iter_content(1 << 20):
@@ -199,45 +238,47 @@ def refresh(sources=None, *, get=None):
                     if len(body) > _FEED_MAX_BYTES:
                         raise ValueError("list larger than 64 MB")
                 rows = []
-                for url in _feed_lines(body.decode("utf-8", "replace")):
-                    rows.append((url_hash(url), host_of(url), source))
+                for listed in _feed_lines(_unpack(body)):
+                    rows.append((url_hash(listed), host_of(listed), name))
                     if len(rows) >= _FEED_MAX_ENTRIES:
                         break
                 with db._lock, db._connect() as conn:
-                    conn.execute("DELETE FROM link_feed_urls WHERE source = ?", (source,))
+                    conn.execute("DELETE FROM link_feed_urls WHERE source = ?", (name,))
                     conn.executemany("INSERT INTO link_feed_urls (hash, host, source) VALUES (?, ?, ?)", rows)
                     conn.execute("INSERT OR REPLACE INTO link_feed_meta (source, refreshed_at, entries, error) "
-                                 "VALUES (?, ?, ?, NULL)", (source, _now().isoformat(), len(rows)))
-                report[source] = len(rows)
+                                 "VALUES (?, ?, ?, NULL)", (name, _now().isoformat(), len(rows)))
+                report[name] = len(rows)
             except Exception as exc:
-                text = str(exc)[:200]
+                # An HTTP error names the URL it failed on, and a built-in
+                # list's URL carries the key: the name stands in for it.
+                text = str(exc).replace(url, name)[:200]
                 with db._lock, db._connect() as conn:
                     conn.execute("INSERT INTO link_feed_meta (source, error) VALUES (?, ?) "
-                                 "ON CONFLICT(source) DO UPDATE SET error = excluded.error", (source, text))
-                report[source] = f"error: {text}"
-        # A list no longer configured is no longer used.
+                                 "ON CONFLICT(source) DO UPDATE SET error = excluded.error", (name, text))
+                report[name] = f"error: {text}"
+        # A list no longer in use is no longer searched.
+        names = [name for name, _ in sources]
         with db._lock, db._connect() as conn:
-            marks = ",".join("?" * len(sources)) or "''"
-            conn.execute(f"DELETE FROM link_feed_urls WHERE source NOT IN ({marks})", sources)
-            conn.execute(f"DELETE FROM link_feed_meta WHERE source NOT IN ({marks})", sources)
+            marks = ",".join("?" * len(names)) or "''"
+            conn.execute(f"DELETE FROM link_feed_urls WHERE source NOT IN ({marks})", names)
+            conn.execute(f"DELETE FROM link_feed_meta WHERE source NOT IN ({marks})", names)
     return report
 
 
 def feed_status():
-    """[{source, refreshed_at, entries, error}] for the configured lists."""
-    sources = [str(s).strip() for s in (_settings().get("link_feeds") or []) if str(s).strip()]
+    """[{source, refreshed_at, entries, error}] for the lists in use."""
+    names = [name for name, _ in configured_sources()]
     with db._connect() as conn:
         rows = {r["source"]: dict(r) for r in conn.execute("SELECT * FROM link_feed_meta").fetchall()}
-    return [rows.get(s, {"source": s, "refreshed_at": None, "entries": None, "error": None}) for s in sources]
+    return [rows.get(n, {"source": n, "refreshed_at": None, "entries": None, "error": None}) for n in names]
 
 
 def maybe_refresh():
     """Called from the scheduler: refresh lists older than twelve hours."""
-    status = feed_status()
-    due = [s["source"] for s in status
+    due = [s for s in feed_status()
            if not s.get("refreshed_at") or _now() - datetime.fromisoformat(s["refreshed_at"]) > _FEED_EVERY]
     if due and not _refresh_lock.locked():
-        refresh([s["source"] for s in status])
+        refresh()
 
 
 def check_feeds(urls):

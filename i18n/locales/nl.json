@@ -237,7 +237,8 @@
       "extra_params": "Extra parameternamen om te testen (één per regel)"
     },
     "mail_test": {
-      "link_feeds": "Dreigingslijsten voor links (één https://-adres per regel). Elke lijst wordt elke 12 uur in zijn geheel gedownload en op deze server doorzocht: geen enkele link uit een bericht wordt ergens heen gestuurd. Bijvoorbeeld de URLhaus-lijst met online URL's (met een abuse.ch-sleutel) of de community-feed van OpenPhish.",
+      "urlhaus_list": "De URLhaus-lijst met malware-links gebruiken, met de abuse.ch-sleutel onder API-sleutels. De lijst wordt elke 12 uur in zijn geheel gedownload en op deze server doorzocht.",
+      "link_feeds": "Andere dreigingslijsten voor links (één https://-adres per regel; platte tekst of CSV). Elke lijst wordt elke 12 uur in zijn geheel gedownload en op deze server doorzocht: geen enkele link uit een bericht wordt ergens heen gestuurd. Controleer de voorwaarden van een lijst: sommige gratis feeds verbieden gebruik voor security operations.",
       "virustotal_links": "Links opzoeken bij VirusTotal op hash (vereist de VirusTotal-API-sleutel). Alleen de SHA-256 van een link wordt verstuurd, nooit de link zelf, en er wordt nooit iets ingediend.",
       "virustotal_max_links": "VirusTotal-opzoekingen per bericht (de gratis API staat er 4 per minuut toe)"
     },

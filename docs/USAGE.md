@@ -334,11 +334,15 @@ Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*) or paste t
     under another TLD, one typo away, written with look-alike characters (digits, Cyrillic or
     Greek letters), or with a word attached (`example-login.com`). The sender's domain and the
     reply address are compared too.
-  - *Threat lists* (Admin → Settings → Mail analysis: links): each list is downloaded whole every
-    12 hours and searched on the server; no link from a message is sent anywhere. Plain lists
-    with one URL per line, or CSV with the URL in a column, over https, for example the URLhaus
-    list of online URLs (an abuse.ch key is sent along when set) or the OpenPhish community
-    feed. Admins can refresh them at once from the mail analysis page.
+  - *Threat lists*, downloaded whole every 12 hours and searched on the server; no link
+    from a message is sent anywhere. **URLhaus** (abuse.ch, malware links) is built in: with
+    the abuse.ch key under API keys it is used without further setup (Admin → Settings →
+    Mail analysis: links, on by default). The key goes into the download address, which is
+    built at download time and never stored or shown; a failed download names the list,
+    not the address. Other lists (one https:// address per line, plain text, CSV or a zip
+    of either) can be added there. Check a list's terms first: the free OpenPhish community
+    feed, for one, forbids use for security operations without written consent. Admins can
+    refresh the lists at once from the mail analysis page.
   - *VirusTotal*, off by default: when switched on (and with the VirusTotal API key), only
     the SHA-256 of a link is asked about -- never the link, and nothing is ever submitted.
     A link VirusTotal has not seen is "not known", never "clean"; at most four lookups per
