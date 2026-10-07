@@ -141,7 +141,7 @@ class FindingTests(EnterpriseAppTestCase):
             result = self.app_module.check_blacklist("192.0.2.10")
         self.assertEqual("listed", result["ip_lists"]["state"])
 
-    def test_the_mail_analysis_names_a_sender_on_a_list(self):
+    def _mail_findings(self, sources):
         import mail_test
 
         class Lookups(mail_test.Lookups):
@@ -151,14 +151,26 @@ class FindingTests(EnterpriseAppTestCase):
             def addresses(self, host): return []
             def blocklist(self, ip):
                 return {"listed": [], "spamhaus_dqs": False,
-                        "ip_lists": {"state": "listed", "lists": [{"source": ip_lists.SPAMHAUS, "detail": "", "credit": ""}]}}
+                        "ip_lists": {"state": "listed",
+                                     "lists": [{"source": s, "detail": "", "credit": ""} for s in sources]}}
 
         raw = ("Received: from mail.example.org ([192.0.2.10]) by mx.example.net with ESMTPS; Mon, 5 Oct 2026\r\n"
                "From: a@example.org\r\nTo: b@example.net\r\nSubject: s\r\nDate: Mon, 5 Oct 2026 10:00:00 +0000\r\n"
                "Message-ID: <1@example.org>\r\n\r\nhi\r\n").encode()
         with mock.patch.object(mail_test, "_public", _public):
             result = mail_test.analyse(raw, lookups=Lookups())
-        self.assertIn("The sending address is on an IP threat list", [f["title"] for f in result["findings"]])
+        return {f["title"]: f["severity"] for f in result["findings"] if "list" in f["title"] or "DROP" in f["title"]}
+
+    def test_a_sender_in_a_drop_network_is_high(self):
+        self.assertEqual({"The sending address is in a network on Spamhaus DROP": "high"},
+                         self._mail_findings([ip_lists.SPAMHAUS]))
+
+    def test_a_sender_on_another_list_is_medium(self):
+        """A list of recent attackers (FireHOL level 2, say) can hold a shared
+        or cloud address for another user's traffic: it weighed as much as a
+        criminal network, high."""
+        self.assertEqual({"The sending address is on an IP threat list": "medium"},
+                         self._mail_findings(["https://lists.example.com/level2.netset"]))
 
 
 class RouteTests(EnterpriseAppTestCase):

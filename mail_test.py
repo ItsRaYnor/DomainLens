@@ -567,10 +567,22 @@ def _server(lookups, hop, findings):
             if listed.get("listed"):
                 _finding(findings, "high", "server", "The sending address is on a blocklist",
                          f"{ip} is listed on " + ", ".join(listed["listed"]) + ".")
+            # Spamhaus DROP names networks run by criminals, which no
+            # legitimate sender uses: high. Other lists name addresses seen
+            # attacking lately, which a shared or cloud address can be
+            # without the message being bad: medium, as in the scan.
+            import ip_lists
             on_lists = (listed.get("ip_lists") or {}).get("lists") or []
-            if on_lists:
-                _finding(findings, "high", "server", "The sending address is on an IP threat list",
-                         f"{ip} is listed on " + ", ".join(e["source"] for e in on_lists) + ".")
+            drop = [e for e in on_lists if e["source"] == ip_lists.SPAMHAUS]
+            other = [e for e in on_lists if e["source"] != ip_lists.SPAMHAUS]
+            if drop:
+                _finding(findings, "high", "server", "The sending address is in a network on Spamhaus DROP",
+                         f"{ip} is in a netblock Spamhaus advises not to route: hijacked, or run by criminals. "
+                         "Source: Spamhaus DROP, © The Spamhaus Project.")
+            if other:
+                _finding(findings, "medium", "server", "The sending address is on an IP threat list",
+                         f"{ip} is listed on " + ", ".join(e["source"] for e in other) + ". "
+                         "A shared or cloud address can be listed for another user's traffic.")
     return out
 
 

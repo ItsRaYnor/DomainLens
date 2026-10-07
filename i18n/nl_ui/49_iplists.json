@@ -19,7 +19,9 @@
   "Move the site to a hosting provider in a legitimate network, and find out how it came to be hosted there.": "Verhuis de site naar een hostingprovider in een legitiem netwerk, en zoek uit hoe hij daar terecht is gekomen.",
   "The server address is on an IP threat list": "Het serveradres staat op een IP-dreigingslijst",
   "On a shared host this can be another tenant.": "Op een gedeelde host kan dat een andere klant zijn.",
-  "Ask the hosting provider about the listing; if the address is yours alone, look for a compromise.": "Vraag de hostingprovider naar de vermelding; is het adres alleen van jou, zoek dan naar een compromittering."
+  "Ask the hosting provider about the listing; if the address is yours alone, look for a compromise.": "Vraag de hostingprovider naar de vermelding; is het adres alleen van jou, zoek dan naar een compromittering.",
+  "The sending address is in a network on Spamhaus DROP": "Het verzendende adres ligt in een netwerk op Spamhaus DROP",
+  "A shared or cloud address can be listed for another user's traffic.": "Een gedeeld adres of cloudadres kan op een lijst staan door verkeer van een andere gebruiker."
  },
  "patterns": [
   [
@@ -53,6 +55,10 @@
   [
    "(.+?)\\ is\\ in\\ a\\ netblock\\ Spamhaus\\ advises\\ not\\ to\\ route(.+?):\\ hijacked,\\ or\\ run\\ by\\ criminals\\.",
    "$1 ligt in een netblok dat Spamhaus adviseert niet te routeren$2: gekaapt, of beheerd door criminelen."
+  ],
+  [
+   "(.+?)\\ is\\ in\\ a\\ netblock\\ Spamhaus\\ advises\\ not\\ to\\ route:\\ hijacked,\\ or\\ run\\ by\\ criminals\\.",
+   "$1 ligt in een netblok dat Spamhaus adviseert niet te routeren: gekaapt, of beheerd door criminelen."
   ]
  ]
 }

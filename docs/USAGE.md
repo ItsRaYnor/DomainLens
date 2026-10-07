@@ -309,7 +309,9 @@ tool and the mail analysis (the sending server). Admin → Settings → IP threa
   -- hijacked, or run by criminals -- fetched from `www.spamhaus.org/drop/drop_v4.json` and
   `drop_v6.json` every 12 hours (Spamhaus asks for at most once an hour). Free for any use,
   with credit to The Spamhaus Project, which DomainLens shows with every hit. A web server
-  in such a network is a high finding.
+  or a sending mail server in such a network is a high finding; a listing on any other list
+  is medium, since those name addresses seen attacking lately, which a shared or cloud
+  address can be for someone else's traffic.
 - **DShield Recommended Block List** (off): the twenty /24 networks that scanned the most
   targets in the past three days, from `feeds.dshield.org/block.txt` (SANS Internet Storm
   Center). The ISC allows commercial use with attribution and without resale, but the file
