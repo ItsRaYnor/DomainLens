@@ -157,6 +157,7 @@
       "updates": "Updates",
       "weak_auth": "Zwakke authenticatie",
       "active_scan": "Actieve kwetsbaarhedenscan",
+      "ip_lists": "IP-dreigingslijsten",
       "mail_test": "Mailanalyse: links",
       "js_scan": "JS-dependency- en secrets-scan",
       "auth_local": "Lokale authenticatie",
@@ -235,6 +236,11 @@
       "timeout_seconds": "HTTP-timeout (seconden)",
       "include_http": "Ook HTTP testen (niet alleen HTTPS)",
       "extra_params": "Extra parameternamen om te testen (één per regel)"
+    },
+    "ip_lists": {
+      "spamhaus_drop": "Spamhaus DROP (IPv4 en IPv6): netwerken die Spamhaus adviseert niet te routeren, gekaapt of beheerd door criminelen. Elke 12 uur gedownload van spamhaus.org. Gratis voor elk gebruik, met bronvermelding van The Spamhaus Project.",
+      "dshield": "DShield Recommended Block List (SANS Internet Storm Center): de 20 netwerken die de afgelopen drie dagen het meest scanden. Zakelijk gebruik mag met bronvermelding en zonder doorverkoop, maar het bestand draagt een niet-commerciële licentie (CC BY-NC-SA): zet het alleen aan als dat bij je gebruik past.",
+      "custom_lists": "Andere IP-lijsten (één https://-adres per regel; de lijst bevat één IP of CIDR per regel). Controleer de voorwaarden van een lijst voordat je hem gebruikt."
     },
     "mail_test": {
       "urlhaus_list": "De URLhaus-lijst met malware-links gebruiken, met de abuse.ch-sleutel onder API-sleutels. De lijst wordt elke 12 uur in zijn geheel gedownload en op deze server doorzocht.",

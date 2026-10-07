@@ -562,10 +562,15 @@ def _server(lookups, hop, findings):
         listed = lookups.blocklist(ip)
         if listed is not None:
             out["blocklist"] = {"listed": listed.get("listed", []),
-                                "spamhaus": bool(listed.get("spamhaus_dqs"))}
+                                "spamhaus": bool(listed.get("spamhaus_dqs")),
+                                "ip_lists": listed.get("ip_lists")}
             if listed.get("listed"):
                 _finding(findings, "high", "server", "The sending address is on a blocklist",
                          f"{ip} is listed on " + ", ".join(listed["listed"]) + ".")
+            on_lists = (listed.get("ip_lists") or {}).get("lists") or []
+            if on_lists:
+                _finding(findings, "high", "server", "The sending address is on an IP threat list",
+                         f"{ip} is listed on " + ", ".join(e["source"] for e in on_lists) + ".")
     return out
 
 

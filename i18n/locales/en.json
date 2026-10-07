@@ -157,6 +157,7 @@
       "updates": "Updates",
       "weak_auth": "Weak authentication",
       "active_scan": "Active vulnerability scan",
+      "ip_lists": "IP threat lists",
       "mail_test": "Mail analysis: links",
       "js_scan": "JS dependency & secret scan",
       "auth_local": "Local authentication",
@@ -235,6 +236,11 @@
       "timeout_seconds": "HTTP timeout (seconds)",
       "include_http": "Also probe HTTP (not only HTTPS)",
       "extra_params": "Extra parameter names to test (one per line)"
+    },
+    "ip_lists": {
+      "spamhaus_drop": "Spamhaus DROP (IPv4 and IPv6): networks Spamhaus advises not to route, hijacked or run by criminals. Downloaded from spamhaus.org every 12 hours. Free for any use, with credit to The Spamhaus Project.",
+      "dshield": "DShield Recommended Block List (SANS Internet Storm Center): the 20 networks that scanned the most in the past three days. Commercial use is allowed with attribution and without resale, but the file carries a non-commercial licence (CC BY-NC-SA): switch it on only if that fits your use.",
+      "custom_lists": "Other IP lists (one https:// address per line; the list holds one IP or CIDR per line). Check a list's terms before using it."
     },
     "mail_test": {
       "urlhaus_list": "Use the URLhaus list of malware links, with the abuse.ch key set under API keys. The list is downloaded whole every 12 hours and searched on this server.",

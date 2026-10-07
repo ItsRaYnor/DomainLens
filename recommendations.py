@@ -1122,24 +1122,57 @@ def _blacklist(results):
     """
     import overview
     bl = results.get("blacklist")
+    out = _ip_lists(bl)
     tile = overview.blacklist(results)
     if not bl or not tile or tile["state"] == "pass":
-        return []
+        return out
     listed = ", ".join(overview.distinct_listings(bl))
     if tile["state"] == "context":
-        return [_r(
+        return out + [_r(
             SEVERITY_INFO, "Network", "IP reputation listing requires context",
             tile["note"],
             "Nothing to change on this domain. If the listing matters to you, raise it with "
             "the provider that operates the address.",
         )]
-    return [_r(
+    return out + [_r(
         SEVERITY_INFO, "Network", "IP reputation listing requires context",
         f"The resolved server IP is listed on: {listed}. This scan does not establish "
         "that the address sends mail or is controlled exclusively by this domain.",
         "Confirm whether this is the domain's outbound-mail IP. If it is, investigate "
         "spam or compromise before requesting delisting; otherwise ask the hosting provider.",
     )]
+
+
+def _ip_lists(bl):
+    """The server address on an IP threat list fetched from its maintainer
+    (ip_lists.py). Spamhaus DROP names networks that are hijacked or run by
+    criminals -- no legitimate site belongs there; the other lists name
+    addresses seen attacking, which a shared host can be without its tenants."""
+    import ip_lists
+    found = ((bl or {}).get("ip_lists") or {})
+    if found.get("state") != "listed":
+        return []
+    ip = (bl or {}).get("ip") or "The address"
+    out = []
+    for entry in found.get("lists") or []:
+        source = entry.get("source") or ""
+        detail = f" ({entry['detail']})" if entry.get("detail") else ""
+        if source == ip_lists.SPAMHAUS:
+            out.append(_r(
+                SEVERITY_HIGH, "Network", "The server address is in a network on Spamhaus DROP",
+                f"{ip} is in a netblock Spamhaus advises not to route{detail}: hijacked, or run by criminals. "
+                "Source: Spamhaus DROP, © The Spamhaus Project.",
+                "Move the site to a hosting provider in a legitimate network, and find out how it came "
+                "to be hosted there.",
+            ))
+        else:
+            out.append(_r(
+                SEVERITY_MEDIUM, "Network", "The server address is on an IP threat list",
+                f"{ip} is listed on {source}{detail}. On a shared host this can be another tenant.",
+                "Ask the hosting provider about the listing; if the address is yours alone, look for "
+                "a compromise.",
+            ))
+    return out
 
 
 RISKY_PORTS = {

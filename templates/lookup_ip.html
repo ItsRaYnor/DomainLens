@@ -20,6 +20,11 @@
                        autocomplete="off" spellcheck="false">
                 <button class="btn-primary-lite" id="ipLookupBtn" type="button" data-i18n="lookup.ip_submit">{{ t('lookup.ip_submit') }}</button>
             </div>
+            <div class="mt-checks">
+                <p class="ct-desc" id="ipListsStatus"></p>
+                {# can_accept_risks: an admin, or no sign-in at all -- who may refresh. #}
+                {% if can_accept_risks %}<button class="btn-ghost-sm hidden" id="ipListsRefresh" type="button">Refresh IP threat lists now</button>{% endif %}
+            </div>
         </section>
         <div id="ipResult"></div>
     </main>

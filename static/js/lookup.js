@@ -131,12 +131,52 @@ async function ipLookup() {
         : '<p class="ct-desc">No PTR record.</p>');
 
     const listed = bl.listed || [];
+    html += card('IP threat lists', ipListsHtml(bl.ip_lists));
     html += card('Reputation', listed.length
         ? `<p class="status status-fail">Listed on ${listed.length} blocklist(s)</p>
            <table class="data-table"><tbody>${listed.map(z => `<tr><td class="mono">${esc(z)}</td></tr>`).join('')}</tbody></table>`
         : `<p class="status status-pass">Not listed on ${(bl.clean || []).length} checked blocklist(s)</p>`);
 
     out.innerHTML = html;
+}
+
+// The IP threat lists fetched from their maintainers and searched on the
+// server (ip_lists.py). "Not loaded" and "not public" are said as such:
+// neither is "not listed".
+function ipListsHtml(found) {
+    if (!found) return '<p class="ct-desc">Not checked.</p>';
+    if (found.state === 'not_public') return '<p class="ct-desc">Not a public address: not looked up.</p>';
+    if (found.state === 'not_checked') return '<p class="status status-warn">No IP threat list has been downloaded yet.</p>';
+    if (found.state !== 'listed') return '<p class="status status-pass">Not on the IP threat lists.</p>';
+    return `<p class="status status-fail">Listed on ${found.lists.length} IP threat list(s)</p>`
+        + `<table class="data-table"><tbody>${found.lists.map(l => `<tr><td>${esc(l.source)}</td>`
+            + `<td>${esc(l.detail || '')}${l.credit ? `<div class="muted">${esc(l.credit)}</div>` : ''}</td></tr>`).join('')}</tbody></table>`;
+}
+
+// Which IP threat lists are in use, when each was fetched; an admin can
+// fetch them now.
+async function ipListsLoadStatus() {
+    let data;
+    try { data = await requestJson('/api/iplists'); } catch (err) { return; }
+    const lists = data.lists || [];
+    $('ipListsStatus').textContent = !lists.length ? 'No IP threat lists are switched on.'
+        : 'IP threat lists, searched on this server: ' + lists.map(l => `${l.source} (`
+            + (l.entries !== null && l.entries !== undefined ? `${l.entries} ranges` : 'not downloaded yet')
+            + (l.error ? ', last download failed' : '') + ')').join(' · ') + '.';
+    const btn = $('ipListsRefresh');
+    if (!btn) return;
+    btn.classList.toggle('hidden', !lists.length);
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+            await requestJson('/api/iplists/refresh', { method: 'POST' });
+            toast('Downloading the IP threat lists. This takes a few seconds.');
+            setTimeout(ipListsLoadStatus, 8000);
+        } catch (err) { toast(err.message); }
+        btn.disabled = false;
+    });
 }
 
 // ===== Impersonation dossier =====
@@ -924,6 +964,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { await DomainLensI18n.init(DomainLensI18n.pageLocale()); }
         catch (e) { console.error('i18n init failed; continuing without translations', e); }
     }
+    if ($('ipListsStatus')) ipListsLoadStatus();
     const ipBtn = $('ipLookupBtn');
     if (ipBtn) {
         ipBtn.addEventListener('click', ipLookup);

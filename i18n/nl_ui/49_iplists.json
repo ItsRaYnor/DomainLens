@@ -1,0 +1,58 @@
+{
+ "text": {
+  "Refresh IP threat lists now": "IP-dreigingslijsten nu verversen",
+  "IP threat lists": "IP-dreigingslijsten",
+  "Not checked.": "Niet gecontroleerd.",
+  "Not a public address: not looked up.": "Geen publiek adres: niet opgezocht.",
+  "No IP threat list has been downloaded yet.": "Er is nog geen IP-dreigingslijst gedownload.",
+  "Not on the IP threat lists.": "Niet op de IP-dreigingslijsten.",
+  "Not on the IP threat lists": "Niet op de IP-dreigingslijsten",
+  "On an IP threat list": "Op een IP-dreigingslijst",
+  "Not a public address": "Geen publiek adres",
+  "Not checked (no list downloaded yet)": "Niet gecontroleerd (nog geen lijst gedownload)",
+  "No IP threat lists are switched on.": "Er zijn geen IP-dreigingslijsten ingeschakeld.",
+  "Downloading the IP threat lists. This takes a few seconds.": "De IP-dreigingslijsten worden gedownload. Dat duurt een paar seconden.",
+  "No IP threat lists are switched on (Admin -> Settings -> IP threat lists).": "Er zijn geen IP-dreigingslijsten ingeschakeld (Beheer -> Instellingen -> IP-dreigingslijsten).",
+  "The sending address is on an IP threat list": "Het verzendende adres staat op een IP-dreigingslijst",
+  "The server address is in a network on Spamhaus DROP": "Het serveradres ligt in een netwerk op Spamhaus DROP",
+  "Source: Spamhaus DROP, © The Spamhaus Project.": "Bron: Spamhaus DROP, © The Spamhaus Project.",
+  "Move the site to a hosting provider in a legitimate network, and find out how it came to be hosted there.": "Verhuis de site naar een hostingprovider in een legitiem netwerk, en zoek uit hoe hij daar terecht is gekomen.",
+  "The server address is on an IP threat list": "Het serveradres staat op een IP-dreigingslijst",
+  "On a shared host this can be another tenant.": "Op een gedeelde host kan dat een andere klant zijn.",
+  "Ask the hosting provider about the listing; if the address is yours alone, look for a compromise.": "Vraag de hostingprovider naar de vermelding; is het adres alleen van jou, zoek dan naar een compromittering."
+ },
+ "patterns": [
+  [
+   "Listed\\ on\\ (\\d[\\d.,]*)\\ IP\\ threat\\ list\\(s\\)",
+   "Vermeld op $1 IP-dreigingslijst(en)"
+  ],
+  [
+   "On\\ (\\d[\\d.,]*)\\ IP\\ threat\\ list\\(s\\)",
+   "Op $1 IP-dreigingslijst(en)"
+  ],
+  [
+   "IP\\ threat\\ lists,\\ searched\\ on\\ this\\ server:\\ (.+?)\\.",
+   "IP-dreigingslijsten, doorzocht op deze server: $1."
+  ],
+  [
+   "(.+?)\\ \\((\\d[\\d.,]*)\\ ranges\\)",
+   "$1 ($2 reeksen)"
+  ],
+  [
+   "(.+?)\\ \\(not\\ downloaded\\ yet\\)",
+   "$1 (nog niet gedownload)"
+  ],
+  [
+   "(.+?)\\ \\((\\d[\\d.,]*)\\ ranges,\\ last\\ download\\ failed\\)",
+   "$1 ($2 reeksen, laatste download mislukt)"
+  ],
+  [
+   "(.+?)\\ \\(not\\ downloaded\\ yet,\\ last\\ download\\ failed\\)",
+   "$1 (nog niet gedownload, laatste download mislukt)"
+  ],
+  [
+   "(.+?)\\ is\\ in\\ a\\ netblock\\ Spamhaus\\ advises\\ not\\ to\\ route(.+?):\\ hijacked,\\ or\\ run\\ by\\ criminals\\.",
+   "$1 ligt in een netblok dat Spamhaus adviseert niet te routeren$2: gekaapt, of beheerd door criminelen."
+  ]
+ ]
+}

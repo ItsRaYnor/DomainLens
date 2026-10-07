@@ -1786,6 +1786,19 @@ function renderBlacklist(data) {
     const msg = data.is_listed ? `Listed on ${data.listed.length} blacklist(s)!` : 'Clean - not listed on any blacklist';
     html += `<p class="status ${cls}" style="margin-bottom:0.75rem">${escapeHtml(msg)}</p>`;
 
+    // The IP threat lists fetched from their maintainers (ip_lists.py).
+    const lists = data.ip_lists;
+    if (lists && lists.state === 'listed') {
+        html += `<p class="status status-fail" style="margin-bottom:0.5rem">${escapeHtml(`On ${lists.lists.length} IP threat list(s)`)}</p><div class="bl-list">`
+            + lists.lists.map(l => `<div class="bl-item"><span class="status status-fail"></span> ${escapeHtml(l.source)}`
+                + `${l.detail ? ` <span class="muted">${escapeHtml(l.detail)}</span>` : ''}`
+                + `${l.credit ? ` <span class="muted">· ${escapeHtml(l.credit)}</span>` : ''}</div>`).join('') + '</div>';
+    } else if (lists && lists.state === 'not_listed') {
+        html += `<p class="status status-pass" style="margin-bottom:0.75rem">${escapeHtml('Not on the IP threat lists')}</p>`;
+    } else if (lists && lists.state === 'not_checked') {
+        html += `<p class="status status-warn" style="margin-bottom:0.75rem">${escapeHtml('No IP threat list has been downloaded yet.')}</p>`;
+    }
+
     html += '<div class="bl-list">';
     for (const bl of (data.listed || [])) {
         html += `<div class="bl-item"><span class="status status-fail"></span> ${escapeHtml(bl)}</div>`;

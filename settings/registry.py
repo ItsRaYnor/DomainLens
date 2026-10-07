@@ -104,6 +104,11 @@ FIELD_META = {
     "js_scan": {
         "enabled": {"type": "bool", "label": "settings.js_scan.enabled"},
     },
+    "ip_lists": {
+        "spamhaus_drop": {"type": "bool", "label": "settings.ip_lists.spamhaus_drop"},
+        "dshield": {"type": "bool", "label": "settings.ip_lists.dshield"},
+        "custom_lists": {"type": "lines", "label": "settings.ip_lists.custom_lists"},
+    },
     "mail_test": {
         "urlhaus_list": {"type": "bool", "label": "settings.mail_test.urlhaus_list"},
         "link_feeds": {"type": "lines", "label": "settings.mail_test.link_feeds"},
@@ -247,7 +252,7 @@ FIELD_META = {
 SETTING_CATEGORIES = [
     {"key": "settings.categories.general", "sections": ["appearance", "general"]},
     {"key": "settings.categories.scanning",
-     "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra", "mail_test"]},
+     "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra", "ip_lists", "mail_test"]},
     {"key": "settings.categories.automation", "sections": ["scheduler", "reporting"]},
     {"key": "settings.categories.integrations",
      "sections": ["api_keys", "notifications", "servicenow", "rapid7"]},
@@ -275,6 +280,7 @@ ADMIN_SECTIONS = [
     "weak_auth",
     "active_scan",
     "js_scan",
+    "ip_lists",
     "mail_test",
     "auth_local",
     "auth_oauth",

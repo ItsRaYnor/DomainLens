@@ -35,6 +35,14 @@ function mtDkimWhy(dkim, s) {
     return dkim.signatures.some(sig => sig.state !== 'measured') ? 'The key could not be looked up' : '';
 }
 
+function mtIpLists(found) {
+    if (!found) return '';
+    return found.state === 'listed' ? `Listed on ${found.lists.map(l => l.source).join(', ')}`
+        : found.state === 'not_listed' ? 'Not listed'
+        : found.state === 'not_public' ? 'Not a public address'
+        : 'Not checked (no list downloaded yet)';
+}
+
 function mtTlsPart(server) {
     if (server.tls === true) return { state: 'measured', result: 'pass' };
     if (server.tls === false) return { state: 'measured', result: 'fail' };
@@ -195,10 +203,13 @@ function mtFlow(d) {
         const listed = !server.blocklist ? mtTag('Blocklists: not measured', 'na')
             : server.blocklist.listed.length ? mtTag('On a blocklist', 'bad', server.blocklist.listed.join(', '))
             : mtTag('Not listed', 'ok');
+        const threat = (server.blocklist || {}).ip_lists;
+        const onLists = threat && threat.state === 'listed'
+            ? mtTag('On an IP threat list', 'bad', threat.lists.map(l => l.source).join(', ')) : '';
         if (before.length) parts.push(mtArrow('', '', mtDelay(previous, handover)));
         parts.push(mtNode('Sending server', `<code>${esc((server.ptr && server.ptr[0]) || server.helo || '?')}</code>`,
             [`<code>${esc(server.ip || '')}</code>`, server.helo ? `HELO <code>${esc(server.helo)}</code>` : ''],
-            [mtChip('SPF', d.spf, d.spf.explanation), ptr, listed], 'mt-node-key'));
+            [mtChip('SPF', d.spf, d.spf.explanation), ptr, listed, onLists].filter(Boolean), 'mt-node-key'));
         const tls = server.tls === true ? ['ok', server.tls_version || 'TLS'] : server.tls === false ? ['bad', 'No TLS'] : ['na', 'TLS not stated'];
         parts.push(mtArrow(mtTag(tls[1], tls[0], server.cipher || ''), 'mt-arrow-key', ''));
         const said = d.receiver ? Object.entries(d.receiver.methods)
@@ -311,6 +322,7 @@ function mtRender(d) {
         ['Received by', server.by],
         ['TLS on arrival', server.tls === null ? (server.ip ? 'Not stated in the header' : '') : server.tls ? `${server.tls_version || 'Yes'}${server.cipher ? ` · ${server.cipher}` : ''}` : 'No'],
         ['Blocklists', blocklist],
+        ['IP threat lists', mtIpLists(server.blocklist && server.blocklist.ip_lists)],
     ]);
     const content = d.content;
     const links = mtLinks(content, d.link_checks);

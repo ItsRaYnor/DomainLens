@@ -51,6 +51,7 @@ import whois_batch
 import whois_port43
 import contacts
 import domain_portfolio
+import ip_lists
 import link_check
 import mail_test
 import management
@@ -2845,6 +2846,9 @@ def check_blacklist(domain):
         querying_an_address = ip_intel.is_ip(domain)
         ip = domain if querying_an_address else _safe_resolve_ip(domain)
         results["ip"] = ip
+        # The IP threat lists downloaded from their maintainers, searched
+        # here: no query leaves the server (ip_lists.py).
+        results["ip_lists"] = ip_lists.check(ip)
         reversed_ip = ".".join(reversed(ip.split(".")))
 
         for bl, kind, label in _build_dnsbl_list():
@@ -3708,6 +3712,9 @@ def _run_scheduler_digest():
     # The mail analysis's threat lists, downloaded whole twice a day.
     threading.Thread(target=link_check.maybe_refresh, daemon=True,
                      name="link-feeds").start()
+    # The IP threat lists, from their maintainers, twice a day.
+    threading.Thread(target=ip_lists.maybe_refresh, daemon=True,
+                     name="ip-lists").start()
 
 
 def _scheduler_config():
@@ -6103,6 +6110,23 @@ def api_mail_test():
     if result["learned"]:
         mail_test.remember((x["domain"], x["selector"]) for x in result["learned"])
     return jsonify(result)
+
+
+@app.route("/api/iplists", methods=["GET"])
+def api_ip_lists():
+    """The IP threat lists in use: when each was fetched, how many ranges."""
+    return jsonify({"lists": ip_lists.status()})
+
+
+@app.route("/api/iplists/refresh", methods=["POST"])
+@auth.require_admin
+def api_ip_lists_refresh():
+    """Download the IP threat lists now instead of waiting for the scheduler."""
+    if not ip_lists.status():
+        return jsonify({"error": "No IP threat lists are switched on (Admin -> Settings -> IP threat lists)."}), 400
+    threading.Thread(target=ip_lists.refresh, daemon=True, name="ip-lists").start()
+    audit_log.record("iplists.refresh", target_type="settings")
+    return jsonify({"started": True}), 202
 
 
 @app.route("/api/mailtest/checks", methods=["GET"])

@@ -297,6 +297,31 @@ host the server can reach. Only literal IP addresses are accepted, a label
 cannot shadow a built-in resolver name, and a malformed line is skipped rather
 than breaking the page.
 
+## IP threat lists
+
+Besides the DNS blocklists, which ask their operator about every address (and of which the
+Spamhaus zones answer nothing through a public resolver without a DQS key), DomainLens keeps
+IP threat lists downloaded from their maintainers and searched on the server: no address
+that is checked leaves it. They are used by the scan (Blacklist tab and findings), the IP
+tool and the mail analysis (the sending server). Admin → Settings → IP threat lists:
+
+- **Spamhaus DROP** (on): IPv4 and IPv6 netblocks Spamhaus advises not to route or peer with
+  -- hijacked, or run by criminals -- fetched from `www.spamhaus.org/drop/drop_v4.json` and
+  `drop_v6.json` every 12 hours (Spamhaus asks for at most once an hour). Free for any use,
+  with credit to The Spamhaus Project, which DomainLens shows with every hit. A web server
+  in such a network is a high finding.
+- **DShield Recommended Block List** (off): the twenty /24 networks that scanned the most
+  targets in the past three days, from `feeds.dshield.org/block.txt` (SANS Internet Storm
+  Center). The ISC allows commercial use with attribution and without resale, but the file
+  itself carries a CC BY-NC-SA licence; switch it on if that fits your use.
+- **Other lists**: one https:// address per line, each list one IP or CIDR per line. Check
+  a list's terms first.
+
+Only public addresses are looked up: a private or reserved one is "not public", never "not
+listed". Before a list has been downloaded the answer is "not checked". A download that
+fails, or returns an empty list, keeps the previous list. The IP tool shows which lists are
+loaded, and lets an admin refresh them at once.
+
 ## Mail analysis
 
 **Tools → Mail analysis** judges one received message instead of the DNS records alone. Send a
