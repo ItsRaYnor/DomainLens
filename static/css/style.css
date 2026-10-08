@@ -2578,7 +2578,10 @@ footer, .app-footer {
 .portfolio-table td:nth-child(8) { min-width: 8rem; }
 .portfolio-table .pf-check { margin-top: 0.35rem; }
 .pf-count-warn { color: var(--orange); }
-.portfolio-table td:nth-child(2) code { white-space: nowrap; }
+/* A long domain breaks after a dot or a hyphen (portfolio.js puts the
+   break points there), never inside a word: kept on one line, one long
+   name made the table wider than the page. */
+.portfolio-table td:nth-child(2) code { white-space: normal; }
 #pfGroupTable th { width: auto; }
 #pfGroupTable td:last-child { white-space: nowrap; width: 1%; }
 
@@ -2643,6 +2646,18 @@ footer, .app-footer {
 .org-manage-table th { width: auto; }
 .org-manage-table td { word-break: normal; }
 .org-manage-table td:last-child { white-space: nowrap; width: 1%; }
+/* Each field takes the width of its column: at their default size, six
+   columns of fields made the table 1278px wide in an 886px card. */
+@media (min-width: 721px) {
+    .org-manage-table { table-layout: fixed; width: 100%; }
+    .org-manage-table th:nth-child(1) { width: 20%; }
+    .org-manage-table th:nth-child(2) { width: 16%; }
+    .org-manage-table th:nth-child(3) { width: 17%; }
+    .org-manage-table th:nth-child(4) { width: 22%; }
+    .org-manage-table th:nth-child(5) { width: 16%; }
+    .org-manage-table th:nth-child(6) { width: 9rem; }
+}
+.org-manage-table input, .org-manage-table select { width: 100%; min-width: 0; box-sizing: border-box; }
 .monitor-unit-heading { margin: 1rem 0 0.35rem; font-size: 0.85rem; color: var(--text-muted); }
 .monitor-unit-select { max-width: 11rem; }
 .scan-unit { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.25rem 0 1rem; font-size: 0.88rem; }

@@ -108,6 +108,22 @@ class PhoneListTests(unittest.TestCase):
         self.assertNotIn(".subnav { padding: .4rem .75rem; overflow-x: auto; flex-wrap: nowrap; }", STYLE)
 
 
+class DesktopFitTests(unittest.TestCase):
+    """A walk through every page at 1280px found two tables wider than their
+    card: the unit management table at 1278px in 886px, its fields at their
+    default size, and the domain portfolio, where a long domain name was
+    kept on one line."""
+
+    def test_unit_fields_take_their_column_width(self):
+        self.assertIn(".org-manage-table { table-layout: fixed; width: 100%; }", STYLE)
+        self.assertIn(".org-manage-table input, .org-manage-table select { width: 100%; min-width: 0;", STYLE)
+
+    def test_a_long_domain_breaks_after_a_dot_or_hyphen(self):
+        js = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
+        self.assertIn("esc(d.domain).replace(/([.-])/g, '$1<wbr>')", js)
+        self.assertIn(".portfolio-table td:nth-child(2) code { white-space: normal; }", STYLE)
+
+
 class StyleTests(unittest.TestCase):
     def test_a_status_sentence_wraps_like_text(self):
         rule = _rule(STYLE, ".status")

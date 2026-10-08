@@ -114,7 +114,7 @@ function pfRow(d) {
     const registrar = d.registrar ? esc(d.registrar) + (d.reseller ? `<div class="muted">via ${esc(d.reseller)}</div>` : '') : '<span class="muted">&mdash;</span>';
     const check = pf.canEdit
         ? `<td><input type="checkbox" class="pf-select" value="${d.id}"${pf.selected.has(String(d.id)) ? ' checked' : ''} aria-label="Select ${esc(d.domain)}"></td>` : '';
-    return `<tr data-id="${d.id}">${check}<td><a href="/tools/whois?domain=${encodeURIComponent(d.domain)}"><code>${esc(d.domain)}</code></a>`
+    return `<tr data-id="${d.id}">${check}<td><a href="/tools/whois?domain=${encodeURIComponent(d.domain)}"><code>${esc(d.domain).replace(/([.-])/g, '$1<wbr>')}</code></a>`
         + (d.note ? `<div class="muted">${esc(d.note)}</div>` : '')
         + (d.monitored ? '<div class="muted" title="A security monitor scans this domain or one of its hosts">Security monitored</div>' : '')
         + '</td>'
