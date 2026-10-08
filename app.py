@@ -3450,46 +3450,24 @@ def _resolve_monitored_record(target, record_type):
             "authenticated": answer.get("authenticated"), "error": None}
 
 
-def _monitor_state_hash(results):
-    """Create a stable fingerprint for change detection."""
-    tracked = {
-        "dns": results.get("dns"),
-        "dnssec": results.get("dnssec"),
-        "spf": results.get("spf"),
-        "dmarc": results.get("dmarc"),
-        "dkim": results.get("dkim"),
-        "mta_sts": results.get("mta_sts"),
-        "tlsrpt": results.get("tlsrpt"),
-        "ssl": results.get("ssl"),
-        "tls_deep": results.get("tls_deep"),
-        "http_headers": results.get("http_headers"),
-        "https_redirect": results.get("https_redirect"),
-        "http_deep": results.get("http_deep"),
-        "ipv6": results.get("ipv6"),
-        "blacklist": results.get("blacklist"),
-        "ports": results.get("ports"),
-        "osint": (results.get("osint") or {}).get("summary"),
-        "hubspot_cf": {
-            "behind_cloudflare": (results.get("hubspot_cf") or {}).get("behind_cloudflare"),
-            "findings": [
-                f.get("id") for f in ((results.get("hubspot_cf") or {}).get("findings") or [])
-            ],
-        },
-        "weak_auth": {
-            "weak_credentials_found": (results.get("weak_auth") or {}).get("weak_credentials_found"),
-            "findings_count": len((results.get("weak_auth") or {}).get("findings") or []),
-        },
-        "rapid7": {
-            "finding_count": (results.get("rapid7") or {}).get("finding_count"),
-            "by_severity": (results.get("rapid7") or {}).get("by_severity"),
-        },
-    }
-    # The watched DNS record is deliberately NOT folded into this fingerprint.
-    # A measured→unmeasured transition (a resolver hiccup) would otherwise flip
-    # the hash and read as a change. Record changes are detected separately, by
-    # comparing the two measured records in _watched_record_transition, which
-    # ignores unmeasured scans entirely.
-    payload = json.dumps(tracked, sort_keys=True, default=str, separators=(",", ":"))
+def _monitor_state_hash(results, recs=None):
+    """Fingerprint of what a monitor compares (scan_diff.state_fingerprint).
+
+    It used to hash the raw results, which hold values that differ on every
+    scan without anything changing -- header values, the order of a list,
+    counts from public logs -- so a monitor reported "observed changes"
+    while every row of the comparison read unchanged. The fingerprint now
+    holds only the measured fields, dimensions and open findings the
+    comparison shows. It is used when the earlier scan is gone; with that
+    scan at hand the two are compared directly (_monitor_event_from_results).
+
+    The watched DNS record is deliberately not part of it: a measured to
+    unmeasured flip (a resolver hiccup) would read as a change. Record
+    changes are detected apart, in _watched_record_transition.
+    """
+    if recs is None:
+        recs = recommendations.generate(results)
+    payload = scan_diff.state_fingerprint(results, recs)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -3521,10 +3499,11 @@ def _watched_record_transition(monitor, results, previous_results):
 
 def _monitor_event_from_results(monitor, results, previous_record):
     """Derive a monitor event from scan results and the previous baseline."""
-    current_hash = _monitor_state_hash(results)
+    recs = recommendations.generate(results)
+    current_hash = _monitor_state_hash(results, recs)
     previous_hash = monitor.get("last_state_hash")
     warnings = len((results.get("tls_deep") or {}).get("warnings") or [])
-    recommendation_count = recommendations.open_count(recommendations.generate(results))
+    recommendation_count = recommendations.open_count(recs)
     blacklist_listed = bool((results.get("blacklist") or {}).get("is_listed"))
     tls_grade = (results.get("tls_deep") or {}).get("grade")
     watched = results.get("monitored_record") or {}
@@ -3554,7 +3533,16 @@ def _monitor_event_from_results(monitor, results, previous_record):
     # A change is either a shift in the tracked fingerprint or a change in the
     # watched DNS record. The record is kept out of the fingerprint (see
     # _monitor_state_hash), so a pure record change is caught only here.
-    if previous_hash != current_hash or record_transition:
+    # With the earlier scan at hand, a change is what the comparison shows;
+    # without it, only the fingerprint is left to go by.
+    changes = None
+    if previous_record:
+        changes = scan_diff.monitor_changes(previous_results, recommendations.generate(previous_results),
+                                            results, recs)
+        differs = changes["changed"]
+    else:
+        differs = previous_hash != current_hash
+    if differs or record_transition:
         previous_grade = (previous_results.get("tls_deep") or {}).get("grade")
         previous_blacklist = bool((previous_results.get("blacklist") or {}).get("is_listed"))
         if not previous_record:
@@ -3582,6 +3570,12 @@ def _monitor_event_from_results(monitor, results, previous_record):
         else:
             severity = "medium"
             summary = f"Observed changes for {monitor['target']}"
+            if changes and changes["changed"]:
+                summary += f": {scan_diff.describe(changes)}"
+        if changes:
+            details["changes"] = {"fields": len(changes["fields"]), "dimensions": len(changes["dimensions"]),
+                                  "new_findings": len(changes["findings"]["new"]),
+                                  "resolved_findings": len(changes["findings"]["resolved"])}
         if previous_record:
             details["previous_tls_grade"] = previous_grade
             details["previous_blacklist_listed"] = previous_blacklist
@@ -6374,14 +6368,22 @@ def api_compare_scans():
     if not old or not new:
         return jsonify({"error": "One or both scans were not found"}), 404
 
-    old_counts = recommendations.summarize_counts(recommendations.generate(old["data"]))
-    new_counts = recommendations.summarize_counts(recommendations.generate(new["data"]))
+    old_recs = recommendations.generate(old["data"])
+    new_recs = recommendations.generate(new["data"])
+    old_counts = recommendations.summarize_counts(old_recs)
+    new_counts = recommendations.summarize_counts(new_recs)
     diff = scan_diff.compare_dimensions(old["data"], new["data"],
                                         old_severity=old_counts, new_severity=new_counts)
+    # What a monitor counts as a change, so its event and this panel agree:
+    # the fields that moved and the findings that came or went.
+    changes = scan_diff.monitor_changes(old["data"], old_recs, new["data"], new_recs)
     return jsonify({
         "a": _scan_compare_meta(old),
         "b": _scan_compare_meta(new),
         "diff": diff,
+        "fields": changes["fields"],
+        "findings": changes["findings"],
+        "changed": changes["changed"],
     })
 
 

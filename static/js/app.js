@@ -2223,15 +2223,44 @@ function renderCompareHtml(data) {
             <span>→</span>
             <a href="${escapeHtml(data.b.report_url)}" target="_blank" rel="noopener">B · ${escapeHtml(data.b.domain || '')} (${escapeHtml(data.b.grade || 'N/A')})</a>
         </div>`;
-    const body = shown.map(r => {
+    const row = r => {
         const v = compareValueText(r);
         return `<tr class="cmp-row cmp-${escapeHtml(r.status)}">
             <td>${escapeHtml(r.label)}</td>
-            <td>${badge(r.status)}</td>
-            <td class="mono">${v.old} → ${v.now}</td>
+            <td class="nowrap">${badge(r.status)}</td>
+            <td class="mono">${escapeHtml(v.old)} → ${escapeHtml(v.now)}</td>
         </tr>`;
-    }).join('');
-    return head + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${body}</tbody></table></div>`;
+    };
+    // What moved first; the rows that did not move stay folded away. They
+    // used to fill the panel, so a change listed nothing but "unchanged".
+    const moved = shown.filter(r => ['worse', 'better', 'changed'].includes(r.status));
+    const still = shown.filter(r => !['worse', 'better', 'changed'].includes(r.status));
+    const findings = data.findings || { new: [], resolved: [] };
+    const findingList = (title, list, cls) => list.length
+        ? `<h4 class="cmp-subhead">${escapeHtml(title)}</h4><ul class="cmp-findings">`
+          + list.map(f => `<li><span class="rec-badge sev-${escapeHtml(f.severity)}">${escapeHtml((f.severity || '').toUpperCase())}</span> `
+              + `<span class="${cls}">${escapeHtml(f.title)}</span></li>`).join('') + '</ul>'
+        : '';
+    const shownLabels = new Set(moved.map(r => r.label.toLowerCase()));
+    const fields = (data.fields || []).filter(f => !shownLabels.has(String(f.label).toLowerCase()));
+    const fieldRows = fields.map(f => `<tr class="cmp-row cmp-${escapeHtml(f.direction)}"><td>${escapeHtml(f.label)}</td>`
+        + `<td class="nowrap">${badge(f.direction)}</td>`
+        + `<td class="mono">${escapeHtml(f.before === null || f.before === undefined ? 'none' : String(f.before))} → `
+        + `${escapeHtml(f.after === null || f.after === undefined ? 'none' : String(f.after))}</td></tr>`).join('');
+    const nothing = !moved.length && !fields.length && !findings.new.length && !findings.resolved.length;
+    return head
+        + (nothing ? '<p class="ct-desc">Nothing that is compared moved between these two scans. An event like this '
+            + 'came from the earlier way of detecting changes, which also counted values that differ on every scan; '
+            + 'such differences no longer raise an event.</p>' : '')
+        + findingList('New findings', findings.new, '')
+        + findingList('Resolved findings', findings.resolved, 'muted')
+        + (moved.length || fieldRows
+            ? `<div class="table-scroll"><table class="data-table cmp-table stack-table"><tr><th>What</th><th>Change</th><th>Before → after</th></tr>`
+              + moved.map(row).join('') + fieldRows + '</table></div>' : '')
+        + (still.length
+            ? `<details class="cmp-still"><summary>${escapeHtml(`Unchanged or not measured (${still.length})`)}</summary>`
+              + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${still.map(row).join('')}</tbody></table></div></details>`
+            : '');
 }
 
 // The A-F rating, the same letter the dashboard and the lists use. It is

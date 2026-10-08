@@ -1168,7 +1168,16 @@ main {
 .history-compare-result { padding: 0.5rem 0.75rem; }
 .history-compare-pick { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.8rem; opacity: 0.85; }
 .cmp-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem; margin-bottom: 0.4rem; }
-.cmp-table td { padding: 0.3rem 0.5rem; vertical-align: middle; }
+.cmp-table td { padding: 0.3rem 0.5rem; vertical-align: top; }
+/* Words stay whole: the label read "TLS grad / e" and the badge
+   "UNC / HAN / GED", one column squeezed by a long value beside it. */
+.data-table.cmp-table td { word-break: normal; overflow-wrap: anywhere; }
+.cmp-table td:first-child { min-width: 9rem; }
+.cmp-subhead { margin: 0.6rem 0 0.3rem; font-size: 0.85rem; }
+.cmp-findings { list-style: none; margin: 0 0 0.5rem; padding: 0; font-size: 0.85rem; }
+.cmp-findings li { margin: 0.25rem 0; }
+.cmp-still { margin-top: 0.5rem; font-size: 0.85rem; }
+.cmp-still summary { cursor: pointer; color: var(--text-muted); }
 .cmp-badge {
     display: inline-block;
     padding: 0.05rem 0.45rem;

@@ -1,0 +1,10 @@
+# Monitor events: what a change is, and the comparison panel.
+Observed changes for {}: {}	Wijzigingen gezien voor {}: {}
+{n} new finding(s)	{n} nieuwe bevinding(en)
+{n} finding(s) resolved	{n} bevinding(en) opgelost
+{} and {n} more	{} en nog {n}
+New findings	Nieuwe bevindingen
+Resolved findings	Opgeloste bevindingen
+Before → after	Voor → na
+Unchanged or not measured ({n})	Ongewijzigd of niet gemeten ({n})
+Nothing that is compared moved between these two scans. An event like this came from the earlier way of detecting changes, which also counted values that differ on every scan; such differences no longer raise an event.	Tussen deze twee scans is niets veranderd van wat wordt vergeleken. Een melding als deze kwam van de eerdere manier van wijzigingen opsporen, die ook waarden meetelde die bij elke scan verschillen; zulke verschillen geven geen melding meer.

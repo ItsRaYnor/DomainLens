@@ -237,7 +237,9 @@ def _open_ports(results):
     open_ports = ports.get("open")
     if open_ports is None:
         return None
-    return sorted(str(p) for p in open_ports)
+    # "443/HTTPS", not the dict's repr: the value is shown as it is.
+    return sorted(f"{p.get('port')}/{p.get('service') or '?'}" if isinstance(p, dict) else str(p)
+                  for p in open_ports)
 
 
 def _dnssec_signed(results):
@@ -441,3 +443,82 @@ def _dimension_row(key, label, unit, old_val, new_val, comparator):
         status = STATUS_CHANGED if old_val != new_val else STATUS_UNCHANGED
     return {"key": key, "label": label, "unit": unit,
             "old": old_val, "new": new_val, "status": status}
+
+
+# ---------------------------------------------------------------------------
+# What a monitor counts as a change
+# ---------------------------------------------------------------------------
+
+def _open_findings(recs):
+    """{key: {"severity", "title"}} of the open (not accepted) findings."""
+    out = {}
+    for rec in recs or []:
+        if rec.get("accepted") or rec.get("severity") == "info":
+            continue
+        key = rec.get("finding_key") or rec.get("title")
+        out[key] = {"severity": rec.get("severity"), "title": rec.get("title")}
+    return out
+
+
+def finding_changes(old_recs, new_recs):
+    """Findings that appeared and that went away between two scans."""
+    old, new = _open_findings(old_recs), _open_findings(new_recs)
+    order = ["critical", "high", "medium", "low"]
+    rank = lambda f: (order.index(f["severity"]) if f["severity"] in order else 9, f["title"] or "")
+    return {"new": sorted((new[k] for k in new.keys() - old.keys()), key=rank),
+            "resolved": sorted((old[k] for k in old.keys() - new.keys()), key=rank)}
+
+
+def monitor_changes(old_results, old_recs, new_results, new_recs):
+    """What changed between two scans, as a monitor judges it.
+
+    A monitor used to fingerprint the raw results, which hold values that
+    differ on every scan without anything changing: header values, the order
+    of a list, counts from public logs. It reported "observed changes" while
+    every row of the comparison read unchanged. A change is now only what
+    the comparison shows: a field or a dimension measured in both scans with
+    a different value, or a finding that appeared or went away.
+    """
+    fields = compare(old_results, new_results)["changes"]
+    dims = [row for row in compare_dimensions(old_results, new_results)["dimensions"]
+            if row["status"] in (STATUS_WORSE, STATUS_BETTER, STATUS_CHANGED)]
+    findings = finding_changes(old_recs, new_recs)
+    changed = bool(fields or dims or findings["new"] or findings["resolved"])
+    return {"changed": changed, "fields": fields, "dimensions": dims, "findings": findings}
+
+
+def describe(changes, limit=2):
+    """A few words on what changed, for the event's summary line."""
+    parts = []
+    for row in changes["dimensions"]:
+        parts.append(f"{row['label']} {_short(row['old'])} → {_short(row['new'])}")
+    for row in changes["fields"]:
+        if not any(row["label"].lower().startswith(p.split(" ")[0].lower()) for p in parts):
+            parts.append(f"{row['label']} {_short(row['before'])} → {_short(row['after'])}")
+    new, gone = len(changes["findings"]["new"]), len(changes["findings"]["resolved"])
+    if new:
+        parts.append(f"{new} new finding(s)")
+    if gone:
+        parts.append(f"{gone} finding(s) resolved")
+    shown = parts[:limit]
+    return ", ".join(shown) + (f" and {len(parts) - limit} more" if len(parts) > limit else "")
+
+
+def _short(value):
+    if isinstance(value, (list, tuple)):
+        return f"{len(value)} item(s)"
+    if isinstance(value, dict):
+        return "…"
+    text = "none" if value is None else str(value)
+    return text if len(text) <= 30 else text[:29] + "…"
+
+
+def state_fingerprint(results, recs):
+    """The measured values monitor_changes compares, as one string: what the
+    stored hash is made of, for when the earlier scan is no longer there."""
+    import json
+    state = {f"{section}.{key}": _extract(results, section, extractor)
+             for section, key, _label, extractor, _mapping in _FIELDS}
+    state.update({f"dim.{d['key']}": d["extract"](results) for d in _DIMENSIONS})
+    state["findings"] = sorted(_open_findings(recs))
+    return json.dumps(state, sort_keys=True, default=str, separators=(",", ":"))
