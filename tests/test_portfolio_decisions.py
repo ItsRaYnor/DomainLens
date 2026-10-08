@@ -263,18 +263,18 @@ class PageTests(EnterpriseAppTestCase):
     def test_the_portfolio_shows_and_sets_the_new_columns(self):
         self.login_as("user")
         html = self.client.get("/monitoring/domains").get_data(as_text=True)
-        for marker in ('id="pfLifecycleBtn"', 'id="pfIntelBtn"', 'id="pfContactBtn"',
+        for marker in ('data-menu="decision"', 'data-menu="intel"', 'data-menu="contact"',
                        '<option value="intel">', "contact_picker.js"):
             self.assertIn(marker, html)
         source = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
-        self.assertIn("<th>Threat intel</th><th>Decision</th><th>Contact</th>", source)
+        self.assertIn("<th>Use · threat intel</th><th>Decision</th><th>Contact</th>", source)
 
     def test_threat_intel_and_the_contact_are_set_on_the_row_itself(self):
         """Selecting a row and finding the right button above the table for
         one domain was the only way; the row now has a switch and a button."""
         source = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
         self.assertIn('class="switch pf-intel" role="switch"', source)
-        self.assertIn("action: 'threat_intel', ids: [Number(id)], value: on", source)
+        self.assertIn("pfApply('threat_intel', [id], on)", source)
         self.assertIn("pf-contact-link", source)
         # Nobody to choose yet: the picker starts on a new contact.
         self.assertIn("if (!contactBook.contacts.length && !contactBook.accounts.length) select.value = 'new';", source)

@@ -3997,11 +3997,15 @@ def _portfolio_payload():
 @app.route("/api/portfolio", methods=["GET"])
 def api_portfolio():
     domains, groups = _portfolio_payload()
-    # Which domains also have security monitoring, on any of their hosts.
-    watched = {domain_portfolio.registrable(domain_portfolio.host_of(m.get("target")))
-               for m in db.list_monitors(limit=10000)}
+    # Which domains also have security monitoring, on any of their hosts:
+    # on (a monitor runs), paused (all of them paused) or off (none).
+    watched = _monitors_by_domain()
     for d in domains:
-        d["monitored"] = d["domain"] in watched
+        mine = watched.get(d["domain"], [])
+        d["monitored"] = bool(mine)
+        running = [m for m in mine if m.get("enabled")]
+        d["monitor"] = {"state": "on" if running else "paused" if mine else "off",
+                        "schedule_minutes": min((m.get("schedule_minutes") or 1440 for m in running), default=None)}
     return jsonify({"domains": domains, "groups": groups,
                     "contacts": contacts.list_contacts(),
                     # A list, not an object: JSON objects come out sorted, and
@@ -4062,9 +4066,11 @@ def api_portfolio_import():
             default_lifecycle=(data if upload is None else request.form).get("lifecycle"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    monitored = _monitor_new_in_units(set(result["added"]) | set(result["moved"]))
     audit_log.record("portfolio.import", target_type="portfolio",
-                     details={"added": len(result["added"]), "moved": len(result["moved"])})
-    return jsonify({**result, "rejected": rejected[:50],
+                     details={"added": len(result["added"]), "moved": len(result["moved"]),
+                              "monitored": len(monitored)})
+    return jsonify({**result, "monitored": monitored, "rejected": rejected[:50],
                     "converted": [{"from": k, "to": v} for k, v in list(converted.items())[:50]]}), 201
 
 
@@ -4118,6 +4124,100 @@ def api_portfolio_group(group_id):
         return jsonify({"error": str(exc) or "Invalid unit"}), 400
     audit_log.record("portfolio.group_update", target_type="portfolio", target_id=group["path"])
     return jsonify(group)
+
+
+def _monitors_by_domain():
+    """{registered domain: [monitors]}: a monitor on any host of a domain
+    counts for it, as the "monitored" mark has always counted it."""
+    out = {}
+    for m in db.list_monitors(limit=10000):
+        out.setdefault(domain_portfolio.registrable(domain_portfolio.host_of(m.get("target"))), []).append(m)
+    return out
+
+
+def _set_monitoring(domains, schedule_minutes):
+    """Security monitoring on (schedule_minutes) or off (None) for portfolio
+    domains. On: a paused monitor runs again, a domain without one gets one,
+    the first scans spread over the interval. Off: every monitor of the
+    domain is paused -- its history stays. Returns what was done."""
+    watched = _monitors_by_domain()
+    done = {"created": [], "enabled": [], "paused": [], "unchanged": []}
+    todo = []
+    for domain in dict.fromkeys(domains):
+        mine = watched.get(domain, [])
+        if schedule_minutes is None:
+            running = [m for m in mine if m.get("enabled")]
+            for m in running:
+                db.update_monitor(m["id"], enabled=False)
+            done["paused" if running else "unchanged"].append(domain)
+        elif not mine:
+            todo.append(domain)
+        elif not any(m.get("enabled") for m in mine):
+            for m in mine:
+                db.update_monitor(m["id"], enabled=True)
+            done["enabled"].append(domain)
+        else:
+            done["unchanged"].append(domain)
+    if todo:
+        now = datetime.now(timezone.utc)
+        step = timedelta(minutes=schedule_minutes) / max(len(todo), 1)
+        for i, domain in enumerate(todo):
+            monitor_id = db.create_monitor(
+                name=domain, domain=domain, target=domain, record_type="A",
+                source_type="portfolio", source_label="Domain portfolio",
+                provider="portfolio", schedule_minutes=schedule_minutes,
+                checks=_prepare_checks(["all"]), enabled=True)
+            db.update_monitor(monitor_id, next_scan_at=(now + step * i).isoformat())
+            done["created"].append(domain)
+    return done
+
+
+def _monitor_new_in_units(domain_names):
+    """A domain that lands in a unit monitoring its domains is monitored too,
+    at the unit's frequency (its own, or that of a unit above it)."""
+    if not domain_names:
+        return []
+    groups = {g["id"]: g for g in domain_portfolio.list_groups()}
+    by_minutes = {}
+    for d in domain_portfolio.list_all():
+        # A domain to request or claim is not held, one to cancel is let go:
+        # neither is scanned because of the unit it is in.
+        if d.get("lifecycle") in ("cancel", "claim"):
+            continue
+        if d["domain"] in domain_names and d.get("group_id") in groups:
+            minutes = groups[d["group_id"]].get("monitor_effective")
+            if minutes:
+                by_minutes.setdefault(minutes, []).append(d["domain"])
+    started = []
+    for minutes, names in by_minutes.items():
+        done = _set_monitoring(names, minutes)
+        started += done["created"] + done["enabled"]
+    return started
+
+
+@app.route("/api/portfolio/groups/<int:group_id>/monitoring", methods=["POST"])
+@auth.require_role(roles.USER)
+def api_portfolio_group_monitoring(group_id):
+    """Monitor every domain of a unit (and of the units below it), and the
+    domains added to it later; or stop that. One switch per unit instead of
+    selecting domains and creating monitors by hand."""
+    group = domain_portfolio.get_group(group_id)
+    if not group:
+        return jsonify({"error": "Unknown unit"}), 404
+    data = request.get_json(silent=True) or {}
+    try:
+        minutes = int(data.get("schedule_minutes") or 0)
+        domain_portfolio.update_group(group_id, monitor_minutes=minutes or None)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc) or "Invalid schedule"}), 400
+    below = domain_portfolio.descendants(group_id)
+    names = [d["domain"] for d in domain_portfolio.list_all()
+             if d.get("group_id") in below and (not minutes or d.get("lifecycle") not in ("cancel", "claim"))]
+    done = _set_monitoring(names, minutes or None)
+    counts = {k: len(v) for k, v in done.items()}
+    audit_log.record("portfolio.unit_monitoring", target_type="portfolio", target_id=group["path"],
+                     details={"schedule_minutes": minutes or None, **counts})
+    return jsonify({"schedule_minutes": minutes or None, **counts})
 
 
 @app.route("/api/portfolio/monitor", methods=["POST"])
@@ -4198,6 +4298,8 @@ def api_portfolio_assign():
             created_by=(auth.current_user() or {}).get("email"))
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc) or "Invalid request"}), 400
+    if action in ("added", "moved"):
+        _monitor_new_in_units({domain})
     audit_log.record("portfolio.assign", target_type="portfolio", target_id=domain,
                      details={"action": action, "unit_id": _unit_arg(data)})
     return jsonify({"domain": domain, "action": action,
@@ -4225,6 +4327,27 @@ def api_portfolio_domains():
             count = domain_portfolio.move(ids, int(group_id) if group_id not in (None, "") else None)
         except (TypeError, ValueError) as exc:
             return jsonify({"error": str(exc) or "Unknown group"}), 400
+        # Into a unit that monitors its domains: these are monitored too.
+        wanted = set(ids)
+        monitored = _monitor_new_in_units({d["domain"] for d in domain_portfolio.list_all() if d["id"] in wanted})
+        audit_log.record("portfolio.move", target_type="portfolio",
+                         details={"count": count, "monitored": len(monitored)})
+        return jsonify({"count": count, "monitored": len(monitored)})
+    elif action == "monitor":
+        # value: a frequency in minutes to monitor, 0 or nothing to pause.
+        try:
+            minutes = int(data.get("value") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"error": "value must be minutes, or 0 to pause"}), 400
+        if minutes and not 5 <= minutes <= 43200:
+            return jsonify({"error": "Scan between every 5 minutes and every 30 days"}), 400
+        wanted = set(ids)
+        names = [d["domain"] for d in domain_portfolio.list_all() if d["id"] in wanted]
+        done = _set_monitoring(names, minutes or None)
+        counts = {k: len(v) for k, v in done.items()}
+        audit_log.record("portfolio.monitor", target_type="portfolio",
+                         details={"schedule_minutes": minutes or None, **counts})
+        return jsonify({"count": len(names), **counts})
     elif action in ("lifecycle", "threat_intel", "contact"):
         value = data.get("value")
         try:

@@ -37,28 +37,18 @@
                 <a class="btn-ghost" id="pfCsvBtn" href="/api/portfolio/csv">Download CSV</a>
             </div>
             {% if can_edit %}
-            <div class="discovered-tools portfolio-bulk">
-                <span class="muted" id="pfSelected">0 selected</span>
-                <select id="pfMoveTarget" aria-label="Move to unit"></select>
-                <button class="btn-ghost" id="pfMoveBtn" type="button">Move to unit</button>
-                <select id="pfMonitorSchedule" aria-label="Security scan frequency">
-                    <option value="1440" selected>Scan daily</option>
-                    <option value="10080">Scan weekly</option>
-                    <option value="360">Scan every 6 hours</option>
-                </select>
-                <button class="btn-ghost" id="pfMonitorBtn" type="button" title="Create a security monitor (a scheduled full scan) for each selected domain that has none">Monitor security</button>
-                <button class="btn-ghost danger" id="pfRemoveBtn" type="button">Remove from portfolio</button>
-            </div>
-            <div class="discovered-tools portfolio-bulk">
-                <select id="pfLifecycleValue" aria-label="Decision"></select>
-                <button class="btn-ghost" id="pfLifecycleBtn" type="button">Set decision</button>
-                <select id="pfIntelValue" aria-label="Threat intelligence">
-                    <option value="true">In threat intelligence</option>
-                    <option value="false">Not in threat intelligence</option>
-                </select>
-                <button class="btn-ghost" id="pfIntelBtn" type="button">Set threat intelligence</button>
-                <span class="contact-pick"><select id="pfContactValue" aria-label="Contact"></select></span>
-                <button class="btn-ghost" id="pfContactBtn" type="button">Set contact</button>
+            {# Only with a selection: without one, five lists and buttons stood
+               between the filters and the domains. Each menu applies its
+               choice at once, with an undo. #}
+            <div class="pf-bulkbar hidden" id="pfBulkBar" role="toolbar" aria-label="Selected domains">
+                <strong id="pfSelected">0 selected</strong>
+                <button type="button" class="btn-ghost-sm" data-menu="move" aria-haspopup="menu">Move to unit ▾</button>
+                <button type="button" class="btn-ghost-sm" data-menu="monitor" aria-haspopup="menu">Monitoring ▾</button>
+                <button type="button" class="btn-ghost-sm" data-menu="decision" aria-haspopup="menu">Decision ▾</button>
+                <button type="button" class="btn-ghost-sm" data-menu="intel" aria-haspopup="menu">Threat intel ▾</button>
+                <button type="button" class="btn-ghost-sm" data-menu="contact" aria-haspopup="menu">Contact ▾</button>
+                <button type="button" class="btn-ghost-sm" data-menu="more" aria-haspopup="menu" aria-label="More actions">⋯</button>
+                <button type="button" class="btn-ghost-sm" id="pfClearSel">Clear selection</button>
             </div>
             {% endif %}
             <div id="pfGroups"><p class="muted">Loading&hellip;</p></div>

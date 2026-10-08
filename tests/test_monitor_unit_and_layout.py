@@ -56,9 +56,12 @@ class LayoutTests(unittest.TestCase):
         self.assertIn(".users-table-wrap { overflow-x: auto; max-width: 100%; }", css)
 
     def test_the_portfolio_table_has_no_column_for_check_now_alone(self):
+        """Looking a domain up again is in the row's menu, not a column or a
+        button in every row."""
         source = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
-        self.assertIn("<th>Threat intel</th><th>Decision</th><th>Contact</th></tr>", source)
-        self.assertNotIn("<th>Contact</th><th></th>", source)
+        self.assertIn("<th>Use · threat intel</th><th>Decision</th><th>Contact</th>", source)
+        self.assertIn("{ label: 'Look up again now', value: 'check' }", source)
+        self.assertNotIn('class="btn-ghost-sm pf-check"', source)
 
 
 if __name__ == "__main__":

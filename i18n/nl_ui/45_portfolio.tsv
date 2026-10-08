@@ -1,0 +1,57 @@
+# Domain portfolio: the action bar, its menus, undo, monitoring per domain and unit.
+Move to unit ▾	Verplaatsen naar unit ▾
+Monitoring ▾	Monitoring ▾
+Decision ▾	Besluit ▾
+Threat intel ▾	Threat intel ▾
+Contact ▾	Contactpersoon ▾
+Clear selection	Selectie wissen
+Selected domains	Geselecteerde domeinen
+More actions	Meer acties
+Actions for {}	Acties voor {}
+Mail	Mail
+Use not measurable	Gebruik niet meetbaar
+The name servers do not answer, so use cannot be measured	De nameservers antwoorden niet, dus gebruik kan niet worden gemeten
+{}: in use	{}: in gebruik
+{}: not in use	{}: niet in gebruik
+{}: not measured	{}: niet gemeten
+Registrar unknown	Registrar onbekend
+Use · threat intel	Gebruik · threat intel
+Monitored {}	Gemonitord {}
+Monitoring paused	Monitoring gepauzeerd
+Not monitored	Niet gemonitord
+Pause security monitoring	Beveiligingsmonitoring pauzeren
+Monitor security	Beveiliging monitoren
+every {n} min	elke {n} min
+Security monitoring: {n} of {n} domains in this unit and the units below it	Beveiligingsmonitoring: {n} van {n} domeinen in deze unit en de units eronder
+Security monitoring: {n} of {n} domains	Beveiligingsmonitoring: {n} van {n} domeinen
+New domains are monitored too ({}, set on a unit above)	Nieuwe domeinen worden ook gemonitord ({}, ingesteld op een unit erboven)
+New domains are monitored too ({})	Nieuwe domeinen worden ook gemonitord ({})
+New domains are not monitored automatically	Nieuwe domeinen worden niet automatisch gemonitord
+{n} domain(s) are not in a unit yet.	{n} domein(en) zitten nog niet in een unit.
+Assign to a unit…	Aan een unit toewijzen…
+Find…	Zoeken…
+Monitor security, {}	Beveiliging monitoren, {}
+Monitor all domains, {}	Alle domeinen monitoren, {}
+Pause monitoring	Monitoring pauzeren
+Stop monitoring this unit	Monitoring van deze unit stoppen
+Add to threat intelligence	Aan threat intelligence toevoegen
+Remove from threat intelligence	Uit threat intelligence halen
+Look up again now	Nu opnieuw opzoeken
+Move to unit…	Naar unit verplaatsen…
+Remove from portfolio…	Uit portfolio verwijderen…
+Apply	Toepassen
+Undo	Ongedaan maken
+Undone.	Ongedaan gemaakt.
+Looked up again.	Opnieuw opgezocht.
+{n} domain(s) moved, {n} now monitored by their unit.	{n} domein(en) verplaatst, {n} nu gemonitord door hun unit.
+{n} domain(s) now monitored {}.	{n} domein(en) nu {} gemonitord.
+{n} domain(s) no longer monitored (paused).	{n} domein(en) niet meer gemonitord (gepauzeerd).
+{n} domain(s) added to threat intelligence.	{n} domein(en) aan threat intelligence toegevoegd.
+{n} domain(s) removed from threat intelligence.	{n} domein(en) uit threat intelligence gehaald.
+{n} domain(s) moved.	{n} domein(en) verplaatst.
+{n} domain(s) given a new decision.	{n} domein(en) kregen een nieuw besluit.
+{n} domain(s) given a contact.	{n} domein(en) kregen een contactpersoon.
+{n} domain(s) removed.	{n} domein(en) verwijderd.
+{n} domain(s) now monitored {}; new domains in this unit follow.	{n} domein(en) nu {} gemonitord; nieuwe domeinen in deze unit volgen.
+{n} monitor(s) paused.	{n} monitor(s) gepauzeerd.
+Security monitoring started for {n} domain(s), as their unit asks.	Beveiligingsmonitoring gestart voor {n} domein(en), zoals hun unit vraagt.

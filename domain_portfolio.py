@@ -89,6 +89,7 @@ _GROUPS_TABLE = """
             expected_registrar TEXT,
             notify_emails TEXT,
             contact_id INTEGER,
+            monitor_minutes INTEGER,
             created_at TEXT NOT NULL
         )
         """
@@ -107,6 +108,10 @@ def _migrate_groups(conn):
             conn.execute("ALTER TABLE portfolio_groups ADD COLUMN notify_emails TEXT")
         if "contact_id" not in columns:
             conn.execute("ALTER TABLE portfolio_groups ADD COLUMN contact_id INTEGER")
+        # How often a unit's domains are scanned for security, when the unit
+        # monitors them all: a domain added to it is monitored too.
+        if "monitor_minutes" not in columns:
+            conn.execute("ALTER TABLE portfolio_groups ADD COLUMN monitor_minutes INTEGER")
         return
     conn.execute("BEGIN")
     try:
@@ -254,7 +259,7 @@ def list_groups():
         children.setdefault(parent, []).append(r)
     out = []
 
-    def walk(parent, path, depth, inherited, person, seen):
+    def walk(parent, path, depth, inherited, person, scan, seen):
         for r in sorted(children.get(parent, []), key=lambda g: g["name"].lower()):
             if r["id"] in seen:          # a cycle written by hand; never loop on it
                 continue
@@ -262,13 +267,18 @@ def list_groups():
             expected = r.get("expected_registrar") or inherited
             own = people.get(r.get("contact_id"))
             contact = own or person
+            # Security monitoring for the unit's domains: its own setting, or
+            # the one of a unit above, as with the registrar and the contact.
+            monitor = r.get("monitor_minutes") or scan
             out.append({**r, "path": PATH_SEPARATOR.join(names), "depth": depth,
                         "effective_registrar": expected,
                         "registrar_inherited": bool(expected and not r.get("expected_registrar")),
-                        "contact": contact, "contact_inherited": bool(contact and not own)})
-            walk(r["id"], names, depth + 1, expected, contact, seen | {r["id"]})
+                        "contact": contact, "contact_inherited": bool(contact and not own),
+                        "monitor_effective": monitor,
+                        "monitor_inherited": bool(monitor and not r.get("monitor_minutes"))})
+            walk(r["id"], names, depth + 1, expected, contact, monitor, seen | {r["id"]})
 
-    walk(None, [], 0, None, None, frozenset())
+    walk(None, [], 0, None, None, None, frozenset())
     return out
 
 
@@ -376,7 +386,7 @@ def unit_recipients(hostname):
 
 
 def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNSET,
-                 notify_emails=None, contact_id=_UNSET):
+                 notify_emails=None, contact_id=_UNSET, monitor_minutes=_UNSET):
     group = get_group(group_id)
     if not group:
         raise ValueError("Unknown unit")
@@ -401,6 +411,12 @@ def update_group(group_id, *, name=None, expected_registrar=None, parent_id=_UNS
             raise ValueError("Unknown contact")
         fields.append("contact_id = ?")
         values.append(contact_id)
+    if monitor_minutes is not _UNSET:
+        minutes = int(monitor_minutes) if monitor_minutes not in (None, "", 0, "0") else None
+        if minutes is not None and not 5 <= minutes <= 43200:
+            raise ValueError("Scan between every 5 minutes and every 30 days")
+        fields.append("monitor_minutes = ?")
+        values.append(minutes)
     with db._lock, db._connect() as conn:
         clash = _find(conn, new_name, new_parent)
         if clash and clash != int(group_id):

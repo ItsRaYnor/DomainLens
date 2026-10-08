@@ -184,7 +184,38 @@ expiry within 30 and within 7 days. The first lookup of a domain is its baseline
 change. SIDN publishes no expiry date for `.nl` (the registrar renews until the holder
 cancels), so those show "Not published"; for them quarantine is the signal that matters. A
 failed lookup keeps the previous answer and says so. Lookups run with the scheduler; with
-the scheduler off use "Check now".
+the scheduler off use "Look up again now" in a domain's ⋯ menu.
+
+### Working with the list
+
+Each row shows the domain with its monitoring state, its registration (registrar, reseller,
+expiry, and "To move" when it is at another registrar than its unit expects), its status
+(the time of the last lookup is in the tooltip), its use -- two labels, ✉ Mail and 🌐 Web,
+struck through when measured unused and dashed when not measured -- with the threat
+intelligence switch, its decision (a list to change right there) and its contact. The ⋯ menu
+at the end of a row moves the domain to a unit, monitors or pauses it, looks it up again or
+removes it.
+
+Tick domains (or a whole unit with the box in its header) and a bar appears above the list:
+**Move to unit**, **Monitoring**, **Decision**, **Threat intel**, **Contact** and ⋯ (look up
+again, remove). Each is a menu whose choice is applied at once; a notice says what was done,
+with **Undo** to put every domain back as it was. Removing asks first and cannot be undone.
+Domains in no unit are announced above the list, with **Assign to a unit…** to place them all
+at once.
+
+### Security monitoring from the portfolio
+
+The shield under a domain says whether a security monitor (a scheduled full scan) runs for it:
+*Monitored daily* (or weekly, every 6 hours), *Monitoring paused*, or *Not monitored*; clicking
+it monitors the domain daily or pauses it. A paused monitor keeps its history and runs again
+when switched on; no second monitor is made. A monitor on any host of the domain counts.
+
+Each unit says how many of its domains -- with those of the units below it -- are monitored,
+and its **Monitoring** menu monitors them all (daily, weekly or every 6 hours) or stops that.
+A unit that monitors its domains also monitors every domain added or moved into it later, and
+the units below it inherit that, as they inherit the expected registrar and the contact.
+Domains to request or claim, or to cancel, are left out: they are not, or no longer, yours.
+Stopping pauses the unit's monitors.
 
 ### Decision, threat intelligence and contact
 
@@ -228,7 +259,7 @@ known name and says "Account removed". Deleting a contact leaves its units and d
 without one of their own.
 
 Threat intelligence is switched on or off per domain with the switch in its row, or for many
-at once with the buttons above the table.
+at once with **Threat intel** in the selection bar.
 
 The import reads these columns too when a header row names them: **Decision**/`Besluit`
 (keep, to decide, cancel, request or claim, in English or Dutch, e.g. `Opzeggen`, `Behouden`),
@@ -245,7 +276,9 @@ Changing the portfolio needs the Analyst role and is audited. API: `GET /api/por
 `GET /api/portfolio/csv`, `POST /api/portfolio/import` (JSON `text`, or a multipart `file` .xlsx), `POST /api/portfolio/groups`,
 `PUT/DELETE /api/portfolio/groups/{id}`, `POST /api/portfolio/domains` (`action`: `move`,
 `remove`, `lifecycle` with `value` keep/review/cancel/claim, `threat_intel` with `value`
-true/false, or `contact` with `value` a contact id or null),
+true/false, `contact` with `value` a contact id or null, or `monitor` with `value` a frequency
+in minutes, or 0 to pause), `POST /api/portfolio/groups/{id}/monitoring`
+(`{"schedule_minutes": 1440}`, or 0 to stop),
 `POST /api/portfolio/domains/{id}/check`, `GET/POST /api/contacts` (`{name, email, phone}` or
 `{user_id}`), `PUT/DELETE /api/contacts/{id}`; a unit's contact is `contact_id` on
 `POST /api/organisation/units` and `PUT /api/organisation/units/{id}` (null clears it).

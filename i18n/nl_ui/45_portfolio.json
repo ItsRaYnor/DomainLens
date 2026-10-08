@@ -1,0 +1,137 @@
+{
+ "text": {
+  "Move to unit ▾": "Verplaatsen naar unit ▾",
+  "Monitoring ▾": "Monitoring ▾",
+  "Decision ▾": "Besluit ▾",
+  "Threat intel ▾": "Threat intel ▾",
+  "Contact ▾": "Contactpersoon ▾",
+  "Clear selection": "Selectie wissen",
+  "Selected domains": "Geselecteerde domeinen",
+  "More actions": "Meer acties",
+  "Mail": "Mail",
+  "Use not measurable": "Gebruik niet meetbaar",
+  "The name servers do not answer, so use cannot be measured": "De nameservers antwoorden niet, dus gebruik kan niet worden gemeten",
+  "Registrar unknown": "Registrar onbekend",
+  "Use · threat intel": "Gebruik · threat intel",
+  "Monitoring paused": "Monitoring gepauzeerd",
+  "Not monitored": "Niet gemonitord",
+  "Pause security monitoring": "Beveiligingsmonitoring pauzeren",
+  "Monitor security": "Beveiliging monitoren",
+  "New domains are not monitored automatically": "Nieuwe domeinen worden niet automatisch gemonitord",
+  "Assign to a unit…": "Aan een unit toewijzen…",
+  "Find…": "Zoeken…",
+  "Pause monitoring": "Monitoring pauzeren",
+  "Stop monitoring this unit": "Monitoring van deze unit stoppen",
+  "Add to threat intelligence": "Aan threat intelligence toevoegen",
+  "Remove from threat intelligence": "Uit threat intelligence halen",
+  "Look up again now": "Nu opnieuw opzoeken",
+  "Move to unit…": "Naar unit verplaatsen…",
+  "Remove from portfolio…": "Uit portfolio verwijderen…",
+  "Apply": "Toepassen",
+  "Undo": "Ongedaan maken",
+  "Undone.": "Ongedaan gemaakt.",
+  "Looked up again.": "Opnieuw opgezocht."
+ },
+ "patterns": [
+  [
+   "Actions\\ for\\ (.+?)",
+   "Acties voor $1"
+  ],
+  [
+   "(.+?):\\ in\\ use",
+   "$1: in gebruik"
+  ],
+  [
+   "(.+?):\\ not\\ in\\ use",
+   "$1: niet in gebruik"
+  ],
+  [
+   "(.+?):\\ not\\ measured",
+   "$1: niet gemeten"
+  ],
+  [
+   "Monitored\\ (.+?)",
+   "Gemonitord $1"
+  ],
+  [
+   "every\\ (\\d[\\d.,]*)\\ min",
+   "elke $1 min"
+  ],
+  [
+   "Security\\ monitoring:\\ (\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ domains\\ in\\ this\\ unit\\ and\\ the\\ units\\ below\\ it",
+   "Beveiligingsmonitoring: $1 van $2 domeinen in deze unit en de units eronder"
+  ],
+  [
+   "Security\\ monitoring:\\ (\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ domains",
+   "Beveiligingsmonitoring: $1 van $2 domeinen"
+  ],
+  [
+   "New\\ domains\\ are\\ monitored\\ too\\ \\((.+?),\\ set\\ on\\ a\\ unit\\ above\\)",
+   "Nieuwe domeinen worden ook gemonitord ($1, ingesteld op een unit erboven)"
+  ],
+  [
+   "New\\ domains\\ are\\ monitored\\ too\\ \\((.+?)\\)",
+   "Nieuwe domeinen worden ook gemonitord ($1)"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ are\\ not\\ in\\ a\\ unit\\ yet\\.",
+   "$1 domein(en) zitten nog niet in een unit."
+  ],
+  [
+   "Monitor\\ security,\\ (.+?)",
+   "Beveiliging monitoren, $1"
+  ],
+  [
+   "Monitor\\ all\\ domains,\\ (.+?)",
+   "Alle domeinen monitoren, $1"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ moved,\\ (\\d[\\d.,]*)\\ now\\ monitored\\ by\\ their\\ unit\\.",
+   "$1 domein(en) verplaatst, $2 nu gemonitord door hun unit."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ now\\ monitored\\ (.+?)\\.",
+   "$1 domein(en) nu $2 gemonitord."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ no\\ longer\\ monitored\\ \\(paused\\)\\.",
+   "$1 domein(en) niet meer gemonitord (gepauzeerd)."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ added\\ to\\ threat\\ intelligence\\.",
+   "$1 domein(en) aan threat intelligence toegevoegd."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ removed\\ from\\ threat\\ intelligence\\.",
+   "$1 domein(en) uit threat intelligence gehaald."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ moved\\.",
+   "$1 domein(en) verplaatst."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ given\\ a\\ new\\ decision\\.",
+   "$1 domein(en) kregen een nieuw besluit."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ given\\ a\\ contact\\.",
+   "$1 domein(en) kregen een contactpersoon."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ removed\\.",
+   "$1 domein(en) verwijderd."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ domain\\(s\\)\\ now\\ monitored\\ (.+?);\\ new\\ domains\\ in\\ this\\ unit\\ follow\\.",
+   "$1 domein(en) nu $2 gemonitord; nieuwe domeinen in deze unit volgen."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ monitor\\(s\\)\\ paused\\.",
+   "$1 monitor(s) gepauzeerd."
+  ],
+  [
+   "Security\\ monitoring\\ started\\ for\\ (\\d[\\d.,]*)\\ domain\\(s\\),\\ as\\ their\\ unit\\ asks\\.",
+   "Beveiligingsmonitoring gestart voor $1 domein(en), zoals hun unit vraagt."
+  ]
+ ]
+}
