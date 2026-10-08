@@ -74,5 +74,15 @@ class UnitTests(unittest.TestCase):
         self.assertIn('id="pfAssignLoose"', JS)
 
 
+
+
+class MenuTests(unittest.TestCase):
+    def test_a_menu_follows_its_button_while_the_page_scrolls(self):
+        """The action bar stays at the top while the page scrolls; a menu
+        opened from it was placed once and left floating over the domains."""
+        self.assertIn("window.addEventListener('scroll', pfPlaceMenu, { passive: true });", JS)
+        self.assertIn("if (!document.body.contains(anchor) || r.bottom < 0 || r.top > window.innerHeight) { pfCloseMenu(); return; }", JS)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -320,6 +320,22 @@ async function pfPost(url, body, method) {
 function pfCloseMenu() {
     const open = document.querySelector('.pf-menu');
     if (open) open.remove();
+    pf.menuAnchor = null;
+}
+
+// A menu stays under the button that opened it. That button can sit in the
+// action bar, which stays at the top while the page scrolls: placed once,
+// the menu was left floating over the domains. It follows the button, and
+// closes when the button leaves the screen.
+function pfPlaceMenu() {
+    const menu = document.querySelector('.pf-menu');
+    const anchor = pf.menuAnchor;
+    if (!menu || !anchor) return;
+    const r = anchor.getBoundingClientRect();
+    if (!document.body.contains(anchor) || r.bottom < 0 || r.top > window.innerHeight) { pfCloseMenu(); return; }
+    const left = Math.max(8, Math.min(r.left, document.documentElement.clientWidth - menu.offsetWidth - 8));
+    menu.style.left = `${window.scrollX + left}px`;
+    menu.style.top = `${window.scrollY + r.bottom + 4}px`;
 }
 
 function pfOpenMenu(anchor, items, onPick, extra) {
@@ -333,10 +349,8 @@ function pfOpenMenu(anchor, items, onPick, extra) {
             : `<button type="button" role="menuitem" class="pf-menu-item${it.danger ? ' danger' : ''}" data-i="${i}"${it.title ? ` title="${esc(it.title)}"` : ''}>${esc(it.label)}</button>`).join('')
         + (extra || '');
     document.body.appendChild(menu);
-    const r = anchor.getBoundingClientRect();
-    const left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + document.documentElement.clientWidth - menu.offsetWidth - 8));
-    menu.style.left = `${left}px`;
-    menu.style.top = `${window.scrollY + r.bottom + 4}px`;
+    pf.menuAnchor = anchor;
+    pfPlaceMenu();
     menu.addEventListener('click', e => {
         const item = e.target.closest('.pf-menu-item');
         if (!item) return;
@@ -574,6 +588,8 @@ function initPortfolio() {
         if (!e.target.closest('.pf-menu') && !e.target.closest('[aria-haspopup="menu"]')) pfCloseMenu();
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') pfCloseMenu(); });
+    window.addEventListener('scroll', pfPlaceMenu, { passive: true });
+    window.addEventListener('resize', pfPlaceMenu);
     if (pf.canEdit) {
         $('pfBulkBar').addEventListener('click', e => {
             const button = e.target.closest('[data-menu]');
