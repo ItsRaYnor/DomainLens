@@ -1462,11 +1462,16 @@ def _js_scan(results):
     if not js.get("success"):
         return out
     for f in js.get("findings") or []:
+        # Where it was found (masked value and file): without it the advice
+        # said a key had leaked but not which one, or where to remove it.
+        problem = f.get("detail", "")
+        if f.get("evidence"):
+            problem = f"{problem} (Evidence: {f['evidence']})"
         out.append(_r(
             f.get("severity", SEVERITY_INFO),
             f.get("category", "JavaScript"),
             f.get("title", "JavaScript finding"),
-            f.get("detail", ""),
+            problem,
             f.get("fix", "Review and remediate this finding."),
             domain=results.get("domain"),
         ))

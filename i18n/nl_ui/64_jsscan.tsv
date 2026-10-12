@@ -1,0 +1,29 @@
+# JS dependency & secrets scan: coverage, source maps, severity per secret.
+Passive scan of the JavaScript the page loads, the code chunks it names and its public source maps: known-vulnerable libraries, leaked keys and tokens, and missing Subresource Integrity.	Passieve scan van het JavaScript dat de pagina laadt, de codechunks die het noemt en de publieke source maps: kwetsbare libraries, gelekte sleutels en tokens, en ontbrekende Subresource Integrity.
+Coverage	Dekking
+{n} file(s) analyzed	{} bestand(en) geanalyseerd
+{n} script(s) on the page	{} script(s) op de pagina
+{n} inline script(s)	{} inline-script(s)
+{n} found	{} gevonden
+{n} code chunk(s) followed	{} codechunk(s) gevolgd
+{n} could not be fetched	{} konden niet worden opgehaald
+Nothing to analyze	Niets om te analyseren
+Public source maps	Publieke source maps
+Public source maps (original source readable by anyone):	Publieke source maps (originele broncode voor iedereen leesbaar):
++{n} other file(s)	+{} andere bestand(en)
+Masked value	Gemaskeerde waarde
+{n} file(s) analyzed on {}	{} bestand(en) geanalyseerd op {}
+{n} file(s) analyzed on {}, {n} code chunk(s) followed	{} bestand(en) geanalyseerd op {}, {} codechunk(s) gevolgd
+{n} file(s) analyzed on {}, {n} could not be fetched	{} bestand(en) geanalyseerd op {}, {} konden niet worden opgehaald
+{n} file(s) analyzed on {}, {n} code chunk(s) followed, {n} could not be fetched	{} bestand(en) geanalyseerd op {}, {} codechunk(s) gevolgd, {} konden niet worden opgehaald
+{n} public source map(s): the original source is readable by anyone.	{} publieke source map(s): de originele broncode is voor iedereen leesbaar.
+No scripts could be analyzed, so nothing is known about secrets in them.	Er konden geen scripts worden geanalyseerd, dus over sleutels daarin is niets bekend.
+Secret type	Type sleutel
+Active tests — only on systems you may test	Actieve tests — alleen op systemen die je mag testen
+Own infrastructure: open relay & open resolver	Eigen infrastructuur: open relay & open resolver
+Asks your mail hosts whether they would relay for a stranger (stopping before any message is sent) and your name servers whether they resolve names outside their zones. Only for domains listed as your own in Settings.	Vraagt je mailservers of ze voor een vreemde zouden doorsturen (gestopt voordat er iets wordt verstuurd) en je nameservers of ze namen buiten hun zones opzoeken. Alleen voor domeinen die in Instellingen als eigen staan.
+Relays for strangers	Stuurt door voor vreemden
+Refuses to relay	Weigert door te sturen
+Resolves for anyone	Zoekt op voor iedereen
+Refuses recursion	Weigert recursie
+Not tested	Niet getest

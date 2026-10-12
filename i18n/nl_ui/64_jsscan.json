@@ -1,0 +1,70 @@
+{
+ "text": {
+  "Passive scan of the JavaScript the page loads, the code chunks it names and its public source maps: known-vulnerable libraries, leaked keys and tokens, and missing Subresource Integrity.": "Passieve scan van het JavaScript dat de pagina laadt, de codechunks die het noemt en de publieke source maps: kwetsbare libraries, gelekte sleutels en tokens, en ontbrekende Subresource Integrity.",
+  "Coverage": "Dekking",
+  "Nothing to analyze": "Niets om te analyseren",
+  "Public source maps": "Publieke source maps",
+  "Public source maps (original source readable by anyone):": "Publieke source maps (originele broncode voor iedereen leesbaar):",
+  "Masked value": "Gemaskeerde waarde",
+  "No scripts could be analyzed, so nothing is known about secrets in them.": "Er konden geen scripts worden geanalyseerd, dus over sleutels daarin is niets bekend.",
+  "Secret type": "Type sleutel",
+  "Active tests — only on systems you may test": "Actieve tests — alleen op systemen die je mag testen",
+  "Own infrastructure: open relay & open resolver": "Eigen infrastructuur: open relay & open resolver",
+  "Asks your mail hosts whether they would relay for a stranger (stopping before any message is sent) and your name servers whether they resolve names outside their zones. Only for domains listed as your own in Settings.": "Vraagt je mailservers of ze voor een vreemde zouden doorsturen (gestopt voordat er iets wordt verstuurd) en je nameservers of ze namen buiten hun zones opzoeken. Alleen voor domeinen die in Instellingen als eigen staan.",
+  "Relays for strangers": "Stuurt door voor vreemden",
+  "Refuses to relay": "Weigert door te sturen",
+  "Resolves for anyone": "Zoekt op voor iedereen",
+  "Refuses recursion": "Weigert recursie",
+  "Not tested": "Niet getest"
+ },
+ "patterns": [
+  [
+   "(\\d[\\d.,]*)\\ file\\(s\\)\\ analyzed",
+   "$1 bestand(en) geanalyseerd"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ script\\(s\\)\\ on\\ the\\ page",
+   "$1 script(s) op de pagina"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ inline\\ script\\(s\\)",
+   "$1 inline-script(s)"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ found",
+   "$1 gevonden"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ code\\ chunk\\(s\\)\\ followed",
+   "$1 codechunk(s) gevolgd"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ could\\ not\\ be\\ fetched",
+   "$1 konden niet worden opgehaald"
+  ],
+  [
+   "\\+(\\d[\\d.,]*)\\ other\\ file\\(s\\)",
+   "+$1 andere bestand(en)"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ file\\(s\\)\\ analyzed\\ on\\ (.+?)",
+   "$1 bestand(en) geanalyseerd op $2"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ file\\(s\\)\\ analyzed\\ on\\ (.+?),\\ (\\d[\\d.,]*)\\ code\\ chunk\\(s\\)\\ followed",
+   "$1 bestand(en) geanalyseerd op $2, $3 codechunk(s) gevolgd"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ file\\(s\\)\\ analyzed\\ on\\ (.+?),\\ (\\d[\\d.,]*)\\ could\\ not\\ be\\ fetched",
+   "$1 bestand(en) geanalyseerd op $2, $3 konden niet worden opgehaald"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ file\\(s\\)\\ analyzed\\ on\\ (.+?),\\ (\\d[\\d.,]*)\\ code\\ chunk\\(s\\)\\ followed,\\ (\\d[\\d.,]*)\\ could\\ not\\ be\\ fetched",
+   "$1 bestand(en) geanalyseerd op $2, $3 codechunk(s) gevolgd, $4 konden niet worden opgehaald"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ public\\ source\\ map\\(s\\):\\ the\\ original\\ source\\ is\\ readable\\ by\\ anyone\\.",
+   "$1 publieke source map(s): de originele broncode is voor iedereen leesbaar."
+  ]
+ ]
+}

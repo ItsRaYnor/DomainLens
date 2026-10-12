@@ -42,7 +42,6 @@
                             <label class="check-tile"><input type="checkbox" value="whois" class="check-item"><span class="ct-body"><span class="ct-name">WHOIS</span><span class="ct-desc">Registrar, owner &amp; expiry date</span></span></label>
                             <label class="check-tile"><input type="checkbox" value="dns" class="check-item"><span class="ct-body"><span class="ct-name">DNS</span><span class="ct-desc">A, AAAA, MX, NS, TXT, CAA records</span></span></label>
                             <label class="check-tile"><input type="checkbox" value="dnssec" class="check-item"><span class="ct-body"><span class="ct-name">DNSSEC</span><span class="ct-desc">DNS signature validation</span></span></label>
-                            <label class="check-tile"><input type="checkbox" value="ipv6" class="check-item"><span class="ct-body"><span class="ct-name">IPv6</span><span class="ct-desc">AAAA support for web, mail &amp; NS</span></span></label>
                         </div>
                     </div>
 
@@ -94,6 +93,7 @@
                             <label class="check-group-toggle"><input type="checkbox" class="group-all" data-group="network"> Network &amp; OSINT</label>
                         </div>
                         <div class="check-tiles">
+                            <label class="check-tile"><input type="checkbox" value="ipv6" class="check-item"><span class="ct-body"><span class="ct-name">IPv6</span><span class="ct-desc">AAAA support for web, mail &amp; NS</span></span></label>
                             <label class="check-tile"><input type="checkbox" value="blacklist" class="check-item"><span class="ct-body"><span class="ct-name">Blacklist</span><span class="ct-desc">DNSBL / spam blacklist check</span></span></label>
                             <label class="check-tile"><input type="checkbox" value="ports" class="check-item"><span class="ct-body"><span class="ct-name">Ports</span><span class="ct-desc">Scan of 17 common open ports</span></span></label>
                             <label class="check-tile"><input type="checkbox" value="osint" class="check-item"><span class="ct-body"><span class="ct-name">OSINT</span><span class="ct-desc">CT logs, Wayback, IP/ASN, threat feeds</span></span></label>
@@ -333,21 +333,6 @@
                     <h3>HTTP Security Headers</h3>
                     <div id="headersContent" data-source="http_headers"></div>
                 </div>
-                <div class="card">
-                    <h3 data-i18n="weak_auth_ui.title">{{ t('weak_auth_ui.title') }}</h3>
-                    <p class="login-hint" data-i18n="weak_auth_ui.hint">{{ t('weak_auth_ui.hint') }}</p>
-                    <div id="weakAuthContent" data-source="weak_auth"></div>
-                </div>
-                <div class="card">
-                    <h3>JS Dependencies &amp; Secrets</h3>
-                    <p class="login-hint">Passive scan of client-side JavaScript for known-vulnerable libraries, leaked secrets, and missing Subresource Integrity.</p>
-                    <div id="jsScanContent" data-source="js_scan"></div>
-                </div>
-                <div class="card">
-                    <h3>Active Vulnerability Scan</h3>
-                    <p class="login-hint">Sends live XSS/open-redirect/SQL-injection probes. Off by default &mdash; only enable for domains you own or are authorized to test.</p>
-                    <div id="activeScanContent" data-source="active_scan"></div>
-                </div>
             </div>
 
             <!-- Network Tab -->
@@ -405,12 +390,33 @@
                     <div id="secWebContent" data-source="security"></div>
                 </div>
                 <div class="card">
+                    <h3>JS Dependencies &amp; Secrets</h3>
+                    <p class="login-hint">Passive scan of the JavaScript the page loads, the code chunks it names and its public source maps: known-vulnerable libraries, leaked keys and tokens, and missing Subresource Integrity.</p>
+                    <div id="jsScanContent" data-source="js_scan"></div>
+                </div>
+                <div class="card">
                     <h3>DNS &amp; Mail Gaps</h3>
                     <div id="secDnsContent" data-source="security"></div>
                 </div>
                 <div class="card">
                     <h3>Tech Fingerprint &amp; Info Disclosure</h3>
                     <div id="secInfoContent" data-source="security"></div>
+                </div>
+                <h3 class="tab-subhead" id="activeTestsHead">Active tests &mdash; only on systems you may test</h3>
+                <div class="card">
+                    <h3 data-i18n="weak_auth_ui.title">{{ t('weak_auth_ui.title') }}</h3>
+                    <p class="login-hint" data-i18n="weak_auth_ui.hint">{{ t('weak_auth_ui.hint') }}</p>
+                    <div id="weakAuthContent" data-source="weak_auth"></div>
+                </div>
+                <div class="card">
+                    <h3>Active Vulnerability Scan</h3>
+                    <p class="login-hint">Sends live XSS/open-redirect/SQL-injection probes. Off by default &mdash; only enable for domains you own or are authorized to test.</p>
+                    <div id="activeScanContent" data-source="active_scan"></div>
+                </div>
+                <div class="card">
+                    <h3>Own infrastructure: open relay &amp; open resolver</h3>
+                    <p class="login-hint">Asks your mail hosts whether they would relay for a stranger (stopping before any message is sent) and your name servers whether they resolve names outside their zones. Only for domains listed as your own in Settings.</p>
+                    <div id="ownInfraContent" data-source="own_infra"></div>
                 </div>
             </div>
 

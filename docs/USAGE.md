@@ -46,6 +46,34 @@ The **HTTP Headers** check now also analyses:
 
 When CSP is missing or weak, Advies includes **step-by-step build guidance**: start with Report-Only, baseline `default-src 'self'`, add hosts, prefer nonces/hashes, then enforce.
 
+### JavaScript: libraries, secrets and source maps
+
+Pick **JS Dependency & Secrets** under *Security Audit* in the scan options (a full scan includes
+it). It only fetches what the page itself loads, and never runs it:
+
+- the page's scripts, inline and linked;
+- the code chunks those scripts name literally (Vite's `assets/<name>-<hash>.js`, Next.js's
+  `/_next/static/chunks/…`, webpack's `<id>.<hash>.chunk.js`), up to 15 more files from the same
+  site, where a modern app keeps most of its code;
+- the source maps they point to (`//# sourceMappingURL=…`): a public map is reported, and the
+  original source in it is searched too.
+
+It looks for known-vulnerable libraries, missing Subresource Integrity, and keys and tokens:
+cloud and AI providers (AWS, Google, Azure Storage and SAS, OpenAI, Anthropic), payment and mail
+(Stripe, SendGrid, Mailchimp, Mailgun), code hosting (GitHub, GitLab, npm), chat webhooks (Slack,
+Discord, Teams, Telegram), Shopify, Mapbox, private key blocks and credentials in URLs. A JWT is
+decoded: a Supabase **service_role** key is *critical* (it bypasses every row-level security
+policy), an **anon** key is *info* (meant for the browser, with row-level security on). A generic
+`apiKey: "…"` counts only when its value looks random. Values are masked and never stored whole;
+the same key in several files is one finding.
+
+**Where to see it:** the **Security Audit** tab, card *JS Dependencies & Secrets*: what was
+analysed (files, chunks, files that could not be fetched), the keys found with their severity,
+masked value and file, and the public source maps. Each also appears under **Advies**, in the
+categories *Exposed Secret*, *Exposed Source Map*, *Vulnerable JS Library* and *Subresource
+Integrity*, with the file it was found in. In the printed report it is under *JS Dependencies &
+Secrets*. When nothing could be fetched the result says so, rather than "nothing found".
+
 ---
 
 ## DNS monitoring & scheduling

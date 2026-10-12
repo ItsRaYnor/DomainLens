@@ -743,6 +743,7 @@ function renderResults(data) {
     renderWeakAuth(data.weak_auth);
     renderJsScan(data.js_scan);
     renderActiveScan(data.active_scan);
+    renderOwnInfra(data.own_infra);
     renderRapid7(data.rapid7);
     hideChecksNotRun(data);
 
@@ -781,6 +782,10 @@ function hideChecksNotRun(data) {
         const tabs = Array.from(group.querySelectorAll('.tab'));
         group.classList.toggle('not-run', tabs.length > 0 && tabs.every(t => t.classList.contains('not-run')));
     });
+    const activeHead = $('activeTestsHead');
+    if (activeHead) {
+        activeHead.classList.toggle('not-run', !['weak_auth', 'active_scan', 'own_infra'].some(k => checkRan(data, k)));
+    }
 }
 
 // ===== Score Overview =====
@@ -1105,7 +1110,7 @@ function renderTlsDeep(data) {
     </div>`;
 
     if (data.ciphers && data.ciphers.length > 0) {
-        let cHtml = '<table class="data-table cipher-table"><thead><tr><th>Cipher Suite</th><th>Protocol</th><th>Bits</th><th>Strength</th><th>PFS</th></tr></thead><tbody>';
+        let cHtml = '<table class="data-table cipher-table stack-table"><thead><tr><th>Cipher Suite</th><th>Protocol</th><th>Bits</th><th>Strength</th><th>PFS</th></tr></thead><tbody>';
         for (const c of data.ciphers) {
             const strengthCls = c.strength === 'strong' ? 'badge-pass' : c.strength === 'acceptable' ? 'badge-info' : c.strength === 'weak' ? 'badge-warn' : 'badge-fail';
             cHtml += `<tr>
@@ -1502,7 +1507,7 @@ function renderNcscTls(data) {
     }
 
     if (data.ciphers && data.ciphers.length) {
-        html += '<table class="data-table cipher-table" style="margin-top:1rem"><thead><tr><th>Cipher suite</th><th>NCSC level</th><th>KX</th><th>Auth</th><th>Bulk</th><th>Hash</th></tr></thead><tbody>';
+        html += '<table class="data-table cipher-table stack-table" style="margin-top:1rem"><thead><tr><th>Cipher suite</th><th>NCSC level</th><th>KX</th><th>Auth</th><th>Bulk</th><th>Hash</th></tr></thead><tbody>';
         for (const c of data.ciphers) {
             const comp = c.components || {};
             html += `<tr>
@@ -3262,11 +3267,21 @@ function renderJsScan(data) {
     const secrets = data.secrets_found || [];
     const missingSri = data.missing_sri || [];
 
+    // What was looked at, so "none detected" is read against it: a script
+    // that could not be fetched was not found clean.
+    const found = data.scripts_found ?? data.scripts_analyzed ?? 0;
+    const coverage = [`${data.scripts_analyzed || 0} file(s) analyzed`,
+        `${found} script(s) on the page`, `${data.inline_scripts || 0} inline script(s)`];
+    if (data.chunks_followed) coverage.push(`${data.chunks_followed} code chunk(s) followed`);
+    if (data.scripts_failed) coverage.push(`${data.scripts_failed} could not be fetched`);
+    const maps = data.source_maps || [];
+    const nothing = !(data.scripts_analyzed || 0) && !(data.inline_scripts || 0);
     let html = `<table class="data-table">`;
     html += `<tr><th>Base URL</th><td><code>${escapeHtml(data.base_url || '')}</code></td></tr>`;
-    html += `<tr><th>Scripts analyzed</th><td>${escapeHtml(String(data.scripts_analyzed || 0))}</td></tr>`;
+    html += `<tr><th>Coverage</th><td>${escapeHtml(coverage.join(' · '))}</td></tr>`;
     html += `<tr><th>Vulnerable libraries</th><td><span class="status ${libs.length ? 'status-fail' : 'status-pass'}">${libs.length ? `${libs.length} found` : 'None detected'}</span></td></tr>`;
-    html += `<tr><th>Exposed secrets</th><td><span class="status ${secrets.length ? 'status-fail' : 'status-pass'}">${secrets.length ? `${secrets.length} found` : 'None detected'}</span></td></tr>`;
+    html += `<tr><th>Exposed secrets</th><td><span class="status ${secrets.length ? 'status-fail' : (nothing ? 'status-warn' : 'status-pass')}">${secrets.length ? `${secrets.length} found` : (nothing ? 'Nothing to analyze' : 'None detected')}</span></td></tr>`;
+    html += `<tr><th>Public source maps</th><td><span class="status ${maps.length ? 'status-warn' : 'status-pass'}">${maps.length ? `${maps.length} found` : 'None'}</span></td></tr>`;
     html += `<tr><th>Missing SRI</th><td><span class="status ${missingSri.length ? 'status-warn' : 'status-pass'}">${missingSri.length ? `${missingSri.length} tag(s)` : 'None'}</span></td></tr>`;
     html += `</table>`;
 
@@ -3281,11 +3296,18 @@ function renderJsScan(data) {
 
     if (secrets.length) {
         html += '<p style="margin-top:0.75rem;font-weight:600">Exposed secrets:</p>';
-        html += '<table class="data-table"><thead><tr><th>Type</th><th>Masked value</th><th>Source</th></tr></thead><tbody>';
+        html += '<table class="data-table stack-table"><thead><tr><th>Severity</th><th>Type</th><th>Masked value</th><th>Source</th></tr></thead><tbody>';
         for (const s of secrets) {
-            html += `<tr><td>${escapeHtml(s.type)}</td><td><code>${escapeHtml(s.masked_value)}</code></td><td style="word-break:break-all"><code>${escapeHtml(s.source || '')}</code></td></tr>`;
+            const also = s.also_in ? ` <span class="muted">+${escapeHtml(String(s.also_in))} other file(s)</span>` : '';
+            html += `<tr><td>${s.severity ? sevBadge(s.severity) : ''}</td><td>${escapeHtml(s.type)}</td><td><code>${escapeHtml(s.masked_value)}</code></td><td style="word-break:break-all"><code>${escapeHtml(s.source || '')}</code>${also}</td></tr>`;
         }
         html += '</tbody></table>';
+    }
+
+    if (maps.length) {
+        html += '<p style="margin-top:0.75rem;font-weight:600">Public source maps (original source readable by anyone):</p><ul>';
+        for (const m of maps) html += `<li style="word-break:break-all"><code>${escapeHtml(m)}</code></li>`;
+        html += '</ul>';
     }
 
     if (missingSri.length) {
@@ -3298,6 +3320,33 @@ function renderJsScan(data) {
     }
 
     el.innerHTML = html;
+}
+
+// ===== Own infrastructure =====
+// Open relay and open resolver, per host. A host that would not talk to the
+// scanner was not measured -- usually the right behaviour, never a finding.
+function renderOwnInfra(data) {
+    const el = $('ownInfraContent');
+    if (!el || !data) return;
+    const verdict = (value, yes, no) => value === true
+        ? `<span class="status status-fail">${escapeHtml(yes)}</span>`
+        : value === false ? `<span class="status status-pass">${escapeHtml(no)}</span>`
+        : '<span class="status status-warn">Not measured</span>';
+    const part = (title, result, rows) => {
+        if (!result) return '';
+        if (result.state !== 'measured') {
+            return `<p><strong>${escapeHtml(title)}:</strong> <span class="muted">${escapeHtml(result.reason || 'Not tested')}</span></p>`;
+        }
+        return `<p style="margin-top:0.5rem"><strong>${escapeHtml(title)}</strong></p>`
+            + '<table class="data-table stack-table"><thead><tr><th>Host</th><th>Result</th><th>Detail</th></tr></thead><tbody>'
+            + rows.join('') + '</tbody></table>';
+    };
+    const relay = data.relay || {};
+    const resolver = data.resolver || {};
+    el.innerHTML = part('Open relay', relay, (relay.hosts || []).map(h =>
+            `<tr><td><code>${escapeHtml(h.host)}</code></td><td>${verdict(h.relays, 'Relays for strangers', 'Refuses to relay')}</td><td>${escapeHtml(h.detail || '')}</td></tr>`))
+        + part('Open resolver', resolver, (resolver.nameservers || []).map(n =>
+            `<tr><td><code>${escapeHtml(n.address)}</code></td><td>${verdict(n.recurses, 'Resolves for anyone', 'Refuses recursion')}</td><td>${escapeHtml(n.detail || '')}</td></tr>`));
 }
 
 // ===== Active Vulnerability Scan =====

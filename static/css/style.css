@@ -14,6 +14,7 @@
 .nowrap { white-space: nowrap; }
 /* A card, tab or tile for a check this scan did not run. */
 .not-run { display: none !important; }
+.tab-subhead { margin: 1.4rem 0 0.6rem; font-size: 0.95rem; color: var(--text-muted); font-weight: 600; }
 
 /* ===== Header ===== */
 header {
@@ -2020,8 +2021,15 @@ footer, .app-footer {
     .data-table,
     .users-table { display: block; overflow-x: auto; }
 
-    .tabs { gap: .75rem; }
-    .tab-group { flex: 1 1 100%; }
+    /* The tabs as chips that flow in rows: stacked one per line they filled
+       the first screen before any result was visible. */
+    .tabs { gap: .4rem; align-items: center; border-bottom: none; }
+    .tab-group { flex: 0 1 auto; flex-direction: row; flex-wrap: wrap; gap: .4rem; }
+    .tab-group-label { display: none; }
+    .tab-group > .tab {
+        padding: .4rem .75rem; border: 1px solid var(--border); border-radius: 999px;
+    }
+    .tab-group > .tab.active { border-color: var(--accent); background: var(--accent-glow); }
 
     .history-item,
     .monitor-item { flex-direction: column; align-items: flex-start; gap: .5rem; }
@@ -2935,6 +2943,8 @@ button.btn-danger:hover:not(:disabled) { background: var(--red); border-color: v
 /* The mail analysis tables built by rows(): words stay whole ("spf=pass"
    broke as "spf=p / ass"); only a token longer than the line is split. */
 #mailTestResult .data-table td { word-break: normal; overflow-wrap: anywhere; }
+/* Words, not letters, wrap in the JS scan's text; a URL still breaks where it must. */
+#jsScanContent .data-table td { word-break: normal; overflow-wrap: anywhere; }
 
 /* Domain portfolio: the action bar for a selection, its menus, the undo
    notice, and the monitoring and use labels on a row. */

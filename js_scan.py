@@ -6,13 +6,22 @@ files (no execution, no active probing) and checks for:
   1. Known-vulnerable JS library versions (small curated CVE database)
   2. Hardcoded secrets/API keys accidentally shipped in client-side bundles
   3. Missing Subresource Integrity (SRI) on third-party <script>/<link> tags
+  4. Public source maps, which hand out the original source
+
+Only what the page itself loads is fetched: its scripts, the code chunks
+those name literally (a Vite or Next.js bundle splits most of an app into
+them), and the source maps they point to. No paths are guessed.
 
 This never sends anything to the target beyond ordinary GET requests, so it
 is safe to run against any domain — unlike the active_scan / weak_auth checks.
 """
 
+import base64
 import concurrent.futures
+import hashlib
 import ipaddress
+import json
+import math
 import re
 import socket
 from urllib.parse import urljoin, urlparse
@@ -32,7 +41,10 @@ _PRIVATE_NETS = [
 ]
 
 _MAX_SCRIPTS = 25
+_MAX_CHUNKS = 15            # code chunks named in those scripts, on top
 _MAX_SCRIPT_BYTES = 2_000_000  # 2 MB cap per file
+_MAX_MAP_BYTES = 5_000_000     # source maps carry the whole source
+_MAX_MAPS = 10
 _TIMEOUT = 8
 
 
@@ -228,14 +240,31 @@ _SECRET_PATTERNS = [
     ("Slack Webhook", re.compile(r"https://hooks\.slack\.com/services/[A-Za-z0-9/]{20,}")),
     ("Generic Bearer/API secret assignment", re.compile(
         r"(?i)(api[_-]?key|api[_-]?secret|access[_-]?token|client[_-]?secret|secret[_-]?key)"
-        r"['\"]?\s*[:=]\s*['\"][A-Za-z0-9\-_./+=]{16,}['\"]"
+        r"['\"]?\s*[:=]\s*['\"](?P<v>[A-Za-z0-9\-_./+=]{16,})['\"]"
     )),
     ("Private Key Block", re.compile(r"-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----")),
     ("JWT (looks like a live token, not a template)", re.compile(
-        r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"
+        r"(?<![.\w])eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b"
     )),
     ("Firebase URL with implicit database", re.compile(r"https://[a-z0-9-]+\.firebaseio\.com")),
     ("Basic Auth in URL", re.compile(r"https?://[^/\s'\"]+:[^/\s'\"]+@[^/\s'\"]+")),
+    # Prefixed formats: the prefix makes a chance match next to impossible.
+    ("OpenAI API Key", re.compile(r"\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}T3BlbkFJ[A-Za-z0-9_-]{20,}")),
+    ("Anthropic API Key", re.compile(r"\bsk-ant-(?:api|admin)\d{2}-[A-Za-z0-9_-]{80,}")),
+    ("SendGrid API Key", re.compile(r"\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}\b")),
+    ("Mailchimp API Key", re.compile(r"\b[0-9a-f]{32}-us\d{1,2}\b")),
+    ("Mailgun API Key", re.compile(r"\bkey-[0-9a-f]{32}\b")),
+    ("GitLab Token", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b")),
+    ("npm Token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
+    ("Shopify Access Token", re.compile(r"\bshp(?:at|ca|pa|ss)_[a-fA-F0-9]{32}\b")),
+    ("Stripe Live Restricted Key", re.compile(r"\brk_live_[0-9a-zA-Z]{24,}\b")),
+    ("Telegram Bot Token", re.compile(r"\b\d{8,10}:AA[0-9A-Za-z_-]{33}\b")),
+    ("Discord Webhook", re.compile(r"https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_-]{30,}")),
+    ("Microsoft Teams Webhook", re.compile(r"https://[a-z0-9-]+\.webhook\.office\.com/webhookb2/[A-Za-z0-9@/_-]{40,}")),
+    ("Azure Storage Connection String", re.compile(
+        r"DefaultEndpointsProtocol=https?;AccountName=[a-z0-9]{3,24};AccountKey=[A-Za-z0-9+/]{86}==")),
+    ("Azure SAS Token", re.compile(r"[?&]sv=20\d\d-\d\d-\d\d&[^\s'\"]*?sig=[A-Za-z0-9%+/=]{30,}")),
+    ("Mapbox Secret Token", re.compile(r"\bsk\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}")),
 ]
 
 # Placeholder/example values that would otherwise false-positive.
@@ -246,25 +275,141 @@ _SECRET_ALLOWLIST_HINTS = (
 )
 
 
+def _entropy(value):
+    """Shannon entropy in bits per character."""
+    if not value:
+        return 0.0
+    counts = {c: value.count(c) for c in set(value)}
+    return -sum(n / len(value) * math.log2(n / len(value)) for n in counts.values())
+
+
+def _jwt_claims(token):
+    try:
+        payload = token.split(".")[1]
+        return json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except Exception:
+        return None
+
+
+def _classify(label, match):
+    """The type to report for a match, or None when it is not a secret.
+
+    A generic `apiKey: "..."` with a low-entropy value (a word, a repeated
+    character, a path) was reported as a possible secret. A JWT is decoded:
+    a Supabase key says its role, and an anon key is meant for the browser
+    while a service_role key bypasses every row-level security policy.
+    """
+    value = match.group(0)
+    if label.startswith("Generic"):
+        candidate = match.groupdict().get("v") or value
+        if _entropy(candidate) < 3.5 or not re.search(r"\d", candidate) or not re.search(r"[A-Za-z]", candidate):
+            return None
+    if label.startswith("JWT"):
+        claims = _jwt_claims(value) or {}
+        role = claims.get("role") if isinstance(claims, dict) else None
+        if role == "service_role":
+            return "Supabase service_role key"
+        if role == "anon":
+            return "Supabase anon key"
+    return label
+
+
 def _scan_secrets(url, body):
-    findings = []
+    findings = {}
     if not body:
-        return findings
+        return []
     for label, pattern in _SECRET_PATTERNS:
         for m in pattern.finditer(body):
             snippet = m.group(0)
             low = snippet.lower()
             if any(hint in low for hint in _SECRET_ALLOWLIST_HINTS):
                 continue
-            # Mask the middle of the secret before it ever leaves this function.
-            masked = snippet if len(snippet) <= 8 else f"{snippet[:4]}...{snippet[-4:]}"
-            findings.append({
-                "type": label,
-                "masked_value": masked,
+            kind = _classify(label, m)
+            if kind is None or kind in findings:
+                continue  # one hit per type per file is enough signal
+            findings[kind] = {
+                "type": kind,
+                # Mask the middle of the secret before it ever leaves this function.
+                "masked_value": snippet if len(snippet) <= 8 else f"{snippet[:4]}...{snippet[-4:]}",
                 "source": url,
-            })
-            break  # one hit per pattern per file is enough signal
-    return findings
+                "severity": secret_severity(kind),
+                # The same key in ten bundles is one finding, not ten; told
+                # apart by a hash, so the value itself is never kept.
+                "fingerprint": hashlib.sha256(snippet.encode()).hexdigest()[:16],
+            }
+    return list(findings.values())
+
+
+# Meant for the browser: a finding only as a reminder to restrict them.
+_PUBLIC_BY_DESIGN = {
+    "Google API Key", "Stripe Live Publishable Key", "Firebase URL with implicit database",
+    "Supabase anon key",
+}
+_CRITICAL = {"Supabase service_role key"}
+_PRIVATE = {
+    "AWS Secret Key", "Google OAuth Client Secret", "Stripe Live Secret Key", "GitHub Token",
+    "Slack Token", "Slack Webhook", "Private Key Block", "Basic Auth in URL", "OpenAI API Key",
+    "Anthropic API Key", "SendGrid API Key", "Mailchimp API Key", "GitLab Token", "npm Token",
+    # Not Mailgun's key-<32 hex>: a cache key in a bundle has the same shape,
+    # so it stays medium until someone looks.
+    "Shopify Access Token", "Stripe Live Restricted Key", "Telegram Bot Token", "Discord Webhook",
+    "Microsoft Teams Webhook", "Azure Storage Connection String", "Mapbox Secret Token",
+}
+
+
+def secret_severity(kind):
+    if kind in _CRITICAL:
+        return "critical"
+    if kind in _PRIVATE:
+        return "high"
+    if kind in _PUBLIC_BY_DESIGN:
+        return "info"
+    return "medium"
+
+
+# Code chunks named literally in a bundle: Vite's assets/<name>-<hash>.js,
+# Next.js's /_next/static/chunks/..., webpack's <id>.<hash>.chunk.js.
+_CHUNK_REF = re.compile(r"[\"'`]((?:\.{0,2}/)?[\w@./-]{1,200}?\.m?js)[\"'`]")
+# A chunk, not any .js string: a chunk directory, or a content hash in the name.
+_CHUNK_NAME = re.compile(r"chunk|_next/static/|assets/|static/js/|[.-][A-Za-z0-9_]{8,}\.m?js$")
+_ROOTED = re.compile(r"(?:\.?/)?(?:_next/|assets/|static/)")
+_SOURCE_MAP = re.compile(r"//[#@]\s*sourceMappingURL=(?!data:)(\S+)\s*$", re.M)
+
+
+def _chunk_urls(script_url, body, page_url):
+    """Same-origin chunk files a bundle names, resolved as the bundler does:
+    from the site root for /_next, assets/ and static/, else beside the file."""
+    origin = urlparse(page_url).netloc.lower()
+    found = []
+    for m in _CHUNK_REF.finditer(body or ""):
+        path = m.group(1)
+        if not _CHUNK_NAME.search(path):
+            continue
+        rooted = _ROOTED.match(path)
+        url = urljoin(page_url, "/" + path.lstrip("./")) if rooted else urljoin(script_url, path)
+        if urlparse(url).netloc.lower() == origin:
+            found.append(url)
+    return found
+
+
+def _fetch_map(url):
+    """A public source map's original sources, or None."""
+    try:
+        resp = requests.get(url, timeout=_TIMEOUT, headers={"User-Agent": _UA}, stream=True)
+        if resp.status_code != 200:
+            return None
+        data, total = [], 0
+        for chunk in resp.iter_content(chunk_size=65536):
+            total += len(chunk)
+            if total > _MAX_MAP_BYTES:
+                return None
+            data.append(chunk)
+        parsed = json.loads(b"".join(data).decode("utf-8", errors="ignore"))
+    except Exception:
+        return None
+    if not isinstance(parsed, dict) or "sources" not in parsed:
+        return None
+    return parsed
 
 
 # ---------------------------------------------------------------------------
@@ -337,11 +482,21 @@ def _fetch_script(url):
 
 
 def scan(domain):
-    """Fetch the homepage and its scripts; return library CVE + secret findings."""
+    """Fetch the homepage and its scripts; return library CVE + secret findings.
+
+    Coverage is counted, so "no secrets found" can be read against what was
+    looked at: scripts that could not be fetched are not scripts that were
+    clean.
+    """
     result = {
         "success": False,
         "base_url": None,
         "scripts_analyzed": 0,
+        "scripts_found": 0,
+        "scripts_failed": 0,
+        "inline_scripts": 0,
+        "chunks_followed": 0,
+        "source_maps": [],
         "vulnerable_libraries": [],
         "secrets_found": [],
         "missing_sri": [],
@@ -370,6 +525,8 @@ def scan(domain):
     result["base_url"] = base_url
     script_urls, inline_bodies, unprotected = _extract_tags(base_url, html)
     result["missing_sri"] = unprotected
+    result["scripts_found"] = len(script_urls)
+    result["inline_scripts"] = len(inline_bodies)
 
     lib_findings = []
     secret_findings = []
@@ -379,18 +536,54 @@ def scan(domain):
         secret_findings.extend(_scan_secrets(base_url, body))
         lib_findings.extend(_identify_libraries(base_url, body))
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
-        futures = {ex.submit(_fetch_script, u): u for u in script_urls}
-        for fut in concurrent.futures.as_completed(futures):
-            url = futures[fut]
-            try:
-                body = fut.result()
-            except Exception:
-                body = None
+    origin = urlparse(base_url).netloc.lower()
+    fetched = {}
+
+    def fetch_all(urls):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+            futures = {ex.submit(_fetch_script, u): u for u in urls}
+            for fut in concurrent.futures.as_completed(futures):
+                try:
+                    fetched[futures[fut]] = fut.result()
+                except Exception:
+                    fetched[futures[fut]] = None
+
+    fetch_all(script_urls)
+    # The chunks the page's own bundles name: most of a modern app is in
+    # them, not in the one file the HTML loads.
+    chunks = []
+    for url, body in list(fetched.items()):
+        if body and urlparse(url).netloc.lower() == origin:
+            for chunk in _chunk_urls(url, body, base_url):
+                if chunk not in fetched and chunk not in chunks:
+                    chunks.append(chunk)
+    chunks = chunks[:_MAX_CHUNKS]
+    fetch_all(chunks)
+    result["chunks_followed"] = sum(1 for c in chunks if fetched.get(c))
+
+    maps = []
+    for url, body in fetched.items():
+        if body:
             result["scripts_analyzed"] += 1
-            lib_findings.extend(_identify_libraries(url, body or ""))
-            if body:
-                secret_findings.extend(_scan_secrets(url, body))
+            lib_findings.extend(_identify_libraries(url, body))
+            secret_findings.extend(_scan_secrets(url, body))
+            for m in _SOURCE_MAP.finditer(body[-2000:]):
+                map_url = urljoin(url, m.group(1))
+                if urlparse(map_url).netloc.lower() == origin and map_url not in maps:
+                    maps.append(map_url)
+        else:
+            result["scripts_failed"] += 1
+            lib_findings.extend(_identify_libraries(url, ""))
+
+    # A public source map is the original source, comments and all; what is
+    # in it is scanned too.
+    for map_url in maps[:_MAX_MAPS]:
+        parsed = _fetch_map(map_url)
+        if not parsed:
+            continue
+        result["source_maps"].append(map_url)
+        contents = "\n".join(c for c in parsed.get("sourcesContent") or [] if isinstance(c, str))
+        secret_findings.extend(_scan_secrets(map_url, contents))
 
     # Dedupe library findings by (name, version)
     seen_libs = set()
@@ -401,10 +594,48 @@ def scan(domain):
             seen_libs.add(key)
             deduped_libs.append(f)
 
+    # One finding per secret, however many files carry it.
+    by_value = {}
+    for s in secret_findings:
+        known = by_value.get(s["fingerprint"])
+        if known:
+            known["also_in"] = known.get("also_in", 0) + 1
+        else:
+            by_value[s["fingerprint"]] = s
+    order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
     result["vulnerable_libraries"] = deduped_libs
-    result["secrets_found"] = secret_findings
+    result["secrets_found"] = sorted(by_value.values(), key=lambda s: order.get(s["severity"], 9))
     result["success"] = True
     return result
+
+
+_SECRET_TEXT = {
+    "critical": (
+        "A {kind} was found in JavaScript served to every visitor's browser. It bypasses "
+        "every row-level security policy: whoever reads it can read and change all data.",
+        "Rotate the key in the Supabase dashboard now, remove it from client-side code, and "
+        "use it only on a server. The browser gets the anon key, with row-level security on.",
+    ),
+    "high": (
+        "A pattern strongly matching {kind} was found in JavaScript served to every visitor's browser.",
+        "Validate and rotate this credential, remove it from client-side code, and move "
+        "privileged operations behind a backend API.",
+    ),
+    "medium": (
+        "A pattern possibly matching {kind} was found in public JavaScript, but validity and "
+        "privilege were not established.",
+        "Validate the match and its permissions. Rotate and remove it from client-side code if "
+        "it is a live private credential.",
+    ),
+    "info": (
+        "A client-visible identifier matching {kind} was found. This may be intentional; its "
+        "server-side restrictions still need review.",
+        "Confirm the identifier is intended to be public and restrict it by origin, API, quota, "
+        "and least privilege where the provider supports that. For a Supabase anon key: make "
+        "sure row-level security is on for every table.",
+    ),
+}
 
 
 def findings(scan_result):
@@ -426,50 +657,32 @@ def findings(scan_result):
 
     for secret in scan_result.get("secrets_found", []):
         secret_type = secret["type"]
-        if secret_type in {
-            "Google API Key", "Stripe Live Publishable Key",
-            "Firebase URL with implicit database",
-        }:
-            severity = "info"
-            detail = (
-                f"A client-visible identifier matching {secret_type} was found. "
-                "This may be intentional; its server-side restrictions still need review."
-            )
-            fix = (
-                "Confirm the identifier is intended to be public and restrict it by "
-                "origin, API, quota, and least privilege where the provider supports that."
-            )
-        elif secret_type in {
-            "AWS Secret Key", "Google OAuth Client Secret",
-            "Stripe Live Secret Key", "GitHub Token", "Slack Token",
-            "Slack Webhook", "Private Key Block", "Basic Auth in URL",
-        }:
-            severity = "high"
-            detail = (
-                f"A pattern strongly matching {secret_type} was found in JavaScript "
-                "served to every visitor's browser."
-            )
-            fix = (
-                "Validate and rotate this credential, remove it from client-side code, "
-                "and move privileged operations behind a backend API."
-            )
-        else:
-            severity = "medium"
-            detail = (
-                f"A pattern possibly matching {secret_type} was found in public "
-                "JavaScript, but validity and privilege were not established."
-            )
-            fix = (
-                "Validate the match and its permissions. Rotate and remove it from "
-                "client-side code if it is a live private credential."
-            )
+        severity = secret.get("severity") or secret_severity(secret_type)
+        detail, fix = _SECRET_TEXT[severity]
+        where = f"{secret['masked_value']} · found in {secret['source']}"
+        if secret.get("also_in"):
+            where += f" and {secret['also_in']} other file(s)"
         out.append({
             "severity": severity,
             "category": "Exposed Secret",
             "title": f"Possible {secret_type} exposed in client-side JS",
-            "detail": detail,
-            "evidence": f"{secret['masked_value']} · found in {secret['source']}",
+            "detail": detail.format(kind=secret_type),
+            "evidence": where,
             "fix": fix,
+        })
+
+    maps = scan_result.get("source_maps") or []
+    if maps:
+        out.append({
+            "severity": "low",
+            "category": "Exposed Source Map",
+            "title": f"{len(maps)} public source map(s)",
+            "detail": "The site serves source maps: anyone can read the original, unminified "
+                      "source, with its comments, internal paths and any value left in it.",
+            "evidence": ", ".join(maps[:3]),
+            "fix": "Do not deploy .map files to the public site (Vite: build.sourcemap false; "
+                   "Create React App: GENERATE_SOURCEMAP=false; Next.js: "
+                   "productionBrowserSourceMaps false), or upload them only to your error tracker.",
         })
 
     missing_sri = scan_result.get("missing_sri", [])

@@ -331,7 +331,7 @@
         {% set js = results.js_scan or {} %}
         {% if js.success %}
         <h3>JS Dependencies &amp; Secrets</h3>
-        <p>{{ js.scripts_analyzed or 0 }} script(s) analyzed on {{ js.base_url }}</p>
+        <p>{{ js.scripts_analyzed or 0 }} file(s) analyzed on {{ js.base_url }}{% if js.chunks_followed %}, {{ js.chunks_followed }} code chunk(s) followed{% endif %}{% if js.scripts_failed %}, {{ js.scripts_failed }} could not be fetched{% endif %}</p>
         {% if js.vulnerable_libraries %}
         <div class="table-wrap"><table class="data stack-table">
             <thead><tr><th>Library</th><th>Version</th><th>CVEs</th></tr></thead>
@@ -344,16 +344,23 @@
         {% endif %}
         {% if js.secrets_found %}
         <div class="table-wrap"><table class="data stack-table">
-            <thead><tr><th>Secret type</th><th>Masked value</th></tr></thead>
+            <thead><tr><th>Severity</th><th>Secret type</th><th>Masked value</th><th>Source</th></tr></thead>
             <tbody>
                 {% for s in js.secrets_found %}
-                <tr><td class="bad">{{ s.type }}</td><td class="mono">{{ s.masked_value }}</td></tr>
+                <tr><td>{{ s.severity or '' }}</td><td class="bad">{{ s.type }}</td><td class="mono">{{ s.masked_value }}</td><td class="mono">{{ s.source }}{% if s.also_in %} (+{{ s.also_in }}){% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table></div>
         {% endif %}
+        {% if js.source_maps %}
+        <p class="bad">{{ js.source_maps|length }} public source map(s): the original source is readable by anyone.</p>
+        {% endif %}
         {% if not js.vulnerable_libraries and not js.secrets_found %}
+        {% if not js.scripts_analyzed and not js.inline_scripts %}
+        <p>No scripts could be analyzed, so nothing is known about secrets in them.</p>
+        {% else %}
         <p class="ok">No vulnerable libraries or exposed secrets detected.</p>
+        {% endif %}
         {% endif %}
         {% endif %}
 
