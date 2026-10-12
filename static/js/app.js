@@ -2790,13 +2790,18 @@ function renderScanPlan(plan) {
     const status = $('planStatus');
     if (!status) return;
     $('planClearBtn').classList.toggle('hidden', !plan);
+    $('planApplyBtn').textContent = plan ? 'Re-plan all scans' : 'Plan all scans';
     if (!plan) {
         status.textContent = 'Not planned: each monitor scans one interval after its last run.';
         return;
     }
     $('planStart').value = plan.start;
     $('planSpacing').value = plan.spacing;
-    status.textContent = `Planned: ${plan.monitors} monitor(s) from ${plan.start} to ${plan.last}, ${plan.spacing} min apart.`;
+    const notes = [`Planned: ${plan.monitors} monitor(s) from ${plan.start} to ${plan.last}, ${plan.spacing} min apart.`];
+    if (plan.outside) notes.push(`${plan.outside} monitor(s) outside the plan.`);
+    if (!plan.in_order) notes.push('No longer in line since monitors were added, removed or changed.');
+    if (plan.outside || !plan.in_order) notes.push('Re-plan to put every monitor back in line.');
+    status.textContent = notes.join(' ');
 }
 
 async function applyScanPlan() {
@@ -2805,7 +2810,8 @@ async function applyScanPlan() {
     try {
         const resp = await fetch('/api/monitors/plan', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ start, spacing_minutes: Number($('planSpacing').value || 2), scan_tz: browserTimeZone() }),
+            body: JSON.stringify({ start, spacing_minutes: Number($('planSpacing').value || 2), scan_tz: browserTimeZone(),
+                                   schedule_minutes: ($('planFrequency') || {}).value || null }),
         });
         const data = await resp.json();
         if (!resp.ok || data.error) { showError(data.error || 'Could not plan the scans'); return; }

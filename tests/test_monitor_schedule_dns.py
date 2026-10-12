@@ -281,6 +281,41 @@ class ScanPlanTests(EnterpriseAppTestCase):
         self.assertEqual(("10:00", 5), (plan["start"], plan["spacing"]))
         self.assertEqual(plan["monitors"], len(self._times()))
 
+    def test_the_list_says_when_the_plan_is_out_of_line(self):
+        """A removed monitor leaves a gap, one with its own time falls out of
+        the plan; only re-planning puts them back, so the page must say so."""
+        self._plan()
+        self.assertTrue(self.client.get("/api/monitors").get_json()["plan"]["in_order"])
+        info = next(m for m in self.db.list_monitors(limit=100) if m["target"] == "example.info")
+        self.db.delete_monitor(info["id"])
+        org = next(m for m in self.db.list_monitors(limit=100) if m["target"] == "example.org")
+        self.db.update_monitor(org["id"], scan_time=None, scan_tz=None)
+        plan = self.client.get("/api/monitors").get_json()["plan"]
+        self.assertFalse(plan["in_order"])
+        self.assertEqual(1, plan["outside"])
+
+    def test_re_planning_closes_the_gaps_in_one_batch(self):
+        self._plan()
+        info = next(m for m in self.db.list_monitors(limit=100) if m["target"] == "example.info")
+        self.db.delete_monitor(info["id"])
+        self._plan()
+        times = self._times()
+        self.assertEqual(["10:00", "10:02", "10:04"],
+                         [times[d] for d in ("example.com", "example.net", "example.org")])
+        plan = self.client.get("/api/monitors").get_json()["plan"]
+        self.assertEqual((True, 0, "10:04"), (plan["in_order"], plan["outside"], plan["last"]))
+
+    def test_one_frequency_for_all_in_the_same_batch(self):
+        self.client.post("/api/monitors/plan", json={"start": "10:00", "spacing_minutes": 2,
+                                                     "scan_tz": "Europe/Amsterdam", "schedule_minutes": 10080})
+        self.assertEqual({10080}, {m["schedule_minutes"] for m in self.db.list_monitors(limit=100)})
+
+    def test_without_a_frequency_each_keeps_its_own(self):
+        net = next(m for m in self.db.list_monitors(limit=100) if m["target"] == "example.net")
+        self.db.update_monitor(net["id"], schedule_minutes=360)
+        self._plan()
+        self.assertEqual(360, self.db.get_monitor(net["id"])["schedule_minutes"])
+
     def test_a_wrong_start_is_refused(self):
         self.assertEqual(400, self._plan(start="10").status_code)
 

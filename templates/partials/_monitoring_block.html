@@ -18,6 +18,14 @@
                         <div class="scan-plan-fields">
                             <label class="mon-sched-at">Start at <input type="time" id="planStart" value="10:00"></label>
                             <label class="mon-sched-at"><input type="number" id="planSpacing" min="1" max="240" value="2"> minutes per scan</label>
+                            <select id="planFrequency" aria-label="Frequency for all monitors">
+                                <option value="" selected>Keep each monitor's frequency</option>
+                                <option value="60">All hourly</option>
+                                <option value="360">All every 6 hours</option>
+                                <option value="720">All every 12 hours</option>
+                                <option value="1440">All daily</option>
+                                <option value="10080">All weekly</option>
+                            </select>
                             <button type="button" class="btn-primary-lite" id="planApplyBtn">Plan all scans</button>
                             <button type="button" class="btn-ghost-sm hidden" id="planClearBtn">Remove the times</button>
                         </div>

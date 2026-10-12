@@ -3732,12 +3732,16 @@ def _plan_order(monitors):
     return sorted(monitors, key=lambda m: (str(m.get("domain") or ""), str(m.get("target") or ""), m["id"]))
 
 
-def _apply_scan_plan(start, spacing, zone):
+def _apply_scan_plan(start, spacing, zone, schedule_minutes=None):
     """Give every monitor its own time: start, start + spacing, ... Each
-    keeps its frequency; only the moment of the day changes."""
+    keeps its frequency unless one is given for all. Run again, it re-plans:
+    the gaps left by removed monitors close, and monitors added or changed
+    since fall back in line."""
     monitors = _plan_order(db.list_monitors(limit=10000))
     for index, monitor in enumerate(monitors):
         fields = {"scan_time": monitor_scheduler.plan_slot(start, spacing, index), "scan_tz": zone}
+        if schedule_minutes:
+            fields["schedule_minutes"] = schedule_minutes
         if monitor.get("enabled"):
             fields["next_scan_at"] = _monitor_next_run({**monitor, **fields}, first=True).isoformat()
         db.update_monitor(monitor["id"], **fields)
@@ -3765,10 +3769,21 @@ def _plan_summary():
     plan = _scan_plan()
     if not plan:
         return None
-    times = sorted(m["scan_time"] for m in db.list_monitors(limit=10000)
-                   if m.get("scan_time") and m.get("scan_tz") == plan["tz"])
-    return {**plan, "monitors": len(times),
-            "last": monitor_scheduler.plan_slot(plan["start"], plan["spacing"], max(len(times) - 1, 0))}
+    monitors = _plan_order(db.list_monitors(limit=10000))
+    planned = [m for m in monitors if m.get("scan_time") and m.get("scan_tz") == plan["tz"]]
+    start, spacing = plan["start"], int(plan["spacing"])
+    expected = [monitor_scheduler.plan_slot(start, spacing, i) for i in range(len(planned))]
+    begin = int(start[:2]) * 60 + int(start[3:])
+
+    def position(m):
+        hour, minute = m["scan_time"].split(":")
+        return (int(hour) * 60 + int(minute) - begin) % 1440
+
+    return {**plan, "monitors": len(planned), "outside": len(monitors) - len(planned),
+            # Not in line any more: monitors removed (gaps), added at a free
+            # time out of order, or given their own time. Re-planning fixes it.
+            "in_order": [m["scan_time"] for m in planned] == expected,
+            "last": max(planned, key=position)["scan_time"] if planned else start}
 
 
 @app.route("/api/monitors/plan", methods=["POST"])
@@ -3782,8 +3797,12 @@ def api_monitors_plan():
         return jsonify({"error": "Give the time as HH:MM, for example 03:00"}), 400
     if not monitor_scheduler.valid_zone(zone):
         return jsonify({"error": "Unknown time zone"}), 400
-    planned = _apply_scan_plan(start, spacing, zone)
-    audit_log.record("monitor.plan", details={"start": start, "spacing": spacing, "monitors": len(planned)})
+    schedule_minutes = None
+    if data.get("schedule_minutes") not in (None, ""):
+        schedule_minutes = _parse_positive_int(data.get("schedule_minutes"), 1440, minimum=5)
+    planned = _apply_scan_plan(start, spacing, zone, schedule_minutes)
+    audit_log.record("monitor.plan", details={"start": start, "spacing": spacing, "monitors": len(planned),
+                                              "schedule_minutes": schedule_minutes})
     return jsonify({"planned": len(planned), "plan": _plan_summary()})
 
 

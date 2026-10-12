@@ -2682,6 +2682,7 @@ footer, .app-footer {
 .scan-plan .login-hint { font-size: 0.85rem; margin: 0 0 0.5rem; }
 .scan-plan-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .scan-plan-fields input[type="number"] { width: 4.5rem; flex: none; }
+.scan-plan-fields select { width: auto; max-width: 100%; }
 .scan-plan-fields .btn-primary-lite { padding: 0.45rem 0.9rem; }
 .monitor-schedule-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.4rem; }
 .monitor-schedule-edit .btn-primary-lite { padding: 0.35rem 0.8rem; }

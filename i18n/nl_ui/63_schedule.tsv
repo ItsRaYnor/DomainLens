@@ -32,3 +32,14 @@ Remove the time of every monitor? Each then scans one interval after its last ru
 Could not remove the times	De tijdstippen konden niet worden verwijderd
 Times removed.	Tijdstippen verwijderd.
 Network error while removing the times	Netwerkfout bij het verwijderen van de tijdstippen
+Re-plan all scans	Alle scans herplannen
+Frequency for all monitors	Frequentie voor alle monitors
+Keep each monitor's frequency	Frequentie per monitor houden
+All hourly	Alle elk uur
+All every 6 hours	Alle elke 6 uur
+All every 12 hours	Alle elke 12 uur
+All daily	Alle dagelijks
+All weekly	Alle wekelijks
+{n} monitor(s) outside the plan.	{} monitor(s) buiten het plan.
+No longer in line since monitors were added, removed or changed.	Niet meer op volgorde doordat monitors zijn toegevoegd, verwijderd of gewijzigd.
+Re-plan to put every monitor back in line.	Herplan om elke monitor weer op volgorde te zetten.

@@ -74,9 +74,19 @@ set number of minutes apart (by default 2): 10:00, 10:02, 10:04 ... -- monitors 
 next to each other, domains alphabetical -- so they do not all run at once. Each keeps its own
 frequency. A monitor added later (by hand, from the portfolio, a unit, an import or a
 discovered hostname) takes the first free time of the plan. **Remove the times** drops the plan
-and every monitor's time. Over the API: `POST /api/monitors/plan` with
-`{"start": "10:00", "spacing_minutes": 2, "scan_tz": "Europe/Amsterdam"}`, and
-`DELETE /api/monitors/plan`; `GET /api/monitors` says how it is planned under `plan`.
+and every monitor's time.
+
+Once planned, the button reads **Re-plan all scans**: one batch that puts every monitor, of
+every unit, back in line from the start time -- closing the gaps of removed monitors and taking
+in monitors added out of order or given their own time. The status under it says when that is
+needed. The list next to it sets one frequency for all monitors in the same batch (hourly,
+every 6 or 12 hours, daily, weekly), or keeps each monitor's own.
+
+Over the API: `POST /api/monitors/plan` with
+`{"start": "10:00", "spacing_minutes": 2, "scan_tz": "Europe/Amsterdam"}` (plus
+`"schedule_minutes": 1440` for one frequency for all), and `DELETE /api/monitors/plan`;
+`GET /api/monitors` says how it is planned under `plan` (`monitors`, `outside`, `in_order`,
+`last`).
 
 ### Create via API
 
