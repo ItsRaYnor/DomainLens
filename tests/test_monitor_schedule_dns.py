@@ -213,11 +213,84 @@ class MonitorTimeApiTests(EnterpriseAppTestCase):
         self.assertEqual((3, 0), (local.hour, local.minute))
 
 
+class PlanSlotTests(unittest.TestCase):
+    def test_slots_follow_each_other_round_the_clock(self):
+        self.assertEqual(["10:00", "10:02", "10:04"], [scheduler.plan_slot("10:00", 2, i) for i in range(3)])
+        self.assertEqual("00:01", scheduler.plan_slot("23:59", 2, 1))
+
+    def test_a_later_monitor_takes_the_first_free_time(self):
+        self.assertEqual("10:02", scheduler.free_plan_slot("10:00", 2, {"10:00", "10:04"}))
+
+
+class ScanPlanTests(EnterpriseAppTestCase):
+    """Every monitor started at the moment it was made, or all at the hour
+    chosen for them; a hundred domains then ran at once. A plan gives each
+    its own time, a set number of minutes apart."""
+
+    def setUp(self):
+        super().setUp()
+        self.login_as("user")
+        for name in ("example.org", "example.net", "example.info"):
+            self.db.create_monitor(name=name, domain=name, target=name, record_type="A",
+                                   schedule_minutes=1440, checks=["all"])
+
+    def _plan(self, start="10:00", spacing=2):
+        return self.client.post("/api/monitors/plan", json={
+            "start": start, "spacing_minutes": spacing, "scan_tz": "Europe/Amsterdam"})
+
+    def _times(self):
+        return {m["target"]: m.get("scan_time") for m in self.db.list_monitors(limit=100)}
+
+    def test_each_monitor_gets_its_own_time(self):
+        resp = self._plan()
+        self.assertEqual(200, resp.status_code)
+        times = self._times()
+        self.assertEqual(len(times), len(set(times.values())))
+        # Domains alphabetical; the harness's own example.com monitor first.
+        self.assertEqual(["10:00", "10:02", "10:04", "10:06"],
+                         [times[d] for d in ("example.com", "example.info", "example.net", "example.org")])
+        for monitor in self.db.list_monitors(limit=100):
+            if monitor["enabled"]:
+                local = datetime.fromisoformat(monitor["next_scan_at"]).astimezone(AMS)
+                self.assertEqual(monitor["scan_time"], local.strftime("%H:%M"))
+            else:
+                self.assertIsNone(monitor["next_scan_at"])
+
+    def test_a_monitor_added_later_takes_the_next_free_time(self):
+        self._plan()
+        taken = set(self._times().values())
+        monitor = self.client.post("/api/monitors", json={"domain": "example.edu"}).get_json()["monitor"]
+        self.assertNotIn(monitor["scan_time"], taken)
+        self.assertEqual(scheduler.free_plan_slot("10:00", 2, taken), monitor["scan_time"])
+
+    def test_a_monitor_from_the_portfolio_takes_one_too(self):
+        self._plan()
+        self.app_module._set_monitoring(["example.edu"], 1440)
+        self.assertIsNotNone(self._times()["example.edu"])
+
+    def test_the_plan_and_its_times_can_be_removed(self):
+        self._plan()
+        self.assertEqual(200, self.client.delete("/api/monitors/plan").status_code)
+        self.assertEqual({None}, set(self._times().values()))
+        monitor = self.client.post("/api/monitors", json={"domain": "example.edu"}).get_json()["monitor"]
+        self.assertIsNone(monitor["scan_time"])
+
+    def test_the_list_says_how_it_is_planned(self):
+        self._plan(spacing=5)
+        plan = self.client.get("/api/monitors").get_json()["plan"]
+        self.assertEqual(("10:00", 5), (plan["start"], plan["spacing"]))
+        self.assertEqual(plan["monitors"], len(self._times()))
+
+    def test_a_wrong_start_is_refused(self):
+        self.assertEqual(400, self._plan(start="10").status_code)
+
+
 class ScreenTests(EnterpriseAppTestCase):
     def test_the_monitor_page_offers_a_time_and_says_when_dns_is_down(self):
         self.login_as("user")
         html = self.client.get("/monitoring").get_data(as_text=True)
         self.assertIn('id="monitorTimeInput"', html)
+        self.assertIn('id="planApplyBtn"', html)
         import pathlib
         js = (pathlib.Path(__file__).resolve().parent.parent / "static" / "js" / "app.js").read_text(encoding="utf-8")
         self.assertIn("scheduleBtn.textContent = 'Schedule…';", js)

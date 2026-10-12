@@ -9,7 +9,20 @@
   "Without a time the monitor scans one interval after its last run. With a time, daily and weekly scans run then; shorter intervals count from it.": "Zonder tijdstip scant de monitor één interval na de vorige run. Met een tijdstip lopen dagelijkse en wekelijkse scans dan; kortere intervallen tellen vanaf dat tijdstip.",
   "Leave the time empty to scan straight away and then every interval. With a time, the first scan and every daily or weekly one run at that time.": "Laat het tijdstip leeg om meteen te scannen en daarna elk interval. Met een tijdstip lopen de eerste scan en elke dagelijkse of wekelijkse scan op dat tijdstip.",
   "Give the time as HH:MM, for example 03:00": "Geef het tijdstip als UU:MM, bijvoorbeeld 03:00",
-  "Unknown time zone": "Onbekende tijdzone"
+  "Unknown time zone": "Onbekende tijdzone",
+  "Plan the scans one after another: each monitor gets its own time, so they do not all run at once. Monitors added later take the next free time.": "Plan de scans na elkaar: elke monitor krijgt een eigen tijdstip, zodat ze niet allemaal tegelijk lopen. Later toegevoegde monitors krijgen het eerstvolgende vrije tijdstip.",
+  "Start at": "Begin om",
+  "minutes per scan": "minuten per scan",
+  "Plan all scans": "Alle scans inplannen",
+  "Remove the times": "Tijdstippen verwijderen",
+  "Not planned: each monitor scans one interval after its last run.": "Niet ingepland: elke monitor scant één interval na de vorige run.",
+  "Choose a start time": "Kies een begintijd",
+  "Could not plan the scans": "De scans konden niet worden ingepland",
+  "Network error while planning the scans": "Netwerkfout bij het inplannen van de scans",
+  "Remove the time of every monitor? Each then scans one interval after its last run.": "Het tijdstip van elke monitor verwijderen? Elke monitor scant dan één interval na de vorige run.",
+  "Could not remove the times": "De tijdstippen konden niet worden verwijderd",
+  "Times removed.": "Tijdstippen verwijderd.",
+  "Network error while removing the times": "Netwerkfout bij het verwijderen van de tijdstippen"
  },
  "patterns": [
   [
@@ -43,6 +56,14 @@
   [
    "No\\ answer\\ from\\ the\\ name\\ servers\\ of\\ (.+?):\\ not\\ scanned,\\ nothing\\ judged",
    "Geen antwoord van de nameservers van $1: niet gescand, niets beoordeeld"
+  ],
+  [
+   "Planned:\\ (\\d[\\d.,]*)\\ monitor\\(s\\)\\ from\\ (\\d[\\d.,]*):(\\d[\\d.,]*)\\ to\\ (\\d[\\d.,]*):(\\d[\\d.,]*),\\ (\\d[\\d.,]*)\\ min\\ apart\\.",
+   "Ingepland: $1 monitor(s) van $2:$3 tot $4:$5, $6 min na elkaar."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ monitor\\(s\\)\\ planned\\ from\\ (\\d[\\d.,]*):(\\d[\\d.,]*)\\ to\\ (\\d[\\d.,]*):(\\d[\\d.,]*)\\.",
+   "$1 monitor(s) ingepland van $2:$3 tot $4:$5."
   ]
  ]
 }

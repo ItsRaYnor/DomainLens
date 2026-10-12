@@ -13,6 +13,16 @@
                 <section class="monitor-section">
                     <h4>Scheduler</h4>
                     <div id="schedulerStatus" class="monitor-status-box"></div>
+                    <div class="scan-plan">
+                        <p class="login-hint">Plan the scans one after another: each monitor gets its own time, so they do not all run at once. Monitors added later take the next free time.</p>
+                        <div class="scan-plan-fields">
+                            <label class="mon-sched-at">Start at <input type="time" id="planStart" value="10:00"></label>
+                            <label class="mon-sched-at"><input type="number" id="planSpacing" min="1" max="240" value="2"> minutes per scan</label>
+                            <button type="button" class="btn-primary-lite" id="planApplyBtn">Plan all scans</button>
+                            <button type="button" class="btn-ghost-sm hidden" id="planClearBtn">Remove the times</button>
+                        </div>
+                        <p class="monitor-meta" id="planStatus" role="status"></p>
+                    </div>
                 </section>
                 <section class="monitor-section">
                     <h4>Saved monitors</h4>

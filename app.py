@@ -3406,6 +3406,7 @@ def _save_monitor_definitions(monitor_defs, *, schedule_minutes, checks, enabled
             record_type=item["record_type"],
             defaults=defaults,
         )
+        stored_monitor = _place_in_plan(stored_monitor["id"]) or stored_monitor
         stored.append(_serialize_monitor(stored_monitor))
     return stored
 
@@ -3714,6 +3715,88 @@ def _monitor_time_fields(data, monitor=None):
     if not monitor_scheduler.valid_zone(zone):
         return None, "Unknown time zone"
     return {"scan_time": value, "scan_tz": zone}, None
+
+
+_SCAN_PLAN = "_scan_plan"
+
+
+def _scan_plan():
+    """{start, spacing, tz} when the scans are planned one after another,
+    else None."""
+    plan = db.get_setting_section(_SCAN_PLAN) or {}
+    return plan if plan.get("start") else None
+
+
+def _plan_order(monitors):
+    """Monitors of one domain next to each other, domains alphabetical."""
+    return sorted(monitors, key=lambda m: (str(m.get("domain") or ""), str(m.get("target") or ""), m["id"]))
+
+
+def _apply_scan_plan(start, spacing, zone):
+    """Give every monitor its own time: start, start + spacing, ... Each
+    keeps its frequency; only the moment of the day changes."""
+    monitors = _plan_order(db.list_monitors(limit=10000))
+    for index, monitor in enumerate(monitors):
+        fields = {"scan_time": monitor_scheduler.plan_slot(start, spacing, index), "scan_tz": zone}
+        if monitor.get("enabled"):
+            fields["next_scan_at"] = _monitor_next_run({**monitor, **fields}, first=True).isoformat()
+        db.update_monitor(monitor["id"], **fields)
+    db.set_setting_section(_SCAN_PLAN, {"start": start, "spacing": spacing, "tz": zone})
+    return monitors
+
+
+def _place_in_plan(monitor_id):
+    """A monitor added while the scans are planned gets the first free time
+    of the plan, instead of running at whatever moment it was made."""
+    plan = _scan_plan()
+    monitor = db.get_monitor(monitor_id)
+    if not plan or not monitor or monitor.get("scan_time"):
+        return monitor
+    taken = [m.get("scan_time") for m in db.list_monitors(limit=10000)
+             if m["id"] != monitor_id and m.get("scan_time") and m.get("scan_tz") == plan["tz"]]
+    fields = {"scan_time": monitor_scheduler.free_plan_slot(plan["start"], plan["spacing"], taken),
+              "scan_tz": plan["tz"]}
+    if monitor.get("enabled"):
+        fields["next_scan_at"] = _monitor_next_run({**monitor, **fields}, first=True).isoformat()
+    return db.update_monitor(monitor_id, **fields)
+
+
+def _plan_summary():
+    plan = _scan_plan()
+    if not plan:
+        return None
+    times = sorted(m["scan_time"] for m in db.list_monitors(limit=10000)
+                   if m.get("scan_time") and m.get("scan_tz") == plan["tz"])
+    return {**plan, "monitors": len(times),
+            "last": monitor_scheduler.plan_slot(plan["start"], plan["spacing"], max(len(times) - 1, 0))}
+
+
+@app.route("/api/monitors/plan", methods=["POST"])
+def api_monitors_plan():
+    """Plan every scan one after another from a time of day."""
+    data = request.get_json(silent=True) or {}
+    start = (data.get("start") or "").strip()
+    zone = (data.get("scan_tz") or "UTC").strip()
+    spacing = _parse_positive_int(data.get("spacing_minutes"), 2, minimum=1, maximum=240)
+    if not monitor_scheduler.valid_time(start):
+        return jsonify({"error": "Give the time as HH:MM, for example 03:00"}), 400
+    if not monitor_scheduler.valid_zone(zone):
+        return jsonify({"error": "Unknown time zone"}), 400
+    planned = _apply_scan_plan(start, spacing, zone)
+    audit_log.record("monitor.plan", details={"start": start, "spacing": spacing, "monitors": len(planned)})
+    return jsonify({"planned": len(planned), "plan": _plan_summary()})
+
+
+@app.route("/api/monitors/plan", methods=["DELETE"])
+def api_monitors_plan_clear():
+    """Drop the plan and every monitor's time: each runs one interval after
+    its last run again."""
+    for monitor in db.list_monitors(limit=10000):
+        if monitor.get("scan_time"):
+            db.update_monitor(monitor["id"], scan_time=None, scan_tz=None)
+    db.set_setting_section(_SCAN_PLAN, {})
+    audit_log.record("monitor.plan_clear")
+    return jsonify({"plan": None})
 
 
 def _process_due_monitors(limit=None):
@@ -4203,6 +4286,7 @@ def _set_monitoring(domains, schedule_minutes):
                 provider="portfolio", schedule_minutes=schedule_minutes,
                 checks=_prepare_checks(["all"]), enabled=True)
             db.update_monitor(monitor_id, next_scan_at=(now + step * i).isoformat())
+            _place_in_plan(monitor_id)
             done["created"].append(domain)
     return done
 
@@ -4297,6 +4381,7 @@ def api_portfolio_monitor():
             source_type="portfolio", source_label="Domain portfolio",
             provider="portfolio", schedule_minutes=schedule_minutes, checks=checks, enabled=True)
         db.update_monitor(monitor_id, next_scan_at=(now + step * i).isoformat())
+        _place_in_plan(monitor_id)
         created.append(domain)
     audit_log.record("monitor.bulk_create", target_type="portfolio",
                      details={"created": len(created), "skipped": len(domains) - len(created),
@@ -4678,6 +4763,7 @@ def monitoring_add_discovered():
                 source_type="discovery", source_label="Certificate Transparency",
                 provider="discovery", schedule_minutes=1440, checks=checks, enabled=True, metadata={},
             )
+            _place_in_plan(monitor_id)
             audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
                              details={"target": host, "checks": checks, "source": "discovery"})
         text = f"Now monitoring {chosen[0]}." if len(chosen) == 1 else f"Now monitoring {len(chosen)} hostnames."
@@ -6615,6 +6701,7 @@ def api_monitors_list():
         "monitors": monitors,
         "stats": db.monitor_stats(),
         "scheduler": _scheduler_config(),
+        "plan": _plan_summary(),
         "events": db.list_monitor_events(limit=20),
     })
 
@@ -6664,6 +6751,8 @@ def api_monitors_create():
         db.update_monitor(monitor_id, **time_fields, next_scan_at=_monitor_next_run(
             {"schedule_minutes": schedule_minutes, **time_fields}, first=True).isoformat()
             if enabled else None)
+    else:
+        _place_in_plan(monitor_id)
     audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
                      details={"target": target, "checks": checks})
     return jsonify({"monitor": _with_org_units([_serialize_monitor(db.get_monitor(monitor_id))])[0]}), 201

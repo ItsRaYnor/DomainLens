@@ -67,6 +67,17 @@ keeps the weekday of its first run. The row shows the schedule and the next scan
 `PATCH /api/monitors/{id}` with `{"scan_time": "03:00", "scan_tz": "Europe/Amsterdam"}`, or
 `"scan_time": ""` to drop it; `POST /api/monitors` takes the same two fields.
 
+### Planning all scans one after another
+
+Under **Scheduler**, **Plan all scans** gives every monitor its own time from a start time, a
+set number of minutes apart (by default 2): 10:00, 10:02, 10:04 ... -- monitors of one domain
+next to each other, domains alphabetical -- so they do not all run at once. Each keeps its own
+frequency. A monitor added later (by hand, from the portfolio, a unit, an import or a
+discovered hostname) takes the first free time of the plan. **Remove the times** drops the plan
+and every monitor's time. Over the API: `POST /api/monitors/plan` with
+`{"start": "10:00", "spacing_minutes": 2, "scan_tz": "Europe/Amsterdam"}`, and
+`DELETE /api/monitors/plan`; `GET /api/monitors` says how it is planned under `plan`.
+
 ### Create via API
 
 ```bash

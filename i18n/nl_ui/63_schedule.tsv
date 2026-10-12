@@ -17,3 +17,18 @@ The name servers of {} do not answer, so nothing can be measured; the scan was n
 No answer from the name servers of {}: not scanned, nothing judged	Geen antwoord van de nameservers van {}: niet gescand, niets beoordeeld
 Give the time as HH:MM, for example 03:00	Geef het tijdstip als UU:MM, bijvoorbeeld 03:00
 Unknown time zone	Onbekende tijdzone
+Plan the scans one after another: each monitor gets its own time, so they do not all run at once. Monitors added later take the next free time.	Plan de scans na elkaar: elke monitor krijgt een eigen tijdstip, zodat ze niet allemaal tegelijk lopen. Later toegevoegde monitors krijgen het eerstvolgende vrije tijdstip.
+Start at	Begin om
+minutes per scan	minuten per scan
+Plan all scans	Alle scans inplannen
+Remove the times	Tijdstippen verwijderen
+Not planned: each monitor scans one interval after its last run.	Niet ingepland: elke monitor scant één interval na de vorige run.
+Planned: {n} monitor(s) from {n}:{n} to {n}:{n}, {n} min apart.	Ingepland: {} monitor(s) van {}:{} tot {}:{}, {} min na elkaar.
+{n} monitor(s) planned from {n}:{n} to {n}:{n}.	{} monitor(s) ingepland van {}:{} tot {}:{}.
+Choose a start time	Kies een begintijd
+Could not plan the scans	De scans konden niet worden ingepland
+Network error while planning the scans	Netwerkfout bij het inplannen van de scans
+Remove the time of every monitor? Each then scans one interval after its last run.	Het tijdstip van elke monitor verwijderen? Elke monitor scant dan één interval na de vorige run.
+Could not remove the times	De tijdstippen konden niet worden verwijderd
+Times removed.	Tijdstippen verwijderd.
+Network error while removing the times	Netwerkfout bij het verwijderen van de tijdstippen

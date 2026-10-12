@@ -174,6 +174,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     on('monitorUnitInput', 'change', () => { $('monitorUnitInput').dataset.manual = '1'; });
     on('importMonitorsBtn', 'click', importMonitors);
     on('runDueBtn', 'click', runDueMonitors);
+    on('planApplyBtn', 'click', applyScanPlan);
+    on('planClearBtn', 'click', clearScanPlan);
     initMonitorChecks();
     on('importModeInput', 'change', syncImportMode);
 
@@ -2533,6 +2535,7 @@ async function loadMonitors() {
             <p class="monitor-meta">Poll interval: ${escapeHtml(String(scheduler.poll_seconds || 0))} seconds</p>`
             + (dnsDown ? `<p class="status status-fail">DNS does not answer on this server since ${escapeHtml(formatWhen(dnsDown))}. Scheduled scans wait until it does, rather than rating every domain F.</p>` : '');
         lastMonitors = data.monitors || [];
+        renderScanPlan(data.plan);
         await loadMonitorUnits();
         renderMonitorList(lastMonitors);
         renderMonitorEvents(data.events || []);
@@ -2779,6 +2782,46 @@ async function initMonitorChecks() {
 function monitorDisplayName(m) {
     const generated = `${m.target} (${m.record_type})`;
     return m.name === generated ? m.target : m.name;
+}
+
+// The scans one after another from one time of day, so a hundred monitors
+// do not all start at once; a monitor added later takes the next free time.
+function renderScanPlan(plan) {
+    const status = $('planStatus');
+    if (!status) return;
+    $('planClearBtn').classList.toggle('hidden', !plan);
+    if (!plan) {
+        status.textContent = 'Not planned: each monitor scans one interval after its last run.';
+        return;
+    }
+    $('planStart').value = plan.start;
+    $('planSpacing').value = plan.spacing;
+    status.textContent = `Planned: ${plan.monitors} monitor(s) from ${plan.start} to ${plan.last}, ${plan.spacing} min apart.`;
+}
+
+async function applyScanPlan() {
+    const start = $('planStart').value;
+    if (!start) { showError('Choose a start time'); return; }
+    try {
+        const resp = await fetch('/api/monitors/plan', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start, spacing_minutes: Number($('planSpacing').value || 2), scan_tz: browserTimeZone() }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) { showError(data.error || 'Could not plan the scans'); return; }
+        showToast(`${data.planned} monitor(s) planned from ${data.plan.start} to ${data.plan.last}.`);
+        await loadMonitors();
+    } catch (e) { showError('Network error while planning the scans'); }
+}
+
+async function clearScanPlan() {
+    if (!confirm('Remove the time of every monitor? Each then scans one interval after its last run.')) return;
+    try {
+        const resp = await fetch('/api/monitors/plan', { method: 'DELETE' });
+        if (!resp.ok) { showError('Could not remove the times'); return; }
+        showToast('Times removed.');
+        await loadMonitors();
+    } catch (e) { showError('Network error while removing the times'); }
 }
 
 // "daily at 03:00": the time in the zone it was chosen in, which is named

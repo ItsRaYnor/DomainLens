@@ -120,6 +120,25 @@ def valid_zone(name):
     return _zone(name) is not None
 
 
+def plan_slot(start, spacing, index):
+    """The time of the index-th scan of a plan: start, start + spacing, ...
+    round the clock."""
+    hour, minute = _parse_time(start)
+    total = (hour * 60 + minute + index * int(spacing)) % 1440
+    return f"{total // 60:02d}:{total % 60:02d}"
+
+
+def free_plan_slot(start, spacing, taken):
+    """The first time of the plan no monitor has yet, so a monitor added
+    later does not land on top of one already planned."""
+    taken = set(taken)
+    for index in range(max(1440 // max(int(spacing), 1), 1)):
+        slot = plan_slot(start, spacing, index)
+        if slot not in taken:
+            return slot
+    return plan_slot(start, spacing, len(taken))
+
+
 def _postpone_for_dns(db, monitor: dict, settings: dict, exc, notify_fn) -> dict:
     """A scan DNS could not serve is put off, not run and not failed.
 
