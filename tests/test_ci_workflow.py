@@ -40,5 +40,21 @@ class PublishWaitsForTestsTests(unittest.TestCase):
         self.assertIn("pip-audit", _read("tests.yml"))
 
 
+class ReleaseNotesTests(unittest.TestCase):
+    """A release said only "Full Changelog" and a compare link: whoever
+    pulled a new tag had to read commits to learn what it changed."""
+
+    def test_a_release_carries_the_notes_written_for_its_version(self):
+        publish = _read("docker-publish.yml")
+        self.assertIn('if [ -f "docs/releases/${VERSION}.md" ]; then', publish)
+        self.assertEqual(2, publish.count('"${notes[@]}" --generate-notes'))
+
+    def test_the_current_version_has_its_notes(self):
+        with open(os.path.join(_ROOT, "VERSION"), encoding="utf-8") as handle:
+            version = handle.read().strip()
+        self.assertTrue(os.path.isfile(os.path.join(_ROOT, "docs", "releases", f"{version}.md")),
+                        f"docs/releases/{version}.md is missing: the release would have no notes")
+
+
 if __name__ == "__main__":
     unittest.main()

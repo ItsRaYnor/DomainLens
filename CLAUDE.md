@@ -26,6 +26,12 @@ in a repository that has never published anything. No existing tag was
 overwritten and nothing anyone had pinned changed meaning. A reset is only ever
 sound on those terms — a new image name, starting empty.
 
+**Write the release notes.** Every version has `docs/releases/<version>.md`:
+what changed, in words an operator reads before pulling the tag, and what
+they have to do to upgrade (often nothing). The publish workflow puts it at
+the top of the GitHub release, above the generated compare link; a test fails
+when the file for the current `VERSION` is missing.
+
 ## Tests
 
 Every behaviour change comes with a test that fails without it. Test names and

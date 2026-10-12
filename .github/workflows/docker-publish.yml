@@ -105,9 +105,15 @@ jobs:
             echo "Release $tag already exists; nothing to do."
             exit 0
           fi
+          # What changed, in words, from docs/releases/<version>.md when it is
+          # there; GitHub's generated notes (the compare link) follow it.
+          notes=()
+          if [ -f "docs/releases/${VERSION}.md" ]; then
+            notes=(--notes-file "docs/releases/${VERSION}.md")
+          fi
           if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
             echo "Tag $tag already exists without a release; creating the release only."
-            gh release create "$tag" --title "DomainLens ${VERSION}" --generate-notes
+            gh release create "$tag" --title "DomainLens ${VERSION}" "${notes[@]}" --generate-notes
             exit 0
           fi
-          gh release create "$tag" --target "${GITHUB_SHA}" --title "DomainLens ${VERSION}" --generate-notes
+          gh release create "$tag" --target "${GITHUB_SHA}" --title "DomainLens ${VERSION}" "${notes[@]}" --generate-notes
