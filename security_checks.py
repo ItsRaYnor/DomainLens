@@ -175,6 +175,12 @@ def _finding(severity, category, title, detail, evidence="", fix=""):
 # Contrast with classic per-tenant services (S3, GitHub Pages, Heroku): there
 # the customer picks the whole subdomain, so anyone can re-register it. Those
 # stay in _TAKEOVER_SIGNATURES.
+#
+# Some services hand out both kinds. Azure App Service's classic
+# <app>.azurewebsites.net is chosen by the customer; its "secure unique
+# default hostname" <app>-<16-char hash>.<region>-NN.azurewebsites.net is not
+# (Microsoft: "No external actor can recreate your default hostname"). Those
+# are told apart by pattern, before the takeover signatures are consulted.
 _PROVIDER_ASSIGNED = [
     {"provider": "AWS Elastic Load Balancing",
      "cnames": [".elb.amazonaws.com"],
@@ -183,6 +189,32 @@ _PROVIDER_ASSIGNED = [
      "cnames": [".cloudfront.net"],
      "note": "the CloudFront distribution domain is a random AWS-assigned id, and an "
              "alternate domain can only be added after ownership is proven"},
+    {"provider": "Azure App Service",
+     "pattern": r"-[a-z0-9]{16}\.(scm\.)?[a-z0-9]+-\d+\.azurewebsites\.net$",
+     "note": "this is a unique default hostname: its 16-character hash is tied to the "
+             "owner's tenant or subscription, so no one outside it can create the same name"},
+    {"provider": "Azure Front Door",
+     "pattern": r"-[a-z0-9]{16}\.z\d+\.azurefd\.net$",
+     "note": "the Standard/Premium endpoint name carries a hash, and Front Door serves a custom "
+             "domain only after it is validated with a _dnsauth TXT record or a certificate"},
+    {"provider": "Azure public IP",
+     "pattern": r"\.[a-z0-9]{16}\.[a-z0-9]+\.cloudapp\.azure\.com$",
+     "note": "the DNS label carries a hash from its domain name label scope, so another "
+             "customer cannot create the same name"},
+    {"provider": "AWS S3",
+     "pattern": r"-\d{12}-[a-z0-9-]+-an\.s3[.-]",
+     "note": "the bucket is in an account regional namespace, which no other AWS account "
+             "can create"},
+    {"provider": "AWS Amplify",
+     "cnames": [".amplifyapp.com"],
+     "note": "the app id is assigned by AWS, and attaching a domain from another account "
+             "requires manual verification"},
+    {"provider": "AWS API Gateway",
+     "cnames": [".execute-api."],
+     "note": "the API id is assigned by AWS, and a custom domain needs a certificate for the name"},
+    {"provider": "AWS App Runner",
+     "cnames": [".awsapprunner.com"],
+     "note": "the service URL is assigned by AWS"},
 ]
 
 
@@ -196,7 +228,9 @@ def provider_assigned(hostname):
     """
     host = (hostname or "").rstrip(".").lower()
     for entry in _PROVIDER_ASSIGNED:
-        if any(c in host for c in entry["cnames"]):
+        if any(c in host for c in entry.get("cnames", ())):
+            return entry
+        if entry.get("pattern") and re.search(entry["pattern"], host):
             return entry
     return None
 
@@ -211,7 +245,9 @@ _TAKEOVER_SIGNATURES = [
      "fingerprints": ["There isn't a GitHub Pages site here", "For root URLs (like http://example.com/) you must provide an index.html file"]},
     {"service": "Heroku", "cnames": ["herokuapp.com", "herokudns.com"],
      "fingerprints": ["No such app", "herokucdn.com/error-pages/no-such-app.html"]},
-    {"service": "Azure", "cnames": ["azurewebsites.net", "cloudapp.net", "cloudapp.azure.com", "trafficmanager.net", "blob.core.windows.net", "azureedge.net", "azurefd.net", "azure-api.net"],
+    {"service": "Azure App Service", "cnames": ["azurewebsites.net"],
+     "fingerprints": ["404 Web Site not found", "Error 404 - Web app not found"]},
+    {"service": "Azure", "cnames": ["cloudapp.net", "cloudapp.azure.com", "trafficmanager.net", "blob.core.windows.net", "azureedge.net", "azurefd.net", "azure-api.net", "azurecontainer.io"],
      "fingerprints": ["404 Web Site not found", "The specified blob does not exist", "Error 404 - Web app not found"]},
     {"service": "Fastly", "cnames": ["fastly.net"],
      "fingerprints": ["Fastly error: unknown domain", "Please check that this domain has been added to a service"]},
@@ -320,6 +356,56 @@ def enumerate_subdomains(domain, limit=_SUBDOMAIN_LIMIT, timeout=20, force=False
 _DOMAIN_OK = re.compile(r"^[a-z0-9._-]+$")
 
 
+def _match_signature(cname):
+    for sig in _TAKEOVER_SIGNATURES:
+        if any(c in cname for c in sig["cnames"]):
+            return sig
+    return None
+
+
+def classify_dangling(sub, cname, *, fingerprint_match=False, target_resolves=False, http_status=None):
+    """Whether a dangling CNAME can be claimed, from DNS alone.
+
+    Two questions decide it: can someone else create the target name again,
+    and would the provider then serve `sub` from it? A name only its owner
+    can create (a hash, an AWS-assigned id, an account namespace) answers
+    the first with no; an App Service domain verification record answers the
+    second with no. Either makes it a stale record, not a takeover.
+
+      kind="takeover" -- a known service where both can happen;
+      kind="dangling" -- registrable False: stale, ruled out as claimable;
+                         registrable None: a provider we do not know.
+    """
+    base = {"subdomain": sub, "cname": cname, "target_resolves": target_resolves,
+            "fingerprint_match": fingerprint_match, "http_status": http_status}
+
+    def stale(provider, note):
+        return {**base, "kind": "dangling", "service": None, "registrable": False,
+                "provider": provider, "provider_note": note, "confidence": "low"}
+
+    assigned = provider_assigned(cname)
+    if assigned:
+        return stale(assigned["provider"], assigned["note"])
+    matched = _match_signature(cname)
+    if not matched:
+        return {**base, "kind": "dangling", "service": None, "registrable": None,
+                "provider": None, "provider_note": None, "confidence": "medium"}
+    note = None
+    if matched["service"] == "Azure App Service":
+        verified = _app_service_verification(sub)
+        if verified is True:
+            return stale("Azure App Service",
+                         f"the TXT record asuid.{sub} holds the domain verification ID, and App "
+                         "Service binds the name only to an app in the subscription that owns that ID")
+        note = (f"There is no domain verification ID in TXT asuid.{sub}, so App Service accepts "
+                "the CNAME alone as proof of ownership. After an app is deleted its name stays reserved for the "
+                "original tenant for a while, but Microsoft gives no end to that reservation."
+                if verified is False else
+                f"Whether the TXT record asuid.{sub} protects it could not be checked.")
+    return {**base, "kind": "takeover", "service": matched["service"], "note": note,
+            "confidence": "high" if fingerprint_match else "medium"}
+
+
 def _check_one_takeover(sub):
     """Resolve a subdomain's CNAME and test for a dangling / unclaimed target.
 
@@ -327,8 +413,9 @@ def _check_one_takeover(sub):
       kind="takeover" — the CNAME points at a known takeover-able service and
         either its unclaimed-resource fingerprint matched, or the target is
         NXDOMAIN.
-      kind="dangling" — the CNAME target is NXDOMAIN but the service isn't in
-        our signature list. Still a real dangling record worth removing;
+      kind="dangling" — the CNAME target is NXDOMAIN but it cannot be claimed
+        (registrable False) or the service isn't in our signature list
+        (registrable None). Still a real dangling record worth removing;
         previously these were dropped silently, so a dangling CNAME to any
         provider we hadn't enumerated was invisible.
     """
@@ -337,41 +424,15 @@ def _check_one_takeover(sub):
         return None
     cname = cnames[0].rstrip(".").lower()
 
-    # Match against a known takeover-able service
-    matched = None
-    for sig in _TAKEOVER_SIGNATURES:
-        if any(c in cname for c in sig["cnames"]):
-            matched = sig
-            break
-
     # NXDOMAIN on the target is the only DNS state that actually means
     # "unclaimed" — see _is_nxdomain for why "no records" is not enough.
-    target_nxdomain = _is_nxdomain(cname)
-    target_resolves = not target_nxdomain and bool(
-        _resolve(cname, "A") or _resolve(cname, "AAAA")
-    )
+    if _is_nxdomain(cname):
+        return classify_dangling(sub, cname)
 
-    if not matched:
-        if target_nxdomain:
-            assigned = provider_assigned(cname)
-            return {
-                "kind": "dangling",
-                "subdomain": sub,
-                "cname": cname,
-                "service": None,
-                "target_resolves": False,
-                "fingerprint_match": False,
-                "http_status": None,
-                # registrable is False when the target is a provider-assigned
-                # name (stale, but nobody can re-register it) and None when the
-                # provider is simply unknown to us (claimability untested).
-                "registrable": None if assigned is None else False,
-                "provider": assigned["provider"] if assigned else None,
-                "provider_note": assigned["note"] if assigned else None,
-                "confidence": "low" if assigned else "medium",
-            }
+    matched = _match_signature(cname)
+    if not matched or provider_assigned(cname):
         return None
-
+    target_resolves = bool(_resolve(cname, "A") or _resolve(cname, "AAAA"))
     body = ""
     status = None
     if _safe_host(sub):
@@ -383,22 +444,33 @@ def _check_one_takeover(sub):
                 break
             except Exception:
                 continue
+    if not any(fp.lower() in body.lower() for fp in matched["fingerprints"]):
+        return None
+    return classify_dangling(sub, cname, fingerprint_match=True,
+                             target_resolves=target_resolves, http_status=status)
 
-    fp_hit = any(fp.lower() in body.lower() for fp in matched["fingerprints"])
 
-    if fp_hit or target_nxdomain:
-        confidence = "high" if fp_hit else "medium"
-        return {
-            "kind": "takeover",
-            "subdomain": sub,
-            "cname": cname,
-            "service": matched["service"],
-            "target_resolves": target_resolves,
-            "fingerprint_match": fp_hit,
-            "http_status": status,
-            "confidence": confidence,
-        }
-    return None
+def _app_service_verification(sub):
+    """True when asuid.<sub> has a TXT record, False when it has none, None
+    when that could not be measured.
+
+    App Service checks this record, holding the subscription's custom domain
+    verification ID, before it binds a custom domain. Microsoft calls it
+    "not absolutely required" but "highly recommended for security": with
+    it, "no other Azure subscription can validate the custom domain or take
+    it over"; without it a CNAME alone is enough.
+
+    Only a value shaped like a verification ID counts: a wildcard TXT record
+    (often "v=spf1 -all" for every name under the zone) answers for
+    asuid.<sub> too, and was read as the protection it is not.
+    """
+    records = _resolve(f"asuid.{sub}", "TXT")
+    if _dns_measurement(records) != "measured":
+        return None
+    return any(_VERIFICATION_ID.match(str(r).replace('"', "").replace(" ", "")) for r in records)
+
+
+_VERIFICATION_ID = re.compile(r"^[0-9A-Fa-f]{32,}$")
 
 
 def check_subdomain_takeover(domain, limit=_SUBDOMAIN_LIMIT, force=False):
@@ -1363,7 +1435,8 @@ def audit_findings(audit):
             f"Possible subdomain takeover: {t['subdomain']}",
             f"{t['subdomain']} has a dangling CNAME to {t['cname']} ({t['service']}). "
             + ("A takeover fingerprint was matched on the live response." if t["fingerprint_match"]
-               else "The CNAME target returns NXDOMAIN, which is a strong takeover signal."),
+               else "The CNAME target returns NXDOMAIN, which is a strong takeover signal.")
+            + (f" {t['note']}" if t.get("note") else ""),
             evidence=f"CNAME → {t['cname']} | target_resolves={t['target_resolves']} | http={t['http_status']}",
             fix=f"Remove the dangling DNS record for {t['subdomain']}, or re-claim the resource on {t['service']}.",
         ))

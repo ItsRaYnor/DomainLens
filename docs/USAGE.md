@@ -131,6 +131,14 @@ a provider where a name can be claimed again, *Dangling CNAME* otherwise -- with
 the registration. Mail, web and TLS checks are not run, since the name resolves to nothing. Once
 the target resolves again the name is scanned as usual.
 
+Whether a dangling CNAME can be claimed is judged from DNS, by the providers' own rules: a target
+name only its owner can create (an App Service unique default hostname, a Front Door
+Standard/Premium endpoint, a hashed public IP label, an S3 account regional namespace bucket, an
+AWS-assigned Amplify, API Gateway or App Runner id) is a stale record, not a takeover. A classic
+`<app>.azurewebsites.net` name is not claimable when the TXT record `asuid.<name>` holds the
+domain verification ID, and the finding says when it is missing. The DNS lookup page asks the
+same question through `GET /api/dns/dangling?name=…`.
+
 ### When DNS does not answer
 
 A scan without DNS finds nothing, and every "nothing" would become a finding and an F. So a

@@ -6571,9 +6571,31 @@ def api_dns_options():
         # dead-target CNAME without duplicating the list in JS.
         "provider_assigned": [
             {"suffix": s, "provider": e["provider"], "note": e["note"]}
-            for e in security_checks._PROVIDER_ASSIGNED for s in e["cnames"]
+            for e in security_checks._PROVIDER_ASSIGNED for s in e.get("cnames", ())
         ],
     })
+
+
+@app.route("/api/dns/dangling", methods=["GET"])
+def api_dns_dangling():
+    """Whether a dangling CNAME can be claimed, by the same rules as the scan.
+
+    DNS only -- the name's CNAME, its target, and for App Service the
+    asuid TXT record -- so the lookup page fetches nothing from the host.
+    """
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    name = _normalize_domain(request.args.get("name", ""))
+    if not _is_valid_domain(name):
+        return jsonify({"error": "Invalid name"}), 400
+    cnames = security_checks._resolve(name, "CNAME")
+    if not cnames:
+        return jsonify({"name": name, "dangling": False, "reason": "no CNAME"})
+    cname = cnames[0].rstrip(".").lower()
+    if not security_checks._is_nxdomain(cname):
+        return jsonify({"name": name, "cname": cname, "dangling": False})
+    return jsonify({"name": name, "cname": cname, "dangling": True,
+                    "verdict": security_checks.classify_dangling(name, cname)})
 
 
 @app.route("/api/dns/propagation", methods=["GET"])

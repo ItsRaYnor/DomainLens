@@ -314,7 +314,6 @@ function formatCacheAge(seconds) {
 
 let dnsResolverOptions = [];
 let dnsCustomResolvers = [];
-let dnsProviderAssigned = [];
 
 async function initDnsLookupPage() {
     const typeEl = $('dnsLookupType');
@@ -325,7 +324,6 @@ async function initDnsLookupPage() {
         dnsResolverOptions = data.resolvers || [];
         dnsCustomResolvers = data.custom_resolvers || [];
         $('dnsLookupResolver').innerHTML = dnsResolverOptions.map(r => `<option>${esc(r)}</option>`).join('');
-        dnsProviderAssigned = data.provider_assigned || [];
         typeEl.value = 'TXT';
     } catch (e) { return; }
     $('dnsLookupBtn').addEventListener('click', dnsLookup);
@@ -438,16 +436,13 @@ async function dnsPropagation() {
     out.innerHTML = html;
 }
 
-function providerAssignedFor(host) {
-    const h = String(host || '').replace(/\.$/, '').toLowerCase();
-    return dnsProviderAssigned.find(p => h.includes(p.suffix)) || null;
-}
-
 // Follow a CNAME target and report whether it still resolves. A CNAME whose
-// target is NXDOMAIN is a dangling record; when the target is a
-// provider-assigned name it is stale but not claimable, which is called out
-// so the reader does not mistake it for a takeover.
-async function dnsDanglingNotice(target, resolver) {
+// target is NXDOMAIN is a dangling record. Whether someone else can claim it
+// is asked of the server, which judges it as the scan does: a name only its
+// owner can create, or an App Service domain verification record, makes it a
+// stale record; a service that hands the name to the next customer, a
+// takeover.
+async function dnsDanglingNotice(name, target, resolver) {
     let data;
     try {
         const params = new URLSearchParams({ name: target, type: 'A', resolver });
@@ -456,11 +451,22 @@ async function dnsDanglingNotice(target, resolver) {
         if (!resp.ok || data.error) return '';
     } catch (e) { return ''; }
     if (data.rcode !== 'NXDOMAIN') return '';
-    const assigned = providerAssignedFor(target);
-    const msg = assigned
-        ? `Dangling CNAME: target <code>${esc(target)}</code> returns NXDOMAIN. It is a ${esc(assigned.provider)} name that a third party cannot re-register — a stale record to clean up, not a claimable takeover.`
-        : `Dangling CNAME: target <code>${esc(target)}</code> returns NXDOMAIN. The record is stale; claimability depends on whether the provider lets the target be re-registered.`;
-    return `<p class="status status-warn">${msg}</p>`;
+    let verdict = null;
+    try {
+        const resp = await fetch('/api/dns/dangling?name=' + encodeURIComponent(name));
+        const info = await resp.json();
+        if (resp.ok && info.dangling) verdict = info.verdict;
+    } catch (e) { /* judged below as unknown */ }
+    const lead = `Dangling CNAME: target <code>${esc(target)}</code> returns NXDOMAIN.`;
+    if (verdict && verdict.kind === 'takeover') {
+        return `<p class="status status-fail">${lead} Possible subdomain takeover: ${esc(verdict.service)} lets another customer create that name again and serve this one from it.`
+            + (verdict.note ? ` ${esc(verdict.note)}` : '')
+            + ' Remove the record, or re-create the resource yourself.</p>';
+    }
+    if (verdict && verdict.registrable === false) {
+        return `<p class="status status-warn">${lead} Not claimable by a third party: ${esc(verdict.provider_note)}. A stale record to clean up.</p>`;
+    }
+    return `<p class="status status-warn">${lead} The record is stale; whether the target can be claimed again is unknown for this provider.</p>`;
 }
 
 async function dnsLookup() {
@@ -505,7 +511,7 @@ async function dnsLookup() {
     // claimable-vs-stale nuance for provider-assigned names.
     if (data.type === 'CNAME' && data.records.length) {
         const target = String(data.records[0]).replace(/\.$/, '');
-        const notice = await dnsDanglingNotice(target, $('dnsLookupResolver').value);
+        const notice = await dnsDanglingNotice(name, target, $('dnsLookupResolver').value);
         if (notice) html += notice;
     }
     out.innerHTML = html;

@@ -144,3 +144,19 @@ Registered, not in DNS	Geregistreerd, niet in DNS
 Available to register	Vrij om te registreren
 Not looked up yet	Nog niet opgezocht
 Not registered	Niet geregistreerd
+returns NXDOMAIN.	geeft NXDOMAIN.
+Possible subdomain takeover: {} lets another customer create that name again and serve this one from it.	Mogelijke subdomain takeover: {} laat een andere klant die naam opnieuw aanmaken en deze naam daarvandaan bedienen.
+Remove the record, or re-create the resource yourself.	Verwijder het record, of maak de resource zelf opnieuw aan.
+Not claimable by a third party: {}. A stale record to clean up.	Niet te claimen door een derde: {}. Een verouderd record om op te ruimen.
+The record is stale; whether the target can be claimed again is unknown for this provider.	Het record is verouderd; of het doel opnieuw te claimen is, is voor deze provider onbekend.
+There is no domain verification ID in TXT asuid.{}, so App Service accepts the CNAME alone as proof of ownership.	Er staat geen domeinverificatie-ID in TXT asuid.{}, dus App Service accepteert alleen de CNAME als bewijs van eigendom.
+After an app is deleted its name stays reserved for the original tenant for a while, but Microsoft gives no end to that reservation.	Na het verwijderen van een app blijft de naam een tijd gereserveerd voor de oorspronkelijke tenant, maar Microsoft noemt geen einde aan die reservering.
+Whether the TXT record asuid.{} protects it could not be checked.	Of het TXT-record asuid.{} het beschermt, kon niet worden gecontroleerd.
+the TXT record asuid.{} holds the domain verification ID, and App Service binds the name only to an app in the subscription that owns that ID	het TXT-record asuid.{} bevat het domeinverificatie-ID, en App Service koppelt de naam alleen aan een app in het abonnement dat dat ID bezit
+this is a unique default hostname: its 16-character hash is tied to the owner's tenant or subscription, so no one outside it can create the same name	dit is een unieke standaardhostnaam: de hash van 16 tekens hoort bij de tenant of het abonnement van de eigenaar, dus niemand daarbuiten kan dezelfde naam aanmaken
+the Standard/Premium endpoint name carries a hash, and Front Door serves a custom domain only after it is validated with a _dnsauth TXT record or a certificate	de Standard/Premium-endpointnaam bevat een hash, en Front Door bedient een eigen domein pas na validatie met een _dnsauth-TXT-record of een certificaat
+the DNS label carries a hash from its domain name label scope, so another customer cannot create the same name	het DNS-label bevat een hash uit de domain name label scope, dus een andere klant kan dezelfde naam niet aanmaken
+the bucket is in an account regional namespace, which no other AWS account can create	de bucket staat in een account regional namespace, die geen ander AWS-account kan aanmaken
+the app id is assigned by AWS, and attaching a domain from another account requires manual verification	het app-ID wordt door AWS toegekend, en een domein uit een ander account koppelen vraagt handmatige verificatie
+the API id is assigned by AWS, and a custom domain needs a certificate for the name	het API-ID wordt door AWS toegekend, en een eigen domein vraagt een certificaat voor de naam
+the service URL is assigned by AWS	de service-URL wordt door AWS toegekend
