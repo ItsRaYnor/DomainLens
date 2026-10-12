@@ -103,6 +103,18 @@ curl -s -X POST http://127.0.0.1:5000/api/monitors \
   }'
 ```
 
+### Removing wrong events
+
+An event raised in error -- an outage of the scanner read as a change of the domain -- can be
+removed: tick it under **Recent monitor events** and choose **Delete selected**. It leaves the
+history and the counts; the report it points to stays. Each removal is kept in the audit log
+(`monitor_event.delete`, with what was removed). Over the API: `POST /api/monitor-events/delete`
+with `{"ids": [...]}`. Viewers cannot remove events.
+
+A server that gives no TLS connection at all (DNS down, a timeout, the port closed) is reported
+as *TLS was not measured*, not graded. Grade T is only a certificate that was seen and failed
+verification, or has expired.
+
 ### Scheduler
 
 - Background thread polls every `scheduler.poll_seconds` (default 60s).

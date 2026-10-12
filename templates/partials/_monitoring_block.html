@@ -44,6 +44,10 @@
                 </section>
                 <section class="monitor-section">
                     <h4>Recent monitor events</h4>
+                    <div class="event-tools hidden" id="eventTools">
+                        <button type="button" class="btn-ghost-sm danger" id="eventDeleteBtn">Delete selected</button>
+                        <span class="muted" id="eventSelCount"></span>
+                    </div>
                     <div id="monitorEventList" class="event-list"></div>
                 </section>
                 {# What is looked at every day comes first; setting monitors up is

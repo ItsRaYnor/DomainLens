@@ -175,6 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     on('importMonitorsBtn', 'click', importMonitors);
     on('runDueBtn', 'click', runDueMonitors);
     on('planApplyBtn', 'click', applyScanPlan);
+    on('eventDeleteBtn', 'click', deleteSelectedEvents);
     on('planClearBtn', 'click', clearScanPlan);
     initMonitorChecks();
     on('importModeInput', 'change', syncImportMode);
@@ -3129,6 +3130,7 @@ function renderMonitorEvents(events) {
             : '';
         return `<div class="event-item sev-${escapeHtml(event.severity)}">
             <div class="event-head">
+                <input type="checkbox" class="event-select" value="${escapeHtml(String(event.id))}" aria-label="Select this event">
                 <span class="rec-badge sev-${escapeHtml(event.severity)}">${escapeHtml((event.severity || 'info').toUpperCase())}</span>
                 <span class="monitor-meta">${escapeHtml(event.monitor_name || event.monitor_target || '')} · ${escapeHtml(when)}</span>
             </div>
@@ -3138,6 +3140,8 @@ function renderMonitorEvents(events) {
         </div>`;
     }).join('');
 
+    el.querySelectorAll('.event-select').forEach(cb => cb.addEventListener('change', syncEventSelection));
+    syncEventSelection();
     el.querySelectorAll('.event-diff-link').forEach(link => {
         link.addEventListener('click', async e => {
             e.preventDefault();
@@ -3156,6 +3160,35 @@ function renderMonitorEvents(events) {
             }
         });
     });
+}
+
+// An event raised in error -- an outage of the scanner read as a change of
+// the domain -- can be removed, so it stops counting and alarming.
+function selectedEventIds() {
+    return Array.from(document.querySelectorAll('#monitorEventList .event-select:checked')).map(cb => Number(cb.value));
+}
+
+function syncEventSelection() {
+    const tools = $('eventTools');
+    if (!tools) return;
+    const n = selectedEventIds().length;
+    tools.classList.toggle('hidden', !n);
+    $('eventSelCount').textContent = n ? `${n} event(s) selected` : '';
+}
+
+async function deleteSelectedEvents() {
+    const ids = selectedEventIds();
+    if (!ids.length) return;
+    if (!confirm(`Delete ${ids.length} event(s)? They are removed from the history; the reports they point to stay.`)) return;
+    try {
+        const resp = await fetch('/api/monitor-events/delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) { showError(data.error || 'Could not delete the events'); return; }
+        showToast(`${data.deleted} event(s) deleted.`);
+        await loadMonitors();
+    } catch (e) { showError('Network error while deleting the events'); }
 }
 
 // ===== Remediation plan =====

@@ -2679,6 +2679,8 @@ footer, .app-footer {
 .mon-sched-at { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
 .mon-sched-at input[type="time"] { flex: 1; min-width: 0; }
 .scan-plan { margin-top: 0.75rem; }
+.event-tools { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+.event-head .event-select { margin: 0 0.35rem 0 0; flex: none; }
 .scan-plan .login-hint { font-size: 0.85rem; margin: 0 0 0.5rem; }
 .scan-plan-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .scan-plan-fields input[type="number"] { width: 4.5rem; flex: none; }

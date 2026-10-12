@@ -1017,6 +1017,24 @@ def update_monitor_event(event_id, **fields):
         return cur.rowcount > 0
 
 
+def delete_monitor_events(event_ids):
+    """Delete monitor events by id. Returns the rows deleted, for the audit log."""
+    ids = [int(i) for i in event_ids]
+    if not ids:
+        return []
+    marks = ",".join("?" * len(ids))
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT e.id, e.monitor_id, e.event_type, e.severity, e.summary, e.created_at
+            FROM monitor_events e WHERE e.id IN ({marks})
+            """,
+            ids,
+        ).fetchall()
+        conn.execute(f"DELETE FROM monitor_events WHERE id IN ({marks})", ids)
+    return [dict(r) for r in rows]
+
+
 def list_monitor_events(monitor_id=None, limit=100):
     """List recent monitor events, optionally for a single monitor."""
     with _lock, _connect() as conn:

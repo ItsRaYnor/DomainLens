@@ -1815,7 +1815,13 @@ def _calculate_tls_grade(protocols, ciphers, cert, has_ocsp, has_compression, ha
     warnings = []
 
     if not cert.get("success"):
-        return "T", ["Certificate not trusted"]
+        # T is a certificate that was seen and failed verification. One that
+        # could not be fetched at all (DNS, timeout, port closed) was graded T
+        # too, and a monitor then raised "TLS grade regressed to T" for an
+        # outage of the scanner's own network.
+        if cert.get("trusted") is False:
+            return "T", ["Certificate not trusted"]
+        return None, ["Certificate could not be retrieved"]
     if cert.get("expired"):
         return "T", ["Certificate expired"]
     if cert.get("self_signed"):
@@ -2081,10 +2087,19 @@ def check_tls_deep(domain, port=443):
                 protocols.append(res)
 
         protocols.sort(key=lambda x: x["name"])
+        cert = None
+        if not any(p.get("supported") for p in protocols):
+            # Nothing answered: not measured, rather than a server that offers
+            # no TLS version and an untrusted certificate.
+            cert = _get_cert_details(domain, port)
+            if not cert.get("success") and cert.get("trusted") is not False:
+                return {"success": False, "state": "unmeasured",
+                        "error": (f"No TLS connection to {domain} on port {port} "
+                                  f"({cert.get('error') or 'no answer'}); TLS was not measured.")}
         ciphers = _enumerate_ciphers(domain, port)
         cipher_order = check_cipher_order(domain, port, ciphers)
         signature_hashes = check_tls_signature_hashes(domain, port)
-        cert = _get_cert_details(domain, port)
+        cert = cert or _get_cert_details(domain, port)
         has_ocsp = _check_ocsp_stapling(domain, port)
         has_compression = _check_tls_compression(domain, port)
 
@@ -6907,6 +6922,26 @@ def api_monitor_events():
     else:
         monitor_id = None
     return jsonify({"events": db.list_monitor_events(monitor_id=monitor_id, limit=limit)})
+
+
+@app.route("/api/monitor-events/delete", methods=["POST"])
+def api_monitor_events_delete():
+    """Remove events that were wrong -- raised for an outage of the scanner
+    rather than a change of the domain -- so the history and the counts
+    stop repeating them. Each removal is kept in the audit log."""
+    data = request.get_json(silent=True) or {}
+    try:
+        ids = [int(i) for i in data.get("ids") or []]
+    except (TypeError, ValueError):
+        return jsonify({"error": "ids must be numbers"}), 400
+    if not ids:
+        return jsonify({"error": "Select one or more events first"}), 400
+    removed = db.delete_monitor_events(ids[:500])
+    audit_log.record("monitor_event.delete", target_type="monitor_event",
+                     details={"deleted": len(removed),
+                              "events": [{k: e[k] for k in ("id", "event_type", "severity", "summary", "created_at")}
+                                         for e in removed]})
+    return jsonify({"deleted": len(removed)})
 
 
 @app.route("/api/monitors/<int:monitor_id>", methods=["PATCH"])

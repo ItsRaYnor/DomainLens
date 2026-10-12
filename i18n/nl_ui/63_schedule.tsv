@@ -45,3 +45,12 @@ No longer in line since monitors were added, removed or changed.	Niet meer op vo
 Re-plan to put every monitor back in line.	Herplan om elke monitor weer op volgorde te zetten.
 {} is a CNAME to {}, which does not exist (NXDOMAIN).	{} is een CNAME naar {}, dat niet bestaat (NXDOMAIN).
 Only the record and the registration were checked; mail, web and TLS checks were not run.	Alleen het record en de registratie zijn gecontroleerd; mail-, web- en TLS-checks zijn niet uitgevoerd.
+Delete selected	Selectie verwijderen
+Select this event	Dit event selecteren
+{n} event(s) selected	{} event(s) geselecteerd
+Delete {n} event(s)? They are removed from the history; the reports they point to stay.	{} event(s) verwijderen? Ze verdwijnen uit de geschiedenis; de rapporten waarnaar ze verwijzen blijven.
+Could not delete the events	De events konden niet worden verwijderd
+{n} event(s) deleted.	{} event(s) verwijderd.
+Network error while deleting the events	Netwerkfout bij het verwijderen van de events
+Select one or more events first	Selecteer eerst een of meer events
+No TLS connection to {} on port {n} ({}); TLS was not measured.	Geen TLS-verbinding met {} op poort {} ({}); TLS is niet gemeten.
