@@ -705,7 +705,10 @@ function renderResults(data) {
     if (nd) {
         const info = data.not_delegated;
         nd.classList.toggle('hidden', !info);
-        if (info) {
+        if (info && info.reason === 'dangling_cname') {
+            nd.textContent = `${info.name} is a CNAME to ${info.cname}, which does not exist (NXDOMAIN). `
+                + 'Only the record and the registration were checked; mail, web and TLS checks were not run.';
+        } else if (info) {
             const status = (info.registry_status || []).join(', ');
             nd.textContent = `${info.name} does not exist in DNS`
                 + (status ? ` (registry status: ${status})` : '')

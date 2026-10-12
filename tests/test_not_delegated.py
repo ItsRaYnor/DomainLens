@@ -80,3 +80,58 @@ class NotDelegatedScanTests(EnterpriseAppTestCase):
             data = self.client.post("/api/scan", json={"domain": "gone.example"}).get_json()
         self.assertEqual(1, len(data["recommendations"]))
         self.assertEqual({"weak_auth": None, "blacklist": None, "ipv6_mail": None}, data["overview"])
+
+
+def _chain_nxdomain(name, target):
+    """The NXDOMAIN a resolver raises for a CNAME whose target is gone."""
+    import dns.message, dns.name, dns.rcode, dns.rdata, dns.rdataclass, dns.rdatatype
+    qname = dns.name.from_text(name)
+    response = dns.message.make_response(dns.message.make_query(qname, "A"))
+    rrset = response.find_rrset(response.answer, qname, dns.rdataclass.IN, dns.rdatatype.CNAME,
+                                create=True)
+    rrset.add(dns.rdata.from_text("IN", "CNAME", target + "."), 300)
+    response.set_rcode(dns.rcode.NXDOMAIN)
+    return dns.resolver.NXDOMAIN(qnames=[qname], responses={qname: response})
+
+
+_TAKEOVER = {"kind": "takeover", "subdomain": "app.example.org", "cname": "gone.example.net",
+             "service": "Example Cloud", "target_resolves": False, "fingerprint_match": False,
+             "http_status": None, "confidence": "medium"}
+
+
+class DanglingCnameTests(EnterpriseAppTestCase):
+    """A name that is a CNAME to a target that no longer exists was reported
+    as "does not exist in DNS (NXDOMAIN)" with advice to fix the delegation:
+    the resolver's NXDOMAIN belongs to the end of the chain, and the dangling
+    record -- where a subdomain takeover starts -- went unmentioned."""
+
+    def test_an_nxdomain_at_the_end_of_a_cname_is_not_the_names_own(self):
+        app = self.app_module
+        with mock.patch.object(app.dns.resolver, "resolve",
+                               side_effect=_chain_nxdomain("app.example.org", "gone.example.net")):
+            self.assertEqual(app._DANGLING, app._name_exists("app.example.org"))
+
+    def test_a_dangling_cname_is_reported_as_one_not_as_missing_delegation(self):
+        import recommendations
+        app = self.app_module
+        with mock.patch.object(app, "_name_exists", return_value=app._DANGLING), \
+             mock.patch.object(app.security_checks, "_check_one_takeover", return_value=dict(_TAKEOVER)), \
+             mock.patch.object(app, "lookup_whois", return_value={"success": True, "rdap": {"success": True}}), \
+             mock.patch.object(app, "_run_checks") as run_checks:
+            results = app.run_selected_checks("app.example.org", ["all"])
+        run_checks.assert_not_called()
+        self.assertEqual(("dangling_cname", "gone.example.net"),
+                         (results["not_delegated"]["reason"], results["not_delegated"]["cname"]))
+        recs = recommendations.generate(results)
+        self.assertEqual(["Possible subdomain takeover: app.example.org"], [r["title"] for r in recs])
+        self.assertEqual("medium", recs[0]["severity"])
+        self.assertNotIn("delegation", recs[0]["fix"])
+
+    def test_a_target_that_resolves_again_is_scanned_as_usual(self):
+        app = self.app_module
+        with mock.patch.object(app, "_name_exists", return_value=app._DANGLING), \
+             mock.patch.object(app.security_checks, "_check_one_takeover", return_value=None), \
+             mock.patch.object(app, "_run_checks") as run_checks, \
+             mock.patch.object(app, "_get_apex_domain", return_value="example.org"):
+            app.run_selected_checks("app.example.org", ["spf"])
+        run_checks.assert_called_once()

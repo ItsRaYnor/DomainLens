@@ -43,3 +43,5 @@ All weekly	Alle wekelijks
 {n} monitor(s) outside the plan.	{} monitor(s) buiten het plan.
 No longer in line since monitors were added, removed or changed.	Niet meer op volgorde doordat monitors zijn toegevoegd, verwijderd of gewijzigd.
 Re-plan to put every monitor back in line.	Herplan om elke monitor weer op volgorde te zetten.
+{} is a CNAME to {}, which does not exist (NXDOMAIN).	{} is een CNAME naar {}, dat niet bestaat (NXDOMAIN).
+Only the record and the registration were checked; mail, web and TLS checks were not run.	Alleen het record en de registratie zijn gecontroleerd; mail-, web- en TLS-checks zijn niet uitgevoerd.

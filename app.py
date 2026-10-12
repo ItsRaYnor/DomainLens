@@ -3131,8 +3131,25 @@ _NOT_DELEGATED_STATUSES = {"pending delete", "redemption period", "client hold",
                            "server hold", "inactive"}
 
 
+_DANGLING = "dangling"
+
+
+def _nxdomain_is_elsewhere(domain, exc):
+    """True when the NXDOMAIN belongs to the end of a CNAME chain rather than
+    to the name asked: the name exists, what it points at does not."""
+    try:
+        return exc.canonical_name != dns.name.from_text(domain)
+    except Exception:
+        return False
+
+
 def _name_exists(domain):
-    """True, False (NXDOMAIN: DNS says the name does not exist) or None.
+    """True, False (NXDOMAIN: DNS says the name does not exist), None, or
+    _DANGLING: the name is a CNAME whose target does not exist.
+
+    The resolver follows the CNAME and answers NXDOMAIN for the whole chain,
+    so a dangling CNAME -- the record a subdomain takeover starts from --
+    was reported as "does not exist in DNS" and nothing about it was said.
 
     Only an NXDOMAIN answer is "does not exist". A timeout or SERVFAIL says
     nothing about the name, so it is None, and the scan asks dns_health
@@ -3145,7 +3162,9 @@ def _name_exists(domain):
             return True
         except dns.resolver.NoAnswer:
             return True
-        except dns.resolver.NXDOMAIN:
+        except dns.resolver.NXDOMAIN as exc:
+            if _nxdomain_is_elsewhere(domain, exc):
+                return _DANGLING
             nx += 1
         except Exception:
             return None
@@ -3188,12 +3207,35 @@ def _not_delegated_results(domain, progress_cb=None):
     }
 
 
+def _dangling_results(domain, progress_cb=None):
+    """What a scan of a dangling CNAME can honestly report: the record, what
+    it points at, whether that can be claimed, and the registration.
+
+    The name resolves to nothing, so mail, web and TLS checks have nothing to
+    measure; each would turn that into a finding of its own. None when the
+    target resolves after all (it was re-created meanwhile): scan as usual.
+    """
+    found = security_checks._check_one_takeover(domain)
+    if not found:
+        return None
+    results = _not_delegated_results(domain, progress_cb)
+    kind = "takeovers" if found["kind"] == "takeover" else "dangling"
+    findings = security_checks.audit_findings({"subdomains": {kind: [found]}})
+    results["not_delegated"].update(reason="dangling_cname", cname=found["cname"],
+                                    takeover=found, finding=findings[0] if findings else None)
+    return results
+
+
 def run_selected_checks(domain, checks, extra_dkim_selectors=None, progress_cb=None,
                         force_refresh=False):
     """Run a selected set of checks for a normalized domain."""
     exists = _name_exists(domain)
     if exists is False:
         return _not_delegated_results(domain, progress_cb)
+    if exists == _DANGLING:
+        dangling = _dangling_results(domain, progress_cb)
+        if dangling:
+            return dangling
     if exists is None:
         # Scanned without DNS, every check finds nothing and the domain is
         # rated F for an outage -- of the scanner, or of its name servers.

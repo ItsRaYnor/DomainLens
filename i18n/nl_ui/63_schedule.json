@@ -32,7 +32,8 @@
   "All daily": "Alle dagelijks",
   "All weekly": "Alle wekelijks",
   "No longer in line since monitors were added, removed or changed.": "Niet meer op volgorde doordat monitors zijn toegevoegd, verwijderd of gewijzigd.",
-  "Re-plan to put every monitor back in line.": "Herplan om elke monitor weer op volgorde te zetten."
+  "Re-plan to put every monitor back in line.": "Herplan om elke monitor weer op volgorde te zetten.",
+  "Only the record and the registration were checked; mail, web and TLS checks were not run.": "Alleen het record en de registratie zijn gecontroleerd; mail-, web- en TLS-checks zijn niet uitgevoerd."
  },
  "patterns": [
   [
@@ -78,6 +79,10 @@
   [
    "(\\d[\\d.,]*)\\ monitor\\(s\\)\\ outside\\ the\\ plan\\.",
    "$1 monitor(s) buiten het plan."
+  ],
+  [
+   "(.+?)\\ is\\ a\\ CNAME\\ to\\ (.+?),\\ which\\ does\\ not\\ exist\\ \\(NXDOMAIN\\)\\.",
+   "$1 is een CNAME naar $2, dat niet bestaat (NXDOMAIN)."
   ]
  ]
 }

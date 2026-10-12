@@ -110,6 +110,15 @@ curl -s -X POST http://127.0.0.1:5000/api/monitors \
 - Manual batch: **Run due** in UI or `POST /api/monitors/run-due`.
 - Status: `GET /health` or `GET /api/reporting/scheduler`.
 
+### A dangling CNAME
+
+When the scanned name is a CNAME whose target does not exist, the resolver answers NXDOMAIN for
+the whole chain. That NXDOMAIN belongs to the target, not to the name: the scan reports the
+dangling record as the takeover audit does -- *Possible subdomain takeover* when the target is at
+a provider where a name can be claimed again, *Dangling CNAME* otherwise -- with the target and
+the registration. Mail, web and TLS checks are not run, since the name resolves to nothing. Once
+the target resolves again the name is scanned as usual.
+
 ### When DNS does not answer
 
 A scan without DNS finds nothing, and every "nothing" would become a finding and an F. So a

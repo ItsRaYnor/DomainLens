@@ -1644,6 +1644,18 @@ def _not_delegated(results):
     info = results.get("not_delegated") or {}
     name = info.get("name") or results.get("domain")
     status = ", ".join(info.get("registry_status") or [])
+    if info.get("reason") == "dangling_cname":
+        # Graded by the takeover audit, so the same record reads the same
+        # here as it does in a scan of the zone it belongs to.
+        f = info.get("finding") or {}
+        problem = f.get("detail") or f"{name} is a CNAME to {info.get('cname')}, which returns NXDOMAIN."
+        if f.get("evidence"):
+            problem = f"{problem} (Evidence: {f['evidence']})"
+        problem += " Mail, web and TLS checks were not run: the name resolves to nothing."
+        return [_r(f.get("severity") or SEVERITY_LOW, f.get("category") or "Subdomain Takeover",
+                   f.get("title") or f"Dangling CNAME: {name}", problem,
+                   f.get("fix") or f"Remove the DNS record for {name}.",
+                   retest=f"Scan `{name}` again after removing or repointing the record.")]
     if info.get("reason") == "registry_status":
         problem = f"{name} does not exist in DNS: the registry reports it as \"{status}\"."
         if str(name).endswith(".nl") and "pending delete" in status:
