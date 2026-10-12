@@ -10,6 +10,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 import config as domainlens_config
+import dns_health
 
 log = logging.getLogger("domainlens.scheduler")
 
@@ -24,6 +25,9 @@ _state = {
     "last_error": None,
     "total_runs": 0,
     "last_digest_at": None,
+    "dns_down_since": None,
+    "dns_error": None,
+    "last_run_postponed_dns": 0,
 }
 
 
@@ -58,10 +62,133 @@ def _in_backoff(monitor: dict, settings: dict) -> bool:
         return False
 
 
+def next_run(schedule_minutes, *, scan_time=None, scan_tz=None, now=None, first=False):
+    """When a monitor runs next: `schedule_minutes` from now, or -- with a
+    time of day -- on that time, in the zone it was chosen in.
+
+    Daily and longer: the first `scan_time` at least a day less than the
+    interval ahead, so a daily scan at 03:00 stays at 03:00 even after a run
+    that came late or was started by hand. Shorter: the slots `scan_time`,
+    `scan_time` + interval, ... of each day. `first` is the run right after
+    the time was chosen: the next slot from now.
+    """
+    now = now or datetime.now(timezone.utc)
+    minutes = max(int(schedule_minutes or 1440), 1)
+    zone = _zone(scan_tz)
+    hour_minute = _parse_time(scan_time)
+    if not hour_minute or zone is None:
+        return now + timedelta(minutes=minutes)
+    local = now.astimezone(zone)
+    anchor = datetime(local.year, local.month, local.day, *hour_minute, tzinfo=zone)
+    if minutes < 1440:
+        step = timedelta(minutes=minutes)
+        slots = (now - anchor) // step + 1
+        return (anchor + slots * step).astimezone(timezone.utc)
+    earliest = now + timedelta(minutes=1 if first else max(minutes - 1440, 0) + 1)
+    day = earliest.astimezone(zone).date()
+    candidate = datetime(day.year, day.month, day.day, *hour_minute, tzinfo=zone)
+    if candidate < earliest:
+        day = day + timedelta(days=1)
+        candidate = datetime(day.year, day.month, day.day, *hour_minute, tzinfo=zone)
+    return candidate.astimezone(timezone.utc)
+
+
+def _parse_time(value):
+    """(hour, minute) for "HH:MM", else None."""
+    try:
+        hour, minute = (int(part) for part in str(value).split(":"))
+    except (TypeError, ValueError):
+        return None
+    return (hour, minute) if 0 <= hour < 24 and 0 <= minute < 60 else None
+
+
+def _zone(name):
+    if not name:
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(str(name))
+    except Exception:
+        return None
+
+
+def valid_time(value):
+    return _parse_time(value) is not None and len(str(value)) == 5
+
+
+def valid_zone(name):
+    return _zone(name) is not None
+
+
+def _postpone_for_dns(db, monitor: dict, settings: dict, exc, notify_fn) -> dict:
+    """A scan DNS could not serve is put off, not run and not failed.
+
+    The scanner's own resolver down: the monitor stays due and runs as soon
+    as DNS answers again. Only this domain's name servers silent: it is
+    tried again in a quarter of an hour; after an hour of silence one event
+    says so, and the monitor waits for its next regular run.
+    """
+    result = {"monitor_id": monitor["id"], "target": monitor["target"],
+              "status": "postponed", "reason": exc.state}
+    if exc.state == dns_health.RESOLVER_DOWN:
+        _note_dns_down(exc.error)
+        return result
+    meta, sched = _scheduler_meta(monitor)
+    retries = int(sched.get("dns_retries", 0)) + 1
+    retry_minutes = int(settings.get("dns_retry_minutes", 15))
+    max_retries = int(settings.get("dns_max_retries", 4))
+    now = datetime.now(timezone.utc)
+    if retries < max_retries:
+        sched["dns_retries"] = retries
+        sched.setdefault("dns_unanswered_since", now.isoformat())
+        meta["scheduler"] = sched
+        db.update_monitor(monitor["id"], metadata=meta,
+                          next_scan_at=(now + timedelta(minutes=retry_minutes)).isoformat())
+        return result
+    since = sched.pop("dns_unanswered_since", None) or now.isoformat()
+    sched.pop("dns_retries", None)
+    meta["scheduler"] = sched
+    fresh = db.get_monitor(monitor["id"]) or monitor
+    following = next_run(fresh.get("schedule_minutes") or 1440, scan_time=fresh.get("scan_time"),
+                         scan_tz=fresh.get("scan_tz"), now=now)
+    db.update_monitor(monitor["id"], metadata=meta, next_scan_at=following.isoformat())
+    event = {
+        "event_type": "dns_unanswered",
+        "severity": "medium",
+        "summary": f"No answer from the name servers of {monitor['target']}: not scanned, nothing judged",
+        "details": {"target": monitor["target"], "error": exc.error, "since": since,
+                    "attempts": retries, "next_scan_at": following.isoformat()},
+    }
+    event_id = db.create_monitor_event(monitor["id"], event_type=event["event_type"],
+                                       severity=event["severity"], summary=event["summary"],
+                                       details=event["details"])
+    notify_fn(event_id, event, monitor)
+    result["event_type"] = event["event_type"]
+    return result
+
+
+def _note_dns_down(error):
+    with _state_lock:
+        if not _state.get("dns_down_since"):
+            _state["dns_down_since"] = datetime.now(timezone.utc).isoformat()
+            log.warning("DNS does not answer on this server; scheduled scans wait (%s)", error)
+        _state["dns_error"] = error
+
+
+def _note_dns_up():
+    with _state_lock:
+        if _state.get("dns_down_since"):
+            log.info("DNS answers again; postponed scans run")
+        _state["dns_down_since"] = None
+        _state["dns_error"] = None
+
+
 def _record_success(db, monitor_id: int, metadata: dict):
     sched = metadata.get("scheduler") or {}
     sched["consecutive_failures"] = 0
     sched.pop("backoff_until", None)
+    sched.pop("dns_retries", None)
+    sched.pop("dns_unanswered_since", None)
     metadata["scheduler"] = sched
     db.update_monitor(monitor_id, metadata=metadata)
 
@@ -96,8 +223,13 @@ def process_due_monitors(
     safe_error_fn,
     run_lock: threading.Lock,
     limit: int | None = None,
+    resolver_check_fn=None,
 ) -> dict:
-    """Run all due monitors once with optional parallelism."""
+    """Run all due monitors once with optional parallelism.
+
+    With `resolver_check_fn` the scanner's own DNS is asked first: when it
+    does not answer, every due scan waits rather than each running blind
+    and rating its domain F."""
     if not run_lock.acquire(blocking=False):
         return {"processed": 0, "results": [], "running": True}
 
@@ -118,6 +250,15 @@ def process_due_monitors(
 
         results = []
         errors = 0
+        if runnable and resolver_check_fn:
+            ok, error = resolver_check_fn()
+            if ok:
+                _note_dns_up()
+            else:
+                _note_dns_down(error)
+                results = [{"monitor_id": m["id"], "target": m["target"], "status": "postponed",
+                            "reason": dns_health.RESOLVER_DOWN} for m in runnable]
+                runnable = []
 
         def _run_one(monitor):
             try:
@@ -133,6 +274,8 @@ def process_due_monitors(
                     "status": "ok",
                     "event_type": outcome["event"]["event_type"],
                 }
+            except dns_health.DnsUnavailable as exc:
+                return _postpone_for_dns(db, monitor, settings, exc, notify_fn)
             except Exception as exc:
                 error = safe_error_fn(exc)
                 _record_failure(db, monitor, settings, error)
@@ -175,6 +318,7 @@ def process_due_monitors(
                     if item.get("status") == "error":
                         errors += 1
 
+        postponed = sum(1 for item in results if item.get("status") == "postponed")
         duration_ms = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
         with _state_lock:
             total_runs = _state.get("total_runs", 0) + 1
@@ -184,6 +328,7 @@ def process_due_monitors(
             last_run_processed=len(results),
             last_run_errors=errors,
             last_run_skipped_backoff=skipped_backoff,
+            last_run_postponed_dns=postponed,
             last_error=None if errors == 0 else f"{errors} monitor scan(s) failed",
             total_runs=total_runs,
         )
@@ -192,6 +337,7 @@ def process_due_monitors(
             "results": results,
             "running": False,
             "skipped_backoff": skipped_backoff,
+            "postponed_dns": postponed,
             "duration_ms": duration_ms,
         }
     except Exception as exc:

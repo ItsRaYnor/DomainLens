@@ -50,6 +50,7 @@ import rdap
 import whois_batch
 import whois_port43
 import contacts
+import dns_health
 import domain_portfolio
 import ip_lists
 import link_check
@@ -3134,7 +3135,8 @@ def _name_exists(domain):
     """True, False (NXDOMAIN: DNS says the name does not exist) or None.
 
     Only an NXDOMAIN answer is "does not exist". A timeout or SERVFAIL says
-    nothing about the name, so it is None and the scan runs as usual.
+    nothing about the name, so it is None, and the scan asks dns_health
+    whether DNS answers at all before it judges anything.
     """
     nx = 0
     for rdtype in ("A", "NS"):
@@ -3189,8 +3191,15 @@ def _not_delegated_results(domain, progress_cb=None):
 def run_selected_checks(domain, checks, extra_dkim_selectors=None, progress_cb=None,
                         force_refresh=False):
     """Run a selected set of checks for a normalized domain."""
-    if _name_exists(domain) is False:
+    exists = _name_exists(domain)
+    if exists is False:
         return _not_delegated_results(domain, progress_cb)
+    if exists is None:
+        # Scanned without DNS, every check finds nothing and the domain is
+        # rated F for an outage -- of the scanner, or of its name servers.
+        health = dns_health.check(domain)
+        if health["state"] != dns_health.OK:
+            raise dns_health.DnsUnavailable(health["state"], domain, health["error"])
     if "all" in checks:
         return full_scan(
             domain, extra_dkim_selectors=extra_dkim_selectors, progress_cb=progress_cb,
@@ -3625,7 +3634,10 @@ def _scan_monitor(monitor, progress_cb=None):
     previous_record = db.get_scan(monitor["last_scan_id"]) if monitor.get("last_scan_id") else None
     current_hash, event = _monitor_event_from_results(monitor, results, previous_record)
     scan_id = db.save_scan(target, results)
-    db.mark_monitor_scanned(monitor["id"], scan_id, monitor.get("schedule_minutes") or 1440)
+    # Read again: the time of day may have been changed while this ran.
+    fresh = db.get_monitor(monitor["id"]) or monitor
+    db.mark_monitor_scanned(monitor["id"], scan_id, fresh.get("schedule_minutes") or 1440,
+                            next_scan_at=_monitor_next_run(fresh).isoformat())
     db.update_monitor(monitor["id"], last_state_hash=current_hash)
     event_id = db.create_monitor_event(
         monitor["id"],
@@ -3682,6 +3694,28 @@ def _notify_event(event_id, event, monitor, scan_id=None):
     return sn_result, channel_results
 
 
+def _monitor_next_run(monitor, first=False):
+    return monitor_scheduler.next_run(
+        monitor.get("schedule_minutes") or 1440, scan_time=monitor.get("scan_time"),
+        scan_tz=monitor.get("scan_tz"), first=first)
+
+
+def _monitor_time_fields(data, monitor=None):
+    """scan_time / scan_tz from a request: "HH:MM" and an IANA zone, or an
+    empty time to drop it. Returns (fields, error)."""
+    if "scan_time" not in data:
+        return {}, None
+    value = (data.get("scan_time") or "").strip()
+    if not value:
+        return {"scan_time": None, "scan_tz": None}, None
+    zone = (data.get("scan_tz") or (monitor or {}).get("scan_tz") or "UTC").strip()
+    if not monitor_scheduler.valid_time(value):
+        return None, "Give the time as HH:MM, for example 03:00"
+    if not monitor_scheduler.valid_zone(zone):
+        return None, "Unknown time zone"
+    return {"scan_time": value, "scan_tz": zone}, None
+
+
 def _process_due_monitors(limit=None):
     """Run all due monitors once (delegates to scheduler module)."""
     return monitor_scheduler.process_due_monitors(
@@ -3691,6 +3725,7 @@ def _process_due_monitors(limit=None):
         safe_error_fn=_safe_error,
         run_lock=_monitor_run_lock,
         limit=limit,
+        resolver_check_fn=dns_health.resolver_ok,
     )
 
 
@@ -5857,10 +5892,13 @@ def api_scan():
     if error:
         return error
     _audit_scan_request(params)
-    return jsonify(_perform_scan(
-        params["domain"], params["checks"], params["extra_dkim_selectors"],
-        save_history=params["save_history"], force_refresh=params["force_refresh"],
-    ))
+    try:
+        return jsonify(_perform_scan(
+            params["domain"], params["checks"], params["extra_dkim_selectors"],
+            save_history=params["save_history"], force_refresh=params["force_refresh"],
+        ))
+    except dns_health.DnsUnavailable as exc:
+        return jsonify({"error": str(exc), "dns": exc.state}), 503
 
 
 @app.route("/api/scan/start", methods=["POST"])
@@ -6599,6 +6637,9 @@ def api_monitors_create():
     schedule_minutes = _parse_positive_int(data.get("schedule_minutes"), 1440)
     checks = _prepare_checks(data.get("checks", ["all"]))
     enabled = bool(data.get("enabled", True))
+    time_fields, time_error = _monitor_time_fields(data)
+    if time_error:
+        return jsonify({"error": time_error}), 400
     try:
         _assign_org_unit(target, data.get("org_unit_id"))
     except (TypeError, ValueError) as exc:
@@ -6618,6 +6659,11 @@ def api_monitors_create():
         enabled=enabled,
         metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
     )
+    if time_fields.get("scan_time"):
+        # A time was chosen: the first scan, the baseline, runs then too.
+        db.update_monitor(monitor_id, **time_fields, next_scan_at=_monitor_next_run(
+            {"schedule_minutes": schedule_minutes, **time_fields}, first=True).isoformat()
+            if enabled else None)
     audit_log.record("monitor.create", target_type="monitor", target_id=monitor_id,
                      details={"target": target, "checks": checks})
     return jsonify({"monitor": _with_org_units([_serialize_monitor(db.get_monitor(monitor_id))])[0]}), 201
@@ -6730,9 +6776,20 @@ def api_monitors_update(monitor_id):
         updates["schedule_minutes"] = _parse_positive_int(data["schedule_minutes"], monitor["schedule_minutes"])
     if "checks" in data:
         updates["checks"] = _prepare_checks(data["checks"])
+    time_fields, time_error = _monitor_time_fields(data, monitor)
+    if time_error:
+        return jsonify({"error": time_error}), 400
+    updates.update(time_fields)
     if "enabled" in data:
         updates["enabled"] = bool(data["enabled"])
         updates["next_scan_at"] = datetime.now(timezone.utc).isoformat() if updates["enabled"] else None
+    # A monitor with a time of day runs at that time: after a new time or
+    # frequency, and after being switched back on (which otherwise runs at
+    # once). A paused one stays paused.
+    merged = {**monitor, **updates}
+    if merged["enabled"] and merged.get("scan_time") and (
+            "scan_time" in updates or "schedule_minutes" in updates or "enabled" in data):
+        updates["next_scan_at"] = _monitor_next_run(merged, first=True).isoformat()
     if data.get("org_unit_id") not in (None, ""):
         try:
             _assign_org_unit(monitor["target"], data["org_unit_id"])

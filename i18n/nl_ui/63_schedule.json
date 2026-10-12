@@ -1,0 +1,48 @@
+{
+ "text": {
+  "Schedule…": "Planning…",
+  "How often and at what time this monitor scans": "Hoe vaak en hoe laat deze monitor scant",
+  "Frequency": "Frequentie",
+  "at": "om",
+  "Schedule saved.": "Planning opgeslagen.",
+  "A time of day to scan at (optional)": "Een tijdstip om te scannen (optioneel)",
+  "Without a time the monitor scans one interval after its last run. With a time, daily and weekly scans run then; shorter intervals count from it.": "Zonder tijdstip scant de monitor één interval na de vorige run. Met een tijdstip lopen dagelijkse en wekelijkse scans dan; kortere intervallen tellen vanaf dat tijdstip.",
+  "Leave the time empty to scan straight away and then every interval. With a time, the first scan and every daily or weekly one run at that time.": "Laat het tijdstip leeg om meteen te scannen en daarna elk interval. Met een tijdstip lopen de eerste scan en elke dagelijkse of wekelijkse scan op dat tijdstip.",
+  "Give the time as HH:MM, for example 03:00": "Geef het tijdstip als UU:MM, bijvoorbeeld 03:00",
+  "Unknown time zone": "Onbekende tijdzone"
+ },
+ "patterns": [
+  [
+   "(.+?)\\ at\\ (\\d[\\d.,]*):(\\d[\\d.,]*)",
+   "$1 om $2:$3"
+  ],
+  [
+   "(.+?)\\ at\\ (\\d[\\d.,]*):(\\d[\\d.,]*)\\ \\((.+?)\\)",
+   "$1 om $2:$3 ($4)"
+  ],
+  [
+   "Next\\ scan\\ (.+?)",
+   "Volgende scan $1"
+  ],
+  [
+   "Schedule\\ saved\\.\\ Next\\ scan\\ (.+?)\\.",
+   "Planning opgeslagen. Volgende scan $1."
+  ],
+  [
+   "DNS\\ does\\ not\\ answer\\ on\\ this\\ server\\ since\\ (.+?)\\.\\ Scheduled\\ scans\\ wait\\ until\\ it\\ does,\\ rather\\ than\\ rating\\ every\\ domain\\ F\\.",
+   "DNS antwoordt niet op deze server sinds $1. Geplande scans wachten tot het weer werkt, in plaats van elk domein een F te geven."
+  ],
+  [
+   "DNS\\ does\\ not\\ answer\\ on\\ this\\ server,\\ so\\ nothing\\ can\\ be\\ measured;\\ the\\ scan\\ of\\ (.+?)\\ was\\ not\\ run",
+   "DNS antwoordt niet op deze server, dus er kan niets worden gemeten; de scan van $1 is niet uitgevoerd"
+  ],
+  [
+   "The\\ name\\ servers\\ of\\ (.+?)\\ do\\ not\\ answer,\\ so\\ nothing\\ can\\ be\\ measured;\\ the\\ scan\\ was\\ not\\ run",
+   "De nameservers van $1 antwoorden niet, dus er kan niets worden gemeten; de scan is niet uitgevoerd"
+  ],
+  [
+   "No\\ answer\\ from\\ the\\ name\\ servers\\ of\\ (.+?):\\ not\\ scanned,\\ nothing\\ judged",
+   "Geen antwoord van de nameservers van $1: niet gescand, niets beoordeeld"
+  ]
+ ]
+}

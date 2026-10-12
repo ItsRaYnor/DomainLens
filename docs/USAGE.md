@@ -54,7 +54,18 @@ When CSP is missing or weak, Advies includes **step-by-step build guidance**: st
 
 1. Open **Monitors** drawer.
 2. Enter domain, target, record type, schedule (minutes), and checks.
-3. Save — first scan runs when due (immediately if enabled).
+3. Optionally a time of day ("at 03:00").
+4. Save — without a time the first scan runs at once; with one, at that time.
+
+### Time of day
+
+Without a time a monitor runs one interval after its last run, so its hour drifts with every
+late or manual run. With a time (**Schedule…** on the monitor, or the field when adding one)
+daily and weekly scans run at that time, in the time zone of the browser that set it; shorter
+intervals count from it (every 6 hours at 02:00: 02:00, 08:00, 14:00, 20:00). A weekly scan
+keeps the weekday of its first run. The row shows the schedule and the next scan. Over the API:
+`PATCH /api/monitors/{id}` with `{"scan_time": "03:00", "scan_tz": "Europe/Amsterdam"}`, or
+`"scan_time": ""` to drop it; `POST /api/monitors` takes the same two fields.
 
 ### Create via API
 
@@ -77,6 +88,23 @@ curl -s -X POST http://127.0.0.1:5000/api/monitors \
 - Due monitors run with configurable **concurrency** (default 2).
 - Manual batch: **Run due** in UI or `POST /api/monitors/run-due`.
 - Status: `GET /health` or `GET /api/reporting/scheduler`.
+
+### When DNS does not answer
+
+A scan without DNS finds nothing, and every "nothing" would become a finding and an F. So a
+scan whose first lookup gets no answer (a timeout or SERVFAIL; NXDOMAIN is a name that does not
+exist, reported as such) asks again, then tells apart:
+
+- **This server's DNS does not answer** (the container's network or its resolver): every due
+  scan waits, and runs as soon as DNS answers again. The monitoring page says since when.
+  Nothing is counted as a failure and no events are made.
+- **Only the domain's name servers do not answer**: the scan is tried again after 15 minutes.
+  After four tries one event (*No answer from the name servers of …*, medium) says so, and the
+  monitor waits for its next regular run. No scan is stored, so no rating either.
+
+A scan started by hand says why it was not run (`POST /api/scan` answers 503). The retry
+interval and number of tries are `scheduler.dns_retry_minutes` (15) and
+`scheduler.dns_max_retries` (4) in the configuration file.
 
 ### Zone / OVH import
 

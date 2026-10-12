@@ -4,7 +4,8 @@ A domain in SIDN's quarantine ("pending delete") has no name servers. Every
 check found nothing and each "nothing" became a finding -- no SPF, no DMARC,
 no HTTPS, sixteen in all, with a wall of red tiles -- for a domain that has
 no mail, web or DNS to judge. Only an NXDOMAIN counts as "not in DNS": a
-timeout says nothing about the name, and the scan then runs as usual.
+timeout says nothing about the name. The scan then runs as usual once DNS
+answers again (test_monitor_schedule_dns covers when it does not).
 """
 
 from unittest import mock
@@ -44,9 +45,10 @@ class NotDelegatedScanTests(EnterpriseAppTestCase):
         self.assertEqual(["pending delete"], results["not_delegated"]["registry_status"])
         self.assertEqual({"apex_domain", "whois", "not_delegated"}, set(results))
 
-    def test_an_unanswered_lookup_still_scans(self):
+    def test_an_unanswered_lookup_still_scans_when_dns_answers_again(self):
         app = self.app_module
         with mock.patch.object(app, "_name_exists", return_value=None), \
+             mock.patch.object(app.dns_health, "check", return_value={"state": "ok", "error": None}), \
              mock.patch.object(app, "_run_checks") as run_checks, \
              mock.patch.object(app, "_get_apex_domain", return_value="example.com"):
             app.run_selected_checks("example.com", ["spf"])

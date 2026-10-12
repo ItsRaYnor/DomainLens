@@ -52,7 +52,9 @@
                                 <option value="10080">Weekly</option>
                                 <option value="custom">Custom&hellip;</option>
                             </select>
+                            <label class="mon-sched-at">at <input type="time" id="monitorTimeInput" title="A time of day to scan at (optional)"></label>
                         </div>
+                        <p class="login-hint">Leave the time empty to scan straight away and then every interval. With a time, the first scan and every daily or weekly one run at that time.</p>
                         <input type="number" id="monitorScheduleInput" min="1" value="1440" placeholder="Custom frequency (minutes)" class="hidden">
                         <p class="monitor-field-label">Checks on each run</p>
                         <div class="monitor-checks">

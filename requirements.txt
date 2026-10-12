@@ -26,3 +26,6 @@ qrcode==8.2
 # evaluated by a full RFC 7208 engine (include, redirect, macros, the lookup limit).
 dkimpy==1.1.8
 pyspf==2.0.14
+# A monitor's time of day is kept in the zone it was chosen in; the slim
+# image has no system time zone database of its own to rely on.
+tzdata==2025.3

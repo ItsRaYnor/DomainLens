@@ -2528,8 +2528,10 @@ async function loadMonitors() {
             <span><strong>${escapeHtml(String(stats.due_monitors || 0))}</strong>due</span>
             <span><strong>${escapeHtml(String(stats.event_count || 0))}</strong>events</span>`;
         const scheduler = data.scheduler || {};
+        const dnsDown = (scheduler.state || {}).dns_down_since;
         schedulerEl.innerHTML = `<p class="status ${scheduler.enabled ? 'status-pass' : 'status-warn'}">${scheduler.enabled ? 'Background scheduler enabled' : 'Background scheduler disabled'}</p>
-            <p class="monitor-meta">Poll interval: ${escapeHtml(String(scheduler.poll_seconds || 0))} seconds</p>`;
+            <p class="monitor-meta">Poll interval: ${escapeHtml(String(scheduler.poll_seconds || 0))} seconds</p>`
+            + (dnsDown ? `<p class="status status-fail">DNS does not answer on this server since ${escapeHtml(formatWhen(dnsDown))}. Scheduled scans wait until it does, rather than rating every domain F.</p>` : '');
         lastMonitors = data.monitors || [];
         await loadMonitorUnits();
         renderMonitorList(lastMonitors);
@@ -2674,8 +2676,10 @@ function renderMonitorList(monitors) {
               + `<div class="muted">${escapeHtml(new Date(ev.created_at).toLocaleString())}</div>`
             : '<span class="muted">No changes yet</span>';
         row.innerHTML = `<td><div class="monitor-name">${escapeHtml(monitorDisplayName(m))}${m.enabled ? '' : ' <span class="muted">(paused)</span>'}</div>`
-            + `<div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(formatFrequency(m.schedule_minutes))} · `
-            + `${escapeHtml(monitorScopeLabel(m.checks))} · watches ${escapeHtml(m.record_type || 'A')} record</div></td>`
+            + `<div class="monitor-meta">${escapeHtml(m.target)} · ${escapeHtml(monitorScheduleLabel(m))} · `
+            + `${escapeHtml(monitorScopeLabel(m.checks))} · watches ${escapeHtml(m.record_type || 'A')} record</div>`
+            + (m.enabled && m.next_scan_at ? `<div class="monitor-meta">Next scan ${escapeHtml(formatWhen(m.next_scan_at))}</div>` : '')
+            + '</td>'
             + `<td class="nowrap">${rating}</td><td>${change}</td>`
             + `<td class="monitor-meta">${monitorReportLinks(m)}</td>`;
 
@@ -2687,6 +2691,13 @@ function renderMonitorList(monitors) {
         scanBtn.title = 'Run this monitor\'s scan immediately, regardless of its schedule';
         scanBtn.addEventListener('click', () => runMonitorScan(m.id, scanBtn));
         actions.appendChild(scanBtn);
+
+        const scheduleBtn = document.createElement('button');
+        scheduleBtn.className = 'btn-ghost-sm';
+        scheduleBtn.textContent = 'Schedule…';
+        scheduleBtn.title = 'How often and at what time this monitor scans';
+        scheduleBtn.addEventListener('click', () => toggleScheduleEditor(m, row));
+        actions.appendChild(scheduleBtn);
 
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'btn-ghost-sm';
@@ -2770,6 +2781,71 @@ function monitorDisplayName(m) {
     return m.name === generated ? m.target : m.name;
 }
 
+// "daily at 03:00": the time in the zone it was chosen in, which is named
+// only when it is not the viewer's own.
+function monitorScheduleLabel(m) {
+    let label = formatFrequency(m.schedule_minutes);
+    if (m.scan_time) {
+        label += ` at ${m.scan_time}`;
+        if (m.scan_tz && m.scan_tz !== browserTimeZone()) label += ` (${m.scan_tz})`;
+    }
+    return label;
+}
+
+function browserTimeZone() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; }
+}
+
+function formatWhen(iso) {
+    return new Date(iso).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function monitorFrequencyOptions(current) {
+    const presets = Array.from(document.querySelectorAll('#monitorSchedulePreset option'))
+        .filter(o => o.value !== 'custom').map(o => [Number(o.value), o.textContent]);
+    const list = presets.length ? presets
+        : [15, 30, 60, 360, 720, 1440, 10080].map(n => [n, formatFrequency(n)]);
+    if (!list.some(([n]) => n === Number(current))) list.push([Number(current), formatFrequency(current)]);
+    return list.map(([n, label]) =>
+        `<option value="${n}"${n === Number(current) ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('');
+}
+
+// How often and at what time, set on the monitor itself. Without a time a
+// monitor runs one interval after its last run, so its hour drifts with
+// every late or manual run; with one it stays there.
+function toggleScheduleEditor(m, row) {
+    const cell = row.querySelector('td');
+    const open = cell.querySelector('.monitor-schedule-edit');
+    if (open) { open.remove(); return; }
+    const box = document.createElement('div');
+    box.className = 'monitor-schedule-edit';
+    box.innerHTML = `<select class="mon-sched-freq" aria-label="Frequency">${monitorFrequencyOptions(m.schedule_minutes)}</select>`
+        + `<label class="mon-sched-at">at <input type="time" class="mon-sched-time" value="${escapeHtml(m.scan_time || '')}"></label>`
+        + '<button type="button" class="btn-primary-lite mon-sched-save">Save</button>'
+        + '<button type="button" class="btn-ghost-sm mon-sched-cancel">Cancel</button>'
+        + '<p class="login-hint">Without a time the monitor scans one interval after its last run. With a time, daily and weekly scans run then; shorter intervals count from it.</p>';
+    box.querySelector('.mon-sched-cancel').addEventListener('click', () => box.remove());
+    box.querySelector('.mon-sched-save').addEventListener('click', async () => {
+        const body = {
+            schedule_minutes: Number(box.querySelector('.mon-sched-freq').value),
+            scan_time: box.querySelector('.mon-sched-time').value || '',
+            scan_tz: browserTimeZone(),
+        };
+        try {
+            const resp = await fetch('/api/monitors/' + m.id, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+            });
+            const data = await resp.json();
+            if (!resp.ok || data.error) { showError(data.error || 'Failed to update monitor'); return; }
+            const next = data.monitor && data.monitor.enabled && data.monitor.next_scan_at;
+            showToast(next ? `Schedule saved. Next scan ${formatWhen(next)}.` : 'Schedule saved.');
+            await loadMonitors();
+        } catch (e) { showError('Network error while updating monitor'); }
+    });
+    cell.appendChild(box);
+    box.querySelector('.mon-sched-freq').focus();
+}
+
 function monitorScopeLabel(checks) {
     if (!Array.isArray(checks) || checks.length === 0 || checks.includes('all')) return 'full scan';
     return checks.length === 1 ? '1 check' : `${checks.length} checks`;
@@ -2822,6 +2898,7 @@ async function createMonitor() {
     }
     const name = $('monitorNameInput').value.trim();
     const schedule_minutes = Number($('monitorScheduleInput').value || 1440);
+    const scan_time = ($('monitorTimeInput') || {}).value || '';
     const record_type = $('monitorTypeInput').value;
     const checks = collectMonitorChecks();
     const org_unit_id = ($('monitorUnitInput') || {}).value || null;
@@ -2829,7 +2906,8 @@ async function createMonitor() {
         const resp = await fetch('/api/monitors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type, checks, org_unit_id }),
+            body: JSON.stringify({ domain, target: domain, name, schedule_minutes, record_type, checks, org_unit_id,
+                                   scan_time, scan_tz: browserTimeZone() }),
         });
         const data = await resp.json();
         if (!resp.ok || data.error) {
@@ -2838,6 +2916,7 @@ async function createMonitor() {
         }
         $('monitorDomainInput').value = '';
         $('monitorNameInput').value = '';
+        if ($('monitorTimeInput')) $('monitorTimeInput').value = '';
         if ($('monitorUnitInput')) { $('monitorUnitInput').value = ''; delete $('monitorUnitInput').dataset.manual; }
         if ($('monitorUnitFound')) $('monitorUnitFound').textContent = '';
         await loadMonitors();

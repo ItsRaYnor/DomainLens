@@ -177,6 +177,12 @@ def init_db():
         }
         if "last_state_hash" not in columns:
             conn.execute("ALTER TABLE monitors ADD COLUMN last_state_hash TEXT")
+        # A time of day to scan at ("03:00") and the zone it was chosen in;
+        # NULL runs every schedule_minutes from the last run, as before.
+        if "scan_time" not in columns:
+            conn.execute("ALTER TABLE monitors ADD COLUMN scan_time TEXT")
+        if "scan_tz" not in columns:
+            conn.execute("ALTER TABLE monitors ADD COLUMN scan_tz TEXT")
         # The A-F rating of each scan, so lists need not re-read its JSON.
         # Older rows stay NULL and are filled in when first asked for.
         metric_columns = {
@@ -874,6 +880,8 @@ def update_monitor(monitor_id, **fields):
         "last_scan_id",
         "last_scan_at",
         "last_state_hash",
+        "scan_time",
+        "scan_tz",
     }
     assignments = []
     params = []
@@ -938,11 +946,12 @@ def upsert_monitor(
     return get_monitor(monitor_id)
 
 
-def mark_monitor_scanned(monitor_id, scan_id, schedule_minutes):
+def mark_monitor_scanned(monitor_id, scan_id, schedule_minutes, next_scan_at=None):
     """Update monitor timestamps after a successful scan."""
     now_dt = datetime.now(timezone.utc)
-    next_dt = now_dt.timestamp() + (int(schedule_minutes) * 60)
-    next_scan_at = datetime.fromtimestamp(next_dt, tz=timezone.utc).isoformat()
+    if next_scan_at is None:
+        next_dt = now_dt.timestamp() + (int(schedule_minutes) * 60)
+        next_scan_at = datetime.fromtimestamp(next_dt, tz=timezone.utc).isoformat()
     return update_monitor(
         monitor_id,
         last_scan_id=scan_id,

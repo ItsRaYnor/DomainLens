@@ -2673,8 +2673,14 @@ footer, .app-footer {
 .monitor-table td { word-break: normal; overflow-wrap: anywhere; vertical-align: top; }
 .monitor-table .monitor-unit-row th { padding-top: 0.9rem; color: var(--text); font-weight: 600; }
 .monitor-table .monitor-paused td { opacity: 0.6; }
-.monitor-row-actions { white-space: nowrap; width: 1%; }
+/* Four buttons and the unit list: two rows rather than a table wider than the page. */
+.monitor-row-actions { white-space: normal; width: 17rem; }
 .monitor-row-actions > * { margin: 0 0.25rem 0.25rem 0; }
+.mon-sched-at { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.mon-sched-at input[type="time"] { flex: 1; min-width: 0; }
+.monitor-schedule-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.4rem; }
+.monitor-schedule-edit .btn-primary-lite { padding: 0.35rem 0.8rem; }
+.monitor-schedule-edit .login-hint { flex-basis: 100%; margin: 0; font-weight: 400; }
 .sev-text { font-weight: 600; text-transform: capitalize; }
 .sev-text.sev-critical { color: var(--sev-critical); }
 .sev-text.sev-high { color: var(--sev-high); }
