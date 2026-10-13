@@ -76,6 +76,26 @@ Secrets*. When nothing could be fetched the result says so, rather than "nothing
 
 ---
 
+## Third-party sources and their limits
+
+The OSINT lookups ask services DomainLens does not run: crt.sh, the Internet Archive, abuse.ch
+(ThreatFox, URLhaus), AlienVault OTX, VirusTotal and ip-api.com. Their free tiers limit how often
+they may be asked, so DomainLens keeps a budget per service, set under **Settings → Integrations →
+API limits** (defaults are the free tiers: VirusTotal 4 a minute and 500 a day, ip-api.com 45 a
+minute; raise them for a paid key). The VirusTotal budget is shared with the link lookups of the
+mail analysis.
+
+- A lookup waits up to *wait seconds* (20) for a free slot; when none comes, or the day's quota is
+  used up, it is not made and the source says so -- *not measured*, never *0 hits*.
+- A service that answers *429 Too Many Requests* is not asked again for as long as it says
+  (`Retry-After`), or a minute.
+- A failed lookup says what happened in words (DNS on this server, a timeout, a rate limit, an
+  HTTP error). When several sources fail on DNS at once, the OSINT summary says the server's own
+  DNS did not answer.
+- Answers are reused for a day (see *Force fresh third-party lookups*), but a result in which a
+  source failed for a passing reason -- DNS, a timeout, a rate limit -- is not kept, so the next
+  scan asks again.
+
 ## DNS monitoring & scheduling
 
 ### Create a monitor (UI)

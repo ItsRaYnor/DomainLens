@@ -335,6 +335,13 @@ def check_virustotal(urls, *, get=None, key=None, limit=None):
         if asked >= limit:
             out[url] = {"state": "not_checked"}
             continue
+        # The same budget as the domain lookups: one free key for both.
+        import rate_limits
+        allowed, reason = rate_limits.acquire("virustotal")
+        if not allowed:
+            stop = reason
+            out[url] = {"state": "unmeasured", "error": stop}
+            continue
         asked += 1
         try:
             resp = get(f"https://www.virustotal.com/api/v3/urls/{digest}", {"x-apikey": key})
@@ -348,6 +355,8 @@ def check_virustotal(urls, *, get=None, key=None, limit=None):
             out[url] = {"state": "unmeasured", "error": stop}
             continue
         elif resp.status_code == 429:
+            import rate_limits
+            rate_limits.note_response("virustotal", resp)
             stop = "VirusTotal's rate limit was reached"
             out[url] = {"state": "unmeasured", "error": stop}
             continue

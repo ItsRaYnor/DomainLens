@@ -14,7 +14,6 @@
     "lookup": "Opzoeken",
     "reports": "Rapportages",
     "remediation": "Herstel",
-    "admin": "Beheer",
     "lookup_ip": "IP-adres",
     "lookup_dns": "DNS-record",
     "lookup_impersonation": "Imitatie",
@@ -171,7 +170,8 @@
       "own_infra": "Tests op eigen infrastructuur",
       "ownership": "Domeineigendom",
       "notifications": "Meldingen",
-      "retention": "Bewaartermijnen & backup"
+      "retention": "Bewaartermijnen & backup",
+      "api_limits": "API-limieten"
     },
     "general": {
       "locale": "Taal",
@@ -379,6 +379,12 @@
       "scan_days": "Scans ouder dan dit verwijderen (dagen, 0 = bewaren; basisscans van monitors blijven)",
       "event_days": "Monitorgebeurtenissen ouder dan dit verwijderen (dagen, 0 = bewaren)",
       "audit_days": "Auditlogregels ouder dan dit verwijderen (dagen, 0 = bewaren)"
+    },
+    "api_limits": {
+      "virustotal_per_minute": "VirusTotal-opvragingen per minuut (gratis sleutel: 4)",
+      "virustotal_per_day": "VirusTotal-opvragingen per dag (gratis sleutel: 500)",
+      "ip_api_per_minute": "ip-api.com-opvragingen per minuut (gratis: 45)",
+      "wait_seconds": "Seconden die een scan mag wachten op een vrije plek, daarna geldt de bron als niet gemeten"
     }
   },
   "rapid7_ui": {

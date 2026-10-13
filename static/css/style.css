@@ -14,6 +14,8 @@
 .nowrap { white-space: nowrap; }
 /* A card, tab or tile for a check this scan did not run. */
 .not-run { display: none !important; }
+.feed-src { font-weight: 600; margin-right: .25rem; }
+.feed-src::after { content: ":"; }
 .tab-subhead { margin: 1.4rem 0 0.6rem; font-size: 0.95rem; color: var(--text-muted); font-weight: 600; }
 
 /* ===== Header ===== */

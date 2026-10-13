@@ -100,7 +100,8 @@ class SharedFetchHelperTests(unittest.TestCase):
         session.get.side_effect = requests.Timeout("boom")
         data, error = osint._fetch_json(session, "https://x/", label="Some API", timeout=7)
         self.assertIsNone(data)
-        self.assertEqual(error, "Some API did not respond within 7s")
+        # Ends in the marker a cache reads as "may pass": not kept for a day.
+        self.assertEqual(error, "Some API did not respond within 7s. Not measured; try again later.")
 
 
 if __name__ == "__main__":

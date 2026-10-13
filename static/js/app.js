@@ -820,7 +820,11 @@ function renderScoreOverview(data) {
         { label: 'IPv6 Web', src: 'ipv6', pass: data.ipv6?.web_pass },
         fromOverview('IPv6 Mail', 'ipv6_mail', { pass: data.ipv6?.mail_pass }),
         fromOverview('Blacklist', 'blacklist', { pass: data.blacklist && !data.blacklist?.is_listed }),
-        { label: 'OSINT Clean', src: 'osint', pass: data.osint?.summary && !data.osint.summary.listed_in_threat_feeds },
+        // null: no threat feed was reached, so neither clean nor listed.
+        { label: 'OSINT Clean', src: 'osint',
+          pass: !data.osint?.summary || data.osint.summary.listed_in_threat_feeds === null ? undefined
+              : !data.osint.summary.listed_in_threat_feeds,
+          state: data.osint?.summary?.listed_in_threat_feeds === null ? 'not_tested' : undefined },
         { label: 'HubSpot/CF', src: 'hubspot_cf', pass: data.hubspot_cf?.success && data.hubspot_cf?.pass !== false, warn: data.hubspot_cf?.success && data.hubspot_cf?.pass === false },
         fromOverview('Weak auth', 'weak_auth', {
             // Only when the scan carries no server verdict. A scan that never
@@ -3580,9 +3584,12 @@ function cacheNote(section) {
 // "Not configured" and "zero detections" are different answers and must not
 // render the same: without an API key VirusTotal never ran, so a green 0 there
 // would be a verdict about something that was never checked.
-function vtSummaryCell(s) {
+function vtSummaryCell(s, vt) {
     if (!s.virustotal_measured) {
-        return '<span class="muted">not configured</span>';
+        // No key is "not configured"; a key whose lookup failed is not measured.
+        return vt && !vt.skipped && vt.error
+            ? '<span class="status status-warn">Not measured</span>'
+            : '<span class="muted">not configured</span>';
     }
     const mal = Number(s.virustotal_malicious || 0);
     const susp = Number(s.virustotal_suspicious || 0);
@@ -3606,14 +3613,22 @@ function renderOsint(data) {
     }
 
     const s = data.summary || {};
-    const threatCls = s.listed_in_threat_feeds ? 'status-fail' : 'status-pass';
+    // A source that was not reached has no count: null is "not measured",
+    // never 0 and never green.
+    const count = v => (v === null ? '<span class="status status-warn">Not measured</span>' : escapeHtml(String(v || 0)));
+    const threatCell = s.threat_hits === null
+        ? count(null)
+        : `<span class="status ${s.listed_in_threat_feeds ? 'status-fail' : 'status-pass'}">${escapeHtml(String(s.threat_hits || 0))}</span>`;
+    const dnsNote = (s.dns_failures || []).length >= 2
+        ? `<p class="status status-warn">This server could not look up ${escapeHtml(String(s.dns_failures.length))} of the sources during the scan: its own DNS did not answer. Those results are not measured; scan again later.</p>`
+        : '';
     // Cached data is still an answer, but it is yesterday's answer, and a
     // silent reuse would read as a fresh confirmation that nothing changed.
-    summaryEl.innerHTML = cacheNote(data) + `<table class="data-table">
-        <tr><th>Related hostnames (CT)</th><td>${escapeHtml(String(s.subdomain_count || 0))}</td></tr>
-        <tr><th>Wayback snapshots</th><td>${escapeHtml(String(s.wayback_count || 0))}</td></tr>
-        <tr><th>Threat feed hits</th><td><span class="status ${threatCls}">${escapeHtml(String(s.threat_hits || 0))}</span></td></tr>
-        <tr><th>VirusTotal detections</th><td>${vtSummaryCell(s)}</td></tr>
+    summaryEl.innerHTML = cacheNote(data) + dnsNote + `<table class="data-table">
+        <tr><th>Related hostnames (CT)</th><td>${count(s.subdomain_count)}</td></tr>
+        <tr><th>Wayback snapshots</th><td>${count(s.wayback_count)}</td></tr>
+        <tr><th>Threat feed hits</th><td>${threatCell}</td></tr>
+        <tr><th>VirusTotal detections</th><td>${vtSummaryCell(s, data.sources?.virustotal)}</td></tr>
         <tr><th>IP</th><td>${escapeHtml(s.ip || '-')}</td></tr>
         <tr><th>ASN</th><td>${escapeHtml(s.asn || '-')}</td></tr>
         <tr><th>Country</th><td>${escapeHtml(s.country || '-')}</td></tr>
@@ -3666,7 +3681,9 @@ function renderOsint(data) {
             return;
         }
         if (!src.success) {
-            threatHtml += `<p class="status status-warn">${escapeHtml(src.source)}: ${escapeHtml(src.error || 'failed')}</p>`;
+            // The source in its own element, so the message after it is a
+            // sentence of its own (and translated as one).
+            threatHtml += `<p class="status status-warn"><span class="feed-src">${escapeHtml(src.source)}</span> <span>${escapeHtml(src.error || 'failed')}</span></p>`;
             return;
         }
         // VirusTotal counts engines, not feed hits, and one lone detection

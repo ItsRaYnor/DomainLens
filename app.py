@@ -394,6 +394,12 @@ def _safe_resolve_ip(domain):
 
 def _safe_error(exc):
     """Return a sanitised error message without leaking internals."""
+    # A request that did not reach its host is said in words, not as the
+    # urllib3 exception chain.
+    import net_errors
+    kind, readable = net_errors.classify(exc)
+    if kind != net_errors.OTHER:
+        return readable
     text = str(exc)
     for word in ("Traceback", "/home/", "/usr/", "File \""):
         if word in text:
@@ -3056,7 +3062,8 @@ def _build_check_map(domain, apex, extra_dkim_selectors=None, force_refresh=Fals
         "ports": lambda: check_ports(domain),
         "osint": lambda: scan_cache.cached_call(
             scan_cache.KIND_OSINT, domain,
-            lambda: osint.collect_osint(domain), force=force_refresh),
+            lambda: osint.collect_osint(domain), force=force_refresh,
+            should_store=osint.cacheable),
         "hubspot_cf": lambda: hubspot_cf.scan_hubspot_cloudflare(domain),
         "security": lambda: check_security(domain, force=force_refresh),
         "weak_auth": lambda: check_weak_auth(domain),

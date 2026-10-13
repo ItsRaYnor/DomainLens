@@ -34,7 +34,12 @@ class EnterpriseAppTestCase(unittest.TestCase):
         import auth
         import db
         import app
+        import rate_limits
         from settings.store import get_store
+
+        # The API budgets are process-wide: one test's lookups must not use
+        # up the next test's minute.
+        rate_limits.reset()
 
         self.auth = importlib.reload(auth)
         self.db = importlib.reload(db)

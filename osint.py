@@ -20,10 +20,14 @@ import logging
 import os
 import re
 import socket
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote
 
 import requests
+
+import net_errors
+import rate_limits
 
 log = logging.getLogger("domainlens.osint")
 
@@ -41,11 +45,10 @@ def _session():
     return s
 
 
-def _safe_error(exc):
-    text = str(exc)
-    if len(text) > 300:
-        text = text[:300]
-    return text
+def _safe_error(exc, host=None):
+    # Readable words, not the exception: which source was not reached and
+    # why, ending in "Not measured".
+    return net_errors.describe(exc, host)
 
 
 def _normalize_host(value):
@@ -86,7 +89,8 @@ _OTX_TIMEOUT = 25
 _WAYBACK_TIMEOUT = 30
 
 
-def _fetch_json(session, url, *, label, timeout, headers=None, attempts=2, auth_message=None):
+def _fetch_json(session, url, *, label, timeout, headers=None, attempts=2, auth_message=None,
+                provider=None):
     """GET JSON with one retry on timeout. Returns (data, error).
 
     Only timeouts are retried — a rejected key or a bad request will not fix
@@ -94,15 +98,27 @@ def _fetch_json(session, url, *, label, timeout, headers=None, attempts=2, auth_
     """
     last_error = None
     for _ in range(attempts):
+        if provider:
+            # Within the provider's free-tier budget, or not asked at all.
+            allowed, reason = rate_limits.acquire(provider)
+            if not allowed:
+                return None, reason
         try:
             resp = session.get(url, headers=headers, timeout=timeout)
             if auth_message and resp.status_code in (401, 403):
                 return None, auth_message
+            if provider and rate_limits.note_response(provider, resp):
+                return None, net_errors.http_status(429, label)[1]
             resp.raise_for_status()
             return resp.json(), None
         except requests.Timeout:
-            last_error = f"{label} did not respond within {timeout}s"
+            last_error = f"{label} did not respond within {timeout}s. {net_errors.AGAIN}"
         except Exception as exc:
+            # A resolver that did not answer once often answers a second
+            # later; a refused key or a missing name will not.
+            if net_errors.is_temporary_dns(exc) and _ < attempts - 1:
+                time.sleep(1)
+                continue
             return None, _safe_error(exc)
     return None, last_error
 
@@ -165,7 +181,7 @@ def wayback_snapshots(domain, limit=15):
     )
     try:
         rows, error = _fetch_json(
-            _session(), url, label="Wayback Machine", timeout=_WAYBACK_TIMEOUT)
+            _session(), url, label="Wayback Machine", timeout=_WAYBACK_TIMEOUT, provider="wayback")
         if rows is None:
             result["error"] = error
             return result
@@ -212,6 +228,10 @@ def ip_context(domain):
     try:
         ip = socket.gethostbyname(domain)
         result["ip"] = ip
+        allowed, reason = rate_limits.acquire("ip-api")
+        if not allowed:
+            result["error"] = reason
+            return result
         resp = _session().get(
             f"http://ip-api.com/json/{ip}",
             params={
@@ -219,6 +239,9 @@ def ip_context(domain):
             },
             timeout=_TIMEOUT,
         )
+        if rate_limits.note_response("ip-api", resp):
+            result["error"] = net_errors.http_status(429, "ip-api.com")[1]
+            return result
         resp.raise_for_status()
         data = resp.json()
         if data.get("status") != "success":
@@ -240,7 +263,7 @@ def ip_context(domain):
             },
         })
     except Exception as exc:
-        result["error"] = _safe_error(exc)
+        result["error"] = _safe_error(exc, domain)
     return result
 
 
@@ -259,12 +282,17 @@ def threatfox_lookup(domain):
         result["message"] = "Set ABUSECH_AUTH_KEY for ThreatFox lookups"
         return result
     try:
+        allowed, reason = rate_limits.acquire("abuse.ch")
+        if not allowed:
+            result["error"] = reason
+            return result
         resp = _session().post(
             "https://threatfox-api.abuse.ch/api/v1/",
             headers={"Auth-Key": key},
             json={"query": "search_ioc", "search_term": domain},
             timeout=_TIMEOUT,
         )
+        rate_limits.note_response("abuse.ch", resp)
         resp.raise_for_status()
         data = resp.json()
         hits = []
@@ -304,12 +332,17 @@ def urlhaus_lookup(domain):
         result["message"] = "Set ABUSECH_AUTH_KEY for URLhaus lookups"
         return result
     try:
+        allowed, reason = rate_limits.acquire("abuse.ch")
+        if not allowed:
+            result["error"] = reason
+            return result
         resp = _session().post(
             "https://urlhaus-api.abuse.ch/v1/host/",
             headers={"Auth-Key": key},
             data={"host": domain},
             timeout=_TIMEOUT,
         )
+        rate_limits.note_response("abuse.ch", resp)
         resp.raise_for_status()
         data = resp.json()
         urls = []
@@ -355,7 +388,7 @@ def otx_lookup(domain):
     # The pulse count is the actual threat signal; passive DNS is context.
     general_data, error = _fetch_json(
         session, f"{base}/general", label="OTX", timeout=_OTX_TIMEOUT,
-        headers=headers, auth_message="OTX rejected the API key")
+        headers=headers, auth_message="OTX rejected the API key", provider="otx")
     if general_data is None:
         result["error"] = error
         return result
@@ -371,7 +404,7 @@ def otx_lookup(domain):
     # have — previously one timeout here failed the whole lookup.
     pdns_data, pdns_error = _fetch_json(
         session, f"{base}/passive_dns", label="OTX passive DNS", timeout=_OTX_TIMEOUT,
-        headers=headers, auth_message="OTX rejected the API key")
+        headers=headers, auth_message="OTX rejected the API key", provider="otx")
     if pdns_data is None:
         result["passive_dns_error"] = pdns_error
         return result
@@ -421,7 +454,7 @@ def virustotal_lookup(domain):
     data, error = _fetch_json(
         session,
         f"https://www.virustotal.com/api/v3/domains/{quote(domain)}",
-        label="VirusTotal", timeout=_TIMEOUT,
+        label="VirusTotal", timeout=_TIMEOUT, provider="virustotal",
         headers={"x-apikey": key},
         auth_message="VirusTotal rejected the API key")
     if data is None:
@@ -446,6 +479,19 @@ def virustotal_lookup(domain):
         "flagged_by": sorted(flagged)[:20],
     })
     return result
+
+
+def cacheable(result):
+    """Keep an OSINT result for a day only when no source failed for a
+    reason that may pass: a DNS hiccup, a timeout or a rate limit replayed
+    for 24 hours is the failure, not the answer."""
+    if not isinstance(result, dict) or result.get("success") is False:
+        return False
+    for source in (result.get("sources") or {}).values():
+        source = source or {}
+        if net_errors.is_transient(source.get("error")) or net_errors.is_transient(source.get("passive_dns_error")):
+            return False
+    return True
 
 
 def collect_osint(domain):
@@ -481,19 +527,29 @@ def collect_osint(domain):
     # measured is False when no key is set, so nothing can read a missing
     # lookup as a clean verdict.
     vt_measured = bool(vt.get("success")) and not vt.get("skipped")
+    # A source that was not reached contributes no count: "0 hits" from three
+    # feeds that all failed read as a clean bill of health.
+    feeds_measured = [src for src in (tf, uh, otx) if src.get("success") and not src.get("skipped")]
+    wayback = results.get("wayback") or {}
+    # Several sources failing on DNS at once is this server's DNS, not theirs.
+    dns_failures = sorted(name for name, src in results.items()
+                          if str((src or {}).get("error") or "").startswith("This server could not"))
 
     return {
         "success": True,
         "domain": domain,
         "sources": results,
         "summary": {
-            "subdomain_count": ct.get("subdomain_count") or len(ct.get("subdomains") or []),
-            "wayback_count": (results.get("wayback") or {}).get("count") or 0,
-            "threat_hits": threat_hits,
+            "subdomain_count": (ct.get("subdomain_count") or len(ct.get("subdomains") or [])
+                                if ct.get("success") else None),
+            "wayback_count": (wayback.get("count") or 0) if wayback.get("success") else None,
+            "threat_hits": threat_hits if feeds_measured else None,
+            "threat_feeds_measured": len(feeds_measured),
+            "dns_failures": dns_failures,
             "ip": (results.get("ip_context") or {}).get("ip"),
             "asn": ((results.get("ip_context") or {}).get("geo") or {}).get("asn"),
             "country": ((results.get("ip_context") or {}).get("geo") or {}).get("country"),
-            "listed_in_threat_feeds": threat_hits > 0,
+            "listed_in_threat_feeds": threat_hits > 0 if feeds_measured else None,
             "virustotal_measured": vt_measured,
             "virustotal_malicious": int(vt.get("malicious") or 0) if vt_measured else None,
             "virustotal_suspicious": int(vt.get("suspicious") or 0) if vt_measured else None,

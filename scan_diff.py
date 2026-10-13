@@ -290,7 +290,10 @@ def _threat_feed_hits(results):
     osint = results.get("osint") or {}
     if not osint.get("success"):
         return None
-    return int((osint.get("summary") or {}).get("threat_hits") or 0)
+    hits = (osint.get("summary") or {}).get("threat_hits")
+    # None: no feed was reached. Not 0 -- or a scan during a DNS outage
+    # would read as "the domain left the threat feeds".
+    return None if hits is None and "threat_feeds_measured" in (osint.get("summary") or {}) else int(hits or 0)
 
 
 def _virustotal_detections(results):

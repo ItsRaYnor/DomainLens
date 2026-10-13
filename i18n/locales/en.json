@@ -14,7 +14,6 @@
     "lookup": "Lookup",
     "reports": "Reports",
     "remediation": "Remediation",
-    "admin": "Admin",
     "lookup_ip": "IP address",
     "lookup_dns": "DNS record",
     "lookup_impersonation": "Impersonation",
@@ -171,7 +170,8 @@
       "own_infra": "Own infrastructure tests",
       "ownership": "Domain ownership",
       "notifications": "Notifications",
-      "retention": "Retention & backup"
+      "retention": "Retention & backup",
+      "api_limits": "API limits"
     },
     "general": {
       "locale": "Language",
@@ -379,6 +379,12 @@
       "scan_days": "Delete scans older than (days, 0 = keep; monitor baselines are kept)",
       "event_days": "Delete monitor events older than (days, 0 = keep)",
       "audit_days": "Delete audit log entries older than (days, 0 = keep)"
+    },
+    "api_limits": {
+      "virustotal_per_minute": "VirusTotal lookups per minute (free key: 4)",
+      "virustotal_per_day": "VirusTotal lookups per day (free key: 500)",
+      "ip_api_per_minute": "ip-api.com lookups per minute (free: 45)",
+      "wait_seconds": "Seconds a scan may wait for a free slot before the source is reported as not measured"
     }
   },
   "rapid7_ui": {

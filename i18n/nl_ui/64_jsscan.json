@@ -65,6 +65,58 @@
   [
    "(\\d[\\d.,]*)\\ public\\ source\\ map\\(s\\):\\ the\\ original\\ source\\ is\\ readable\\ by\\ anyone\\.",
    "$1 publieke source map(s): de originele broncode is voor iedereen leesbaar."
+  ],
+  [
+   "This\\ server\\ could\\ not\\ look\\ up\\ (.+?):\\ its\\ DNS\\ did\\ not\\ answer\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "Deze server kon $1 niet opzoeken: de eigen DNS antwoordde niet. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "This\\ server\\ could\\ not\\ find\\ (.+?)\\ in\\ DNS\\.\\ Not\\ measured\\.",
+   "Deze server kon $1 niet vinden in DNS. Niet gemeten."
+  ],
+  [
+   "(.+?)\\ did\\ not\\ answer\\ in\\ time\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "$1 antwoordde niet op tijd. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "The\\ secure\\ connection\\ to\\ (.+?)\\ failed\\.\\ Not\\ measured\\.",
+   "De beveiligde verbinding met $1 mislukte. Niet gemeten."
+  ],
+  [
+   "(.+?)\\ answered\\ HTTP\\ (\\d[\\d.,]*)\\.\\ Not\\ measured\\.",
+   "$1 antwoordde met HTTP $2. Niet gemeten."
+  ],
+  [
+   "(.+?)\\ answered\\ HTTP\\ (\\d[\\d.,]*)\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "$1 antwoordde met HTTP $2. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "Could\\ not\\ connect\\ to\\ (.+?)\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "Geen verbinding met $1 mogelijk. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "(.+?)\\ did\\ not\\ respond\\ within\\ (\\d[\\d.,]*)s\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "$1 reageerde niet binnen $2 s. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "This\\ server\\ could\\ not\\ look\\ up\\ (\\d[\\d.,]*)\\ of\\ the\\ sources\\ during\\ the\\ scan:\\ its\\ own\\ DNS\\ did\\ not\\ answer\\.\\ Those\\ results\\ are\\ not\\ measured;\\ scan\\ again\\ later\\.",
+   "Deze server kon $1 van de bronnen tijdens de scan niet opzoeken: de eigen DNS antwoordde niet. Die resultaten zijn niet gemeten; scan later opnieuw."
+  ],
+  [
+   "(.+?)\\ limits\\ how\\ often\\ it\\ may\\ be\\ asked,\\ and\\ that\\ limit\\ was\\ reached\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "$1 beperkt hoe vaak je het mag vragen, en die limiet is bereikt. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "The\\ daily\\ limit\\ for\\ (.+?)\\ \\((\\d[\\d.,]*)\\ lookups\\)\\ is\\ used\\ up;\\ it\\ resets\\ at\\ 00:00\\ UTC\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "De daglimiet voor $1 ($2 opvragingen) is op; die gaat om 00:00 UTC opnieuw in. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "(.+?)\\ allows\\ (\\d[\\d.,]*)\\ lookups\\ a\\ minute\\ and\\ they\\ were\\ in\\ use\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "$1 staat $2 opvragingen per minuut toe en die waren in gebruik. Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "(.+?)\\ asked\\ to\\ slow\\ down\\ \\(its\\ rate\\ limit\\ was\\ reached\\)\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
+   "$1 vroeg om rustiger aan te doen (de limiet is bereikt). Niet gemeten; probeer het later opnieuw."
   ]
  ]
 }

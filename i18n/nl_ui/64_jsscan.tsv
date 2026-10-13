@@ -27,3 +27,16 @@ Refuses to relay	Weigert door te sturen
 Resolves for anyone	Zoekt op voor iedereen
 Refuses recursion	Weigert recursie
 Not tested	Niet getest
+This server could not look up {}: its DNS did not answer. Not measured; try again later.	Deze server kon {} niet opzoeken: de eigen DNS antwoordde niet. Niet gemeten; probeer het later opnieuw.
+This server could not find {} in DNS. Not measured.	Deze server kon {} niet vinden in DNS. Niet gemeten.
+{} did not answer in time. Not measured; try again later.	{} antwoordde niet op tijd. Niet gemeten; probeer het later opnieuw.
+The secure connection to {} failed. Not measured.	De beveiligde verbinding met {} mislukte. Niet gemeten.
+{} answered HTTP {n}. Not measured.	{} antwoordde met HTTP {}. Niet gemeten.
+{} answered HTTP {n}. Not measured; try again later.	{} antwoordde met HTTP {}. Niet gemeten; probeer het later opnieuw.
+Could not connect to {}. Not measured; try again later.	Geen verbinding met {} mogelijk. Niet gemeten; probeer het later opnieuw.
+{} did not respond within {n}s. Not measured; try again later.	{} reageerde niet binnen {} s. Niet gemeten; probeer het later opnieuw.
+This server could not look up {n} of the sources during the scan: its own DNS did not answer. Those results are not measured; scan again later.	Deze server kon {} van de bronnen tijdens de scan niet opzoeken: de eigen DNS antwoordde niet. Die resultaten zijn niet gemeten; scan later opnieuw.
+{} limits how often it may be asked, and that limit was reached. Not measured; try again later.	{} beperkt hoe vaak je het mag vragen, en die limiet is bereikt. Niet gemeten; probeer het later opnieuw.
+The daily limit for {} ({n} lookups) is used up; it resets at 00:00 UTC. Not measured; try again later.	De daglimiet voor {} ({} opvragingen) is op; die gaat om 00:00 UTC opnieuw in. Niet gemeten; probeer het later opnieuw.
+{} allows {n} lookups a minute and they were in use. Not measured; try again later.	{} staat {} opvragingen per minuut toe en die waren in gebruik. Niet gemeten; probeer het later opnieuw.
+{} asked to slow down (its rate limit was reached). Not measured; try again later.	{} vroeg om rustiger aan te doen (de limiet is bereikt). Niet gemeten; probeer het later opnieuw.

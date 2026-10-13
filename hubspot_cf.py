@@ -49,8 +49,8 @@ _CF_NET_HINTS = ("cf-ray", "cf-cache-status", "cf-ipcountry")
 
 
 def _safe_error(exc):
-    text = str(exc)
-    return text[:300] if len(text) > 300 else text
+    import net_errors
+    return net_errors.describe(exc)
 
 
 def _cname_chain(domain):

@@ -123,6 +123,15 @@ DEFAULTS = {
     # Tools -> Mail analysis: how the links in a message are checked. Threat
     # lists are downloaded whole and searched locally; VirusTotal is asked
     # by hash only, and only when switched on here (link_check.py).
+    # How often third-party APIs may be asked. The defaults are the free
+    # tiers; a paid key allows more. A lookup waits up to wait_seconds for a
+    # free slot, then is reported as not measured rather than sent anyway.
+    "api_limits": {
+        "virustotal_per_minute": 4,
+        "virustotal_per_day": 500,
+        "ip_api_per_minute": 45,
+        "wait_seconds": 20,
+    },
     "mail_test": {
         # URLhaus with the abuse.ch key set under API keys; nothing happens
         # without that key.
