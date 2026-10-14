@@ -143,11 +143,12 @@ function pfRow(d) {
     return `<tr data-id="${d.id}">${check}<td><a href="/tools/whois?domain=${encodeURIComponent(d.domain)}"><code>${esc(d.domain).replace(/([.-])/g, '$1<wbr>')}</code></a>`
         + (d.note ? `<div class="muted">${esc(d.note)}</div>` : '')
         + `<div>${pfShield(d)}</div></td>`
-        + `<td>${registrar}<div>${pfExpiry(d)}</div>${transfer ? `<div>${transfer}</div>` : ''}</td>`
+        + `<td class="pf-reg">${registrar}<div>${pfExpiry(d)}</div>${transfer ? `<div>${transfer}</div>` : ''}</td>`
         + `<td>${phase}</td>`
         + `<td>${pfIntel(d)}</td>`
-        + `<td>${pfLifecycle(d)}</td>`
-        + `<td>${pfContact(d)}</td>${menu}</tr>`;
+        // The decision and who answers for it share a column: as two, the
+        // contact column (and the picker opened in it) ran past the card.
+        + `<td class="pf-decide">${pfLifecycle(d)}<div class="pf-contact">${pfContact(d)}</div></td>${menu}</tr>`;
 }
 
 function pfCounts(c) {
@@ -215,7 +216,7 @@ function pfRender() {
         const table = shown.length
             ? `<div class="users-table-wrap"><table class="data-table portfolio-table stack-table">`
               + `<tr>${head}<th>Domain</th><th>Registration</th><th>Status</th>`
-              + `<th>Use · threat intel</th><th>Decision</th><th>Contact</th>${pf.canEdit ? '<th></th>' : ''}</tr>`
+              + `<th>Use · threat intel</th><th>Decision · contact</th>${pf.canEdit ? '<th></th>' : ''}</tr>`
               + shown.map(pfRow).join('') + '</table></div>'
             : `<p class="muted">${all.length ? 'No domains in this unit match the filter.' : 'No domains in this unit yet.'}</p>`;
         const counts = pfCounts(summaries[s.key] || {});
@@ -635,7 +636,7 @@ function initPortfolio() {
                 pfApply('threat_intel', [id], on);
                 return;
             }
-            const cell = e.target.closest('td');
+            const cell = e.target.closest('.pf-contact');
             const row = e.target.closest('tr[data-id]');
             if (!cell || !row) return;
             const d = pf.data.domains.find(x => String(x.id) === row.dataset.id);
@@ -659,7 +660,7 @@ function initPortfolio() {
         });
         $('pfGroups').addEventListener('keydown', e => {
             if (e.key === 'Enter' && e.target.closest('.contact-new')) {
-                e.target.closest('td').querySelector('.pf-contact-save').click();
+                e.target.closest('.pf-contact').querySelector('.pf-contact-save').click();
             }
         });
         contactBookLoad();

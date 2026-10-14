@@ -1797,8 +1797,15 @@ function renderBlacklist(data) {
         html += `<p class="status status-warn" style="margin-bottom:0.75rem">${spamhausMsg} — see <a href="/admin/settings">Settings → Optional API keys</a>.</p>`;
     }
 
-    const cls = data.is_listed ? 'status-fail' : 'status-pass';
-    const msg = data.is_listed ? `Listed on ${data.listed.length} blacklist(s)!` : 'Clean - not listed on any blacklist';
+    // Clean only on the lists that answered: a list that did not is named
+    // as not checked, never counted among the clean ones.
+    const unmeasured = data.unmeasured || [];
+    const noneAsked = !data.is_listed && data.measured === 0;
+    const cls = data.is_listed ? 'status-fail' : (noneAsked ? 'status-warn' : 'status-pass');
+    const msg = data.is_listed ? `Listed on ${data.listed.length} blacklist(s)!`
+        : noneAsked ? 'Not measured: no blocklist could be asked'
+        : unmeasured.length ? `Not listed on the ${(data.clean || []).length} blocklist(s) that answered`
+        : 'Clean - not listed on any blacklist';
     html += `<p class="status ${cls}" style="margin-bottom:0.75rem">${escapeHtml(msg)}</p>`;
 
     // The IP threat lists fetched from their maintainers (ip_lists.py).
@@ -1820,6 +1827,9 @@ function renderBlacklist(data) {
     }
     for (const bl of (data.clean || [])) {
         html += `<div class="bl-item"><span class="status status-pass"></span> ${escapeHtml(bl)}</div>`;
+    }
+    for (const bl of unmeasured) {
+        html += `<div class="bl-item" title="Did not answer, or did not list its test address"><span class="status status-warn"></span> ${escapeHtml(bl)} <span class="muted">not checked</span></div>`;
     }
     html += '</div>';
     el.innerHTML = html;
@@ -3647,16 +3657,25 @@ function renderOsint(data) {
         ipEl.innerHTML = `<p class="status status-warn">${escapeHtml(ip.error || 'IP context unavailable')}</p>`;
     } else {
         const g = ip.geo || {};
+        const loc = ip.location || {};
+        // None is "not measured": without ip-api.com there is no hosting or
+        // proxy verdict, and "No" would have been a claim nobody made.
+        const nm = '<span class="muted">Not measured</span>';
+        const flag = v => (v === null || v === undefined ? nm : (v ? 'Yes' : 'No'));
+        const place = loc.state === 'measured' ? escapeHtml([g.city, g.country].filter(Boolean).join(', ') || '-')
+            : loc.state === 'not_configured' ? '<span class="muted">Not configured</span>' : nm;
+        const net = ip.network || {};
+        const sources = [net.source && `Network: ${net.source}`, loc.state === 'measured' && loc.source && `Location: ${loc.source}`].filter(Boolean).join(' · ');
         ipEl.innerHTML = `<table class="data-table">
             <tr><th>IP</th><td>${escapeHtml(ip.ip || '-')}</td></tr>
-            <tr><th>Country</th><td>${escapeHtml(g.country || '-')}</td></tr>
-            <tr><th>City</th><td>${escapeHtml(g.city || '-')}</td></tr>
-            <tr><th>ISP</th><td>${escapeHtml(g.isp || '-')}</td></tr>
-            <tr><th>Org</th><td>${escapeHtml(g.org || '-')}</td></tr>
             <tr><th>ASN</th><td>${escapeHtml(g.asn || '-')}</td></tr>
-            <tr><th>Hosting</th><td>${g.hosting ? 'Yes' : 'No'}</td></tr>
-            <tr><th>Proxy</th><td>${g.proxy ? 'Yes' : 'No'}</td></tr>
-        </table>`;
+            <tr><th>Prefix</th><td>${escapeHtml(g.prefix || '-')}</td></tr>
+            <tr><th>Registered in</th><td>${escapeHtml(g.registered_country || '-')}</td></tr>
+            <tr><th>Location</th><td>${place}</td></tr>
+            <tr><th>Hosting</th><td>${flag(g.hosting)}</td></tr>
+            <tr><th>Proxy</th><td>${flag(g.proxy)}</td></tr>
+        </table>` + (sources ? `<p class="http-meta"><span>${escapeHtml(sources)}</span></p>` : '')
+            + (loc.state === 'measured' && loc.attribution ? `<p class="http-meta"><span>${escapeHtml(loc.attribution)}</span></p>` : '');
     }
 
     const wb = data.sources?.wayback || {};

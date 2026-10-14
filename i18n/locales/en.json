@@ -171,7 +171,8 @@
       "ownership": "Domain ownership",
       "notifications": "Notifications",
       "retention": "Retention & backup",
-      "api_limits": "API limits"
+      "api_limits": "API limits",
+      "ip_context": "IP context"
     },
     "general": {
       "locale": "Language",
@@ -385,6 +386,9 @@
       "virustotal_per_day": "VirusTotal lookups per day (free key: 500)",
       "ip_api_per_minute": "ip-api.com lookups per minute (free: 45)",
       "wait_seconds": "Seconds a scan may wait for a free slot before the source is reported as not measured"
+    },
+    "ip_context": {
+      "ip_api": "Use ip-api.com for hosting and proxy flags. Its free endpoint is plain HTTP and for non-commercial use only, and every address looked up is sent to it. Network and location do not need it."
     }
   },
   "rapid7_ui": {
@@ -440,6 +444,7 @@
     "ip_title": "Look up an IP address",
     "ip_intro": "Registry data, reverse DNS, reputation and the abuse contact for one address.",
     "ip_placeholder": "192.0.2.10",
+    "ip_mine": "My IP address",
     "ip_submit": "Look up",
     "ip_abuse": "Abuse contact",
     "ip_registry": "Registry",

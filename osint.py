@@ -26,6 +26,8 @@ from urllib.parse import quote
 
 import requests
 
+import geoip
+import ip_asn
 import net_errors
 import rate_limits
 
@@ -217,53 +219,80 @@ def wayback_snapshots(domain, limit=15):
     return result
 
 
-def ip_context(domain):
-    """Resolve domain and enrich IP with open ASN/geo metadata."""
-    result = {
-        "success": False,
-        "source": "ip-api.com",
-        "ip": None,
-        "geo": None,
-    }
+def _ip_api_enabled():
     try:
-        ip = socket.gethostbyname(domain)
-        result["ip"] = ip
-        allowed, reason = rate_limits.acquire("ip-api")
-        if not allowed:
-            result["error"] = reason
-            return result
-        resp = _session().get(
-            f"http://ip-api.com/json/{ip}",
-            params={
-                "fields": "status,message,country,regionName,city,isp,org,as,asname,query,reverse,proxy,hosting",
-            },
-            timeout=_TIMEOUT,
-        )
+        import config as domainlens_config
+        return bool((domainlens_config.load_settings().raw.get("ip_context") or {}).get("ip_api"))
+    except Exception:
+        return False
+
+
+def _ip_api(ip):
+    """Hosting and proxy flags from ip-api.com, only when switched on: plain
+    HTTP, non-commercial use only, and the address goes to a third party."""
+    allowed, reason = rate_limits.acquire("ip-api")
+    if not allowed:
+        return {"error": reason}
+    try:
+        resp = _session().get(f"http://ip-api.com/json/{ip}",
+                              params={"fields": "status,message,isp,org,proxy,hosting"}, timeout=_TIMEOUT)
         if rate_limits.note_response("ip-api", resp):
-            result["error"] = net_errors.http_status(429, "ip-api.com")[1]
-            return result
+            return {"error": net_errors.http_status(429, "ip-api.com")[1]}
         resp.raise_for_status()
         data = resp.json()
         if data.get("status") != "success":
-            result["error"] = data.get("message") or "IP lookup failed"
-            return result
-        result.update({
-            "success": True,
-            "geo": {
-                "country": data.get("country"),
-                "region": data.get("regionName"),
-                "city": data.get("city"),
-                "isp": data.get("isp"),
-                "org": data.get("org"),
-                "asn": data.get("as"),
-                "asname": data.get("asname"),
-                "reverse": data.get("reverse"),
-                "proxy": bool(data.get("proxy")),
-                "hosting": bool(data.get("hosting")),
-            },
-        })
+            return {"error": data.get("message") or "ip-api.com did not answer for this address"}
+        return {"proxy": bool(data.get("proxy")), "hosting": bool(data.get("hosting")),
+                "isp": data.get("isp"), "error": None}
+    except Exception as exc:
+        return {"error": _safe_error(exc, "ip-api.com")}
+
+
+def ip_context(domain):
+    """The network an address is in, from the registry, and where it is, from
+    GeoLite2 on this server.
+
+    ASN, prefix and holder come from RIPEstat (falling back to Team Cymru);
+    location from MaxMind GeoLite2 when an account is set; hosting and proxy
+    flags only from ip-api.com, and only when an admin switches that on.
+    Each part keeps its own state, so a missing location never hides the ASN.
+    """
+    result = {"success": False, "source": "RIPEstat / Team Cymru", "ip": None, "geo": None,
+              "network": None, "location": None, "flags": None}
+    try:
+        ip = socket.gethostbyname(domain)
     except Exception as exc:
         result["error"] = _safe_error(exc, domain)
+        return result
+    result["ip"] = ip
+    network = ip_asn.lookup(ip)
+    location = geoip.lookup(ip)
+    flags = _ip_api(ip) if _ip_api_enabled() else None
+    result.update(network=network, location=location, flags=flags)
+    if network.get("state") != "measured" and location.get("state") != "measured":
+        result["error"] = network.get("error") or location.get("error") or "Network and location were not measured"
+        return result
+    measured_place = location.get("state") == "measured"
+    good_flags = flags if flags and not flags.get("error") else {}
+    result.update({
+        "success": True,
+        "source": network.get("source") or "GeoLite2",
+        "geo": {
+            "country": location.get("country") if measured_place else None,
+            "region": location.get("region") if measured_place else None,
+            "city": location.get("city") if measured_place else None,
+            "registered_country": network.get("country"),
+            "prefix": network.get("prefix"),
+            "isp": good_flags.get("isp") or network.get("holder"),
+            "org": network.get("holder"),
+            "asn": ip_asn.label(network),
+            "asname": network.get("holder"),
+            "reverse": None,
+            # None: not measured, which is what it is without ip-api.com.
+            "proxy": good_flags.get("proxy"),
+            "hosting": good_flags.get("hosting"),
+        },
+    })
     return result
 
 

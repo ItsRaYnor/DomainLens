@@ -59,7 +59,7 @@ class LayoutTests(unittest.TestCase):
         """Looking a domain up again is in the row's menu, not a column or a
         button in every row."""
         source = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
-        self.assertIn("<th>Use · threat intel</th><th>Decision</th><th>Contact</th>", source)
+        self.assertIn("<th>Use · threat intel</th><th>Decision · contact</th>", source)
         self.assertIn("{ label: 'Look up again now', value: 'check' }", source)
         self.assertNotIn('class="btn-ghost-sm pf-check"', source)
 

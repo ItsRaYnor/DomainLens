@@ -15,7 +15,25 @@
   "Refuses to relay": "Weigert door te sturen",
   "Resolves for anyone": "Zoekt op voor iedereen",
   "Refuses recursion": "Weigert recursie",
-  "Not tested": "Niet getest"
+  "Not tested": "Niet getest",
+  "Not measured: no blocklist could be asked": "Niet gemeten: geen enkele blocklist kon worden gevraagd",
+  "not checked": "niet gecontroleerd",
+  "Did not answer, or did not list its test address": "Antwoordde niet, of vermeldde het eigen testadres niet",
+  "No blocklist could be asked for this address.": "Geen enkele blocklist kon voor dit adres worden gevraagd.",
+  "Registered in": "Geregistreerd in",
+  "Prefix": "Prefix",
+  "Location": "Locatie",
+  "not measured": "niet gemeten",
+  "not configured": "niet ingesteld",
+  "add a MaxMind account": "een MaxMind-account toevoegen",
+  "not in the database": "niet in de database",
+  "not announced": "niet aangekondigd",
+  "Not configured": "Niet ingesteld",
+  "This product includes GeoLite Data created by MaxMind, available from https://www.maxmind.com.": "Dit product bevat GeoLite-gegevens van MaxMind, beschikbaar via https://www.maxmind.com.",
+  "The GeoLite2 database has not been downloaded yet": "De GeoLite2-database is nog niet gedownload",
+  "Asking…": "Bezig met vragen…",
+  "A proxy in front of DomainLens passes your address on, but is not trusted (DOMAINLENS_TRUSTED_PROXY_HOPS is not set).": "Een proxy vóór DomainLens geeft je adres door, maar wordt niet vertrouwd (DOMAINLENS_TRUSTED_PROXY_HOPS is niet ingesteld).",
+  "Not measured: this server could not find its public address either.": "Niet gemeten: deze server kon ook zijn eigen publieke adres niet vinden."
  },
  "patterns": [
   [
@@ -117,6 +135,38 @@
   [
    "(.+?)\\ asked\\ to\\ slow\\ down\\ \\(its\\ rate\\ limit\\ was\\ reached\\)\\.\\ Not\\ measured;\\ try\\ again\\ later\\.",
    "$1 vroeg om rustiger aan te doen (de limiet is bereikt). Niet gemeten; probeer het later opnieuw."
+  ],
+  [
+   "Not\\ listed\\ on\\ the\\ (\\d[\\d.,]*)\\ blocklist\\(s\\)\\ that\\ answered",
+   "Niet vermeld op de $1 blocklist(s) die antwoordden"
+  ],
+  [
+   "Network:\\ (.+?)",
+   "Netwerk: $1"
+  ],
+  [
+   "Location:\\ (.+?)",
+   "Locatie: $1"
+  ],
+  [
+   "(\\d[\\d.,]*)\\ blocklist\\(s\\)\\ could\\ not\\ be\\ checked:\\ (.+?)",
+   "$1 blocklist(s) konden niet worden gecontroleerd: $2"
+  ],
+  [
+   "The\\ GeoLite2\\ database\\ is\\ (\\d[\\d.,]*)\\ days\\ old\\ and\\ could\\ not\\ be\\ updated,\\ so\\ it\\ is\\ not\\ used",
+   "De GeoLite2-database is $1 dagen oud en kon niet worden bijgewerkt, dus wordt niet gebruikt"
+  ],
+  [
+   "Your\\ browser\\ reaches\\ DomainLens\\ from\\ a\\ private\\ address\\ \\((.+?)\\):\\ it\\ is\\ on\\ the\\ same\\ network\\ as\\ this\\ server\\.",
+   "Je browser bereikt DomainLens vanaf een privé-adres ($1): hij zit op hetzelfde netwerk als deze server."
+  ],
+  [
+   "Your\\ public\\ address,\\ as\\ this\\ server\\ sees\\ your\\ connection:\\ (.+?)",
+   "Je publieke adres, zoals deze server je verbinding ziet: $1"
+  ],
+  [
+   "Shown\\ is\\ the\\ public\\ address\\ of\\ this\\ server\\ \\((.+?)\\);\\ it\\ is\\ yours\\ only\\ when\\ you\\ share\\ its\\ internet\\ connection\\.",
+   "Getoond is het publieke adres van deze server ($1); dat is alleen het jouwe als je dezelfde internetverbinding deelt."
   ]
  ]
 }

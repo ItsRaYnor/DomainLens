@@ -123,6 +123,17 @@ class DesktopFitTests(unittest.TestCase):
         self.assertIn("esc(d.domain).replace(/([.-])/g, '$1<wbr>')", js)
         self.assertIn(".portfolio-table td:nth-child(2) code { white-space: normal; }", STYLE)
 
+    def test_the_contact_stays_inside_the_card(self):
+        """At 1000px the contact column, and with "Link contact" open its
+        picker, ran 59px past the card: the row menu and the contact were cut
+        off. The contact now sits under the decision, and the picker's fields
+        take the column's width instead of widening it."""
+        js = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
+        self.assertIn('<td class="pf-decide">${pfLifecycle(d)}<div class="pf-contact">${pfContact(d)}</div></td>', js)
+        self.assertNotIn("<th>Contact</th>", js)
+        self.assertIn("const cell = e.target.closest('.pf-contact');", js)
+        self.assertIn(".portfolio-table td.pf-decide select, .portfolio-table td.pf-decide input { width: 100%; min-width: 0;", STYLE)
+
 
 class StyleTests(unittest.TestCase):
     def test_a_status_sentence_wraps_like_text(self):

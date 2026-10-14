@@ -267,7 +267,7 @@ class PageTests(EnterpriseAppTestCase):
                        '<option value="intel">', "contact_picker.js"):
             self.assertIn(marker, html)
         source = (ROOT / "static" / "js" / "portfolio.js").read_text(encoding="utf-8")
-        self.assertIn("<th>Use · threat intel</th><th>Decision</th><th>Contact</th>", source)
+        self.assertIn("<th>Use · threat intel</th><th>Decision · contact</th>", source)
 
     def test_threat_intel_and_the_contact_are_set_on_the_row_itself(self):
         """Selecting a row and finding the right button above the table for

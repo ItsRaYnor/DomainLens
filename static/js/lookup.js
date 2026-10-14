@@ -57,6 +57,36 @@ function rows(pairs) {
     return body ? `<table class="data-table"><tbody>${body}</tbody></table>` : '';
 }
 
+// The network from the registry (RIPEstat / Team Cymru), the place from
+// GeoLite2 on this server, the hosting/proxy flags only from ip-api.com when
+// switched on. Each says where it came from, and what was not measured says so.
+function ipNetworkHtml(ctx) {
+    const geo = ctx.geo || {};
+    const net = ctx.network || {};
+    const loc = ctx.location || {};
+    const notMeasured = '<span class="muted">not measured</span>';
+    const place = loc.state === 'measured'
+        ? esc([geo.city, geo.region, geo.country].filter(Boolean).join(', ') || '-')
+        : loc.state === 'not_configured'
+            ? '<span class="muted">not configured</span> <a href="/admin/settings#api_keys">add a MaxMind account</a>'
+            : loc.state === 'not_in_database' ? '<span class="muted">not in the database</span>'
+            : `<span class="muted">${esc(loc.error || 'not measured')}</span>`;
+    const flag = v => (v === null || v === undefined ? notMeasured : (v ? 'yes' : 'no'));
+    let html = '<table class="data-table"><tbody>';
+    html += `<tr><th>ASN</th><td>${geo.asn ? esc(geo.asn) : (net.state === 'measured' ? '<span class="muted">not announced</span>' : notMeasured)}</td></tr>`;
+    if (geo.prefix) html += `<tr><th>Prefix</th><td class="mono">${esc(geo.prefix)}</td></tr>`;
+    if (geo.registered_country) html += `<tr><th>Registered in</th><td>${esc(geo.registered_country)}</td></tr>`;
+    html += `<tr><th>Location</th><td>${place}</td></tr>`;
+    html += `<tr><th>Hosting/datacentre</th><td>${flag(geo.hosting)}</td></tr>`;
+    html += `<tr><th>Proxy/VPN</th><td>${flag(geo.proxy)}</td></tr>`;
+    html += '</tbody></table>';
+    const sources = [net.source && `Network: ${net.source}`, loc.state === 'measured' && loc.source && `Location: ${loc.source}`]
+        .filter(Boolean).join(' · ');
+    if (sources) html += `<p class="ct-desc">${esc(sources)}</p>`;
+    if (loc.state === 'measured' && loc.attribution) html += `<p class="ct-desc">${esc(loc.attribution)}</p>`;
+    return html;
+}
+
 function card(title, inner, extraClass) {
     if (!inner) return '';
     return `<section class="card ${extraClass || ''}">
@@ -64,6 +94,35 @@ function card(title, inner, extraClass) {
 }
 
 // ===== IP address =====
+
+// The address the reader is using. From a private address (same network as
+// the server, or a proxy that does not pass it on) the server can only say
+// what its own public address is, and the note says that is what is shown.
+async function ipMine() {
+    const note = $('ipMineNote');
+    note.classList.remove('hidden');
+    note.innerHTML = 'Asking…';
+    let data;
+    try {
+        data = await requestJson('/api/myip');
+    } catch (e) {
+        note.innerHTML = `<span class="status status-fail">${esc(e.message)}</span>`;
+        return;
+    }
+    const why = data.reason === 'proxy_untrusted'
+        ? 'A proxy in front of DomainLens passes your address on, but is not trusted (DOMAINLENS_TRUSTED_PROXY_HOPS is not set).'
+        : `Your browser reaches DomainLens from a private address (${data.client}): it is on the same network as this server.`;
+    if (data.state !== 'measured') {
+        note.innerHTML = `<span class="status status-warn">${esc('Not measured: this server could not find its public address either.')}</span> `
+            + `<span>${esc(why)}</span> <span class="muted">${esc(data.error || '')}</span>`;
+        return;
+    }
+    note.innerHTML = data.seen_as === 'connection'
+        ? esc(`Your public address, as this server sees your connection: ${data.ip}`)
+        : `<span>${esc(why)}</span> <span>${esc(`Shown is the public address of this server (${data.ip}); it is yours only when you share its internet connection.`)}</span>`;
+    $('ipInput').value = data.ip;
+    ipLookup();
+}
 
 async function ipLookup() {
     const out = $('ipResult');
@@ -116,14 +175,7 @@ async function ipLookup() {
         ['Last changed', (rdap.events || {}).lastchanged || (rdap.events || {})['last changed']],
     ]) || (rdap.error ? `<p class="status status-warn">${esc(rdap.error)}</p>` : ''));
 
-    html += card('Network', rows([
-        ['ASN', geo.asn],
-        ['Operator', geo.asname || geo.org],
-        ['ISP', geo.isp],
-        ['Location', [geo.city, geo.region, geo.country].filter(Boolean).join(', ')],
-        ['Hosting/datacentre', geo.hosting === undefined ? '' : (geo.hosting ? 'yes' : 'no')],
-        ['Proxy/VPN', geo.proxy === undefined ? '' : (geo.proxy ? 'yes' : 'no')],
-    ]));
+    html += card('Network', ipNetworkHtml(data.geo || {}));
 
     const ptr = (data.reverse_dns || {}).names || [];
     html += card('Reverse DNS', ptr.length
@@ -131,11 +183,15 @@ async function ipLookup() {
         : '<p class="ct-desc">No PTR record.</p>');
 
     const listed = bl.listed || [];
+    const notChecked = (bl.unmeasured || []).length
+        ? `<p class="ct-desc">${esc(String(bl.unmeasured.length))} blocklist(s) could not be checked: ${esc(bl.unmeasured.join(', '))}</p>` : '';
     html += card('IP threat lists', ipListsHtml(bl.ip_lists));
-    html += card('Reputation', listed.length
+    html += card('Reputation', (listed.length
         ? `<p class="status status-fail">Listed on ${listed.length} blocklist(s)</p>
            <table class="data-table"><tbody>${listed.map(z => `<tr><td class="mono">${esc(z)}</td></tr>`).join('')}</tbody></table>`
-        : `<p class="status status-pass">Not listed on ${(bl.clean || []).length} checked blocklist(s)</p>`);
+        : (bl.clean || []).length
+            ? `<p class="status status-pass">Not listed on ${(bl.clean || []).length} checked blocklist(s)</p>`
+            : '<p class="status status-warn">Not measured: no blocklist could be asked</p>') + notChecked);
 
     out.innerHTML = html;
 }
@@ -974,6 +1030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ipBtn = $('ipLookupBtn');
     if (ipBtn) {
         ipBtn.addEventListener('click', ipLookup);
+        $('ipMineBtn').addEventListener('click', ipMine);
         $('ipInput').addEventListener('keydown', e => { if (e.key === 'Enter') ipLookup(); });
         // Arriving from the scan box with an address already typed: run it
         // rather than making the reader press the button again.

@@ -66,7 +66,12 @@ def blacklist(results):
     if not isinstance(data, dict) or data.get("error"):
         return None
     if not data.get("is_listed"):
-        return _tile("pass") if data.get("ip") else None
+        if not data.get("ip"):
+            return None
+        # Not listed on lists that did not answer is not "not listed".
+        if data.get("measured") == 0:
+            return _tile("not_tested", "No blocklist could be asked for this address.")
+        return _tile("pass")
     listed = distinct_listings(data)
     names = ", ".join(listed)
     # A listing without the address it was for is still a listing: it is

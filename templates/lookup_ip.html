@@ -19,7 +19,9 @@
                        data-i18n="lookup.ip_placeholder" data-i18n-attr="placeholder"
                        autocomplete="off" spellcheck="false">
                 <button class="btn-primary-lite" id="ipLookupBtn" type="button" data-i18n="lookup.ip_submit">{{ t('lookup.ip_submit') }}</button>
+                <button class="btn-ghost-sm" id="ipMineBtn" type="button" data-i18n="lookup.ip_mine">{{ t('lookup.ip_mine') }}</button>
             </div>
+            <p class="ct-desc hidden" id="ipMineNote"></p>
             <div class="mt-checks">
                 <p class="ct-desc" id="ipListsStatus"></p>
                 {# can_accept_risks: an admin, or no sign-in at all -- who may refresh. #}

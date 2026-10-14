@@ -126,6 +126,11 @@ DEFAULTS = {
     # How often third-party APIs may be asked. The defaults are the free
     # tiers; a paid key allows more. A lookup waits up to wait_seconds for a
     # free slot, then is reported as not measured rather than sent anyway.
+    # ip-api.com for hosting/proxy flags: plain HTTP, non-commercial use only,
+    # and every address goes to a third party -- off unless an admin chooses.
+    "ip_context": {
+        "ip_api": False,
+    },
     "api_limits": {
         "virustotal_per_minute": 4,
         "virustotal_per_day": 500,
@@ -397,6 +402,8 @@ SECRET_ENV_KEYS = [
     "ABUSECH_AUTH_KEY",
     "OTX_API_KEY",
     "VIRUSTOTAL_API_KEY",
+    "MAXMIND_ACCOUNT_ID",
+    "MAXMIND_LICENSE_KEY",
     "OVH_APP_KEY",
     "OVH_APP_SECRET",
     "OVH_CONSUMER_KEY",
@@ -445,6 +452,20 @@ OPTIONAL_INTEGRATIONS = [
         "enables": "Multi-vendor domain reputation (detections + community score) in the OSINT tab",
         "without": "VirusTotal is reported as not configured and no reputation verdict is claimed",
         "signup": "https://www.virustotal.com/gui/my-apikey",
+    },
+    {
+        "env": "MAXMIND_ACCOUNT_ID",
+        "name": "MaxMind GeoLite2 (account ID)",
+        "enables": "Location of IP addresses, from a GeoLite2 database downloaded to and read on this server",
+        "without": "Location is reported as not configured; the network (ASN) still comes from the registry",
+        "signup": "https://www.maxmind.com/en/geolite2/signup",
+    },
+    {
+        "env": "MAXMIND_LICENSE_KEY",
+        "name": "MaxMind GeoLite2 (license key)",
+        "enables": "Downloading the GeoLite2 City database, together with the account ID",
+        "without": "Location is reported as not configured",
+        "signup": "https://www.maxmind.com/en/accounts/current/license-key",
     },
 ]
 

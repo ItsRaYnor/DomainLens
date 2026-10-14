@@ -171,7 +171,8 @@
       "ownership": "Domeineigendom",
       "notifications": "Meldingen",
       "retention": "Bewaartermijnen & backup",
-      "api_limits": "API-limieten"
+      "api_limits": "API-limieten",
+      "ip_context": "IP-context"
     },
     "general": {
       "locale": "Taal",
@@ -385,6 +386,9 @@
       "virustotal_per_day": "VirusTotal-opvragingen per dag (gratis sleutel: 500)",
       "ip_api_per_minute": "ip-api.com-opvragingen per minuut (gratis: 45)",
       "wait_seconds": "Seconden die een scan mag wachten op een vrije plek, daarna geldt de bron als niet gemeten"
+    },
+    "ip_context": {
+      "ip_api": "ip-api.com gebruiken voor hosting- en proxy-kenmerken. Het gratis endpoint is onversleuteld HTTP en alleen voor niet-commercieel gebruik, en elk opgezocht adres gaat erheen. Netwerk en locatie hebben het niet nodig."
     }
   },
   "rapid7_ui": {
@@ -440,6 +444,7 @@
     "ip_title": "IP-adres opzoeken",
     "ip_intro": "Registratiegegevens, reverse DNS, reputatie en het abuse-contact van één adres.",
     "ip_placeholder": "192.0.2.10",
+    "ip_mine": "Mijn IP-adres",
     "ip_submit": "Opzoeken",
     "ip_abuse": "Abuse-contact",
     "ip_registry": "Registratie",

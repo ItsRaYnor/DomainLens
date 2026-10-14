@@ -35,6 +35,9 @@ class DnsblDomainListTests(unittest.TestCase):
         os.environ.pop("DOMAINLENS_DB", None)
         cls._tempdir.cleanup()
 
+    def setUp(self):
+        self.app._dnsbl_alive_cache.clear()
+
     def _rdata(self, ip):
         r = mock.Mock()
         r.to_text.return_value = ip
@@ -102,7 +105,7 @@ class DnsblDomainListTests(unittest.TestCase):
                         side_effect=dns.resolver.NXDOMAIN("clean")):
             result = self.app.check_blacklist("example.com")
         blob = " ".join(result.get("listed", []) + result.get("clean", [])
-                        + result.get("errors", []))
+                        + result.get("errors", []) + result.get("unmeasured", []))
         self.assertTrue(blob, "nothing was recorded at all")
         self.assertNotIn("SECRETKEY", blob)
 
@@ -110,6 +113,8 @@ class DnsblDomainListTests(unittest.TestCase):
         queried = []
 
         def fake_resolve(name, rdtype):
+            if name.startswith("2.0.0.127."):
+                return [self._rdata("127.0.0.2")]  # a working list lists its test address
             queried.append(name)
             raise dns.resolver.NXDOMAIN()
 
@@ -130,6 +135,8 @@ class DnsblDomainListTests(unittest.TestCase):
     def test_prohibited_ip_query_no_longer_reports_a_listing(self):
         """The exact original failure: domain zones answering 127.0.1.255."""
         def fake_resolve(name, rdtype):
+            if name.startswith("2.0.0.127."):
+                return [self._rdata("127.0.0.2")]  # a working list lists its test address
             if ".dbl." in name or ".zrd." in name:
                 return [self._rdata("127.0.1.255")]
             raise dns.resolver.NXDOMAIN()
@@ -144,6 +151,8 @@ class DnsblDomainListTests(unittest.TestCase):
 
     def test_a_real_domain_listing_is_still_reported(self):
         def fake_resolve(name, rdtype):
+            if name.startswith("2.0.0.127."):
+                return [self._rdata("127.0.0.2")]  # a working list lists its test address
             if ".dbl." in name:
                 return [self._rdata("127.0.1.2")]  # spam domain
             raise dns.resolver.NXDOMAIN()
@@ -159,6 +168,8 @@ class DnsblDomainListTests(unittest.TestCase):
 
     def test_a_real_ip_listing_is_still_reported(self):
         def fake_resolve(name, rdtype):
+            if name.startswith("2.0.0.127."):
+                return [self._rdata("127.0.0.2")]  # a working list lists its test address
             if ".zen." in name:
                 return [self._rdata("127.0.0.4")]
             raise dns.resolver.NXDOMAIN()

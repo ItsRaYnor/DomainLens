@@ -2584,8 +2584,14 @@ footer, .app-footer {
 /* Words wrap between words, never inside one ("team.blu / e nl"); the
    status keeps its first line whole. */
 .portfolio-table .pf-phase { white-space: normal; }
-.portfolio-table td:nth-child(3) { min-width: 6rem; }
-.portfolio-table td:nth-child(7) { min-width: 7rem; }
+.portfolio-table td.pf-reg { min-width: 7.5rem; }
+/* The decision with its contact below it. Its fields take the column's
+   width: a percentage width does not widen a table column, so a long name
+   in the contact list no longer pushes the row past the card. */
+.portfolio-table td.pf-decide { min-width: 9rem; }
+.portfolio-table td.pf-decide select, .portfolio-table td.pf-decide input { width: 100%; min-width: 0; box-sizing: border-box; }
+.portfolio-table .pf-contact { margin-top: 0.4rem; }
+.portfolio-table .pf-contact .contact-pick { display: flex; }
 .portfolio-table td.pf-row-actions { width: 1%; }
 .portfolio-table .pf-check { margin-top: 0.35rem; }
 .pf-count-warn { color: var(--orange); }

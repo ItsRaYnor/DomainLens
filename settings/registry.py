@@ -109,6 +109,9 @@ FIELD_META = {
         "dshield": {"type": "bool", "label": "settings.ip_lists.dshield"},
         "custom_lists": {"type": "lines", "label": "settings.ip_lists.custom_lists"},
     },
+    "ip_context": {
+        "ip_api": {"type": "bool", "label": "settings.ip_context.ip_api"},
+    },
     "api_limits": {
         "virustotal_per_minute": {"type": "int", "min": 1, "max": 1000, "label": "settings.api_limits.virustotal_per_minute"},
         "virustotal_per_day": {"type": "int", "min": 1, "max": 1000000, "label": "settings.api_limits.virustotal_per_day"},
@@ -261,7 +264,7 @@ SETTING_CATEGORIES = [
      "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra", "ip_lists", "mail_test"]},
     {"key": "settings.categories.automation", "sections": ["scheduler", "reporting"]},
     {"key": "settings.categories.integrations",
-     "sections": ["api_keys", "api_limits", "notifications", "servicenow", "rapid7"]},
+     "sections": ["api_keys", "api_limits", "ip_context", "notifications", "servicenow", "rapid7"]},
     {"key": "settings.categories.access",
      "sections": ["auth_local", "auth_oauth", "auth_saml", "scim"]},
     {"key": "settings.categories.system", "sections": ["updates", "retention", "disclosure"]},
@@ -289,6 +292,7 @@ ADMIN_SECTIONS = [
     "ip_lists",
     "mail_test",
     "api_limits",
+    "ip_context",
     "auth_local",
     "auth_oauth",
     "auth_saml",

@@ -79,7 +79,8 @@ Secrets*. When nothing could be fetched the result says so, rather than "nothing
 ## Third-party sources and their limits
 
 The OSINT lookups ask services DomainLens does not run: crt.sh, the Internet Archive, abuse.ch
-(ThreatFox, URLhaus), AlienVault OTX, VirusTotal and ip-api.com. Their free tiers limit how often
+(ThreatFox, URLhaus), AlienVault OTX, VirusTotal and, when switched on, ip-api.com (see *IP address:
+where the data comes from*). Their free tiers limit how often
 they may be asked, so DomainLens keeps a budget per service, set under **Settings → Integrations →
 API limits** (defaults are the free tiers: VirusTotal 4 a minute and 500 a day, ip-api.com 45 a
 minute; raise them for a paid key). The VirusTotal budget is shared with the link lookups of the
@@ -318,7 +319,9 @@ Each row shows the domain with its monitoring state, its registration (registrar
 expiry, and "To move" when it is at another registrar than its unit expects), its status
 (the time of the last lookup is in the tooltip), its use -- two labels, ✉ Mail and 🌐 Web,
 struck through when measured unused and dashed when not measured -- with the threat
-intelligence switch, its decision (a list to change right there) and its contact. The ⋯ menu
+intelligence switch, and its decision (a list to change right there) with its contact below it
+-- one column, so the contact and the picker opened by **Link contact** stay inside the card.
+On a phone each row is a card with the values under their column names. The ⋯ menu
 at the end of a row moves the domain to a unit, monitors or pauses it, looks it up again or
 removes it.
 
@@ -455,6 +458,46 @@ endpoint that accepted a resolver address would be a way to aim UDP/53 at any
 host the server can reach. Only literal IP addresses are accepted, a label
 cannot shadow a built-in resolver name, and a malformed line is skipped rather
 than breaking the page.
+
+## IP address: where the data comes from
+
+Tools → IP address, and the IP card of a scan's OSINT tab, combine these sources. Each says
+where its answer came from; one that was not reached says *not measured*, never *no*.
+
+- **Network (ASN, holder, prefix, country of registration)**: RIPEstat, the RIPE NCC's data
+  service, over HTTPS (`prefix-overview` and `rir-stats-country`). When it cannot be reached,
+  Team Cymru's IP-to-ASN service, asked over DNS (`origin.asn.cymru.com`). Both answer from
+  routing and registry data, free and without a key. The country here is where the address
+  block is registered, not where the machine stands.
+- **Location (country, region, city)**: MaxMind GeoLite2, a database downloaded to this server
+  and read here, so no address leaves it. It needs a free MaxMind account: set the account ID
+  and a license key under **Settings → API keys** (`MAXMIND_ACCOUNT_ID`,
+  `MAXMIND_LICENSE_KEY`). The scheduler fetches the database shortly after the keys are set, and every
+  three days after (MaxMind updates it twice a week). Without an account, location is *not
+  configured*; a database that could not be updated for more than 30 days is no longer used,
+  as the GeoLite licence asks, and location becomes *not measured*. Wherever location is
+  shown, the credit MaxMind asks for is shown with it.
+- **Hosting and proxy flags**: only from ip-api.com, which is **off** by default -- its free
+  endpoint is plain HTTP, for non-commercial use, and every address looked up is sent to it.
+  Switch it on under **Settings → Integrations → IP context** if that fits; until then both
+  flags read *not measured*.
+- **Reputation (DNS blocklists)**: Spamcop, Barracuda, CBL, UCEPROTECT and PSBL, and Spamhaus
+  with a DQS key. SORBS is gone: its zones no longer exist, so every address came back "not
+  listed". Each list is first asked for its own test address (127.0.0.2, RFC 5782); a list
+  that does not answer it, times out or returns an error code is *not checked* for that
+  address, not counted among the clean ones. When none could be asked, the blacklist tile
+  says *Not tested*.
+
+### Your own address
+
+**My IP address** next to the look-up button fills in the address you are using and looks it
+up. The answer is the address your browser connects from when that is a public address. From
+a private one -- the same network as the DomainLens server, or through a reverse proxy that
+does not pass the address on or is not trusted (`DOMAINLENS_TRUSTED_PROXY_HOPS`) -- the
+server cannot see yours, so it shows its own public address instead and says so: that is
+yours only when you share its internet connection. The server asks RIPEstat (`whats-my-ip`,
+RIPE NCC, Amsterdam) over HTTPS for its address; when RIPEstat cannot be reached the answer is
+*not measured*. `GET /api/myip`.
 
 ## IP threat lists
 

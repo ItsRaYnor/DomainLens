@@ -40,3 +40,29 @@ This server could not look up {n} of the sources during the scan: its own DNS di
 The daily limit for {} ({n} lookups) is used up; it resets at 00:00 UTC. Not measured; try again later.	De daglimiet voor {} ({} opvragingen) is op; die gaat om 00:00 UTC opnieuw in. Niet gemeten; probeer het later opnieuw.
 {} allows {n} lookups a minute and they were in use. Not measured; try again later.	{} staat {} opvragingen per minuut toe en die waren in gebruik. Niet gemeten; probeer het later opnieuw.
 {} asked to slow down (its rate limit was reached). Not measured; try again later.	{} vroeg om rustiger aan te doen (de limiet is bereikt). Niet gemeten; probeer het later opnieuw.
+Not measured: no blocklist could be asked	Niet gemeten: geen enkele blocklist kon worden gevraagd
+Not listed on the {n} blocklist(s) that answered	Niet vermeld op de {} blocklist(s) die antwoordden
+not checked	niet gecontroleerd
+Did not answer, or did not list its test address	Antwoordde niet, of vermeldde het eigen testadres niet
+No blocklist could be asked for this address.	Geen enkele blocklist kon voor dit adres worden gevraagd.
+Registered in	Geregistreerd in
+Prefix	Prefix
+Location	Locatie
+not measured	niet gemeten
+not configured	niet ingesteld
+add a MaxMind account	een MaxMind-account toevoegen
+not in the database	niet in de database
+not announced	niet aangekondigd
+Not configured	Niet ingesteld
+Network: {}	Netwerk: {}
+Location: {}	Locatie: {}
+{n} blocklist(s) could not be checked: {}	{} blocklist(s) konden niet worden gecontroleerd: {}
+This product includes GeoLite Data created by MaxMind, available from https://www.maxmind.com.	Dit product bevat GeoLite-gegevens van MaxMind, beschikbaar via https://www.maxmind.com.
+The GeoLite2 database has not been downloaded yet	De GeoLite2-database is nog niet gedownload
+The GeoLite2 database is {n} days old and could not be updated, so it is not used	De GeoLite2-database is {} dagen oud en kon niet worden bijgewerkt, dus wordt niet gebruikt
+Asking…	Bezig met vragen…
+A proxy in front of DomainLens passes your address on, but is not trusted (DOMAINLENS_TRUSTED_PROXY_HOPS is not set).	Een proxy vóór DomainLens geeft je adres door, maar wordt niet vertrouwd (DOMAINLENS_TRUSTED_PROXY_HOPS is niet ingesteld).
+Your browser reaches DomainLens from a private address ({}): it is on the same network as this server.	Je browser bereikt DomainLens vanaf een privé-adres ({}): hij zit op hetzelfde netwerk als deze server.
+Not measured: this server could not find its public address either.	Niet gemeten: deze server kon ook zijn eigen publieke adres niet vinden.
+Your public address, as this server sees your connection: {}	Je publieke adres, zoals deze server je verbinding ziet: {}
+Shown is the public address of this server ({}); it is yours only when you share its internet connection.	Getoond is het publieke adres van deze server ({}); dat is alleen het jouwe als je dezelfde internetverbinding deelt.

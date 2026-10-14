@@ -51,6 +51,8 @@ import whois_batch
 import whois_port43
 import contacts
 import dns_health
+import geoip
+import my_ip
 import domain_portfolio
 import ip_lists
 import link_check
@@ -2785,11 +2787,13 @@ def _spamhaus_dqs_key():
 
 # Servers that work without a key. These are all IP-based: the query is the
 # reversed IP prefixed to the zone.
+# SORBS is gone: its zones no longer exist, so every query came back
+# NXDOMAIN and was counted as "not listed". Each list is also asked for its
+# own test address first (_dnsbl_alive), so the next list that disappears is
+# reported as not measured rather than as clean.
 _DNSBL_OPEN = [
     "bl.spamcop.net",
     "b.barracudacentral.org",
-    "dnsbl.sorbs.net",
-    "spam.dnsbl.sorbs.net",
     "cbl.abuseat.org",
     "dnsbl-1.uceprotect.net",
     "psbl.surriel.com",
@@ -2853,9 +2857,33 @@ def _dnsbl_is_real_hit(answers):
     return False
 
 
+# RFC 5782: every IP blocklist lists 127.0.0.2, so asking for it tells a
+# working list from one that is gone or refuses this server.
+_DNSBL_TEST = "2.0.0.127"
+_DNSBL_ALIVE_SECONDS = 3600
+_dnsbl_alive_cache = {}
+
+
+def _dnsbl_alive(zone_host):
+    """True when the list answers its test address, False when it does not
+    exist or does not list it, None when that could not be asked."""
+    now = time.monotonic()
+    cached = _dnsbl_alive_cache.get(zone_host)
+    if cached and now - cached[0] < _DNSBL_ALIVE_SECONDS:
+        return cached[1]
+    try:
+        alive = _dnsbl_is_real_hit(dns.resolver.resolve(f"{_DNSBL_TEST}.{zone_host}", "A"))
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+        alive = False
+    except Exception:
+        return None  # not cached: a passing failure
+    _dnsbl_alive_cache[zone_host] = (now, alive)
+    return alive
+
+
 def check_blacklist(domain):
     results = {
-        "listed": [], "clean": [], "errors": [], "ip": None,
+        "listed": [], "clean": [], "errors": [], "unmeasured": [], "ip": None,
         "spamhaus_dqs": bool(_spamhaus_dqs_key()),
         # The answer per listed zone: Spamhaus ZEN says which sub-list
         # (SBL, XBL, PBL) by the address it returns.
@@ -2880,20 +2908,26 @@ def check_blacklist(domain):
             prefix = domain if kind == "domain" else reversed_ip
             query = f"{prefix}.{bl}"
             # label, never bl: the queried name carries the DQS key.
+            if kind == "ip" and _dnsbl_alive(bl) is not True:
+                results["unmeasured"].append(label)
+                continue
             try:
                 answers = dns.resolver.resolve(query, "A")
                 if _dnsbl_is_real_hit(answers):
                     results["listed"].append(label)
                     results["codes"][label] = answers[0].to_text()
                 else:
+                    # An error code (quota, refused resolver) is no verdict.
                     results["errors"].append(label)
-                    results["clean"].append(label)
-            except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
+                    results["unmeasured"].append(label)
+            except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
                 results["clean"].append(label)
             except Exception:
-                results["clean"].append(label)
+                # A timeout or SERVFAIL said nothing about the address.
+                results["unmeasured"].append(label)
 
         results["is_listed"] = len(results["listed"]) > 0
+        results["measured"] = len(results["listed"]) + len(results["clean"])
     except Exception as exc:
         results["error"] = _safe_error(exc)
         results["is_listed"] = False
@@ -3910,6 +3944,8 @@ def _run_scheduler_digest():
     # The IP threat lists, from their maintainers, twice a day.
     threading.Thread(target=ip_lists.maybe_refresh, daemon=True,
                      name="ip-lists").start()
+    # The GeoLite2 location database, every few days when an account is set.
+    threading.Thread(target=geoip.maybe_refresh, daemon=True, name="geoip").start()
 
 
 def _scheduler_config():
@@ -6162,6 +6198,16 @@ def api_ip_lookup(value):
         return jsonify(_ip_report(str(address)))
     except Exception as exc:
         return jsonify({"error": _safe_error(exc)}), 502
+
+
+@app.route("/api/myip", methods=["GET"])
+def api_my_ip():
+    """The public address the reader is using, or the server's, said which."""
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    return jsonify(my_ip.mine(request.remote_addr,
+                              forwarded=bool(request.headers.get("X-Forwarded-For")),
+                              proxy_trusted=_trusting_proxy))
 
 
 @app.route("/api/evidence", methods=["POST"])
