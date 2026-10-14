@@ -2152,19 +2152,37 @@ footer, .app-footer {
     margin-bottom: 0.3rem;
 }
 
-/* Propagation check: resolver checkboxes and the per-resolver rows. */
-.prop-resolvers {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-    margin: 0.5rem 0;
+/* Propagation check: the resolvers grouped by where they are run, each a
+   chip to tick (a row of ten bare checkboxes read as one jumble), and the
+   per-resolver rows. On a phone the group name sits above its chips. */
+.prop-groups { display: grid; gap: 0.6rem; margin: 0.75rem 0 0.5rem; }
+.prop-group {
+    display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.4rem 1rem; align-items: start;
+    padding-top: 0.6rem; border-top: 1px solid var(--bg-hairline);
 }
-
-.prop-resolver {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    cursor: pointer;
+.prop-group:first-child { border-top: 0; padding-top: 0; }
+.prop-group-name {
+    display: flex; align-items: center; gap: 0.4rem; padding-top: 0.35rem;
+    font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+}
+.prop-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.prop-chip {
+    display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.75rem;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card);
+    font-size: 0.85rem; cursor: pointer; user-select: none;
+}
+.prop-chip:hover { border-color: var(--accent); }
+.prop-chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.prop-chip input { margin: 0; accent-color: var(--accent); }
+.prop-region {
+    padding: 0 0.35rem; border-radius: 4px; background: var(--bg-subtle);
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.03em; color: var(--text-muted);
+}
+.prop-hint { font-size: 0.8rem; }
+@media (max-width: 600px) {
+    .prop-group { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
+    .prop-group-name { padding-top: 0; }
+    .prop-chip { padding: 0.4rem 0.8rem; }
 }
 
 .prop-row {

@@ -370,6 +370,44 @@ function formatCacheAge(seconds) {
 
 let dnsResolverOptions = [];
 let dnsCustomResolvers = [];
+let dnsPropDefault = [];
+let dnsRegions = {};
+
+// A name and a line of explanation per resolver; an own resolver goes by
+// the label the admin gave it.
+const DNS_RESOLVER_NAMES = {
+    'dns4eu-unfiltered': ['Unfiltered', 'No filtering: the records as published'],
+    'dns4eu-protective': ['Protective', 'Blocks malicious and fraudulent sites'],
+    'dns4eu-child': ['Child protection', 'Protective, plus content unsuitable for children'],
+    'dns4eu-noads': ['No ads', 'Protective, plus advertising and tracking'],
+    'dns4eu-child-noads': ['Child protection + no ads', 'Protective, with both filters'],
+    cloudflare: ['Cloudflare', ''], google: ['Google', ''], quad9: ['Quad9', ''],
+    authoritative: ['Authoritative', "The zone's own nameservers, past every cache"],
+    system: ['This server', 'The resolver this server is set up with'],
+};
+
+function dnsResolverName(r) {
+    return (DNS_RESOLVER_NAMES[r] || [r])[0];
+}
+
+// The resolver in a list or a result: "DNS4EU · Protective", "Google (US)".
+function dnsResolverText(r) {
+    if (r.startsWith('dns4eu-')) return `DNS4EU · ${dnsResolverName(r)}`;
+    return dnsRegions[r] ? `${dnsResolverName(r)} (${dnsRegions[r]})` : dnsResolverName(r);
+}
+
+// The resolvers by where they are run: DNS4EU, the networks outside the EU,
+// the zone itself and this server, and the operator's own.
+function dnsResolverGroups() {
+    const all = dnsResolverOptions || [];
+    const builtIn = all.filter(r => !dnsCustomResolvers.includes(r));
+    return [
+        { name: 'DNS4EU', region: 'EU', keys: builtIn.filter(r => r.startsWith('dns4eu-')) },
+        { name: 'Outside the EU', keys: builtIn.filter(r => dnsRegions[r] && !r.startsWith('dns4eu-')) },
+        { name: 'Direct', keys: builtIn.filter(r => !dnsRegions[r]).sort((a, b) => (a === 'system') - (b === 'system')) },
+        { name: 'Your own', keys: dnsCustomResolvers },
+    ].filter(g => g.keys.length);
+}
 
 async function initDnsLookupPage() {
     const typeEl = $('dnsLookupType');
@@ -379,20 +417,35 @@ async function initDnsLookupPage() {
         typeEl.innerHTML = (data.types || []).map(t => `<option>${esc(t)}</option>`).join('');
         dnsResolverOptions = data.resolvers || [];
         dnsCustomResolvers = data.custom_resolvers || [];
-        $('dnsLookupResolver').innerHTML = dnsResolverOptions.map(r => `<option>${esc(r)}</option>`).join('');
+        dnsPropDefault = data.propagation_default || [];
+        dnsRegions = data.regions || {};
+        $('dnsLookupResolver').innerHTML = dnsResolverGroups().map(g => `<optgroup label="${esc(g.name)}">`
+            // The full name: a closed list shows the option alone, without its group.
+            + g.keys.map(r => `<option value="${esc(r)}">${esc(dnsResolverText(r))}</option>`).join('')
+            + '</optgroup>').join('');
+        if (data.default_resolver) $('dnsLookupResolver').value = data.default_resolver;
         typeEl.value = 'TXT';
     } catch (e) { return; }
     $('dnsLookupBtn').addEventListener('click', dnsLookup);
     $('dnsLookupName').addEventListener('keydown', e => { if (e.key === 'Enter') dnsLookup(); });
 
-    // Propagation: the same resolver list, as checkboxes. Everything except
-    // the system resolver is ticked by default -- "system" is whatever this
-    // container was handed, which says nothing about the public internet.
+    // Propagation: the same resolver list, as checkboxes. Ticked: the usual
+    // set from the server, and the operator's own resolvers. Not "system",
+    // whatever this container was handed, which says nothing about the public
+    // internet, nor DNS4EU's filtered variants, whose block of a name would
+    // read as a rollout that has not finished.
     const box = $('dnsPropResolvers');
     if (box) {
-        box.innerHTML = (dnsResolverOptions || []).map((r, i) => `<label class="prop-resolver">
-            <input type="checkbox" value="${esc(r)}"${r === 'system' ? '' : ' checked'}>
-            <span>${esc(r)}</span></label>`).join('');
+        const chip = r => {
+            const [name, about] = DNS_RESOLVER_NAMES[r] || [r, ''];
+            const region = dnsRegions[r] && !r.startsWith('dns4eu-') ? `<span class="prop-region">${esc(dnsRegions[r])}</span>` : '';
+            return `<label class="prop-chip"${about ? ` title="${esc(about)}"` : ''}>`
+                + `<input type="checkbox" value="${esc(r)}"${dnsPropDefault.includes(r) || dnsCustomResolvers.includes(r) ? ' checked' : ''}>`
+                + `<span>${esc(name)}</span>${region}</label>`;
+        };
+        box.innerHTML = dnsResolverGroups().map(g => '<div class="prop-group">'
+            + `<div class="prop-group-name"><span>${esc(g.name)}</span>${g.region ? `<span class="prop-region">${esc(g.region)}</span>` : ''}</div>`
+            + `<div class="prop-chips">${g.keys.map(chip).join('')}</div></div>`).join('');
         // Say plainly whether any own resolvers are configured. Buried in a
         // sentence about port 53, the link read as a footnote and people
         // looked for an address box on this page instead.
@@ -401,11 +454,9 @@ async function initDnsLookupPage() {
             hint.innerHTML = dnsCustomResolvers.length
                 ? `Your own resolvers: <strong>${esc(dnsCustomResolvers.join(', '))}</strong>. `
                   + `<a href="/admin/settings#scan">Edit the list</a>.`
-                : `<strong>Want to check your own DNS server?</strong> Add it under `
-                  + `<a href="/admin/settings#scan">Settings &rarr; Scan &rarr; Custom resolvers</a>, `
-                  + `one <code>Label = 1.2.3.4</code> per line &mdash; it then appears as a checkbox here. `
-                  + `Addresses live in settings rather than in this box so an unauthenticated `
-                  + `page cannot be used to aim UDP/53 at any host this server can reach.`;
+                : `<strong>Your own DNS server?</strong> Add it under `
+                  + `<a href="/admin/settings#scan">Settings &rarr; Scan &rarr; Custom resolvers</a> `
+                  + `as <code>Label = 1.2.3.4</code>; it then appears here.`;
         }
         const propBtn = $('dnsPropBtn');
         if (propBtn) propBtn.addEventListener('click', dnsPropagation);
@@ -470,14 +521,14 @@ async function dnsPropagation() {
     const [cls, text] = verdicts[data.verdict] || ['status-warn', 'No verdict'];
     let html = `<p class="status ${cls}">${esc(text)}</p>`;
     if ((data.unreachable || []).length) {
-        html += `<p class="ct-desc">Could not be measured: ${esc(data.unreachable.join(', '))}.`
+        html += `<p class="ct-desc">Could not be measured: ${esc(data.unreachable.map(dnsResolverText).join(', '))}.`
             + ` This is our reach, not their records.</p>`;
     }
     if (data.verdict === 'inconsistent') {
         html += '<table class="data-table"><thead><tr><th>Answer</th><th>Seen by</th></tr></thead><tbody>'
             + data.groups.map(g => `<tr><td class="mono" style="word-break:break-all">`
                 + `${esc((g.records || []).join(', ') || g.rcode || '—')}</td>`
-                + `<td>${esc((g.resolvers || []).join(', '))}</td></tr>`).join('')
+                + `<td>${esc((g.resolvers || []).map(dnsResolverText).join(', '))}</td></tr>`).join('')
             + '</tbody></table>';
     }
     html += (data.results || []).map(r => {
@@ -486,7 +537,7 @@ async function dnsPropagation() {
             : `<span class="mono">${esc((r.records || []).join(', ') || r.rcode || '—')}</span>`
               + (r.ttl !== null && r.ttl !== undefined ? ` · TTL ${esc(r.ttl)}s` : '')
               + (r.elapsed_ms !== null && r.elapsed_ms !== undefined ? ` · ${esc(r.elapsed_ms)} ms` : '');
-        return `<div class="prop-row"><strong>${esc(r.resolver)}</strong><div>${head}</div>`
+        return `<div class="prop-row"><strong>${esc(dnsResolverText(r.resolver))}</strong><div>${head}</div>`
             + dnsDetailHtml(r) + '</div>';
     }).join('');
     out.innerHTML = html;

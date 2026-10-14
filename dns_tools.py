@@ -42,13 +42,37 @@ RECORD_TYPES = [
     "PTR", "DS", "DNSKEY", "TLSA", "NAPTR", "HTTPS", "SVCB",
 ]
 
+# A public resolver is asked at its address: looking up its name would take
+# a resolver first. DNS4EU (joindns4.eu), the EU's public resolver, is the
+# default. Its filtered variants answer a blocked name with a block, not with
+# the records, so a lookup uses the unfiltered one; the others are there to
+# see whether a filter blocks a name. Cloudflare, Google and Quad9 stay for
+# comparing propagation across the largest networks outside the EU.
 RESOLVERS = {
     "system": None,
+    "dns4eu-unfiltered": ["86.54.11.100", "86.54.11.200"],
+    "dns4eu-protective": ["86.54.11.1", "86.54.11.201"],
+    "dns4eu-child": ["86.54.11.12", "86.54.11.212"],
+    "dns4eu-noads": ["86.54.11.13", "86.54.11.213"],
+    "dns4eu-child-noads": ["86.54.11.11", "86.54.11.211"],
     "cloudflare": ["1.1.1.1", "1.0.0.1"],
     "google": ["8.8.8.8", "8.8.4.4"],
     "quad9": ["9.9.9.9", "149.112.112.112"],
     "authoritative": "auth",
 }
+
+# Where each public resolver is run from: its jurisdiction, shown with it.
+RESOLVER_REGION = {
+    "dns4eu-unfiltered": "EU", "dns4eu-protective": "EU", "dns4eu-child": "EU",
+    "dns4eu-noads": "EU", "dns4eu-child-noads": "EU",
+    "cloudflare": "US", "google": "US", "quad9": "CH",
+}
+
+# The resolver a lookup starts on, and the ones propagation compares unless
+# others are chosen: one in the EU, the three large public networks, and the
+# zone's own nameservers.
+DEFAULT_RESOLVER = "dns4eu-unfiltered"
+PROPAGATION_DEFAULT = ["dns4eu-unfiltered", "cloudflare", "google", "quad9", "authoritative"]
 
 _TIMEOUT = 8.0
 _MAX_NAME_LENGTH = 253
@@ -352,7 +376,7 @@ def propagation(name, rtype="A", resolvers=None, custom=None):
     # None means "use the usual set"; an explicitly empty list is a caller
     # asking to compare nothing, which is a mistake worth naming.
     if resolvers is None:
-        keys = ["cloudflare", "google", "quad9", "authoritative"]
+        keys = list(PROPAGATION_DEFAULT)
     else:
         keys = list(resolvers)
 

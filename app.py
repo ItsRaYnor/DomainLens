@@ -6617,8 +6617,13 @@ def api_dns_options():
     custom = _custom_resolvers()
     return jsonify({
         "types": dns_tools.RECORD_TYPES,
-        "resolvers": sorted(dns_tools.RESOLVERS) + sorted(custom),
+        # In their own order, the EU resolver first: sorted, "authoritative"
+        # came first and became the lookup's resolver without anyone choosing.
+        "resolvers": list(dns_tools.RESOLVERS) + sorted(custom),
         "custom_resolvers": sorted(custom),
+        "default_resolver": dns_tools.DEFAULT_RESOLVER,
+        "propagation_default": dns_tools.PROPAGATION_DEFAULT,
+        "regions": dns_tools.RESOLVER_REGION,
         # Provider-assigned CNAME targets: a dangling CNAME to one of these is
         # stale but not claimable. Sent so the lookup page can label a
         # dead-target CNAME without duplicating the list in JS.

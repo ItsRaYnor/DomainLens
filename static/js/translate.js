@@ -26,7 +26,8 @@
 
     const SKIP = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'TEXTAREA', 'KBD', 'SAMP', 'NOSCRIPT']);
     const INLINE = new Set(['A', 'STRONG', 'EM', 'B', 'I', 'CODE', 'SPAN', 'BR', 'SMALL', 'ABBR', 'KBD', 'SUP', 'SUB']);
-    const ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+    // label: the heading of an <optgroup> in a list.
+    const ATTRS = ['placeholder', 'title', 'aria-label', 'alt', 'label'];
     const norm = s => String(s).replace(/\s+/g, ' ').trim();
 
     let text = null, blocks = null, patterns = [];
@@ -207,7 +208,7 @@
                 const v = norm(n.nodeValue);
                 if (/[A-Za-z]{3}/.test(v) && !dutch.has(v) && translate(v) === null) out.add(v);
             }
-            document.querySelectorAll('[placeholder],[title],[aria-label]').forEach(el => ATTRS.forEach(a => {
+            document.querySelectorAll('[placeholder],[title],[aria-label],[label]').forEach(el => ATTRS.forEach(a => {
                 const v = el.getAttribute(a);
                 if (v && /[A-Za-z]{3}/.test(v) && translate(v) === null) out.add('@' + a + ': ' + v);
             }));

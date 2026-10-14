@@ -66,3 +66,4 @@ Your browser reaches DomainLens from a private address ({}): it is on the same n
 Not measured: this server could not find its public address either.	Niet gemeten: deze server kon ook zijn eigen publieke adres niet vinden.
 Your public address, as this server sees your connection: {}	Je publieke adres, zoals deze server je verbinding ziet: {}
 Shown is the public address of this server ({}); it is yours only when you share its internet connection.	Getoond is het publieke adres van deze server ({}); dat is alleen het jouwe als je dezelfde internetverbinding deelt.
+The default is DNS4EU, the EU's public resolver, unfiltered. Its filtered variants (protective, child, noads) show whether a filter blocks a name.	Standaard is DNS4EU, de publieke resolver van de EU, ongefilterd. De gefilterde varianten (protective, child, noads) laten zien of een filter een naam blokkeert.

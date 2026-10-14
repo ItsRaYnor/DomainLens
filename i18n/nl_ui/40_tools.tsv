@@ -160,3 +160,20 @@ the bucket is in an account regional namespace, which no other AWS account can c
 the app id is assigned by AWS, and attaching a domain from another account requires manual verification	het app-ID wordt door AWS toegekend, en een domein uit een ander account koppelen vraagt handmatige verificatie
 the API id is assigned by AWS, and a custom domain needs a certificate for the name	het API-ID wordt door AWS toegekend, en een eigen domein vraagt een certificaat voor de naam
 the service URL is assigned by AWS	de service-URL wordt door AWS toegekend
+Unfiltered	Ongefilterd
+Protective	Beschermend
+Child protection	Kinderbescherming
+No ads	Geen advertenties
+Child protection + no ads	Kinderbescherming + geen advertenties
+This server	Deze server
+Authoritative	Authoritatief
+Outside the EU	Buiten de EU
+Direct	Rechtstreeks
+Your own	Eigen
+No filtering: the records as published	Geen filter: de records zoals gepubliceerd
+Blocks malicious and fraudulent sites	Blokkeert kwaadaardige en frauduleuze sites
+Protective, plus content unsuitable for children	Beschermend, plus inhoud die niet geschikt is voor kinderen
+Protective, plus advertising and tracking	Beschermend, plus advertenties en tracking
+Protective, with both filters	Beschermend, met beide filters
+The zone's own nameservers, past every cache	De eigen nameservers van de zone, langs elke cache heen
+The resolver this server is set up with	De resolver waarmee deze server is ingesteld

@@ -33,7 +33,8 @@
   "The GeoLite2 database has not been downloaded yet": "De GeoLite2-database is nog niet gedownload",
   "Asking…": "Bezig met vragen…",
   "A proxy in front of DomainLens passes your address on, but is not trusted (DOMAINLENS_TRUSTED_PROXY_HOPS is not set).": "Een proxy vóór DomainLens geeft je adres door, maar wordt niet vertrouwd (DOMAINLENS_TRUSTED_PROXY_HOPS is niet ingesteld).",
-  "Not measured: this server could not find its public address either.": "Niet gemeten: deze server kon ook zijn eigen publieke adres niet vinden."
+  "Not measured: this server could not find its public address either.": "Niet gemeten: deze server kon ook zijn eigen publieke adres niet vinden.",
+  "The default is DNS4EU, the EU's public resolver, unfiltered. Its filtered variants (protective, child, noads) show whether a filter blocks a name.": "Standaard is DNS4EU, de publieke resolver van de EU, ongefilterd. De gefilterde varianten (protective, child, noads) laten zien of een filter een naam blokkeert."
  },
  "patterns": [
   [

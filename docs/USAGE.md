@@ -417,6 +417,26 @@ in minutes, or 0 to pause), `POST /api/portfolio/groups/{id}/monitoring`
 **Tools &rarr; DNS record** asks one resolver a question; the propagation panel below it
 asks several the same question and compares the answers.
 
+The resolvers, each with where it is run from:
+
+| Resolver | Where | Use |
+|---|---|---|
+| `dns4eu-unfiltered` | EU | DNS4EU (joindns4.eu) without filtering: **the default for a lookup** |
+| `dns4eu-protective` | EU | DNS4EU, blocking malicious and fraudulent sites |
+| `dns4eu-child` | EU | protective, plus content unsuitable for children |
+| `dns4eu-noads` | EU | protective, plus advertising and tracking |
+| `dns4eu-child-noads` | EU | protective, with both filters |
+| `cloudflare`, `google` | US | large public networks, for propagation |
+| `quad9` | CH | idem |
+| `authoritative` | -- | the zone's own nameservers, past every cache |
+| `system` | -- | whatever this server is configured to use |
+
+A filtered variant answers a name it blocks with a block rather than the records, so a lookup
+starts on the unfiltered one; ask a filtered one to see whether DNS4EU blocks a name.
+Propagation compares `dns4eu-unfiltered`, `cloudflare`, `google`, `quad9` and `authoritative`
+(and your own resolvers) unless you tick others. Court-ordered blocks apply to every DNS4EU
+variant, the unfiltered one included.
+
 Tick the resolvers to compare and press **Check propagation**. The verdict is
 one of three, and they are kept apart on purpose:
 
