@@ -183,6 +183,9 @@ async function ipLookup() {
         : '<p class="ct-desc">No PTR record.</p>');
 
     const listed = bl.listed || [];
+    // The PBL is policy, not reputation: said as such, never as a listing.
+    const policy = (bl.policy || []).length
+        ? `<p class="ct-desc">${esc('End-user range (Spamhaus PBL): this address should not send mail directly to other mail servers, like most home and office connections. It is not a reputation listing.')}</p>` : '';
     const notChecked = (bl.unmeasured || []).length
         ? `<p class="ct-desc">${esc(String(bl.unmeasured.length))} blocklist(s) could not be checked: ${esc(bl.unmeasured.join(', '))}</p>` : '';
     html += card('IP threat lists', ipListsHtml(bl.ip_lists));
@@ -191,7 +194,8 @@ async function ipLookup() {
            <table class="data-table"><tbody>${listed.map(z => `<tr><td class="mono">${esc(z)}</td></tr>`).join('')}</tbody></table>`
         : (bl.clean || []).length
             ? `<p class="status status-pass">Not listed on ${(bl.clean || []).length} checked blocklist(s)</p>`
-            : '<p class="status status-warn">Not measured: no blocklist could be asked</p>') + notChecked);
+            : (bl.policy || []).length ? ''
+            : '<p class="status status-warn">Not measured: no blocklist could be asked</p>') + policy + notChecked);
 
     out.innerHTML = html;
 }

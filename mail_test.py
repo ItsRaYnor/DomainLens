@@ -567,6 +567,14 @@ def _server(lookups, hop, findings):
             if listed.get("listed"):
                 _finding(findings, "high", "server", "The sending address is on a blocklist",
                          f"{ip} is listed on " + ", ".join(listed["listed"]) + ".")
+            elif listed.get("policy"):
+                # Not a reputation listing, but for a sending server it
+                # matters: mail straight from an end-user range is what
+                # receivers that use Spamhaus refuse or junk.
+                _finding(findings, "medium", "server", "The message was sent from an end-user address",
+                         f"{ip} is in a range its provider marks as not sending mail directly "
+                         "(Spamhaus PBL). Receiving servers that use Spamhaus may refuse or junk it; "
+                         "send through the provider's mail server instead.")
             # Spamhaus DROP names networks run by criminals, which no
             # legitimate sender uses: high. Other lists name addresses seen
             # attacking lately, which a shared or cloud address can be

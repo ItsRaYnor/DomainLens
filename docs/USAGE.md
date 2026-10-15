@@ -507,6 +507,12 @@ where its answer came from; one that was not reached says *not measured*, never 
   that does not answer it, times out or returns an error code is *not checked* for that
   address, not counted among the clean ones. When none could be asked, the blacklist tile
   says *Not tested*.
+- **Spamhaus PBL**: when ZEN answers with a PBL code only (127.0.0.10 or .11), the address is
+  in an end-user range that should not send mail directly -- nearly every home and office
+  connection is. That is policy, not reputation: it is shown as *end-user range (PBL)*, not as
+  a listing, and a monitor raises no event for it. With an SBL or XBL code beside it, it is a
+  listing. The mail analysis does flag a message sent straight from such an address (medium),
+  since receivers that use Spamhaus may refuse it.
 
 ### Your own address
 

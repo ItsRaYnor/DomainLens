@@ -2884,6 +2884,8 @@ def _dnsbl_alive(zone_host):
 def check_blacklist(domain):
     results = {
         "listed": [], "clean": [], "errors": [], "unmeasured": [], "ip": None,
+        # Lists that answered with policy, not reputation: the Spamhaus PBL.
+        "policy": [],
         "spamhaus_dqs": bool(_spamhaus_dqs_key()),
         # The answer per listed zone: Spamhaus ZEN says which sub-list
         # (SBL, XBL, PBL) by the address it returns.
@@ -2914,8 +2916,18 @@ def check_blacklist(domain):
             try:
                 answers = dns.resolver.resolve(query, "A")
                 if _dnsbl_is_real_hit(answers):
-                    results["listed"].append(label)
-                    results["codes"][label] = answers[0].to_text()
+                    found = [r.to_text() for r in answers]
+                    # The PBL names ranges that should not send mail straight
+                    # to other servers -- nearly every home and office
+                    # connection, by its provider's own say. ZEN answering
+                    # with PBL codes alone is policy, not a listing; with an
+                    # SBL or XBL code beside them it is a listing, by that code.
+                    if all(code in overview.ZEN_PBL for code in found):
+                        results["policy"].append(label)
+                        results["codes"][label] = found[0]
+                    else:
+                        results["listed"].append(label)
+                        results["codes"][label] = next(c for c in found if c not in overview.ZEN_PBL)
                 else:
                     # An error code (quota, refused resolver) is no verdict.
                     results["errors"].append(label)
@@ -2927,7 +2939,7 @@ def check_blacklist(domain):
                 results["unmeasured"].append(label)
 
         results["is_listed"] = len(results["listed"]) > 0
-        results["measured"] = len(results["listed"]) + len(results["clean"])
+        results["measured"] = len(results["listed"]) + len(results["clean"]) + len(results["policy"])
     except Exception as exc:
         results["error"] = _safe_error(exc)
         results["is_listed"] = False

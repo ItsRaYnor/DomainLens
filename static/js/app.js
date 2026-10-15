@@ -1831,7 +1831,12 @@ function renderBlacklist(data) {
     for (const bl of unmeasured) {
         html += `<div class="bl-item" title="Did not answer, or did not list its test address"><span class="status status-warn"></span> ${escapeHtml(bl)} <span class="muted">not checked</span></div>`;
     }
+    // The PBL is policy, not reputation: named, never counted as a listing.
+    for (const bl of (data.policy || [])) {
+        html += `<div class="bl-item"><span class="status status-pass"></span> ${escapeHtml(bl)} <span class="muted">end-user range (PBL)</span></div>`;
+    }
     html += '</div>';
+    if ((data.policy || []).length) html += `<p class="ct-desc">${escapeHtml('End-user range (Spamhaus PBL): this address should not send mail directly to other mail servers, like most home and office connections. It is not a reputation listing.')}</p>`;
     el.innerHTML = html;
 }
 

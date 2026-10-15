@@ -24,6 +24,7 @@ _ZEN_XBL = {"127.0.0.4", "127.0.0.5", "127.0.0.6", "127.0.0.7"}
 # The PBL lists address ranges that should not send mail directly (end-user
 # and hosting ranges). It says nothing about the reputation of a web server.
 _ZEN_PBL = {"127.0.0.10", "127.0.0.11"}
+ZEN_PBL = _ZEN_PBL
 _CBL = "cbl.abuseat.org"
 
 
