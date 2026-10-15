@@ -5280,8 +5280,52 @@ def account_mfa_start():
         return redirect(url_for("login_page"))
     if not auth.local_config()["mfa_available"]:
         return redirect(url_for("account_security", error="MFA is disabled on this instance."))
+    row = db.get_user(user["id"])
+    if row and row.get("mfa_enabled"):
+        # Starting over on an account that has an authenticator took no proof
+        # at all: a borrowed session could put its own phone in its place.
+        return redirect(url_for("account_security",
+                                error="MFA is already on. Use Replace authenticator, which asks for your password and a code."))
     session[auth.SESSION_MFA_SETUP_SECRET] = auth.generate_totp_secret()
     return redirect(url_for("account_security", message="mfa_scan"))
+
+
+# How long the proof given for a replacement counts: long enough to scan a
+# code and type one, not a session-long licence.
+_MFA_REPLACE_WINDOW = 600
+
+
+@app.route("/account/mfa/replace", methods=["POST"])
+def account_mfa_replace():
+    """Start replacing the authenticator: a lost or new phone, or a secret
+    that may be known to someone else. Asks for the password and a code from
+    the current authenticator or a backup code; the old authenticator keeps
+    working until the new one is confirmed."""
+    user = auth.current_user()
+    if not user or user.get("provider") != "local":
+        return redirect(url_for("login_page"))
+    password = request.form.get("password") or ""
+    code = (request.form.get("code") or "").strip()
+    row = db.get_user(user["id"], include_secrets=True)
+    if not row or not row.get("mfa_enabled"):
+        return redirect(url_for("account_security", error="MFA is not on for this account."))
+    if not auth.verify_password(password, row.get("password_hash") or ""):
+        return redirect(url_for("account_security", error="Password required to replace the authenticator."))
+    if not (auth.verify_totp(row.get("mfa_secret") or "", code) or auth.consume_backup_code(row, code)):
+        return redirect(url_for("account_security",
+                                error="A code from your current authenticator or a backup code is required."))
+    session[auth.SESSION_MFA_SETUP_SECRET] = auth.generate_totp_secret()
+    session["mfa_replace_verified_at"] = time.time()
+    audit_log.record("account.mfa_replace_start", target_type="user", target_id=row["id"])
+    return redirect(url_for("account_security", message="mfa_replace_scan"))
+
+
+@app.route("/account/mfa/cancel", methods=["POST"])
+def account_mfa_cancel():
+    """Stop a setup or replacement that was started; nothing changes."""
+    session.pop(auth.SESSION_MFA_SETUP_SECRET, None)
+    session.pop("mfa_replace_verified_at", None)
+    return redirect(url_for("account_security"))
 
 
 @app.route("/account/mfa/confirm", methods=["POST"])
@@ -5291,6 +5335,17 @@ def account_mfa_confirm():
         return redirect(url_for("login_page"))
     secret = session.get(auth.SESSION_MFA_SETUP_SECRET)
     code = (request.form.get("code") or "").strip()
+    row = db.get_user(user["id"])
+    replacing = bool(row and row.get("mfa_enabled"))
+    if replacing:
+        # A new authenticator in place of one that works: only right after
+        # the password and a current code were given (account_mfa_replace).
+        verified_at = session.get("mfa_replace_verified_at") or 0
+        if time.time() - verified_at > _MFA_REPLACE_WINDOW:
+            session.pop(auth.SESSION_MFA_SETUP_SECRET, None)
+            session.pop("mfa_replace_verified_at", None)
+            return redirect(url_for("account_security",
+                                    error="Confirm with your password and a code first (Replace authenticator)."))
     if not secret or not auth.verify_totp(secret, code):
         return redirect(url_for("account_security", error="Invalid MFA code. Try again."))
     backup = auth.generate_backup_codes()
@@ -5301,13 +5356,19 @@ def account_mfa_confirm():
         mfa_backup_codes=auth.hash_backup_codes(backup),
     )
     session.pop(auth.SESSION_MFA_SETUP_SECRET, None)
+    session.pop("mfa_replace_verified_at", None)
+    if replacing:
+        # The old secret may be known to someone, and so may a session made
+        # with it: every other session ends here, this one stays.
+        auth.revoke_other_sessions(user["id"])
     session["mfa_backup_codes_once"] = backup
-    audit_log.record("account.mfa_enable", target_type="user", target_id=user["id"])
+    audit_log.record("account.mfa_replace" if replacing else "account.mfa_enable",
+                     target_type="user", target_id=user["id"])
     # refresh session flag
     sess = auth.current_user() or {}
     sess["mfa_enabled"] = True
     session[auth.SESSION_USER_KEY] = sess
-    return redirect(url_for("account_security", message="mfa_enabled"))
+    return redirect(url_for("account_security", message="mfa_replaced" if replacing else "mfa_enabled"))
 
 
 @app.route("/account/mfa/disable", methods=["POST"])
@@ -5570,6 +5631,25 @@ def admin_users_reset_password(user_id):
     )
     audit_log.record("user.password_reset", target_type="user", target_id=row.get("email"))
     return redirect(url_for("admin_users_page", message="password_reset"))
+
+
+@app.route("/admin/users/<int:user_id>/reset-mfa", methods=["POST"])
+@auth.require_admin
+def admin_users_reset_mfa(user_id):
+    """Take MFA off an account whose owner lost the authenticator and the
+    backup codes, or whose secret is compromised. The account is signed out
+    everywhere; where MFA is required, it enrols again at the next sign-in."""
+    me = auth.current_user() or {}
+    row = db.get_user(user_id)
+    if not row:
+        return redirect(url_for("admin_users_page", error="User not found."))
+    if str(me.get("id")) == str(user_id):
+        return redirect(url_for("admin_users_page",
+                                error="Replace your own authenticator under Account; it asks for a code, this does not."))
+    db.update_user(user_id, mfa_enabled=False, mfa_secret=None, mfa_backup_codes=[])
+    auth.revoke_all_sessions(user_id)
+    audit_log.record("user.mfa_reset", target_type="user", target_id=row.get("email"))
+    return redirect(url_for("admin_users_page", message="mfa_reset"))
 
 
 @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])

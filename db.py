@@ -239,6 +239,11 @@ def init_db():
         # one would otherwise be another migration.
         if "prefs" not in user_columns:
             conn.execute("ALTER TABLE users ADD COLUMN prefs TEXT NOT NULL DEFAULT '{}'")
+        # Sessions issued before this moment are no longer accepted
+        # (auth._refresh_from_db): set when an authenticator is replaced or
+        # reset, so a session that may have been taken over ends with it.
+        if "sessions_valid_after" not in user_columns:
+            conn.execute("ALTER TABLE users ADD COLUMN sessions_valid_after TEXT")
         # Org / enterprise profile fields (SCIM + Entra default logical attrs)
         for col, decl in (
             ("department", "TEXT"),
@@ -1616,7 +1621,7 @@ def update_user(user_id, **fields):
         "email", "name", "password_hash", "role", "enabled", "mfa_enabled",
         "mfa_secret", "mfa_backup_codes", "password_changed_at", "failed_logins",
         "locked_until", "last_login_at", "provider", "external_id", "user_name",
-        "prefs",
+        "prefs", "sessions_valid_after",
         *PROFILE_FIELDS,
     }
     assignments = []

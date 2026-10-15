@@ -1,0 +1,21 @@
+{
+ "text": {
+  "Replace authenticator": "Authenticator vervangen",
+  "For a lost or new phone, or when the secret may be known to someone else. Confirm with your password and a code from your current authenticator, or a backup code if you no longer have it. Afterwards the old authenticator and the old backup codes stop working, and every other signed-in session is signed out.": "Voor een kwijtgeraakte of nieuwe telefoon, of als het geheim mogelijk bij iemand anders bekend is. Bevestig met je wachtwoord en een code uit je huidige authenticator, of een back-upcode als je die niet meer hebt. Daarna werken de oude authenticator en de oude back-upcodes niet meer, en wordt elke andere ingelogde sessie afgemeld.",
+  "Current code or backup code": "Huidige code of back-upcode",
+  "No authenticator and no backup codes left? An administrator can reset MFA for your account.": "Geen authenticator en geen back-upcodes meer? Een beheerder kan MFA voor je account resetten.",
+  "Scan the new code with the authenticator you want to keep. Your current one keeps working until you confirm.": "Scan de nieuwe code met de authenticator die je wilt houden. Je huidige blijft werken tot je bevestigt.",
+  "Scan the new code with your authenticator app, then confirm with a code from it.": "Scan de nieuwe code met je authenticator-app en bevestig daarna met een code daaruit.",
+  "Authenticator replaced. The old one and the old backup codes no longer work, and every other session was signed out. Store your new backup codes securely — they are shown only once.": "Authenticator vervangen. De oude en de oude back-upcodes werken niet meer, en elke andere sessie is afgemeld. Bewaar je nieuwe back-upcodes veilig — ze worden maar één keer getoond.",
+  "Reset MFA": "MFA resetten",
+  "Turns MFA off and signs the user out everywhere; where MFA is required they enrol again at the next sign-in.": "Zet MFA uit en meldt de gebruiker overal af; waar MFA verplicht is, koppelt die bij de volgende inlog opnieuw.",
+  "MFA reset: the user is signed out everywhere and sets up an authenticator again at the next sign-in, where MFA is required.": "MFA gereset: de gebruiker is overal afgemeld en stelt bij de volgende inlog opnieuw een authenticator in, waar MFA verplicht is.",
+  "MFA is already on. Use Replace authenticator, which asks for your password and a code.": "MFA staat al aan. Gebruik Authenticator vervangen; dat vraagt je wachtwoord en een code.",
+  "MFA is not on for this account.": "MFA staat niet aan voor dit account.",
+  "Password required to replace the authenticator.": "Wachtwoord nodig om de authenticator te vervangen.",
+  "A code from your current authenticator or a backup code is required.": "Een code uit je huidige authenticator of een back-upcode is nodig.",
+  "Confirm with your password and a code first (Replace authenticator).": "Bevestig eerst met je wachtwoord en een code (Authenticator vervangen).",
+  "Replace your own authenticator under Account; it asks for a code, this does not.": "Vervang je eigen authenticator onder Account; dat vraagt om een code, dit niet."
+ },
+ "patterns": []
+}

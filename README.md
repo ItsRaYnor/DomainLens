@@ -67,7 +67,7 @@ See [docs/ENTERPRISE.md](docs/ENTERPRISE.md).
 
 ## Version
 
-The app version is in [`VERSION`](VERSION) (currently **0.1.12**). Runtime: `GET /api/version` / `/health`.
+The app version is in [`VERSION`](VERSION) (currently **0.1.13**). Runtime: `GET /api/version` / `/health`.
 
 ## Requirements
 
@@ -249,6 +249,16 @@ LOCAL_ADMIN_PASSWORD='ChangeMe-Now-12!'
 ```
 
 Local accounts use PBKDF2-SHA256 password hashes. MFA uses TOTP (authenticator apps) plus one-time backup codes. Admins manage users at `/admin/users`; each local user can enroll MFA at `/account`.
+
+**Replacing an authenticator** (a lost or new phone, or a secret that may be known to someone
+else): at `/account`, **Replace authenticator** asks for the password and a code from the
+current authenticator or a backup code, then shows a new QR code. The old authenticator keeps
+working until the new one is confirmed; after that the old secret and the old backup codes
+stop working, new backup codes are shown once, and every other session of the account is
+signed out. Someone with neither the authenticator nor a backup code asks an administrator:
+**Reset MFA** at `/admin/users` turns MFA off for that account and signs it out everywhere;
+where MFA is required, the user sets up a new authenticator at the next sign-in. An
+administrator replaces their own authenticator under Account, which asks for a code.
 
 OAuth and local login can be enabled together.
 

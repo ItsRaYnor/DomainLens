@@ -17,6 +17,7 @@
         {% if message == 'user_created' %}<div class="login-info">{{ t('common.success') }}</div>
         {% elif message == 'user_updated' %}<div class="login-info">{{ t('common.success') }}</div>
         {% elif message == 'password_reset' %}<div class="login-info">{{ t('common.success') }}</div>
+        {% elif message == 'mfa_reset' %}<div class="login-info">MFA reset: the user is signed out everywhere and sets up an authenticator again at the next sign-in, where MFA is required.</div>
         {% elif message == 'user_deleted' %}<div class="login-info">{{ t('common.success') }}</div>
         {% elif message %}<div class="login-info">{{ message }}</div>{% endif %}
 
@@ -75,6 +76,14 @@
                                     <input type="password" name="password" placeholder="New password" required autocomplete="new-password">
                                     <button type="submit" class="btn-ghost-sm">Reset</button>
                                 </form>
+                                {% if u.mfa_enabled %}
+                                {# For a lost authenticator and lost backup codes: MFA off,
+                                   signed out everywhere, enrolled again at the next sign-in. #}
+                                <form method="post" action="{{ url_for('admin_users_reset_mfa', user_id=u.id) }}" style="display:inline"
+                                      title="Turns MFA off and signs the user out everywhere; where MFA is required they enrol again at the next sign-in.">
+                                    <button type="submit" class="btn-ghost-sm">Reset MFA</button>
+                                </form>
+                                {% endif %}
                                 <form method="post" action="{{ url_for('admin_users_delete', user_id=u.id) }}" style="display:inline" onsubmit="return confirm('Delete this user?');">
                                     <button type="submit" class="btn-ghost-sm danger">Delete</button>
                                 </form>

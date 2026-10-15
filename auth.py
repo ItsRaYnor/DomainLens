@@ -583,11 +583,42 @@ def _refresh_from_db(user: dict) -> Optional[dict]:
     if not row or not row.get("enabled"):
         session.pop(SESSION_USER_KEY, None)
         return None
+    cutoff = row.get("sessions_valid_after")
+    if cutoff and (user.get("issued_at") or "") < cutoff:
+        # Issued before the authenticator was replaced or reset: possibly
+        # the very session that made the reset necessary.
+        session.pop(SESSION_USER_KEY, None)
+        return None
     role = roles.normalize(row.get("role"))
     if user.get("role") != role:
         user = {**user, "role": role}
         session[SESSION_USER_KEY] = user
     return user
+
+
+def _session_stamp() -> str:
+    # Microseconds and a fixed zone, so stamps compare correctly as text.
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def revoke_other_sessions(user_id: int) -> None:
+    """End every session of this account except the current request's.
+
+    Sessions are signed cookies, so they cannot be deleted where they are;
+    instead the account records a moment, and a session issued before it is
+    refused on its next request. The current session is stamped with that
+    same moment, so it stays."""
+    stamp = _session_stamp()
+    db.update_user(int(user_id), sessions_valid_after=stamp)
+    current = session.get(SESSION_USER_KEY)
+    if isinstance(current, dict) and str(current.get("id")) == str(user_id):
+        session[SESSION_USER_KEY] = {**current, "issued_at": stamp}
+    _forget_request_user()
+
+
+def revoke_all_sessions(user_id: int) -> None:
+    """End every session of this account, for an administrator's reset."""
+    db.update_user(int(user_id), sessions_valid_after=_session_stamp())
 
 
 def current_user() -> Optional[dict]:
@@ -625,6 +656,9 @@ def login_user(user: dict) -> None:
         "role": roles.normalize(user.get("role")),
         "mfa_enabled": bool(user.get("mfa_enabled")),
         "db_user": bool(user.get("db_user")),
+        # When this session began: one older than the account's
+        # sessions_valid_after is ended (revoke_other_sessions).
+        "issued_at": _session_stamp(),
     }
     session.permanent = True
     _forget_request_user()

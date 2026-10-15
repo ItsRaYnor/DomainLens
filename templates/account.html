@@ -26,6 +26,10 @@
         <div class="login-info">MFA is enabled. Store your backup codes securely — they are shown only once.</div>
         {% elif message == 'mfa_disabled' %}
         <div class="login-info">MFA has been disabled.</div>
+        {% elif message == 'mfa_replace_scan' %}
+        <div class="login-info">Scan the new code with your authenticator app, then confirm with a code from it.</div>
+        {% elif message == 'mfa_replaced' %}
+        <div class="login-info">Authenticator replaced. The old one and the old backup codes no longer work, and every other session was signed out. Store your new backup codes securely — they are shown only once.</div>
         {% elif message == 'token_created' %}
         <div class="login-info">API token created. Copy it now — it is shown only once.</div>
         {% elif message == 'token_revoked' %}
@@ -59,26 +63,7 @@
 
         <section class="account-section">
             <h2>Multi-factor authentication</h2>
-            {% if not local_cfg.mfa_available %}
-            <p>MFA is disabled for this instance.</p>
-            {% elif user.mfa_enabled %}
-            <p>MFA is <strong>enabled</strong> for your account.</p>
-            {% if not local_cfg.mfa_required %}
-            <form class="login-form" method="post" action="{{ url_for('account_mfa_disable') }}">
-                <label>Password <input type="password" name="password" required></label>
-                <label>Authenticator / backup code <input type="text" name="code" required></label>
-                <button type="submit" class="btn-ghost">Disable MFA</button>
-            </form>
-            {% else %}
-            <p class="login-hint">MFA is required by policy and cannot be disabled.</p>
-            {% endif %}
-            {% else %}
-            <p>MFA is not enabled{% if local_cfg.mfa_required %} (required){% endif %}.</p>
-            {% if not mfa_setup %}
-            <form method="post" action="{{ url_for('account_mfa_start') }}">
-                <button type="submit" class="btn-primary-lite">Set up authenticator</button>
-            </form>
-            {% else %}
+            {% macro mfa_scan(button) %}
             <div class="mfa-setup">
                 <p>Scan this with your authenticator app:</p>
                 {% if mfa_setup.qr_svg %}
@@ -93,9 +78,49 @@
                 </details>
                 <form class="login-form" method="post" action="{{ url_for('account_mfa_confirm') }}">
                     <label>Confirm code from app <input type="text" name="code" inputmode="numeric" required autocomplete="one-time-code"></label>
-                    <button type="submit" class="btn-primary-lite">Enable MFA</button>
+                    <button type="submit" class="btn-primary-lite">{{ button }}</button>
+                </form>
+                <form method="post" action="{{ url_for('account_mfa_cancel') }}">
+                    <button type="submit" class="btn-ghost-sm">Cancel</button>
                 </form>
             </div>
+            {% endmacro %}
+            {% if not local_cfg.mfa_available %}
+            <p>MFA is disabled for this instance.</p>
+            {% elif user.mfa_enabled %}
+            <p>MFA is <strong>enabled</strong> for your account.</p>
+            {% if mfa_setup %}
+            {# Replacing: the old authenticator keeps working until this is confirmed. #}
+            <p class="login-hint">Scan the new code with the authenticator you want to keep. Your current one keeps working until you confirm.</p>
+            {{ mfa_scan("Replace authenticator") }}
+            {% else %}
+            <h3>Replace authenticator</h3>
+            <p class="login-hint">For a lost or new phone, or when the secret may be known to someone else. Confirm with your password and a code from your current authenticator, or a backup code if you no longer have it. Afterwards the old authenticator and the old backup codes stop working, and every other signed-in session is signed out.</p>
+            <form class="login-form" method="post" action="{{ url_for('account_mfa_replace') }}">
+                <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
+                <label>Current code or backup code <input type="text" name="code" required autocomplete="one-time-code"></label>
+                <button type="submit" class="btn-primary-lite">Replace authenticator</button>
+            </form>
+            <p class="login-hint">No authenticator and no backup codes left? An administrator can reset MFA for your account.</p>
+            {% if not local_cfg.mfa_required %}
+            <h3>Disable MFA</h3>
+            <form class="login-form" method="post" action="{{ url_for('account_mfa_disable') }}">
+                <label>Password <input type="password" name="password" required></label>
+                <label>Authenticator / backup code <input type="text" name="code" required></label>
+                <button type="submit" class="btn-ghost">Disable MFA</button>
+            </form>
+            {% else %}
+            <p class="login-hint">MFA is required by policy and cannot be disabled.</p>
+            {% endif %}
+            {% endif %}
+            {% else %}
+            <p>MFA is not enabled{% if local_cfg.mfa_required %} (required){% endif %}.</p>
+            {% if not mfa_setup %}
+            <form method="post" action="{{ url_for('account_mfa_start') }}">
+                <button type="submit" class="btn-primary-lite">Set up authenticator</button>
+            </form>
+            {% else %}
+            {{ mfa_scan("Enable MFA") }}
             {% endif %}
             {% endif %}
 
