@@ -557,7 +557,16 @@ loaded, and lets an admin refresh them at once.
 **Tools → Mail analysis** judges one received message instead of the DNS records alone. Send a
 message from the mail system you want to test to a mailbox you can read, and give DomainLens
 the message as received: upload the `.eml` file (Gmail: *Show original → Download original*;
-Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*) or paste the source.
+Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*), an Outlook `.msg` file
+(*File → Save As*, or drag the message to a folder), or paste the source. The file is told
+apart by what it is, not by its name.
+
+An Outlook `.msg` file keeps the headers the receiving server added (when Outlook kept them),
+the body -- as HTML, plain text, or compressed RTF with the HTML inside, which is unpacked --
+and the attachments. It does not keep the body as it was sent, so a DKIM signature over it
+cannot be verified: DKIM is *not measured*, with the receiving system's verdict
+(Authentication-Results) beside it when the message has one. A sent item or a draft has no
+received headers, so the sending server and SPF cannot be judged; the page says so.
 
 - **SPF** is evaluated for the address that handed the message to the receiving side. That
   address comes from the receiver's own `Received-SPF` header when it adds one, otherwise
@@ -575,6 +584,51 @@ Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*) or paste t
   Date, an HTML part without text, image-only mail, links that show one domain and lead to
   another, bare IP links, URL shorteners, plain http, programs and macro documents attached,
   and for bulk mail a one-click `List-Unsubscribe` (RFC 8058).
+- **Attachments** are read for what they do when opened -- the static half of what a sandbox
+  such as Joe Sandbox does. A sandbox runs the file and watches it; that would mean running
+  whatever arrived by mail on the server that holds your settings and keys, so DomainLens
+  reads instead, and never opens, renders or runs anything:
+  - **the real type** by its first bytes, against the name: an `invoice.pdf` that is a program
+    or a web page; a right-to-left mark that turns `fdp.exe` around; a double extension
+    (`scan.pdf.exe`); spaces that push the extension out of view;
+  - **PDF**, as pdfid counts it: links, forms that submit what is typed, JavaScript (high when
+    it runs on opening) and the calls known exploits use (`util.printf`, `Collab.getIcon`,
+    `media.newPlayer` …, critical), JavaScript that opens files or web addresses, obfuscation,
+    a program to start, files embedded in it -- which are read in turn;
+  - **Office**: macros, read from the VBA source itself, and whether they run on opening
+    (`AutoOpen`, `Document_Open`, `Workbook_Open` …) and what they call (`Shell`,
+    `CreateObject`, downloads, PowerShell); Excel 4.0 macro sheets; a template fetched from
+    the internet when the document opens (remote template injection); DDE fields; objects
+    linked from outside; files packed into the document; a password that keeps it unread;
+  - **RTF**: embedded objects, the Equation Editor object of CVE-2017-11882 (critical),
+    objects that update on opening, a remote template;
+  - **archives** (ZIP, gzip): what they hold, read in turn; a program among it; a password
+    that keeps it closed; a ZIP bomb, of which only the names are read. RAR and 7-Zip are not
+    opened and say so;
+  - **HTML**: a login form arriving as an attachment, HTML smuggling (a file assembled in the
+    browser), a redirect, obfuscated script;
+  - **programs, scripts, shortcuts and disk images**, whatever their name.
+
+  What is found inside is read the same way, two levels deep, within ceilings (20 MB per file,
+  60 MB unpacked per archive, 5 MB per PDF stream and 40 MB per PDF), so a file cannot unpack
+  into more than is read. Each file shows its SHA-256 with links to look it up yourself.
+- **Safely**: the files are read in a process of their own (`scan_worker.py`), started with no
+  environment (no keys, no database settings), with no network, and on Linux limits of 1 GB
+  memory and 30 seconds CPU, no files written and no processes started; a wall-clock limit of
+  45 seconds holds everywhere. A file that makes a parser loop, balloon or crash stops that
+  process only, and is reported as *not measured* with the reason -- never as clean.
+- **Known malware**: each file's SHA-256 is asked of MalwareBazaar (with the abuse.ch Auth-Key,
+  `get_info` only) and of VirusTotal when it is switched on for the mail analysis. Only the hash
+  leaves the server, never the file: uploading an attachment to a public service publishes it.
+  A hit is critical. Without either set up, the page says hashes were not looked up.
+- **What leaves the server**: never the content of a file or message. Only SHA-256 hashes (of
+  files, and of links when VirusTotal is on) are sent, to ask about them; a hash cannot be
+  turned back into the file. The VirusTotal and MalwareBazaar links next to each file search
+  by hash too. Do not upload a file with customer data to such a service yourself: an
+  uploaded file can be seen and downloaded by its other users. Tests fail when the code that
+  reads files gains a way to send them, or when anything but a hash is sent.
+- **A file on its own** -- a PDF, an Office document, an archive, a web page -- can be chosen on
+  the same page and gets the same analysis.
 - What the receiving system concluded itself (its `Authentication-Results`) is shown apart,
   for comparison: a sender can write such a header too.
 - **Mail flow**: the path of the message as a picture, oldest step first -- the sender with its

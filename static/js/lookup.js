@@ -4,10 +4,12 @@
 
 function $(id) { return document.getElementById(id); }
 
+// Quotes too: the result also goes inside attribute values (title="…"),
+// where a " from a mail's link or file name would end the attribute.
 function esc(value) {
-    const div = document.createElement('div');
-    div.textContent = value === null || value === undefined ? '' : String(value);
-    return div.innerHTML;
+    return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // Every fetch on these pages used to end in a bare "Network error", which

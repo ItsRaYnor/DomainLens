@@ -2,10 +2,11 @@
 (function () {
     function $(id) { return document.getElementById(id); }
 
+    // Quotes too: the result also goes inside attribute values.
     function esc(value) {
-        const div = document.createElement('div');
-        div.textContent = value === null || value === undefined ? '' : String(value);
-        return div.innerHTML;
+        return String(value === null || value === undefined ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     // Same contract as the other pages: an HTTP status is not a network

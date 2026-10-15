@@ -28,8 +28,12 @@ function mtDkimPart(dkim) {
 
 // Why DKIM could not be judged, under the verdict: "not measured" alone
 // read as a fault, while the usual cause is a copy that is not the original.
-function mtDkimWhy(dkim, s) {
+function mtDkimWhy(dkim, s, origin) {
     if (!s.has_body) return 'Headers only: signature not verified';
+    if (origin === 'msg' && mtDkimPart(dkim).state !== 'measured') {
+        return dkim.signatures.some(sig => sig.receiver === 'pass')
+            ? 'Outlook file: not verifiable here; the receiver verified it' : 'Outlook file: the body is not as sent';
+    }
     if (mtDkimPart(dkim).state === 'measured') return '';
     if (dkim.signatures.some(sig => sig.receiver === 'pass')) return 'The receiver verified it; this copy was altered. Upload the .eml file';
     return dkim.signatures.some(sig => sig.state !== 'measured') ? 'The key could not be looked up' : '';
@@ -269,14 +273,118 @@ function mtLinks(content, checks) {
             const feed = MT_FEED_TEXT[l.feed || 'not_checked'] || MT_FEED_TEXT.not_checked;
             const vt = l.virustotal || { state: 'not_checked' };
             return `<tr><td><code title="${esc(l.url || '')}">${esc(l.host)}</code>${l.https ? '' : ' <span class="muted">http</span>'}</td>`
-                + `<td>${esc(l.text)}</td>`
+                + `<td>${l.source ? `<span class="muted">${esc(`From ${l.source}`)}</span>` : esc(l.text)}</td>`
                 + `<td>${l.lookalike ? mtTag(`Looks like ${l.lookalike}`, 'bad') : '<span class="muted">—</span>'}</td>`
                 + `<td>${mtTag(feed[0], feed[1])}</td>`
                 + `<td>${mtTag(mtVtText(vt), MT_VT_TEXT[vt.state] || 'na', vt.error || '')}</td></tr>`;
         }).join('') + '</table></div></details>';
 }
 
+// ===== Attachments and files =====
+
+const MT_SEVERITY = ['critical', 'high', 'medium', 'low', 'info'];
+
+function mtBytes(n) {
+    if (n === null || n === undefined) return '';
+    return n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+}
+
+// The worst finding in a file and everything found inside it.
+function mtWorst(node) {
+    let worst = MT_SEVERITY.length;
+    (node.findings || []).forEach(f => { worst = Math.min(worst, MT_SEVERITY.indexOf(f[0])); });
+    (node.children || []).forEach(c => { worst = Math.min(worst, mtWorst(c)); });
+    return worst;
+}
+
+// What the file does, in a chip or two. Three states: read, partly read
+// (encrypted, a ceiling reached), not read -- never "clean" for the last.
+function mtFileState(node) {
+    if (node.state === 'unmeasured') return mtTag('Not read', 'na', node.reason || '');
+    const worst = mtWorst(node);
+    const count = (node.findings || []).length;
+    const chips = [];
+    if (worst <= 1) chips.push(mtTag(count ? `${count} finding(s)` : 'Inside: findings', 'bad'));
+    else if (worst <= 2) chips.push(mtTag(count ? `${count} finding(s)` : 'Inside: findings', 'warn'));
+    else chips.push(mtTag('Nothing active found', 'ok'));
+    if ((node.urls || []).length) chips.push(mtTag(`${node.urls.length} link(s)`, 'na'));
+    if (node.state === 'partial') chips.push(mtTag('Partly read', 'na', node.reason || ''));
+    return chips.join(' ');
+}
+
+// Known by its hash? Only the hash was asked, never the file.
+function mtReputation(rep) {
+    if (!rep) return '<span class="muted">—</span>';
+    const mb = rep.malwarebazaar || {}, vt = rep.virustotal || {};
+    const chips = [];
+    if (mb.state === 'listed') chips.push(mtTag(`MalwareBazaar: ${mb.signature || 'known malware'}`, 'bad'));
+    else if (mb.state === 'unknown') chips.push(mtTag('MalwareBazaar: not known', 'ok'));
+    else if (mb.state === 'unmeasured') chips.push(mtTag('MalwareBazaar: not checked', 'na', mb.error || ''));
+    if (vt.state === 'malicious') chips.push(mtTag(`VirusTotal: ${vt.malicious} of ${vt.engines} engines`, 'bad', vt.label || ''));
+    else if (vt.state === 'suspicious') chips.push(mtTag(`VirusTotal: ${vt.suspicious} of ${vt.engines} suspicious`, 'warn'));
+    else if (vt.state === 'no_detections') chips.push(mtTag('VirusTotal: no detections', 'ok'));
+    else if (vt.state === 'unknown') chips.push(mtTag('VirusTotal: not known', 'na'));
+    else if (vt.state === 'unmeasured') chips.push(mtTag('VirusTotal: not checked', 'na', vt.error || ''));
+    return chips.join(' ') || '<span class="muted">—</span>';
+}
+
+// Source excerpts are shown as text, escaped, never run or linked.
+function mtExcerpts(node) {
+    const parts = [];
+    const macros = node.macros;
+    if (macros && macros.excerpt) {
+        parts.push(`<details class="mt-excerpt-wrap"><summary>${esc('Macro source (excerpt)')}</summary>`
+            + `<pre class="mt-excerpt">${esc(macros.excerpt)}</pre></details>`);
+    }
+    const js = (node.pdf || {}).js || {};
+    (js.excerpts || []).forEach(text => parts.push(`<details class="mt-excerpt-wrap"><summary>${esc('JavaScript (excerpt)')}</summary>`
+        + `<pre class="mt-excerpt">${esc(text)}</pre></details>`));
+    return parts.join('');
+}
+
+function mtFileRows(node, depth) {
+    const indent = depth ? `<span class="muted" aria-hidden="true">${'↳ '.repeat(1)}</span>` : '';
+    // Searches by hash, which uploads nothing. The title says why the file
+    // itself must not go there: an upload is visible to the service's users.
+    const warn = 'Searches by hash; nothing is uploaded. Do not upload the file there yourself: an uploaded file can be seen and downloaded by others.';
+    const hash = node.sha256
+        ? `<div class="mt-hash"><code title="SHA-256 ${esc(node.sha256)}">${esc(node.sha256.slice(0, 16))}…</code> `
+          + `<a href="https://www.virustotal.com/gui/file/${esc(node.sha256)}" target="_blank" rel="noopener noreferrer" title="${esc(warn)}">VirusTotal</a> · `
+          + `<a href="https://bazaar.abuse.ch/sample/${esc(node.sha256)}/" target="_blank" rel="noopener noreferrer" title="${esc(warn)}">MalwareBazaar</a></div>`
+        : '';
+    const row = `<tr><td style="padding-left:${0.5 + depth * 1.1}rem">${indent}${esc(node.name)}${hash}${mtExcerpts(node)}</td>`
+        + `<td>${esc(node.type_label || '')}<div class="muted">${esc(mtBytes(node.size))}</div></td>`
+        + `<td>${mtFileState(node)}</td><td>${mtReputation(node.reputation)}</td></tr>`;
+    return row + (node.children || []).map(c => mtFileRows(c, depth + 1)).join('');
+}
+
+function mtAttachments(list, checked) {
+    const note = checked === 'checked' ? '' : `<p class="ct-desc">${esc('Hashes are not looked up: set an abuse.ch Auth-Key for MalwareBazaar, or switch VirusTotal on for the mail analysis.')}</p>`;
+    return '<h4>Attachments</h4>'
+        + `<p class="ct-desc">${esc('Read as data in a separate process with no network: nothing was opened or run. Only hashes leave this server.')}</p>`
+        + note
+        + `<p class="ct-desc mt-privacy">${esc('The content of a file is never sent anywhere. The VirusTotal and MalwareBazaar links search by hash; do not upload a file with customer data to them yourself, as an uploaded file can be seen and downloaded by others.')}</p>`
+        + '<div class="dns-detail-table-wrap"><table class="data-table stack-table">'
+        + '<tr><th>File</th><th>Type</th><th>What it does</th><th>Known as</th></tr>'
+        + list.map(a => a.scan ? mtFileRows(a.scan, 0)
+            : `<tr><td>${esc(a.name)}</td><td><code>${esc(a.type)}</code></td><td><span class="muted">${esc('Name and type only')}</span></td><td></td></tr>`).join('')
+        + '</table></div>';
+}
+
+// A file on its own: what it does when opened, what is inside, its
+// findings and its links.
+function mtRenderFile(d) {
+    const content = d.content || {};
+    $('mailTestResult').innerHTML =
+        `<section class="card"><h3>${esc(d.file.name)}</h3>${mtAttachments(content.attachments || [d.file], content.reputation)}</section>`
+        + `<section class="card"><h3>Findings</h3>${mtFindings(d.findings)}</section>`
+        + ((content.links || []).length ? `<section class="card">${mtLinks(content, d.link_checks)}</section>` : '');
+    const links = $('mailTestResult').querySelector('details:not(.mt-excerpt-wrap)');
+    if (links) links.open = true;
+}
+
 function mtRender(d) {
+    if (d.kind === 'file') { mtRenderFile(d); return; }
     const s = d.summary, spf = d.spf, dmarc = d.dmarc, server = d.server;
     const sourceNote = {
         'received-spf': 'Sending address from the receiver\'s Received-SPF header.',
@@ -285,7 +393,7 @@ function mtRender(d) {
     }[d.border_source] || '';
     const verdicts = '<div class="mgmt-kpis">'
         + mtVerdict('SPF', spf, spf.ip ? `Checked ${spf.ip} for ${spf.domain || '?'}` : 'No sending address found')
-        + mtVerdict('DKIM', mtDkimPart(d.dkim), mtDkimWhy(d.dkim, s))
+        + mtVerdict('DKIM', mtDkimPart(d.dkim), mtDkimWhy(d.dkim, s, d.origin))
         + mtVerdict('DMARC', dmarc, dmarc.policy ? `p=${dmarc.policy}` : '')
         + mtVerdict('TLS on arrival', mtTlsPart(server), server.tls_version || '')
         + '</div>';
@@ -326,14 +434,19 @@ function mtRender(d) {
     ]);
     const content = d.content;
     const links = mtLinks(content, d.link_checks);
-    const attachments = content && content.attachments.length
-        ? rows(content.attachments.map(a => ['Attachment', `${a.name} (${a.type})`])) : '';
+    const attachments = content && content.attachments.length ? mtAttachments(content.attachments, content.reputation) : '';
     const learned = d.learned.length
         ? '<p class="ct-desc">' + d.learned.map(x => esc(`DKIM selector ${x.selector} of ${x.domain} is remembered: scans of that domain now check it.`)).join('<br>') + '</p>'
         : '';
 
+    // An Outlook file: what it kept, and what that leaves out.
+    const msgNote = d.msg
+        ? `<p class="ct-desc">${esc(d.msg.headers
+            ? 'Read from an Outlook .msg file: the received headers as Outlook kept them, the body rebuilt from it.'
+            : 'Read from an Outlook .msg file without received headers (a sent item or a draft): the sending server and SPF cannot be judged.')}</p>`
+        : '';
     $('mailTestResult').innerHTML =
-        `<section class="card"><h3>Verdict</h3>${verdicts}<p class="ct-desc">${esc(sourceNote)}</p>${learned}</section>`
+        `<section class="card"><h3>Verdict</h3>${verdicts}<p class="ct-desc">${esc(sourceNote)}</p>${msgNote}${learned}</section>`
         + `<section class="card"><h3>Mail flow</h3>${mtFlow(d)}</section>`
         + `<section class="card"><h3>Findings</h3>${mtFindings(d.findings)}</section>`
         + `<section class="card"><h3>Authentication</h3>${auth}<h4>DKIM signatures</h4>${mtSignatures(d.dkim.signatures)}</section>`
@@ -415,7 +528,7 @@ function initMailTest() {
     $('mailTestBtn').addEventListener('click', () => {
         const file = $('mailTestFile').files[0];
         const text = $('mailTestSource').value;
-        if (!file && !text.trim()) { toast('Paste the message source or choose an .eml file.'); return; }
+        if (!file && !text.trim()) { toast('Paste the message source or choose an .eml, .msg or PDF file.'); return; }
         mtLast = file ? { file } : { text };
         mtRun(null);
     });

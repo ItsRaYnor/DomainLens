@@ -14,10 +14,11 @@
         <section class="card">
             <h2 data-i18n="nav.tools_mail">{{ t('nav.tools_mail') }}</h2>
             <p class="ct-desc">Send a message from the mail system you want to test to a mailbox you can read, then give DomainLens that message as it was received. It checks SPF, DKIM and DMARC on the message itself, the server that sent it, and the content. The message is analysed and not stored.</p>
-            <p class="ct-desc">Where to find the source: in Gmail <strong>Show original</strong>, then <strong>Download original</strong>; in Thunderbird <code>Ctrl+U</code>; in Apple Mail <strong>View → Message → Raw Source</strong>. Outlook only shows the headers (<strong>File → Properties</strong>): that is enough for everything except verifying the DKIM signature, which covers the body too.</p>
+            <p class="ct-desc">Where to find the source: in Gmail <strong>Show original</strong>, then <strong>Download original</strong>; in Thunderbird <code>Ctrl+U</code>; in Apple Mail <strong>View → Message → Raw Source</strong>. In Outlook, save the message (<strong>File → Save As</strong>, or drag it to a folder) as a <code>.msg</code> file: everything is read from it except the DKIM signature over the body, which a .msg file does not keep as it was sent.</p>
+            <p class="ct-desc">Attachments, and any file chosen on its own, are read for what they do when opened: links, macros, JavaScript, forms that send what is typed, programs and files hidden inside. They are read in a separate process without network, never opened or run; only their hashes are looked up elsewhere.</p>
             <div class="mt-form">
-                <label class="mt-file">Message file (.eml)
-                    <input type="file" id="mailTestFile" accept=".eml,.txt,message/rfc822,text/plain">
+                <label class="mt-file">Message (.eml, .msg) or a file
+                    <input type="file" id="mailTestFile">
                 </label>
                 <label class="mt-paste">Or paste the source
                     <textarea id="mailTestSource" rows="8" spellcheck="false" placeholder="Received: from …"></textarea>

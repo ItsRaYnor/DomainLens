@@ -245,3 +245,48 @@ Listed	Vermeld
 No threat lists are configured (Admin -> Settings -> Mail analysis).	Er zijn geen dreigingslijsten ingesteld (Beheer -> Instellingen -> Mailanalyse).
 The receiver verified it; this copy was altered. Upload the .eml file	De ontvanger heeft hem geverifieerd; deze kopie is veranderd. Upload het .eml-bestand
 The key could not be looked up	De sleutel kon niet worden opgevraagd
+Message (.eml, .msg) or a file	Bericht (.eml, .msg) of een bestand
+Attachments, and any file chosen on its own, are read for what they do when opened: links, macros, JavaScript, forms that send what is typed, programs and files hidden inside. They are read in a separate process without network, never opened or run; only their hashes are looked up elsewhere.	Bijlagen, en elk los gekozen bestand, worden gelezen op wat ze doen bij openen: links, macro's, JavaScript, formulieren die versturen wat je typt, verstopte programma's en bestanden. Ze worden gelezen in een apart proces zonder netwerk, nooit geopend of uitgevoerd; alleen hun hashes worden elders opgezocht.
+Paste the message source or choose an .eml, .msg or PDF file.	Plak de broncode van het bericht of kies een .eml-, .msg- of pdf-bestand.
+Outlook file: not verifiable here; the receiver verified it	Outlook-bestand: hier niet te verifiëren; de ontvanger verifieerde hem
+Outlook file: the body is not as sent	Outlook-bestand: de body is niet zoals verstuurd
+From {}	Uit {}
+{n} link(s)	{} link(s)
+Partly read	Deels gelezen
+Nothing active found	Niets actiefs gevonden
+Attachments	Bijlagen
+Name and type only	Alleen naam en type
+What it does	Wat hij doet
+Read from an Outlook .msg file: the received headers as Outlook kept them, the body rebuilt from it.	Gelezen uit een Outlook .msg-bestand: de ontvangen headers zoals Outlook ze bewaarde, de body daaruit opnieuw opgebouwd.
+Read from an Outlook .msg file without received headers (a sent item or a draft): the sending server and SPF cannot be judged.	Gelezen uit een Outlook .msg-bestand zonder ontvangen headers (een verzonden item of concept): de verzendende server en SPF zijn niet te beoordelen.
+A file named .pdf is not a PDF	Een bestand met de naam .pdf is geen pdf
+A PDF can start a program	Een pdf kan een programma starten
+A PDF contains JavaScript	Een pdf bevat JavaScript
+A PDF carries another file	Een pdf bevat een ander bestand
+A PDF form sends what is typed	Een pdf-formulier verstuurt wat je typt
+A PDF uses rarely needed features	Een pdf gebruikt zelden nodige functies
+A PDF links to something other than a web page	Een pdf linkt naar iets anders dan een webpagina
+A one-page PDF with a link	Een pdf van één pagina met een link
+An encrypted PDF could not be read	Een versleutelde pdf kon niet worden gelezen
+The PDF is encrypted: its links and streams cannot be read without the key.	De pdf is versleuteld: de links en streams zijn zonder sleutel niet te lezen.
+The PDF unpacks to more than is read here; only part of it was searched.	De pdf pakt uit tot meer dan hier gelezen wordt; slechts een deel is doorzocht.
+The attachment is empty.	De bijlage is leeg.
+{} is {}. A file that hides what it is, is meant to be opened by mistake.	{} is {}. Een bestand dat verbergt wat het is, is bedoeld om per ongeluk geopend te worden.
+{} contains a Launch action: opening it can ask to run a program or open a file.	{} bevat een Launch-actie: openen kan vragen een programma te starten of een bestand te openen.
+{} carries JavaScript, set to run when it is opened. Ordinary documents rarely need it; readers can be made to run it against you.	{} bevat JavaScript dat bij openen draait. Gewone documenten hebben dat zelden nodig; een lezer kan worden misbruikt om het tegen je uit te voeren.
+{} carries JavaScript. Ordinary documents rarely need it; readers can be made to run it against you.	{} bevat JavaScript. Gewone documenten hebben dat zelden nodig; een lezer kan worden misbruikt om het tegen je uit te voeren.
+{} has a file embedded in it, which the reader can be asked to open.	{} heeft een ingesloten bestand, dat de lezer kan worden gevraagd te openen.
+{} has a form that submits its fields to a web address: a way to collect passwords without a web page.	{} heeft een formulier dat de velden naar een webadres verstuurt: een manier om wachtwoorden te verzamelen zonder webpagina.
+{} uses {}, which ordinary documents do not.	{} gebruikt {}, wat gewone documenten niet doen.
+{} links to {}.	{} linkt naar {}.
+{} is one page with {n} link(s). "Click to view the document" is how most phishing PDFs work; the links are checked below.	{} is één pagina met {} link(s). "Klik om het document te bekijken" is hoe de meeste phishing-pdf's werken; de links worden hieronder gecontroleerd.
+{} is encrypted, so its links could not be checked. A password given in the message itself is a way to keep a PDF from being scanned.	{} is versleuteld, dus de links konden niet worden gecontroleerd. Een wachtwoord in het bericht zelf is een manier om te voorkomen dat een pdf gescand wordt.
+a Windows program	een Windows-programma
+a ZIP archive (or an Office document)	een ZIP-archief (of een Office-document)
+an older Office document	een ouder Office-document
+a web page	een webpagina
+a RAR archive	een RAR-archief
+not a PDF	geen pdf
+An Outlook .msg file keeps the message re-encoded, not as it arrived, so the signature over its body cannot be verified here. Where the receiving system recorded its own check (Authentication-Results), that verdict is shown.	Een Outlook .msg-bestand bewaart het bericht opnieuw gecodeerd, niet zoals het binnenkwam, dus de handtekening over de body is hier niet te verifiëren. Waar het ontvangende systeem zijn eigen controle vastlegde (Authentication-Results), wordt dat oordeel getoond.
+This is not a readable Outlook message file	Dit is geen leesbaar Outlook-berichtbestand
+This file is not an Outlook message	Dit bestand is geen Outlook-bericht

@@ -1,0 +1,130 @@
+# Mail analysis: attachments and files read for what they do when opened (file_scan.py, sandbox.py, file_reputation.py).
+A file name is written right-to-left to hide its type	Een bestandsnaam is van rechts naar links geschreven om het type te verbergen
+"{}" contains a right-to-left mark: what reads as "…exe.pdf" ends in .exe.	"{}" bevat een rechts-naar-links-teken: wat leest als "…exe.pdf" eindigt op .exe.
+A program named like a document	Een programma met de naam van een document
+"{}" ends in .{}: the .{} before it is there to be read instead.	"{}" eindigt op .{}: de .{} ervoor staat er om in plaats daarvan gelezen te worden.
+A file name hides its extension behind spaces	Een bestandsnaam verbergt de extensie achter spaties
+"{}": the spaces push the real extension out of view.	"{}": de spaties duwen de echte extensie uit beeld.
+A program disguised as a document	Een programma vermomd als document
+"{}" is named .{} but is a {}.	"{}" heet .{} maar is een {}.
+A file is not what its name says	Een bestand is niet wat de naam zegt
+"{}" is named .{} but is a {}. A file that hides what it is, is meant to be opened by mistake.	"{}" heet .{} maar is een {}. Een bestand dat verbergt wat het is, is bedoeld om per ongeluk geopend te worden.
+Macros that run when the document is opened	Macro's die draaien zodra het document wordt geopend
+{} has macros that run on their own ({}) and {}.	{} heeft macro's die vanzelf draaien ({}) en {}.
+{} has macros that run on their own ({}).	{} heeft macro's die vanzelf draaien ({}).
+A document contains macros	Een document bevat macro's
+{} has {n} macro module(s) that {}.	{} heeft {} macromodule(s) die {}.
+{} has {n} macro module(s).	{} heeft {} macromodule(s).
+A password-protected Office document	Een Office-document met wachtwoord
+{} is encrypted: its content, macros included, cannot be read without the password. A password given in the message itself is a way to keep it from being scanned.	{} is versleuteld: de inhoud, macro's inbegrepen, is zonder wachtwoord niet te lezen. Een wachtwoord in het bericht zelf is een manier om te voorkomen dat het gescand wordt.
+A document carries another file	Een document bevat een ander bestand
+{} has "{}" packed into it; opening the object opens that file.	{} heeft "{}" ingepakt; wie het object opent, opent dat bestand.
+An Excel 4.0 macro sheet	Een Excel 4.0-macroblad
+{} has an Excel 4.0 (XLM) macro sheet: an old macro language malware still uses because few scanners read it.	{} heeft een Excel 4.0-macroblad (XLM): een oude macrotaal die malware nog gebruikt omdat weinig scanners hem lezen.
+{} has an Excel 4.0 (XLM) macro sheet: an old macro language malware still uses.	{} heeft een Excel 4.0-macroblad (XLM): een oude macrotaal die malware nog gebruikt.
+An archive that unpacks to far more than it is (a ZIP bomb)	Een archief dat uitpakt tot veel meer dan het is (een ZIP-bom)
+{} is {n} bytes and unpacks to {n} bytes. Only the names were read.	{} is {} bytes en pakt uit tot {} bytes. Alleen de namen zijn gelezen.
+A password-protected archive	Een archief met wachtwoord
+{} keeps {n} file(s) behind a password, so they cannot be scanned. A password in the message itself is the usual way past a mail filter.	{} houdt {} bestand(en) achter een wachtwoord, dus die zijn niet te scannen. Een wachtwoord in het bericht zelf is de gebruikelijke manier om langs een mailfilter te komen.
+An archive holds a program	Een archief bevat een programma
+{} contains "{}": a .{} file runs code when it is opened.	{} bevat "{}": een .{}-bestand voert code uit zodra het wordt geopend.
+A document fetches its template from the internet	Een document haalt zijn sjabloon van internet
+{} loads a template from {} when it is opened (remote template injection): the macros come with it, past any scan of the document itself.	{} laadt bij openen een sjabloon van {} (remote template injection): de macro's komen daarmee binnen, langs elke scan van het document zelf.
+{} loads a template from {} when it is opened.	{} laadt bij openen een sjabloon van {}.
+A document loads an object from outside	Een document laadt een object van buiten
+{} links an object ({}) from {}, fetched when it is opened.	{} koppelt een object ({}) van {}, opgehaald zodra het wordt geopend.
+A document runs a command through DDE	Een document voert een opdracht uit via DDE
+{} has a DDE field: opening it asks to start another program, the way macro-less malware runs commands.	{} heeft een DDE-veld: openen vraagt een ander programma te starten, zoals malware zonder macro's opdrachten uitvoert.
+A workbook runs a command through DDE	Een werkmap voert een opdracht uit via DDE
+{} links to a DDE service: opening it asks to start another program.	{} koppelt naar een DDE-dienst: openen vraagt een ander programma te starten.
+An RTF document with an Equation Editor object	Een RTF-document met een Vergelijkingseditor-object
+{} embeds an Equation Editor object, used by CVE-2017-11882 and its successors to run code the moment the document is opened. Ordinary documents do not need it.	{} bevat een Vergelijkingseditor-object, dat CVE-2017-11882 en opvolgers gebruiken om code uit te voeren zodra het document opengaat. Gewone documenten hebben het niet nodig.
+An RTF document with embedded objects	Een RTF-document met ingesloten objecten
+{} has {n} embedded object(s), set to update on opening (\objupdate).	{} heeft {} ingesloten object(en) die bij openen bijwerken (\objupdate).
+{} has {n} embedded object(s).	{} heeft {} ingesloten object(en).
+An attachment asks for a password	Een bijlage vraagt om een wachtwoord
+{} is a page with a password field that sends it to {}. A login form arriving as an attachment is credential phishing.	{} is een pagina met een wachtwoordveld dat het naar {} stuurt. Een inlogformulier als bijlage is phishing naar inloggegevens.
+{} is a page with a password field. A login form arriving as an attachment is credential phishing.	{} is een pagina met een wachtwoordveld. Een inlogformulier als bijlage is phishing naar inloggegevens.
+HTML smuggling: a file assembled in the browser	HTML smuggling: een bestand dat in de browser wordt samengesteld
+{} builds a file from encoded data and saves it ({}): the file never crosses the mail filter as an attachment.	{} bouwt een bestand uit gecodeerde gegevens en slaat het op ({}): het bestand passeert het mailfilter nooit als bijlage.
+An attachment sends the browser elsewhere	Een bijlage stuurt de browser door
+{} redirects to another page as soon as it is opened.	{} stuurt door naar een andere pagina zodra het wordt geopend.
+Obfuscated script in an attachment	Versluierd script in een bijlage
+{} decodes and runs its own script (eval with unescape, atob or fromCharCode).	{} ontcijfert en draait zijn eigen script (eval met unescape, atob of fromCharCode).
+A Windows shortcut is attached	Er is een Windows-snelkoppeling bijgevoegd
+{} is a shortcut: opening it runs a command ({}).	{} is een snelkoppeling: openen voert een opdracht uit ({}).
+{} is a shortcut: opening it runs a command.	{} is een snelkoppeling: openen voert een opdracht uit.
+{} is a {}: it runs code when opened, whatever its name says.	{} is een {}: het voert code uit bij openen, wat de naam ook zegt.
+A disk image is attached	Er is een schijfkopie bijgevoegd
+{} is a disk image: opening it mounts a drive whose files skip the warnings Windows shows for files from the internet.	{} is een schijfkopie: openen koppelt een station waarvan de bestanden de waarschuwingen overslaan die Windows toont voor bestanden van internet.
+An archive that could not be opened	Een archief dat niet kon worden geopend
+{} is a {}; what it holds was not read.	{} is een {}; de inhoud is niet gelezen.
+A {} is not opened here.	Een {} wordt hier niet geopend.
+The OLE structure could not be read.	De OLE-structuur kon niet worden gelezen.
+Encrypted: the content cannot be read without the password.	Versleuteld: de inhoud is zonder wachtwoord niet te lezen.
+The archive could not be read.	Het archief kon niet worden gelezen.
+A ZIP bomb: only the names were read.	Een ZIP-bom: alleen de namen zijn gelezen.
+Password-protected: the files inside could not be read.	Met wachtwoord: de bestanden erin konden niet worden gelezen.
+The file could not be read to the end ({}).	Het bestand kon niet tot het eind worden gelezen ({}).
+The scan was stopped after {n} seconds.	De scan is na {} seconden gestopt.
+The scan was stopped: the file needed more memory than is allowed.	De scan is gestopt: het bestand vroeg meer geheugen dan is toegestaan.
+The scan was stopped: the file took more processing than is allowed.	De scan is gestopt: het bestand vroeg meer rekenwerk dan is toegestaan.
+The scan stopped on a file it could not read.	De scan stopte op een bestand dat niet te lezen was.
+The scan gave no readable answer.	De scan gaf geen leesbaar antwoord.
+Only the first {n} files are scanned.	Alleen de eerste {} bestanden worden gescand.
+A PDF calls JavaScript used by known exploits	Een pdf roept JavaScript aan dat bekende exploits gebruiken
+{} calls {}. These calls have no use in an ordinary document.	{} roept {} aan. Die aanroepen hebben in een gewoon document geen nut.
+A PDF's JavaScript opens files or web addresses	Het JavaScript van een pdf opent bestanden of webadressen
+{} calls {}.	{} roept {} aan.
+A PDF's JavaScript is obfuscated	Het JavaScript van een pdf is versluierd
+{} uses {} in its JavaScript: written to be unreadable.	{} gebruikt {} in het JavaScript: geschreven om onleesbaar te zijn.
+An attachment could not be scanned	Een bijlage kon niet worden gescand
+"{}" could not be scanned: {}	"{}" kon niet worden gescand: {}
+Inside {}: {}	In {}: {}
+An attachment is known malware	Een bijlage is bekende malware
+MalwareBazaar lists "{}" as {}. Do not open it; remove the message from every mailbox it reached.	MalwareBazaar kent "{}" als {}. Open het niet; verwijder het bericht uit elke mailbox die het bereikte.
+MalwareBazaar lists "{}". Do not open it; remove the message from every mailbox it reached.	MalwareBazaar kent "{}". Open het niet; verwijder het bericht uit elke mailbox die het bereikte.
+VirusTotal engines flag an attachment	VirusTotal-engines markeren een bijlage
+"{}": {n} of {n} engines ({}).	"{}": {} van {} engines ({}).
+"{}": {n} of {n} engines.	"{}": {} van {} engines.
+Office document (older format) or OLE file	Office-document (ouder formaat) of OLE-bestand
+Office document	Office-document
+ZIP archive	ZIP-archief
+RTF document	RTF-document
+web page	webpagina
+Windows program	Windows-programma
+Linux program	Linux-programma
+macOS program	macOS-programma
+Windows shortcut	Windows-snelkoppeling
+disk image	schijfkopie
+RAR archive	RAR-archief
+7-Zip archive	7-Zip-archief
+gzip archive	gzip-archief
+cabinet archive	cabinet-archief
+image	afbeelding
+text	tekst
+script file	scriptbestand
+unknown type	onbekend type
+not read	niet gelezen
+Not read	Niet gelezen
+{n} finding(s)	{} bevinding(en)
+Inside: findings	Binnenin: bevindingen
+MalwareBazaar: known malware	MalwareBazaar: bekende malware
+MalwareBazaar: not known	MalwareBazaar: niet bekend
+MalwareBazaar: not checked	MalwareBazaar: niet gecontroleerd
+VirusTotal: {n} of {n} engines	VirusTotal: {} van {} engines
+VirusTotal: {n} of {n} suspicious	VirusTotal: {} van {} verdacht
+VirusTotal: no detections	VirusTotal: geen detecties
+VirusTotal: not known	VirusTotal: niet bekend
+VirusTotal: not checked	VirusTotal: niet gecontroleerd
+Macro source (excerpt)	Macrobroncode (fragment)
+JavaScript (excerpt)	JavaScript (fragment)
+Hashes are not looked up: set an abuse.ch Auth-Key for MalwareBazaar, or switch VirusTotal on for the mail analysis.	Hashes worden niet opgezocht: stel een abuse.ch Auth-Key in voor MalwareBazaar, of zet VirusTotal aan voor de mailanalyse.
+Read as data in a separate process with no network: nothing was opened or run. Only hashes leave this server.	Als data gelezen in een apart proces zonder netwerk: er is niets geopend of uitgevoerd. Alleen hashes verlaten deze server.
+File	Bestand
+Known as	Bekend als
+(file inside the PDF)	(bestand in de pdf)
+(embedded object)	(ingesloten object)
+(packaged file)	(ingepakt bestand)
+Searches by hash; nothing is uploaded. Do not upload the file there yourself: an uploaded file can be seen and downloaded by others.	Zoekt op hash; er wordt niets geüpload. Upload het bestand daar niet zelf: een geüpload bestand is voor anderen te zien en te downloaden.
+The content of a file is never sent anywhere. The VirusTotal and MalwareBazaar links search by hash; do not upload a file with customer data to them yourself, as an uploaded file can be seen and downloaded by others.	De inhoud van een bestand wordt nergens heen gestuurd. De links naar VirusTotal en MalwareBazaar zoeken op hash; upload een bestand met klantgegevens daar niet zelf, want een geüpload bestand is voor anderen te zien en te downloaden.

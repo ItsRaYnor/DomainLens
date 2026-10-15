@@ -6,15 +6,21 @@ newsletter service, a DKIM key can be published and never used, and DMARC
 fails most often on alignment -- SPF passing for the service's bounce
 domain, not for the domain in From -- which no record shows.
 
-This module reads one message as received (an .eml file, or the headers
-pasted from "show original") and works it out from the message itself:
+This module reads one message as received (an .eml file, an Outlook .msg
+file through msg_file.py, or the headers pasted from "show original") and
+works it out from the message itself:
 
   * SPF for the address that handed the message to the receiving side,
     found in the Received chain;
   * every DKIM signature, verified against the key in DNS;
   * DMARC alignment from those two, against the policy of the From domain;
   * the sending server: reverse DNS, HELO name, blocklists, TLS on arrival;
-  * the content: what receivers and readers trip over.
+  * the content: what receivers and readers trip over, and what every
+    attachment does when opened (file_scan.py, read in a process of its own
+    by sandbox.py), its links checked like the message's own and its hash
+    asked of MalwareBazaar and VirusTotal.
+
+A file on its own goes through the same scan (analyse_file).
 
 Nothing is stored except the DKIM selectors a message reveals, so later
 scans check the real key instead of guessing selector names. The message
@@ -29,6 +35,7 @@ from __future__ import annotations
 
 import base64
 import email
+import email.message
 import email.policy
 import email.utils
 import html.parser
@@ -146,6 +153,17 @@ class Lookups:
         """{"feeds": {url: state} or None, "virustotal": {"state", "results"}}
         -- see link_check.py. Here: nothing checked."""
         return {"feeds": None, "virustotal": {"state": "off", "results": {}}}
+
+    def scan_files(self, files):
+        """[file_scan result] for [(name, bytes)]: read in a process of its
+        own, with limits and no network (sandbox.py)."""
+        import sandbox
+        return sandbox.scan_files(files)
+
+    def check_hashes(self, digests):
+        """{sha256: {"malwarebazaar", "virustotal"}} or None -- see
+        file_reputation.py. Here: nothing asked."""
+        return None
 
 
 # --------------------------------------------------------------- parsing
@@ -385,13 +403,17 @@ def _receiver_verified(receiver, sig, b_value):
     return False
 
 
+_NOT_AS_SENT = ("An Outlook .msg file keeps the message re-encoded, not as it arrived, so the "
+                "signature over its body cannot be verified here. Where the receiving system recorded "
+                "its own check (Authentication-Results), that verdict is shown.")
+
 _ALTERED = ("The receiving system verified this signature on arrival, so the message given here "
             "is not the one that was signed. It was altered on the way here: copying the source from "
             "a web page drops spaces and line breaks. Upload the original message file "
             "(Gmail: Download original) to verify it.")
 
 
-def _dkim(lookups, raw, msg, has_body, receiver=None):
+def _dkim(lookups, raw, msg, has_body, receiver=None, body_as_sent=True):
     import dkim
     # Each signature costs a DNS lookup; a message is not a way to make this
     # server send hundreds. Real mail carries one to three.
@@ -419,6 +441,14 @@ def _dkim(lookups, raw, msg, has_body, receiver=None):
                              "Upload the whole message to verify it.")
             if not record:
                 sig.update(state="measured", result="fail", reason=f"No key is published at {key_name}.")
+            continue
+        if not body_as_sent:
+            # Not the bytes that were signed: a check would fail every time.
+            sig["reason"] = _NOT_AS_SENT
+            if not record:
+                sig.update(state="measured", result="fail", reason=f"No key is published at {key_name}.")
+            elif _receiver_verified(receiver, sig, tags.get("b")):
+                sig["receiver"] = "pass"
             continue
         logger = logging.getLogger(f"domainlens.mailtest.dkim.{id(sig)}")
         collect = _Collect()
@@ -627,9 +657,6 @@ class _Links(html.parser.HTMLParser):
 
 _SHORTENERS = {"bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "rebrand.ly",
                "cutt.ly", "shorturl.at", "rb.gy", "t.ly", "tiny.cc"}
-_DANGEROUS = {"exe", "scr", "com", "pif", "bat", "cmd", "js", "jse", "vbs", "vbe", "wsf", "ps1", "jar",
-              "msi", "hta", "lnk", "iso", "img", "vhd", "vhdx", "cpl", "reg", "dll"}
-_RISKY = {"docm", "xlsm", "pptm", "dotm", "xlam", "html", "htm", "shtml", "svg", "one"}
 _DOMAINISH = re.compile(r"^(?:https?://)?((?:[a-z0-9-]+\.)+[a-z]{2,63})(?:[/:?#]\S*)?$", re.I)
 
 
@@ -638,6 +665,8 @@ def _content(msg, findings):
            "unsubscribe": "not_applicable"}
     links = _Links()
     plain = []
+    payloads = []
+    out["_payloads"] = payloads
     for part in msg.walk():
         if part.is_multipart():
             continue
@@ -645,14 +674,10 @@ def _content(msg, findings):
         disposition = (part.get_content_disposition() or "").lower()
         ctype = part.get_content_type()
         if filename or disposition == "attachment":
-            ext = (filename or "").rsplit(".", 1)[-1].lower() if filename and "." in filename else ""
-            out["attachments"].append({"name": filename or "(unnamed)", "type": ctype})
-            if ext in _DANGEROUS:
-                _finding(findings, "high", "content", "A program or script is attached",
-                         f"\"{filename}\" can run code when opened; receivers block or quarantine it.")
-            elif ext in _RISKY:
-                _finding(findings, "medium", "content", "An attachment type used for phishing",
-                         f"\"{filename}\": macros or a web page in an attachment are a common lure.")
+            # Read by _scan_attachments, every one of them, by what it is.
+            entry = {"name": filename or "(unnamed)", "type": ctype}
+            out["attachments"].append(entry)
+            payloads.append((entry, part.get_payload(decode=True) or b""))
             continue
         try:
             text = part.get_content()
@@ -726,6 +751,69 @@ def _content(msg, findings):
                      "Add an https:// address to List-Unsubscribe and the header "
                      "List-Unsubscribe-Post: List-Unsubscribe=One-Click (RFC 8058).")
     return out
+
+
+def _scan_attachments(lookups, content, findings):
+    """Every attachment read for what it does when opened (file_scan.py,
+    in a process of its own), what is inside it too; their findings join the
+    message's, their web links its links, and their hashes are asked of
+    MalwareBazaar and VirusTotal -- the hash only, never the file."""
+    import file_scan
+    pending = content.pop("_payloads", [])
+    if not pending:
+        return
+    results = lookups.scan_files([(entry["name"], data) for entry, data in pending])
+    nodes = []
+    for (entry, data), result in zip(pending, results):
+        entry["size"] = len(data)
+        entry["scan"] = result
+        for path, node in file_scan.flatten(result):
+            nodes.append((path, node))
+    _file_findings(nodes, content, findings)
+    digests = [node["sha256"] for _path, node in nodes if node.get("size")]
+    reputation = lookups.check_hashes(digests) if digests else None
+    content["reputation"] = "checked" if reputation is not None else "not_configured"
+    for path, node in nodes:
+        node["reputation"] = (reputation or {}).get(node["sha256"])
+        _reputation_findings(path, node, findings)
+
+
+def _file_findings(nodes, content, findings):
+    seen = set()
+    for path, node in nodes:
+        where = " › ".join(path[:-1])
+        for severity, title, detail in node.get("findings") or []:
+            text = f"Inside {where}: {detail}" if where else detail
+            if (title, text) in seen:
+                continue
+            seen.add((title, text))
+            _finding(findings, severity, "attachment", title, text)
+        if node.get("state") == "unmeasured" and node.get("depth") == 0:
+            _finding(findings, "info", "attachment", "An attachment could not be scanned",
+                     f"\"{node['name']}\" could not be scanned: {node.get('reason') or 'it could not be read.'}")
+        for uri in node.get("urls") or []:
+            parsed = urllib.parse.urlsplit(uri)
+            if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
+                continue
+            content["links"].append({"host": parsed.hostname.lower(), "text": "",
+                                     "https": parsed.scheme.lower() == "https", "url": uri[:2000],
+                                     "source": " › ".join(path)})
+
+
+def _reputation_findings(path, node, findings):
+    rep = node.get("reputation") or {}
+    shown = " › ".join(path)
+    mb = rep.get("malwarebazaar") or {}
+    if mb.get("state") == "listed":
+        _finding(findings, "critical", "attachment", "An attachment is known malware",
+                 f"MalwareBazaar lists \"{shown}\"" + (f" as {mb['signature']}" if mb.get("signature") else "")
+                 + ". Do not open it; remove the message from every mailbox it reached.")
+    vt = rep.get("virustotal") or {}
+    if vt.get("state") == "malicious":
+        _finding(findings, "critical" if vt.get("malicious", 0) >= 3 else "high", "attachment",
+                 "VirusTotal engines flag an attachment",
+                 f"\"{shown}\": {vt.get('malicious')} of {vt.get('engines')} engines"
+                 + (f" ({vt['label']})" if vt.get("label") else "") + ".")
 
 
 _MAX_CHECKED_LINKS = 100
@@ -877,9 +965,24 @@ def _auth_findings(findings, spf, dkim_result, dmarc, from_domain):
 
 # --------------------------------------------------------------- entry point
 
-def analyse(raw, *, lookups=None, ip=None):
+def analyse_file(data, name=None, *, lookups=None):
+    """One file on its own -- a PDF, an Office document, an archive, a web
+    page: what it does when opened, what is inside, its hash and its links
+    checked as a message's attachment would be."""
+    lookups = lookups or Lookups()
+    findings = []
+    entry = {"name": name or "(unnamed)", "type": "application/octet-stream"}
+    content = {"links": [], "attachments": [entry], "_payloads": [(entry, data)]}
+    _scan_attachments(lookups, content, findings)
+    link_checks = _link_checks(lookups, email.message.EmailMessage(), None, content, findings)
+    findings.sort(key=lambda f: _SEVERITY_ORDER.index(f["severity"]))
+    return {"kind": "file", "file": entry, "content": content, "link_checks": link_checks, "findings": findings}
+
+
+def analyse(raw, *, lookups=None, ip=None, origin="eml"):
     """Judge one message. `ip` overrides the sending address found in the
-    headers -- the page offers it when the chain was read wrongly."""
+    headers -- the page offers it when the chain was read wrongly. `origin`
+    "msg": rebuilt from an Outlook file, whose body is not as it was sent."""
     lookups = lookups or Lookups()
     raw = _normalise(raw)
     head, body = _split(raw)
@@ -913,13 +1016,15 @@ def analyse(raw, *, lookups=None, ip=None):
     from_domain = _headers(msg, findings)
     spf = _spf(lookups, sending_ip, mail_from, helo)
     receiver = _auth_results(msg)
-    dkim_result = _dkim(lookups, raw, msg, has_body, receiver)
+    dkim_result = _dkim(lookups, raw, msg, has_body, receiver, body_as_sent=origin != "msg")
     dmarc = _dmarc(lookups, from_domain, spf, dkim_result)
     for sig in dkim_result["signatures"]:
         sig["aligned"] = bool(from_domain) and _aligned(sig["domain"], from_domain, "r")
     _auth_findings(findings, spf, dkim_result, dmarc, from_domain)
     server = _server(lookups, hop, findings)
     content = _content(msg, findings) if has_body else None
+    if content is not None:
+        _scan_attachments(lookups, content, findings)
     link_checks = _link_checks(lookups, msg, from_domain, content, findings)
 
     arc_seals = msg.get_all("ARC-Seal") or []
@@ -934,6 +1039,8 @@ def analyse(raw, *, lookups=None, ip=None):
 
     findings.sort(key=lambda f: _SEVERITY_ORDER.index(f["severity"]))
     return {
+        "kind": "message",
+        "origin": origin,
         "summary": {
             "from": str(msg.get("From") or ""), "from_domain": from_domain,
             "to": str(msg.get("To") or ""), "subject": str(msg.get("Subject") or ""),
