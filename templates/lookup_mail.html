@@ -11,8 +11,15 @@
 <body>
     {% include "partials/nav.html" %}
     <main id="main">
+        <h2 data-i18n="nav.tools_mail">{{ t('nav.tools_mail') }}</h2>
+        {# Two tools on one page, as tabs: a message or file, and links on
+           their own. #links opens the second. #}
+        <div class="tabs mt-tabs" role="tablist">
+            <button class="tab active" type="button" role="tab" aria-selected="true" data-mt-tab="message">Message or file</button>
+            <button class="tab" type="button" role="tab" aria-selected="false" data-mt-tab="links">Links</button>
+        </div>
+        <div data-mt-panel="message">
         <section class="card">
-            <h2 data-i18n="nav.tools_mail">{{ t('nav.tools_mail') }}</h2>
             <p class="ct-desc">Send a message from the mail system you want to test to a mailbox you can read, then give DomainLens that message as it was received. It checks SPF, DKIM and DMARC on the message itself, the server that sent it, and the content. The message is analysed and not stored.</p>
             <p class="ct-desc">Where to find the source: in Gmail <strong>Show original</strong>, then <strong>Download original</strong>; in Thunderbird <code>Ctrl+U</code>; in Apple Mail <strong>View → Message → Raw Source</strong>. In Outlook, save the message (<strong>File → Save As</strong>, or drag it to a folder) as a <code>.msg</code> file: everything is read from it except the DKIM signature over the body, which a .msg file does not keep as it was sent.</p>
             <p class="ct-desc">Attachments, and any file chosen on its own, are read for what they do when opened: links, macros, JavaScript, forms that send what is typed, programs and files hidden inside. They are read in a separate process without network, never opened or run; only their hashes are looked up elsewhere.</p>
@@ -35,6 +42,23 @@
             </div>
         </section>
         <div id="mailTestResult"></div>
+        </div>
+        <div data-mt-panel="links" class="hidden">
+        <section class="card">
+            <p class="ct-desc">Paste one or more links -- also without the message they came in. Up to ten at once; links written as hxxp:// or with [.] are read too.</p>
+            <p class="ct-desc">A link is never opened: a phishing link usually carries a code per recipient, and one request tells its sender it was seen. It is judged by what it is (a hidden destination behind an @, look-alike letters, a bare IP address, a shortener), whether it imitates your own domains, the threat lists, VirusTotal by hash when switched on, the age of its domain at the registry, and the reputation of the address it points to. Its host name is looked up through DNS4EU, so the host's owner sees a question from DNS4EU, not from this server.</p>
+            <div class="mt-form">
+                <label class="mt-paste">Links
+                    <textarea id="linkCheckInput" rows="4" spellcheck="false" placeholder="https://…"></textarea>
+                </label>
+                <div class="mt-actions">
+                    <button class="btn-primary-lite" id="linkCheckBtn" type="button">Check links</button>
+                    <button class="btn-ghost-sm" id="linkCheckClear" type="button">Clear</button>
+                </div>
+            </div>
+        </section>
+        <div id="linkCheckResult"></div>
+        </div>
     </main>
     <div id="errorToast" class="toast hidden"></div>
     {% include "partials/footer.html" %}

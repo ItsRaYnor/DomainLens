@@ -59,6 +59,7 @@ import link_check
 import mail_test
 import msg_file
 import sandbox
+import url_check
 import management
 import maintenance
 import metrics
@@ -6610,6 +6611,29 @@ def api_mail_test():
         result["msg"] = msg_info
     if result["learned"]:
         mail_test.remember((x["domain"], x["selector"]) for x in result["learned"])
+    return jsonify(result)
+
+
+class _LinkLookups(url_check.Lookups):
+    """The link check's lookups, with the blocklists and IP threat lists the scan uses."""
+
+    def reputation(self, ip):
+        result = check_blacklist(ip)
+        return None if result.get("error") else result
+
+
+@app.route("/api/linkcheck", methods=["POST"])
+def api_link_check():
+    """Judge links pasted on their own, without opening them (url_check.py)."""
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    data = request.get_json(silent=True) or {}
+    text = str(data.get("text") or "")[:20000]
+    if not text.strip():
+        return jsonify({"error": "Paste one or more links."}), 400
+    result = url_check.check(text, _LinkLookups())
+    if not result["links"]:
+        return jsonify({"error": "No link was found in the text."}), 400
     return jsonify(result)
 
 

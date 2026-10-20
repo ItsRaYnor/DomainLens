@@ -1,0 +1,71 @@
+# Mail and web analysis: links checked on their own, never opened (url_check.py).
+Message or file	Bericht of bestand
+Paste one or more links -- also without the message they came in. Up to ten at once; links written as hxxp:// or with [.] are read too.	Plak een of meer links — ook zonder het bericht waarin ze zaten. Tot tien tegelijk; links geschreven als hxxp:// of met [.] worden ook gelezen.
+A link is never opened: a phishing link usually carries a code per recipient, and one request tells its sender it was seen. It is judged by what it is (a hidden destination behind an @, look-alike letters, a bare IP address, a shortener), whether it imitates your own domains, the threat lists, VirusTotal by hash when switched on, the age of its domain at the registry, and the reputation of the address it points to. Its host name is looked up through DNS4EU, so the host's owner sees a question from DNS4EU, not from this server.	Een link wordt nooit geopend: een phishinglink bevat meestal een code per ontvanger, en één opvraging vertelt de afzender dat hij gezien is. Hij wordt beoordeeld op wat hij is (een verborgen bestemming achter een @, letters die op Latijnse lijken, een kaal IP-adres, een verkorter), of hij je eigen domeinen imiteert, de dreigingslijsten, VirusTotal op hash als dat aanstaat, de leeftijd van het domein bij de registry, en de reputatie van het adres waar hij heen wijst. De hostnaam wordt opgezocht via DNS4EU, zodat de eigenaar van de host een vraag van DNS4EU ziet, niet van deze server.
+Check links	Links controleren
+Checking…	Bezig met controleren…
+Paste one or more links.	Plak een of meer links.
+No link was found in the text.	Er is geen link in de tekst gevonden.
+{n} more link(s) were not checked: up to ten at a time.	{} link(s) meer zijn niet gecontroleerd: maximaal tien tegelijk.
+Dangerous signs	Gevaarlijke kenmerken
+Suspicious signs	Verdachte kenmerken
+Remarks only	Alleen opmerkingen
+Nothing found	Niets gevonden
+Nothing found is not proof that a link is safe.	Niets gevonden is geen bewijs dat een link veilig is.
+Imitates your domain	Imiteert je domein
+No own domains to compare with	Geen eigen domeinen om mee te vergelijken
+{} ({n} days ago)	{} ({} dagen geleden)
+Not registered	Niet geregistreerd
+Registered; the registry gives no date	Geregistreerd; de registry geeft geen datum
+This registry does not publish registration dates (no RDAP)	Deze registry publiceert geen registratiedatums (geen RDAP)
+The host does not exist	De host bestaat niet
+Address reputation	Reputatie van het adres
+On {}	Op {}
+The link runs code or opens a local file	De link voert code uit of opent een lokaal bestand
+A {}: link does not lead to a web page: it runs in the browser or opens something on the computer.	Een {}:-link leidt niet naar een webpagina: hij draait in de browser of opent iets op de computer.
+No host in the link	Geen host in de link
+This does not read as a web address.	Dit leest niet als een webadres.
+A host name that is not valid	Een ongeldige hostnaam
+"{}" cannot be a name in DNS.	"{}" kan geen naam in DNS zijn.
+The link hides its real destination behind an @	De link verbergt zijn echte bestemming achter een @
+It reads as {}, but everything before the @ is ignored: it goes to {}.	Hij leest als {}, maar alles vóór de @ wordt genegeerd: hij gaat naar {}.
+The link points to a bare IP address	De link wijst naar een kaal IP-adres
+It goes to {} (written as {}) rather than to a named site, which legitimate links rarely do.	Hij gaat naar {} (geschreven als {}) in plaats van naar een site met een naam, wat legitieme links zelden doen.
+It goes to {} rather than to a named site, which legitimate links rarely do.	Hij gaat naar {} in plaats van naar een site met een naam, wat legitieme links zelden doen.
+The link points to a private address	De link wijst naar een privé-adres
+{} is only reachable inside a network: the link is aimed at a device or service there.	{} is alleen binnen een netwerk bereikbaar: de link mikt op een apparaat of dienst daar.
+The link uses look-alike characters	De link gebruikt letters die op andere lijken
+{} mixes alphabets in "{}" ({}): letters that look Latin but are not. Its real name is {}.	{} mengt alfabetten in "{}" ({}): letters die Latijns lijken maar het niet zijn. De echte naam is {}.
+An internationalised domain name	Een geïnternationaliseerde domeinnaam
+{} is written with non-Latin letters; its name in DNS is {}.	{} is geschreven met niet-Latijnse letters; de naam in DNS is {}.
+Another domain's name is put in front of the real one	De naam van een ander domein staat vóór het echte
+{} belongs to {}; the "{}" before it is only a name that domain chose for itself.	{} hoort bij {}; de "{}" ervoor is alleen een naam die dat domein zelf koos.
+A URL shortener hides the destination	Een URL-verkorter verbergt de bestemming
+{} forwards to another address, which cannot be seen without opening the link.	{} stuurt door naar een ander adres, dat niet te zien is zonder de link te openen.
+Over plain http	Via onversleuteld http
+The page would load without encryption: what is typed can be read on the way.	De pagina zou zonder versleuteling laden: wat je typt is onderweg te lezen.
+An unusual port	Een ongebruikelijke poort
+The link uses port {n}.	De link gebruikt poort {}.
+A long or heavily encoded link	Een lange of sterk gecodeerde link
+Long, encoded links are used to hide where a link goes and to carry a code per recipient.	Lange, gecodeerde links worden gebruikt om te verbergen waar een link heen gaat en om een code per ontvanger mee te sturen.
+The link goes to a lookalike of your domain	De link gaat naar een lookalike van je domein
+{} looks like {}, which is yours.	{} lijkt op {}, dat van jou is.
+The link is on a threat list	De link staat op een dreigingslijst
+{} is listed as malicious.	{} staat vermeld als kwaadaardig.
+The link goes to a host with listed links	De link gaat naar een host met links op een lijst
+Other links on {} are on a threat list; this exact link is not.	Andere links op {} staan op een dreigingslijst; deze link zelf niet.
+VirusTotal engines flag the link	VirusTotal-engines markeren de link
+{n} of {n} engines call it malicious.	{} van {} engines noemen hem kwaadaardig.
+VirusTotal engines call the link suspicious	VirusTotal-engines noemen de link verdacht
+{n} of {n} engines.	{} van {} engines.
+The domain is not registered	Het domein is niet geregistreerd
+{} has no registration: the link leads nowhere now, and anyone could register the domain and put something behind it.	{} heeft geen registratie: de link leidt nu nergens heen, en iedereen kan het domein registreren en er iets achter zetten.
+The domain was registered days ago	Het domein is enkele dagen geleden geregistreerd
+{} was registered {n} day(s) ago. Phishing domains are used within days of registration.	{} is {} dag(en) geleden geregistreerd. Phishingdomeinen worden binnen dagen na registratie gebruikt.
+The domain is only weeks old	Het domein is pas enkele weken oud
+{} was registered {n} days ago.	{} is {} dagen geleden geregistreerd.
+{} has no DNS record: the link leads nowhere now, though its owner can bring it back.	{} heeft geen DNS-record: de link leidt nu nergens heen, maar de eigenaar kan hem terugbrengen.
+The server's address is on a blocklist	Het adres van de server staat op een blocklist
+The server's address is on an IP threat list	Het adres van de server staat op een IP-dreigingslijst
+{} is on {}.	{} staat op {}.
+Links	Links

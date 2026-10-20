@@ -1,4 +1,4 @@
-// Tools -> Mail analysis. Uses $, esc, requestJson, toast and rows from lookup.js.
+// Tools -> Mail and web analysis. Uses $, esc, requestJson, toast and rows from lookup.js.
 // Everything taken from the message is shown as text: its HTML is never
 // rendered and its links are never made clickable.
 
@@ -540,4 +540,121 @@ function initMailTest() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', initMailTest);
+// ===== Tabs: a message or file, and links on their own =====
+
+function mtShowTab(name) {
+    document.querySelectorAll('[data-mt-tab]').forEach(btn => {
+        const on = btn.dataset.mtTab === name;
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-selected', String(on));
+    });
+    document.querySelectorAll('[data-mt-panel]').forEach(p => p.classList.toggle('hidden', p.dataset.mtPanel !== name));
+}
+
+function initMailTabs() {
+    const tabs = document.querySelectorAll('[data-mt-tab]');
+    if (!tabs.length) return;
+    tabs.forEach(btn => btn.addEventListener('click', () => {
+        mtShowTab(btn.dataset.mtTab);
+        // #links is a link to the tab, kept in the address for sharing.
+        history.replaceState(null, '', btn.dataset.mtTab === 'links' ? '#links' : location.pathname + location.search);
+    }));
+    if (location.hash === '#links') mtShowTab('links');
+}
+
+// ===== Links on their own (url_check.py): judged, never opened =====
+
+function lcVerdict(link) {
+    const worst = link.worst;
+    if (worst === 'critical' || worst === 'high') return mtTag('Dangerous signs', 'bad');
+    if (worst === 'medium') return mtTag('Suspicious signs', 'warn');
+    if (worst === 'low' || worst === 'info') return mtTag('Remarks only', 'na');
+    return mtTag('Nothing found', 'ok', 'Nothing found is not proof that a link is safe.');
+}
+
+function lcDate(iso) {
+    return iso ? String(iso).slice(0, 10) : '';
+}
+
+function lcRows(link) {
+    const c = link.checks || {};
+    const look = c.lookalike || {};
+    const feeds = c.feeds || {};
+    const vt = c.virustotal || {};
+    const reg = c.registration;
+    const dns = c.dns;
+    const rep = c.reputation;
+    const repResult = rep && rep.result;
+    const repText = !rep ? '' : !repResult ? 'Not measured'
+        : repResult.is_listed ? `Listed on ${(repResult.listed || []).join(', ')}`
+        : ((repResult.ip_lists || {}).lists || []).length ? `On ${(repResult.ip_lists.lists || []).map(e => e.source).join(', ')}`
+        : repResult.measured === 0 ? 'Not measured: no blocklist could be asked' : 'Not listed';
+    // A look-alike name shown as read and as it really is.
+    const domain = link.registrable && link.registrable_unicode && link.registrable_unicode !== link.registrable
+        ? `${link.registrable_unicode} (${link.registrable})` : (link.registrable || link.ip || '');
+    return rows([
+        ['Domain', domain],
+        ['Imitates your domain', !link.host ? '' : look.state === 'not_configured' ? 'No own domains to compare with'
+            : look.imitates ? `Looks like ${look.imitates}` : 'No'],
+        ['Threat lists', !link.host ? '' : { listed: 'On a threat list', host_listed: 'Host has listed links',
+            not_listed: 'Not listed', not_configured: 'No threat lists configured' }[feeds.state] || ''],
+        ['VirusTotal', !link.host ? '' : vt.state === 'off' ? 'VirusTotal off' : mtVtText(vt)],
+        // The registrar in a row of its own: a name joined to the date with
+        // " · " kept the whole line from being translated.
+        ['Registered', !reg ? '' : reg.state === 'measured'
+            ? `${lcDate(reg.registered)} (${reg.age_days} days ago)`
+            : reg.state === 'not_registered' ? 'Not registered'
+            : reg.state === 'no_date' ? 'Registered; the registry gives no date'
+            : reg.state === 'not_applicable' ? 'This registry does not publish registration dates (no RDAP)' : 'Not measured'],
+        ['Registrar', reg && reg.registrar ? reg.registrar : ''],
+        ['Address', !dns ? '' : dns.state === 'measured' ? (dns.addresses || []).join(', ') || 'None'
+            : dns.state === 'nxdomain' ? 'The host does not exist' : 'Not measured'],
+        ['Address reputation', repText],
+    ]);
+}
+
+function lcRender(d) {
+    const how = [
+        d.own_domains ? `Lookalikes compared with ${d.own_domains} own domain(s)` : 'No own domains to compare lookalikes with',
+        d.feeds === 'checked' ? 'Threat lists searched on this server' : 'No threat lists configured',
+        { on: 'VirusTotal asked by hash only', off: 'VirusTotal off', no_key: 'VirusTotal on, but no API key' }[d.virustotal] || '',
+    ].filter(Boolean).join(' · ');
+    $('linkCheckResult').innerHTML =
+        `<p class="ct-desc">${esc(how)}</p>`
+        + (d.skipped ? `<p class="ct-desc">${esc(`${d.skipped} more link(s) were not checked: up to ten at a time.`)}</p>` : '')
+        + d.links.map(link => `<section class="card lc-link">`
+            + `<div class="lc-head"><h3><code>${esc(link.host_unicode || link.host || link.url)}</code></h3>${lcVerdict(link)}</div>`
+            + `<p class="mt-hash"><code>${esc(link.url)}</code></p>`
+            + lcRows(link)
+            + (link.findings.length ? `<h4>Findings</h4>${mtFindings(link.findings)}` : '')
+            + '</section>').join('');
+}
+
+function initLinkCheck() {
+    const btn = $('linkCheckBtn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        const text = $('linkCheckInput').value;
+        if (!text.trim()) { toast('Paste one or more links.'); return; }
+        btn.disabled = true;
+        $('linkCheckResult').innerHTML = '<p class="history-empty">Checking…</p>';
+        try {
+            lcRender(await requestJson('/api/linkcheck', { method: 'POST',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }));
+        } catch (err) {
+            $('linkCheckResult').innerHTML = '';
+            toast(err.message);
+        }
+        btn.disabled = false;
+    });
+    $('linkCheckClear').addEventListener('click', () => {
+        $('linkCheckInput').value = '';
+        $('linkCheckResult').innerHTML = '';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initMailTabs();
+    initMailTest();
+    initLinkCheck();
+});

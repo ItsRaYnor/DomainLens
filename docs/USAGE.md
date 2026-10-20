@@ -552,9 +552,38 @@ listed". Before a list has been downloaded the answer is "not checked". A downlo
 fails, or returns an empty list, keeps the previous list. The IP tool shows which lists are
 loaded, and lets an admin refresh them at once.
 
-## Mail analysis
+## Mail & web
 
-**Tools → Mail analysis** judges one received message instead of the DNS records alone. Send a
+**Tools → Mail & web** has two tabs: **Message or file** and **Links**.
+
+### Links
+
+Paste one or more links -- also without the message they came in: forwarded, from a chat, read
+off a screenshot. Up to ten at a time; links written defanged (`hxxp://`, `example[.]com`) and
+bare host names are read too. `/tools/mail#links` opens the tab.
+
+A link is never opened. A phishing link usually carries a code per recipient, and one request
+tells its sender the link was seen or spends a one-time token. It is judged by:
+
+- **what it is**: the real destination behind an `@` (`https://bank.example@evil.example/`),
+  letters that only look Latin (shown as read and in punycode), a bare IP address (also written
+  as one number, `http://3232235777/`), a private address, a shortener, plain http, another
+  domain's name put in front of the real one (`bank.example.login.evil.example`), a
+  `javascript:` or `data:` link, an unusual port, a long or heavily encoded link;
+- **whether it imitates your domains** (the portfolio), as in the mail analysis;
+- **what is known about it**: the threat lists on this server, VirusTotal by hash when switched
+  on, when its domain was registered (RDAP; days old is high, weeks old medium, not registered
+  medium), and the blocklists and IP threat lists for the address its host points to.
+
+The host name is looked up through DNS4EU, so the host's own name server sees a question from
+DNS4EU, not from this server: a host name made unique per recipient cannot tell its owner that
+you looked. Each link gets a verdict -- dangerous signs, suspicious signs, remarks only, or
+nothing found, which is not proof that a link is safe. `POST /api/linkcheck` with
+`{"text": "…"}`.
+
+### Message or file
+
+The **Message or file** tab judges one received message instead of the DNS records alone. Send a
 message from the mail system you want to test to a mailbox you can read, and give DomainLens
 the message as received: upload the `.eml` file (Gmail: *Show original → Download original*;
 Thunderbird: `Ctrl+U`; Apple Mail: *View → Message → Raw Source*), an Outlook `.msg` file

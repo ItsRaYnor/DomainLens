@@ -1,0 +1,148 @@
+{
+ "text": {
+  "Message or file": "Bericht of bestand",
+  "Paste one or more links -- also without the message they came in. Up to ten at once; links written as hxxp:// or with [.] are read too.": "Plak een of meer links — ook zonder het bericht waarin ze zaten. Tot tien tegelijk; links geschreven als hxxp:// of met [.] worden ook gelezen.",
+  "A link is never opened: a phishing link usually carries a code per recipient, and one request tells its sender it was seen. It is judged by what it is (a hidden destination behind an @, look-alike letters, a bare IP address, a shortener), whether it imitates your own domains, the threat lists, VirusTotal by hash when switched on, the age of its domain at the registry, and the reputation of the address it points to. Its host name is looked up through DNS4EU, so the host's owner sees a question from DNS4EU, not from this server.": "Een link wordt nooit geopend: een phishinglink bevat meestal een code per ontvanger, en één opvraging vertelt de afzender dat hij gezien is. Hij wordt beoordeeld op wat hij is (een verborgen bestemming achter een @, letters die op Latijnse lijken, een kaal IP-adres, een verkorter), of hij je eigen domeinen imiteert, de dreigingslijsten, VirusTotal op hash als dat aanstaat, de leeftijd van het domein bij de registry, en de reputatie van het adres waar hij heen wijst. De hostnaam wordt opgezocht via DNS4EU, zodat de eigenaar van de host een vraag van DNS4EU ziet, niet van deze server.",
+  "Check links": "Links controleren",
+  "Checking…": "Bezig met controleren…",
+  "Paste one or more links.": "Plak een of meer links.",
+  "No link was found in the text.": "Er is geen link in de tekst gevonden.",
+  "Dangerous signs": "Gevaarlijke kenmerken",
+  "Suspicious signs": "Verdachte kenmerken",
+  "Remarks only": "Alleen opmerkingen",
+  "Nothing found": "Niets gevonden",
+  "Nothing found is not proof that a link is safe.": "Niets gevonden is geen bewijs dat een link veilig is.",
+  "Imitates your domain": "Imiteert je domein",
+  "No own domains to compare with": "Geen eigen domeinen om mee te vergelijken",
+  "Not registered": "Niet geregistreerd",
+  "Registered; the registry gives no date": "Geregistreerd; de registry geeft geen datum",
+  "This registry does not publish registration dates (no RDAP)": "Deze registry publiceert geen registratiedatums (geen RDAP)",
+  "The host does not exist": "De host bestaat niet",
+  "Address reputation": "Reputatie van het adres",
+  "The link runs code or opens a local file": "De link voert code uit of opent een lokaal bestand",
+  "No host in the link": "Geen host in de link",
+  "This does not read as a web address.": "Dit leest niet als een webadres.",
+  "A host name that is not valid": "Een ongeldige hostnaam",
+  "The link hides its real destination behind an @": "De link verbergt zijn echte bestemming achter een @",
+  "The link points to a bare IP address": "De link wijst naar een kaal IP-adres",
+  "The link points to a private address": "De link wijst naar een privé-adres",
+  "The link uses look-alike characters": "De link gebruikt letters die op andere lijken",
+  "An internationalised domain name": "Een geïnternationaliseerde domeinnaam",
+  "Another domain's name is put in front of the real one": "De naam van een ander domein staat vóór het echte",
+  "A URL shortener hides the destination": "Een URL-verkorter verbergt de bestemming",
+  "Over plain http": "Via onversleuteld http",
+  "The page would load without encryption: what is typed can be read on the way.": "De pagina zou zonder versleuteling laden: wat je typt is onderweg te lezen.",
+  "An unusual port": "Een ongebruikelijke poort",
+  "A long or heavily encoded link": "Een lange of sterk gecodeerde link",
+  "Long, encoded links are used to hide where a link goes and to carry a code per recipient.": "Lange, gecodeerde links worden gebruikt om te verbergen waar een link heen gaat en om een code per ontvanger mee te sturen.",
+  "The link goes to a lookalike of your domain": "De link gaat naar een lookalike van je domein",
+  "The link is on a threat list": "De link staat op een dreigingslijst",
+  "The link goes to a host with listed links": "De link gaat naar een host met links op een lijst",
+  "VirusTotal engines flag the link": "VirusTotal-engines markeren de link",
+  "VirusTotal engines call the link suspicious": "VirusTotal-engines noemen de link verdacht",
+  "The domain is not registered": "Het domein is niet geregistreerd",
+  "The domain was registered days ago": "Het domein is enkele dagen geleden geregistreerd",
+  "The domain is only weeks old": "Het domein is pas enkele weken oud",
+  "The server's address is on a blocklist": "Het adres van de server staat op een blocklist",
+  "The server's address is on an IP threat list": "Het adres van de server staat op een IP-dreigingslijst",
+  "Links": "Links"
+ },
+ "patterns": [
+  [
+   "(\\d[\\d.,]*)\\ more\\ link\\(s\\)\\ were\\ not\\ checked:\\ up\\ to\\ ten\\ at\\ a\\ time\\.",
+   "$1 link(s) meer zijn niet gecontroleerd: maximaal tien tegelijk."
+  ],
+  [
+   "(.+?)\\ \\((\\d[\\d.,]*)\\ days\\ ago\\)",
+   "$1 ($2 dagen geleden)"
+  ],
+  [
+   "On\\ (.+?)",
+   "Op $1"
+  ],
+  [
+   "A\\ (.+?):\\ link\\ does\\ not\\ lead\\ to\\ a\\ web\\ page:\\ it\\ runs\\ in\\ the\\ browser\\ or\\ opens\\ something\\ on\\ the\\ computer\\.",
+   "Een $1:-link leidt niet naar een webpagina: hij draait in de browser of opent iets op de computer."
+  ],
+  [
+   "\"(.+?)\"\\ cannot\\ be\\ a\\ name\\ in\\ DNS\\.",
+   "\"$1\" kan geen naam in DNS zijn."
+  ],
+  [
+   "It\\ reads\\ as\\ (.+?),\\ but\\ everything\\ before\\ the\\ @\\ is\\ ignored:\\ it\\ goes\\ to\\ (.+?)\\.",
+   "Hij leest als $1, maar alles vóór de @ wordt genegeerd: hij gaat naar $2."
+  ],
+  [
+   "It\\ goes\\ to\\ (.+?)\\ \\(written\\ as\\ (.+?)\\)\\ rather\\ than\\ to\\ a\\ named\\ site,\\ which\\ legitimate\\ links\\ rarely\\ do\\.",
+   "Hij gaat naar $1 (geschreven als $2) in plaats van naar een site met een naam, wat legitieme links zelden doen."
+  ],
+  [
+   "It\\ goes\\ to\\ (.+?)\\ rather\\ than\\ to\\ a\\ named\\ site,\\ which\\ legitimate\\ links\\ rarely\\ do\\.",
+   "Hij gaat naar $1 in plaats van naar een site met een naam, wat legitieme links zelden doen."
+  ],
+  [
+   "(.+?)\\ is\\ only\\ reachable\\ inside\\ a\\ network:\\ the\\ link\\ is\\ aimed\\ at\\ a\\ device\\ or\\ service\\ there\\.",
+   "$1 is alleen binnen een netwerk bereikbaar: de link mikt op een apparaat of dienst daar."
+  ],
+  [
+   "(.+?)\\ mixes\\ alphabets\\ in\\ \"(.+?)\"\\ \\((.+?)\\):\\ letters\\ that\\ look\\ Latin\\ but\\ are\\ not\\.\\ Its\\ real\\ name\\ is\\ (.+?)\\.",
+   "$1 mengt alfabetten in \"$2\" ($3): letters die Latijns lijken maar het niet zijn. De echte naam is $4."
+  ],
+  [
+   "(.+?)\\ is\\ written\\ with\\ non\\-Latin\\ letters;\\ its\\ name\\ in\\ DNS\\ is\\ (.+?)\\.",
+   "$1 is geschreven met niet-Latijnse letters; de naam in DNS is $2."
+  ],
+  [
+   "(.+?)\\ belongs\\ to\\ (.+?);\\ the\\ \"(.+?)\"\\ before\\ it\\ is\\ only\\ a\\ name\\ that\\ domain\\ chose\\ for\\ itself\\.",
+   "$1 hoort bij $2; de \"$3\" ervoor is alleen een naam die dat domein zelf koos."
+  ],
+  [
+   "(.+?)\\ forwards\\ to\\ another\\ address,\\ which\\ cannot\\ be\\ seen\\ without\\ opening\\ the\\ link\\.",
+   "$1 stuurt door naar een ander adres, dat niet te zien is zonder de link te openen."
+  ],
+  [
+   "The\\ link\\ uses\\ port\\ (\\d[\\d.,]*)\\.",
+   "De link gebruikt poort $1."
+  ],
+  [
+   "(.+?)\\ looks\\ like\\ (.+?),\\ which\\ is\\ yours\\.",
+   "$1 lijkt op $2, dat van jou is."
+  ],
+  [
+   "(.+?)\\ is\\ listed\\ as\\ malicious\\.",
+   "$1 staat vermeld als kwaadaardig."
+  ],
+  [
+   "Other\\ links\\ on\\ (.+?)\\ are\\ on\\ a\\ threat\\ list;\\ this\\ exact\\ link\\ is\\ not\\.",
+   "Andere links op $1 staan op een dreigingslijst; deze link zelf niet."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ engines\\ call\\ it\\ malicious\\.",
+   "$1 van $2 engines noemen hem kwaadaardig."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\ engines\\.",
+   "$1 van $2 engines."
+  ],
+  [
+   "(.+?)\\ has\\ no\\ registration:\\ the\\ link\\ leads\\ nowhere\\ now,\\ and\\ anyone\\ could\\ register\\ the\\ domain\\ and\\ put\\ something\\ behind\\ it\\.",
+   "$1 heeft geen registratie: de link leidt nu nergens heen, en iedereen kan het domein registreren en er iets achter zetten."
+  ],
+  [
+   "(.+?)\\ was\\ registered\\ (\\d[\\d.,]*)\\ day\\(s\\)\\ ago\\.\\ Phishing\\ domains\\ are\\ used\\ within\\ days\\ of\\ registration\\.",
+   "$1 is $2 dag(en) geleden geregistreerd. Phishingdomeinen worden binnen dagen na registratie gebruikt."
+  ],
+  [
+   "(.+?)\\ was\\ registered\\ (\\d[\\d.,]*)\\ days\\ ago\\.",
+   "$1 is $2 dagen geleden geregistreerd."
+  ],
+  [
+   "(.+?)\\ has\\ no\\ DNS\\ record:\\ the\\ link\\ leads\\ nowhere\\ now,\\ though\\ its\\ owner\\ can\\ bring\\ it\\ back\\.",
+   "$1 heeft geen DNS-record: de link leidt nu nergens heen, maar de eigenaar kan hem terugbrengen."
+  ],
+  [
+   "(.+?)\\ is\\ on\\ (.+?)\\.",
+   "$1 staat op $2."
+  ]
+ ]
+}
