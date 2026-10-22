@@ -53,3 +53,9 @@ Desktop.ini
 
 # Local settings overlay (config/domainlens.example.json is the template)
 config/domainlens.json
+
+# Local Claude Code settings (preview launch config)
+.claude/
+
+# Local Claude Code settings (preview launch config)
+.claude/
