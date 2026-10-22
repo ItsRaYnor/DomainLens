@@ -4096,6 +4096,7 @@ _TOOLS_SUBNAV = [
     ("nav.tools_impersonation", "/tools/impersonation"),
     ("nav.tools_disclosure", "/tools/disclosure"),
     ("nav.tools_mail", "/tools/mail"),
+    ("nav.tools_versions", "/tools/versions"),
 ]
 _REPORTS_SUBNAV = [
     ("nav.reports_history", "/reports"),
@@ -4677,6 +4678,37 @@ def api_portfolio_check(domain_id):
         return jsonify({"error": "Not in the portfolio"}), 404
     domain_portfolio.check(row)
     return jsonify(domain_portfolio.get(domain_id))
+
+
+@app.route("/tools/versions")
+def lookup_versions_view():
+    """Known vulnerable software versions across the organisation's sites."""
+    import software_advisories
+    return render_template(
+        "lookup_versions.html", section="tools", advisories=software_advisories.ADVISORIES,
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/versions"))
+
+
+_VERSION_CHECK_BATCH = 10
+
+
+@app.route("/api/advisories/check", methods=["POST"])
+def api_advisories_check():
+    """The version check for a few domains at a time; the page sends the
+    portfolio in batches, so no request runs for minutes. One ordinary
+    request per domain for its home page (software_advisories.check_host)."""
+    import software_advisories
+    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
+        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
+    data = request.get_json(silent=True) or {}
+    domains = []
+    for raw in (data.get("domains") or [])[:_VERSION_CHECK_BATCH]:
+        domain = _normalize_domain(str(raw))
+        if _is_valid_domain(domain) and security_checks._safe_host(domain) and domain not in domains:
+            domains.append(domain)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+        results = list(pool.map(software_advisories.check_host, domains))
+    return jsonify({"results": results})
 
 
 @app.route("/tools/ip")

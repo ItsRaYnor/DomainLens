@@ -1,0 +1,95 @@
+{
+ "text": {
+  "Whether your sites run a software version with a known, serious vulnerability, the way a version scan does it: each site's home page is asked for once, like a browser, and the version the server shows is compared with the release that has the fix. Nothing is sent to trigger a flaw.": "Of je sites een softwareversie draaien met een bekende, ernstige kwetsbaarheid, zoals een versiescan dat doet: de homepage van elke site wordt één keer opgevraagd, zoals een browser dat doet, en de versie die de server toont wordt vergeleken met de release met de fix. Er wordt niets gestuurd om een fout uit te lokken.",
+  "A version that is not shown cannot be judged from outside: many servers hide it, and Debian, Ubuntu and Red Hat put fixes into their own packages without a new version number. Those sites are listed as \"cannot tell\"; check them on the server itself. An agent-based scanner such as InsightVM sees the installed package and is the reliable source there.": "Een versie die niet getoond wordt, is van buitenaf niet te beoordelen: veel servers verbergen hem, en Debian, Ubuntu en Red Hat zetten fixes in hun eigen pakketten zonder nieuw versienummer. Die sites staan als \"niet te bepalen\"; controleer ze op de server zelf. Een scanner met een agent, zoals InsightVM, ziet het geïnstalleerde pakket en is daar de betrouwbare bron.",
+  "Checked for": "Gecontroleerd op",
+  "Unauthenticated remote code execution in PHP itself (memory corruption on running out of memory, and a use-after-free in state kept between requests); exploited since the day of the fix.": "Code uitvoeren op afstand zonder inloggen, in PHP zelf (geheugencorruptie bij een tekort aan geheugen, en een use-after-free in status die tussen verzoeken bewaard blijft); misbruikt sinds de dag van de fix.",
+  "Which sites": "Welke sites",
+  "All domains in the portfolio with a website": "Alle domeinen in het portfolio met een website",
+  "Domains I paste": "Domeinen die ik plak",
+  "Stop": "Stoppen",
+  "Vulnerable": "Kwetsbaar",
+  "Cannot tell from outside": "Van buitenaf niet te bepalen",
+  "Has the fix": "Heeft de fix",
+  "No PHP seen": "Geen PHP gezien",
+  "No response": "Geen antwoord",
+  "Result": "Resultaat",
+  "Shown by the server": "Getoond door de server",
+  "Why": "Waarom",
+  "No domains to check.": "Geen domeinen om te controleren.",
+  "The PHP version is not shown.": "De PHP-versie wordt niet getoond.",
+  "Update PHP to the release with the fix (or the patched package from your vendor) and restart the web server and PHP-FPM.": "Werk PHP bij naar de release met de fix (of het gepatchte pakket van je leverancier) en herstart de webserver en PHP-FPM.",
+  "On the server: php -v, or the package version (dpkg -l 'php*', rpm -qa 'php*'), against the release with the fix.": "Op de server: php -v, of de pakketversie (dpkg -l 'php*', rpm -qa 'php*'), tegenover de release met de fix.",
+  "Known vulnerability": "Bekende kwetsbaarheid"
+ },
+ "patterns": [
+  [
+   "Fixed\\ in\\ (.+?);\\ older\\ branches\\ no\\ longer\\ get\\ fixes\\.",
+   "Opgelost in $1; oudere takken krijgen geen fixes meer."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ site\\(s\\)\\ checked",
+   "$1 site(s) gecontroleerd"
+  ],
+  [
+   "Checking\\ (\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)…",
+   "Bezig met $1 van $2…"
+  ],
+  [
+   "Stopped\\ after\\ (\\d[\\d.,]*)\\ of\\ (\\d[\\d.,]*)\\.",
+   "Gestopt na $1 van $2."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ checked\\.",
+   "$1 gecontroleerd."
+  ],
+  [
+   "No\\ response\\ over\\ https,\\ http\\ or\\ www\\ \\((.+?)\\)",
+   "Geen antwoord via https, http of www ($1)"
+  ],
+  [
+   "(.+?)\\ is\\ older\\ than\\ (.+?),\\ the\\ release\\ with\\ the\\ fix\\.",
+   "$1 is ouder dan $2, de release met de fix."
+  ],
+  [
+   "(.+?)\\ has\\ the\\ fix\\ \\((.+?)\\ or\\ later\\)\\.",
+   "$1 heeft de fix ($2 of later)."
+  ],
+  [
+   "(.+?)\\ is\\ newer\\ than\\ the\\ releases\\ the\\ fix\\ went\\ into\\.",
+   "$1 is nieuwer dan de releases waarin de fix zit."
+  ],
+  [
+   "(.+?)\\ does\\ not\\ show\\ its\\ patch\\ release;\\ (.+?)\\ has\\ the\\ fix\\.",
+   "$1 toont zijn patchrelease niet; $2 heeft de fix."
+  ],
+  [
+   "(.+?)\\ is\\ a\\ distribution\\ build;\\ its\\ package\\ may\\ carry\\ the\\ fix\\ without\\ a\\ new\\ number\\.\\ Upstream,\\ (.+?)\\ has\\ the\\ fix\\.",
+   "$1 is een distributie-build; het pakket kan de fix bevatten zonder nieuw nummer. Upstream heeft $2 de fix."
+  ],
+  [
+   "(.+?)\\ is\\ a\\ distribution\\ build\\ of\\ a\\ PHP\\ branch\\ that\\ no\\ longer\\ gets\\ upstream\\ fixes;\\ only\\ its\\ package\\ says\\ whether\\ the\\ fix\\ was\\ put\\ in\\.",
+   "$1 is een distributie-build van een PHP-tak die upstream geen fixes meer krijgt; alleen het pakket zegt of de fix erin is gezet."
+  ],
+  [
+   "(.+?)\\ is\\ PHP\\ (.+?),\\ which\\ no\\ longer\\ gets\\ fixes;\\ move\\ to\\ (.+?)\\ at\\ the\\ fixed\\ release\\ or\\ later\\.",
+   "$1 is PHP $2, dat geen fixes meer krijgt; stap over op $3 op de release met de fix of later."
+  ],
+  [
+   "(.+?)\\ \\((.+?)\\):\\ the\\ PHP\\ version\\ shown\\ is\\ vulnerable",
+   "$1 ($2): de getoonde PHP-versie is kwetsbaar"
+  ],
+  [
+   "(.+?)\\ The\\ flaw\\ lets\\ anyone\\ run\\ code\\ on\\ the\\ server\\ without\\ signing\\ in\\.",
+   "$1 Met de fout kan iedereen zonder inloggen code op de server uitvoeren."
+  ],
+  [
+   "(.+?)\\ \\((.+?)\\):\\ PHP\\ in\\ use,\\ fix\\ not\\ visible\\ from\\ outside",
+   "$1 ($2): PHP in gebruik, fix van buitenaf niet zichtbaar"
+  ],
+  [
+   "(.+?)\\ Check\\ the\\ PHP\\ version\\ or\\ package\\ on\\ the\\ server\\ itself\\.",
+   "$1 Controleer de PHP-versie of het pakket op de server zelf."
+  ]
+ ]
+}

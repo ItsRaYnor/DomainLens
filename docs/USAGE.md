@@ -552,6 +552,35 @@ listed". Before a list has been downloaded the answer is "not checked". A downlo
 fails, or returns an empty list, keeps the previous list. The IP tool shows which lists are
 loaded, and lets an admin refresh them at once.
 
+## Versions: known vulnerable software
+
+**Tools → Versions** checks whether your sites run a software version with a known, serious
+vulnerability, the way a version scan (`nmap -sV` with a vulnerability script) does: each
+site's home page is asked for once, like a browser, and the version the server shows --
+`X-Powered-By: PHP/8.2.7`, or `PHP/…` in the Server header, redirects included -- is compared
+with the release that has the fix. Nothing is sent to trigger a flaw. Choose all portfolio
+domains with a website, or paste domains; they are checked ten at a time and the table fills
+in as it goes, worst first.
+
+| Result | Meaning |
+|---|---|
+| Vulnerable | The version shown is older than the fix for its branch, or its branch gets no fixes |
+| Cannot tell from outside | PHP in use with its version hidden, or a distribution build (`8.2.7-1~deb12u1`) whose package may carry the fix |
+| Has the fix | The version shown carries the fix |
+| No PHP seen | Nothing in the response shows PHP |
+| No response | The site did not answer over https, http or www |
+
+A version a server shows is what it claims; a hidden version is not a fixed one. Check the
+"cannot tell" sites on the server (`php -v`, `dpkg -l 'php*'`, `rpm -qa 'php*'`); an
+agent-based scanner such as InsightVM sees the installed package. A redirect into the server's
+own network is not followed.
+
+Every scan does the same for its domain (Security audit): a vulnerable version is a critical
+finding, one that cannot be told an informational one, so monitors report it too.
+
+Checked for now: **PHP2Shell** (CVE-2026-109618, CVE-2026-109619), fixed in PHP 8.5.12, 8.4.27,
+8.3.36 and 8.2.35. Advisories are listed in `software_advisories.py`.
+
 ## Mail & web
 
 **Tools → Mail & web** has two tabs: **Message or file** and **Links**.

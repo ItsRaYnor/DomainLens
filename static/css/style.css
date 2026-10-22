@@ -2973,6 +2973,15 @@ button.btn-danger:hover:not(:disabled) { background: var(--red); border-color: v
 #jsScanContent .data-table td { word-break: normal; overflow-wrap: anywhere; }
 /* Mail analysis: a file's hash under its name, and source excerpts shown as
    text in a box of their own that scrolls rather than stretching the page. */
+/* Tools -> Versions: the advisories checked for, the scope, a count per
+   outcome and the table, which wraps its long server strings. */
+.vc-advisory { border-left: 3px solid var(--red); padding: 0.2rem 0 0.2rem 0.75rem; margin: 0.5rem 0 0.75rem; }
+.vc-advisory .ct-desc { margin: 0.2rem 0; }
+.vc-form { display: grid; gap: 0.6rem; margin-top: 0.75rem; }
+.vc-form label { display: grid; gap: 0.3rem; font-size: 0.85rem; color: var(--text-muted); max-width: 32rem; }
+.vc-form textarea { width: 100%; font-family: var(--font-mono); font-size: 0.8rem; }
+.vc-counts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0.25rem 0 0.75rem; font-size: 0.85rem; }
+.vc-table td { word-break: normal; overflow-wrap: anywhere; vertical-align: top; }
 /* Mail and web analysis: its two tabs, and a checked link's heading with
    its verdict beside it (below it on a phone). */
 .mt-tabs { margin: 0.75rem 0 1rem; }

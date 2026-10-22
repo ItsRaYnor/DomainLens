@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.tools_versions') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.tools_versions">{{ t('nav.tools_versions') }}</h2>
+            <p class="ct-desc">Whether your sites run a software version with a known, serious vulnerability, the way a version scan does it: each site's home page is asked for once, like a browser, and the version the server shows is compared with the release that has the fix. Nothing is sent to trigger a flaw.</p>
+            <p class="ct-desc">A version that is not shown cannot be judged from outside: many servers hide it, and Debian, Ubuntu and Red Hat put fixes into their own packages without a new version number. Those sites are listed as "cannot tell"; check them on the server itself. An agent-based scanner such as InsightVM sees the installed package and is the reliable source there.</p>
+            <h3>Checked for</h3>
+            {% for adv in advisories %}
+            <div class="vc-advisory">
+                <strong>{{ adv.name }}</strong> <span class="muted">{{ adv.cves | join(', ') }} · {{ adv.product }} · {{ adv.published }}</span>
+                <p class="ct-desc">{{ adv.summary }}</p>
+                <p class="ct-desc">Fixed in {% for branch, version in adv.fixed | dictsort(reverse=true) %}{{ version | join('.') }}{% if not loop.last %}, {% endif %}{% endfor %}; older branches no longer get fixes.</p>
+            </div>
+            {% endfor %}
+            <div class="vc-form">
+                <label>Which sites
+                    <select id="vcScope">
+                        <option value="portfolio">All domains in the portfolio with a website</option>
+                        <option value="paste">Domains I paste</option>
+                    </select>
+                </label>
+                <textarea id="vcDomains" class="hidden" rows="5" spellcheck="false" placeholder="example.com&#10;www.example.org"></textarea>
+                <div class="mt-actions">
+                    <button class="btn-primary-lite" id="vcBtn" type="button">Check</button>
+                    <button class="btn-ghost-sm hidden" id="vcStop" type="button">Stop</button>
+                </div>
+                <p class="ct-desc" id="vcScopeNote"></p>
+            </div>
+        </section>
+        <div id="vcResult"></div>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/versions.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>
