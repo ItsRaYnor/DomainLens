@@ -41,7 +41,8 @@ function vcRender() {
     const count = label => vcRows.filter(r => vcState(r)[0] === label).length;
     const summary = ['Vulnerable', 'Cannot tell from outside', 'Has the fix', 'No PHP seen', 'No response']
         .map(label => `<span class="vc-count"><strong>${count(label)}</strong> ${esc(label)}</span>`).join('');
-    $('vcResult').innerHTML = `<section class="card"><h3>${esc(`${vcRows.length} site(s) checked`)}</h3>`
+    $('vcResult').innerHTML = `<section class="card"><div class="lc-head"><h3>${esc(`${vcRows.length} site(s) checked`)}</h3>`
+        + '<button class="btn-ghost-sm" id="vcExport" type="button">Export CSV</button></div>'
         + `<div class="vc-counts">${summary}</div>`
         + '<div class="users-table-wrap"><table class="data-table stack-table vc-table">'
         + '<tr><th>Domain</th><th>Result</th><th>Shown by the server</th><th>Why</th></tr>'
@@ -56,6 +57,25 @@ function vcRender() {
                 + `<td>${why}</td></tr>`;
         }).join('')
         + '</table></div></section>';
+    $('vcExport').addEventListener('click', vcExport);
+}
+
+// The table as CSV, made on the server so every cell passes the formula
+// guard the other exports use: the server headers are not ours to trust.
+async function vcExport() {
+    try {
+        const resp = await fetch('/api/advisories/csv', { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ results: vcRows }) });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const name = (resp.headers.get('Content-Disposition') || '').match(/filename=([^;]+)/);
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(await resp.blob());
+        link.download = name ? name[1] : 'domainlens-versions.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    } catch (err) { toast(err.message); }
 }
 
 async function vcRun() {

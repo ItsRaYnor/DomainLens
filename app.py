@@ -4711,6 +4711,18 @@ def api_advisories_check():
     return jsonify({"results": results})
 
 
+@app.route("/api/advisories/csv", methods=["POST"])
+def api_advisories_csv():
+    """The version check's table as CSV, made here from the results the page
+    holds, so every cell passes the same formula guard as the other exports."""
+    import software_advisories
+    data = request.get_json(silent=True) or {}
+    results = [r for r in (data.get("results") or [])[:5000] if isinstance(r, dict)]
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return Response(software_advisories.to_csv(results), mimetype="text/csv", headers={
+        "Content-Disposition": f"attachment; filename=domainlens-versions-{stamp}.csv"})
+
+
 @app.route("/tools/ip")
 def lookup_ip_view():
     return render_template(

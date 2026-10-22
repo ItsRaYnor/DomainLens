@@ -182,3 +182,34 @@ def check_host(domain, get=None, safe=None):
                 "php": bool(found), "advisories": found, "error": None}
     return {"domain": domain, "url": None, "state": "unmeasured", "php": None, "advisories": [],
             "error": "No response over https, http or www (" + ", ".join(dict.fromkeys(errors)) + ")"}
+
+
+CSV_COLUMNS = ["domain", "result", "advisory", "cves", "verdict", "version_shown", "x_powered_by", "server",
+               "reason", "url"]
+
+
+def to_csv(results):
+    """The version check as CSV, one row per domain and advisory, for the
+    teams that patch. Every cell came from a server that is not ours, so a
+    value a spreadsheet would run as a formula is defused."""
+    import csv
+    import io
+    from whois_batch import _csv_safe
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(CSV_COLUMNS)
+    for r in results:
+        base = {"domain": r.get("domain"), "x_powered_by": r.get("powered_by"), "server": r.get("server"),
+                "url": r.get("url")}
+        advisories = r.get("advisories") or []
+        if r.get("state") != "measured":
+            rows = [{**base, "result": "no_response", "reason": r.get("error")}]
+        elif not advisories:
+            rows = [{**base, "result": "no_php"}]
+        else:
+            rows = [{**base, "result": a.get("verdict"), "advisory": a.get("name"), "cves": " ".join(a.get("cves") or []),
+                     "verdict": a.get("verdict"), "version_shown": a.get("version"), "reason": a.get("reason")}
+                    for a in advisories]
+        for row in rows:
+            writer.writerow([_csv_safe(row.get(c)) for c in CSV_COLUMNS])
+    return out.getvalue()

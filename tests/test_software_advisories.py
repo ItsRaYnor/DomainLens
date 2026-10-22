@@ -95,7 +95,39 @@ class FleetTests(unittest.TestCase):
         self.assertFalse(get.call_args[1]["allow_redirects"])
 
 
-class PageTests(EnterpriseAppTestCase):
+class CsvTests(unittest.TestCase):
+    """The check's table went nowhere: leaving the page lost it, while the
+    teams that patch need the list. Its cells come from servers that are not
+    ours, so a Server header written as a formula must not run in Excel."""
+
+    def test_one_row_per_domain_and_outcome(self):
+        import csv
+        import io
+        results = [
+            {"domain": "a.example.org", "state": "measured", "powered_by": "PHP/8.2.7", "server": "Apache",
+             "url": "https://a.example.org/", "advisories": sa.match({"x-powered-by": "PHP/8.2.7"})},
+            {"domain": "b.example.org", "state": "measured", "server": "nginx", "advisories": []},
+            {"domain": "c.example.org", "state": "unmeasured", "error": "No response", "advisories": []},
+        ]
+        rows = list(csv.DictReader(io.StringIO(sa.to_csv(results))))
+        self.assertEqual(["vulnerable", "no_php", "no_response"], [r["result"] for r in rows])
+        self.assertEqual("CVE-2026-109618 CVE-2026-109619", rows[0]["cves"])
+
+    def test_a_header_written_as_a_formula_is_defused(self):
+        out = sa.to_csv([{"domain": "a.example.org", "state": "measured", "server": '=HYPERLINK("http://x")',
+                          "advisories": []}])
+        self.assertIn("'=HYPERLINK", out)
+
+
+class ExportPageTests(EnterpriseAppTestCase):
+    def test_the_export_answers_with_a_csv_file(self):
+        self.login_as("user")
+        resp = self.client.post("/api/advisories/csv", json={"results": [
+            {"domain": "a.example.org", "state": "measured", "advisories": []}]})
+        self.assertEqual("text/csv", resp.mimetype)
+        self.assertIn("domainlens-versions-", resp.headers["Content-Disposition"])
+        self.assertIn("a.example.org,no_php", resp.get_data(as_text=True))
+
     def test_the_page_lists_the_advisory_and_the_endpoint_takes_ten_at_a_time(self):
         self.login_as("user")
         html = self.client.get("/tools/versions").get_data(as_text=True)

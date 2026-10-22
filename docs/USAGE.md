@@ -575,6 +575,11 @@ A version a server shows is what it claims; a hidden version is not a fixed one.
 agent-based scanner such as InsightVM sees the installed package. A redirect into the server's
 own network is not followed.
 
+**Export CSV** gives the table to the teams that patch: one row per domain and advisory, with
+`result` (`vulnerable`, `cannot_tell`, `fixed`, `no_php`, `no_response`), the CVEs, the version
+shown, the X-Powered-By and Server headers, the reason and the address checked. The file is made
+on the server, so a header written as a spreadsheet formula is defused like in the other exports.
+
 Every scan does the same for its domain (Security audit): a vulnerable version is a critical
 finding, one that cannot be told an informational one, so monitors report it too.
 

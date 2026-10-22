@@ -37,3 +37,4 @@ Update PHP to the release with the fix (or the patched package from your vendor)
 {} Check the PHP version or package on the server itself.	{} Controleer de PHP-versie of het pakket op de server zelf.
 On the server: php -v, or the package version (dpkg -l 'php*', rpm -qa 'php*'), against the release with the fix.	Op de server: php -v, of de pakketversie (dpkg -l 'php*', rpm -qa 'php*'), tegenover de release met de fix.
 Known vulnerability	Bekende kwetsbaarheid
+Export CSV	CSV exporteren
