@@ -4,14 +4,21 @@ A version that is not shown cannot be judged from outside: many servers hide it,
 Checked for	Gecontroleerd op
 Unauthenticated remote code execution in PHP itself (memory corruption on running out of memory, and a use-after-free in state kept between requests); exploited since the day of the fix.	Code uitvoeren op afstand zonder inloggen, in PHP zelf (geheugencorruptie bij een tekort aan geheugen, en een use-after-free in status die tussen verzoeken bewaard blijft); misbruikt sinds de dag van de fix.
 Fixed in {}; older branches no longer get fixes.	Opgelost in {}; oudere takken krijgen geen fixes meer.
+Fixed in {}; older branches are not affected.	Opgelost in {}; oudere takken zijn niet getroffen.
+Own rule	Eigen regel
+Add or change the rules	Regels toevoegen of wijzigen
+under Admin.	onder Beheer.
 Which sites	Welke sites
 All domains in the portfolio with a website	Alle domeinen in het portfolio met een website
+Organisation unit	Organisatieonderdeel
+Includes the units under it.	Inclusief de onderdelen daaronder.
 Domains I paste	Domeinen die ik plak
 Stop	Stoppen
 Vulnerable	Kwetsbaar
 Cannot tell from outside	Van buitenaf niet te bepalen
 Has the fix	Heeft de fix
-No PHP seen	Geen PHP gezien
+None of the software seen	Geen van de software gezien
+Not affected	Niet getroffen
 No response	Geen antwoord
 {n} site(s) checked	{} site(s) gecontroleerd
 Result	Resultaat
@@ -22,19 +29,23 @@ Stopped after {n} of {n}.	Gestopt na {} van {}.
 {n} checked.	{} gecontroleerd.
 No domains to check.	Geen domeinen om te controleren.
 No response over https, http or www ({})	Geen antwoord via https, http of www ({})
-The PHP version is not shown.	De PHP-versie wordt niet getoond.
+The {} version is not shown.	De {}-versie wordt niet getoond.
 {} is older than {}, the release with the fix.	{} is ouder dan {}, de release met de fix.
 {} has the fix ({} or later).	{} heeft de fix ({} of later).
 {} is newer than the releases the fix went into.	{} is nieuwer dan de releases waarin de fix zit.
 {} does not show its patch release; {} has the fix.	{} toont zijn patchrelease niet; {} heeft de fix.
 {} is a distribution build; its package may carry the fix without a new number. Upstream, {} has the fix.	{} is een distributie-build; het pakket kan de fix bevatten zonder nieuw nummer. Upstream heeft {} de fix.
-{} is a distribution build of a PHP branch that no longer gets upstream fixes; only its package says whether the fix was put in.	{} is een distributie-build van een PHP-tak die upstream geen fixes meer krijgt; alleen het pakket zegt of de fix erin is gezet.
-{} is PHP {}, which no longer gets fixes; move to {} at the fixed release or later.	{} is PHP {}, dat geen fixes meer krijgt; stap over op {} op de release met de fix of later.
-{} ({}): the PHP version shown is vulnerable	{} ({}): de getoonde PHP-versie is kwetsbaar
+{} is a distribution build of a {} branch that no longer gets upstream fixes; only its package says whether the fix was put in.	{} is een distributie-build van een {}-tak die upstream geen fixes meer krijgt; alleen het pakket zegt of de fix erin is gezet.
+{} is {} {}, which no longer gets fixes; move to {} at the fixed release or later.	{} is {} {}, dat geen fixes meer krijgt; stap over op {} op de release met de fix of later.
+{} is older than the branches the flaw is in.	{} is ouder dan de takken waarin de fout zit.
+{}: the rule names no release with the fix for {} {}.	{}: de regel noemt geen release met de fix voor {} {}.
+{} ({}): the {} version shown is vulnerable	{} ({}): de getoonde {}-versie is kwetsbaar
 {} The flaw lets anyone run code on the server without signing in.	{} Met de fout kan iedereen zonder inloggen code op de server uitvoeren.
 Update PHP to the release with the fix (or the patched package from your vendor) and restart the web server and PHP-FPM.	Werk PHP bij naar de release met de fix (of het gepatchte pakket van je leverancier) en herstart de webserver en PHP-FPM.
-{} ({}): PHP in use, fix not visible from outside	{} ({}): PHP in gebruik, fix van buitenaf niet zichtbaar
-{} Check the PHP version or package on the server itself.	{} Controleer de PHP-versie of het pakket op de server zelf.
+{} ({}): {} in use, fix not visible from outside	{} ({}): {} in gebruik, fix van buitenaf niet zichtbaar
+{} Check the {} version or package on the server itself.	{} Controleer de {}-versie of het pakket op de server zelf.
+Update {} to the release with the fix (or the patched package from your vendor).	Werk {} bij naar de release met de fix (of het gepatchte pakket van je leverancier).
+On the server: the installed {} version or package, against the release with the fix.	Op de server: de geïnstalleerde {}-versie of het pakket, tegenover de release met de fix.
 On the server: php -v, or the package version (dpkg -l 'php*', rpm -qa 'php*'), against the release with the fix.	Op de server: php -v, of de pakketversie (dpkg -l 'php*', rpm -qa 'php*'), tegenover de release met de fix.
 Known vulnerability	Bekende kwetsbaarheid
 Export CSV	CSV exporteren

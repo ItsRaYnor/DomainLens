@@ -9,17 +9,42 @@ const VC_VERDICT = {
     vulnerable: ['Vulnerable', 'status-fail', 0],
     cannot_tell: ['Cannot tell from outside', 'status-warn', 1],
     fixed: ['Has the fix', 'status-pass', 3],
+    not_affected: ['Not affected', 'status-pass', 3],
 };
 let vcRows = [];
 let vcStop = false;
 
-// The domains of the portfolio that have a website: held (not to cancel
-// or only wanted), and web in use or not yet measured.
+// Held domains with a website. The whole portfolio, or one organisation
+// unit and the units under it. The server decides which domains that is.
 async function vcPortfolioDomains() {
-    const data = await requestJson('/api/portfolio');
-    return (data.domains || [])
-        .filter(d => !['cancel', 'claim'].includes(d.lifecycle) && d.uses_web !== 'no')
-        .map(d => d.domain);
+    const selected = $('vcScope').value;
+    const query = selected.startsWith('unit:') ? ('?unit=' + encodeURIComponent(selected.slice(5))) : '';
+    const data = await requestJson('/api/advisories/sites' + query);
+    return data.domains || [];
+}
+
+// One option per organisation unit, in tree order. The path is the unit's
+// own name, so it is not translated. Marked as loaded only once the units
+// are in: a load that failed is tried again when the list is opened.
+async function vcLoadUnits() {
+    const select = $('vcScope');
+    if (!select || select.dataset.units === '1') return;
+    const data = await requestJson('/api/advisories/units');
+    if (select.dataset.units === '1') return;   // a second load got there first
+    select.dataset.units = '1';
+    const units = data.units || [];
+    if (!units.length) return;
+    const group = document.createElement('optgroup');
+    group.label = 'Organisation unit';
+    for (const unit of units) {
+        const option = document.createElement('option');
+        option.value = 'unit:' + unit.id;
+        option.textContent = unit.path;
+        option.setAttribute('translate', 'no');
+        group.appendChild(option);
+    }
+    const paste = select.querySelector('option[value="paste"]');
+    select.insertBefore(group, paste);
 }
 
 function vcPasted() {
@@ -27,11 +52,12 @@ function vcPasted() {
         .replace(/^https?:\/\//, '').replace(/\/.*$/, '')).filter(s => s.includes('.')))];
 }
 
-// One row per domain: what the server shows, and the verdict per advisory.
-// "No PHP seen" and "no response" are their own states, never "has the fix".
+// One row per domain: what the server shows, and the verdict per rule.
+// "Not seen" (none of the software the rules look for) and "no response"
+// are their own states, never "has the fix".
 function vcState(r) {
     if (r.state !== 'measured') return ['No response', 'status-warn', 2];
-    if (!(r.advisories || []).length) return ['No PHP seen', 'muted', 4];
+    if (!(r.advisories || []).length) return ['None of the software seen', 'muted', 4];
     const worst = r.advisories.map(a => VC_VERDICT[a.verdict] || VC_VERDICT.cannot_tell).sort((a, b) => a[2] - b[2])[0];
     return worst;
 }
@@ -39,7 +65,7 @@ function vcState(r) {
 function vcRender() {
     const sorted = [...vcRows].sort((a, b) => vcState(a)[2] - vcState(b)[2] || a.domain.localeCompare(b.domain));
     const count = label => vcRows.filter(r => vcState(r)[0] === label).length;
-    const summary = ['Vulnerable', 'Cannot tell from outside', 'Has the fix', 'No PHP seen', 'No response']
+    const summary = ['Vulnerable', 'Cannot tell from outside', 'Has the fix', 'Not affected', 'None of the software seen', 'No response']
         .map(label => `<span class="vc-count"><strong>${count(label)}</strong> ${esc(label)}</span>`).join('');
     $('vcResult').innerHTML = `<section class="card"><div class="lc-head"><h3>${esc(`${vcRows.length} site(s) checked`)}</h3>`
         + '<button class="btn-ghost-sm" id="vcExport" type="button">Export CSV</button></div>'
@@ -48,7 +74,7 @@ function vcRender() {
         + '<tr><th>Domain</th><th>Result</th><th>Shown by the server</th><th>Why</th></tr>'
         + sorted.map(r => {
             const [label, cls] = vcState(r);
-            const shown = [r.powered_by, r.server].filter(Boolean).join(' · ');
+            const shown = [r.powered_by, r.server, r.generator].filter(Boolean).join(' · ');
             // The advisory's name and its reason apart, each its own text.
             const why = r.state !== 'measured' ? `<span>${esc(r.error || '')}</span>`
                 : (r.advisories || []).map(a => `<div><strong>${esc(a.name)}</strong> <span>${esc(a.reason)}</span></div>`).join('');
@@ -81,7 +107,7 @@ async function vcExport() {
 async function vcRun() {
     let domains;
     try {
-        domains = $('vcScope').value === 'portfolio' ? await vcPortfolioDomains() : vcPasted();
+        domains = $('vcScope').value === 'paste' ? vcPasted() : await vcPortfolioDomains();
     } catch (err) { toast(err.message); return; }
     if (!domains.length) { toast('No domains to check.'); return; }
     vcRows = [];
@@ -107,7 +133,13 @@ async function vcRun() {
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!$('vcBtn')) return;
-    $('vcScope').addEventListener('change', () => $('vcDomains').classList.toggle('hidden', $('vcScope').value !== 'paste'));
+    $('vcScope').addEventListener('change', () => {
+        const selected = $('vcScope').value;
+        $('vcDomains').classList.toggle('hidden', selected !== 'paste');
+        $('vcScopeNote').textContent = selected.startsWith('unit:') ? 'Includes the units under it.' : '';
+    });
+    vcLoadUnits().catch(err => toast(err.message));
+    $('vcScope').addEventListener('focus', () => vcLoadUnits().catch(err => toast(err.message)));
     $('vcBtn').addEventListener('click', vcRun);
     $('vcStop').addEventListener('click', () => { vcStop = true; });
 });

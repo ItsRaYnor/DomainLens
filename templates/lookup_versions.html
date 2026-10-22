@@ -18,11 +18,22 @@
             <h3>Checked for</h3>
             {% for adv in advisories %}
             <div class="vc-advisory">
-                <strong>{{ adv.name }}</strong> <span class="muted">{{ adv.cves | join(', ') }} · {{ adv.product }} · {{ adv.published }}</span>
+                <strong>{{ adv.name }}</strong> <span class="muted">{{ adv.cves | join(', ') }} · {{ adv.product }}{% if adv.published %} · {{ adv.published }}{% endif %}</span>
+                {% if not adv.builtin %}<span class="status muted">Own rule</span>{% endif %}
                 <p class="ct-desc">{{ adv.summary }}</p>
-                <p class="ct-desc">Fixed in {% for branch, version in adv.fixed | dictsort(reverse=true) %}{{ version | join('.') }}{% if not loop.last %}, {% endif %}{% endfor %}; older branches no longer get fixes.</p>
+                {% if adv.older_branches == 'not_affected' %}
+                <p class="ct-desc">Fixed in {{ adv.fixed | join(', ') }}; older branches are not affected.</p>
+                {% else %}
+                <p class="ct-desc">Fixed in {{ adv.fixed | join(', ') }}; older branches no longer get fixes.</p>
+                {% endif %}
+                {% if adv.introduced %}
+                <p class="ct-desc">The flaw came in with {{ adv.introduced }}; older versions are not affected.</p>
+                {% endif %}
             </div>
             {% endfor %}
+            {% if is_admin %}
+            <p class="ct-desc"><a href="/admin/advisories">Add or change the rules</a> under Admin.</p>
+            {% endif %}
             <div class="vc-form">
                 <label>Which sites
                     <select id="vcScope">

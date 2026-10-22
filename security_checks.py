@@ -1393,13 +1393,9 @@ def check_info_disclosure(domain):
     # Known vulnerable versions among what the server shows, the redirects
     # on the way included (software_advisories.py): read, never probed.
     import software_advisories
-    shown = {"x-powered-by": [], "server": []}
-    for step in list(getattr(resp, "history", []) or []) + [resp]:
-        for key, value in step.headers.items():
-            if key.lower() in shown and value not in shown[key.lower()]:
-                shown[key.lower()].append(value)
-    result["advisories"] = software_advisories.match(
-        {k: " ".join(v) for k, v in shown.items() if v}, cookie_hdr, getattr(resp, "url", ""))
+    rules = software_advisories.active_rules()
+    headers, cookies, url, generator = software_advisories.read_response(resp, rules)
+    result["advisories"] = software_advisories.match(headers, cookies, url, generator, rules=rules)
 
     result["technologies"] = sorted(techs)
     result["success"] = True
@@ -1721,28 +1717,12 @@ def audit_findings(audit):
             f"The server discloses a precise version ({leak['value']}), helping attackers match known CVEs.",
             fix=f"Strip or generalize the {leak['header']} header.",
         ))
+    import software_advisories
     for adv in info.get("advisories", []):
-        cves = ", ".join(adv["cves"])
-        if adv["verdict"] == "vulnerable":
-            findings.append(_finding(
-                adv["severity"], "Known vulnerability",
-                f"{adv['name']} ({cves}): the PHP version shown is vulnerable",
-                f"{adv['reason']} The flaw lets anyone run code on the server without signing in.",
-                evidence=adv.get("version") or "",
-                fix="Update PHP to the release with the fix (or the patched package from your vendor) and restart the "
-                    "web server and PHP-FPM.",
-            ))
-        elif adv["verdict"] == "cannot_tell":
-            # Not a defect of the domain: what the outside cannot see is said
-            # as such, with what to check on the server.
-            findings.append(_finding(
-                "info", "Known vulnerability",
-                f"{adv['name']} ({cves}): PHP in use, fix not visible from outside",
-                f"{adv['reason']} Check the PHP version or package on the server itself.",
-                evidence=adv.get("version") or "",
-                fix="On the server: php -v, or the package version (dpkg -l 'php*', rpm -qa 'php*'), against the "
-                    "release with the fix.",
-            ))
+        found = software_advisories.finding(adv)
+        if found:
+            findings.append(_finding(found["severity"], "Known vulnerability", found["title"], found["detail"],
+                                     evidence=found["evidence"], fix=found["fix"]))
 
     order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
     findings.sort(key=lambda f: order.get(f["severity"], 9))

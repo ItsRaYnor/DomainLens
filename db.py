@@ -16,7 +16,7 @@ _lock = threading.Lock()
 # Modules that keep their own tables and create them through init_schema(conn).
 FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens", "risk_acceptance",
                    "domain_watch", "domain_portfolio", "contacts", "mail_test",
-                   "link_check", "ip_lists")
+                   "link_check", "ip_lists", "advisory_rules")
 
 
 def _db_path():

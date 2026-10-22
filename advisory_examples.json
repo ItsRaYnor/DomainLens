@@ -1,0 +1,104 @@
+{
+  "format": "domainlens-advisory-rules",
+  "version": 1,
+  "description": "Example rules for serious, exploited vulnerabilities whose version a web server shows. Add them on Admin -> Vulnerability rules, or import this file there.",
+  "rules": [
+    {
+      "id": "apache-path-traversal-2021",
+      "name": "Apache path traversal (2.4.49-2.4.50)",
+      "product": "Apache HTTP Server",
+      "token": "Apache",
+      "cves": ["CVE-2021-41773", "CVE-2021-42013"],
+      "severity": "critical",
+      "published": "2021-10-07",
+      "summary": "Path traversal in Apache HTTP Server 2.4.49 and 2.4.50: files outside the document root can be read, and where CGI is enabled, commands run without signing in. Exploited within days of the fix.",
+      "impact": "Anyone can read files outside the web root, and run commands where CGI is enabled.",
+      "fix": "Update Apache HTTP Server to 2.4.51 or later (or the patched package from your vendor) and restart it.",
+      "check": "On the server: apachectl -v (or httpd -v), or the package version (dpkg -l apache2, rpm -q httpd).",
+      "sources": ["server"],
+      "seen_cookies": [],
+      "seen_paths": [],
+      "fixed": ["2.4.51"],
+      "introduced": "2.4.49",
+      "older_branches": "not_affected",
+      "references": [
+        "https://httpd.apache.org/security/vulnerabilities_24.html",
+        "https://nvd.nist.gov/vuln/detail/CVE-2021-41773",
+        "https://nvd.nist.gov/vuln/detail/CVE-2021-42013"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "apache-mod-rewrite-2024",
+      "name": "Apache mod_rewrite escaping",
+      "product": "Apache HTTP Server",
+      "token": "Apache",
+      "cves": ["CVE-2024-38475"],
+      "severity": "critical",
+      "published": "2024-07-01",
+      "summary": "Improper escaping in mod_rewrite in Apache HTTP Server 2.4.59 and earlier: with some rewrite rules, a URL reaches files the server was never meant to serve, which can disclose source code or run code. On CISA's list of exploited vulnerabilities.",
+      "impact": "With an affected rewrite rule, anyone can reach files outside what the site serves.",
+      "fix": "Update Apache HTTP Server to 2.4.60 or later (or the patched package from your vendor) and restart it.",
+      "check": "On the server: apachectl -v (or httpd -v), or the package version (dpkg -l apache2, rpm -q httpd).",
+      "sources": ["server"],
+      "seen_cookies": [],
+      "seen_paths": [],
+      "fixed": ["2.4.60"],
+      "introduced": "",
+      "older_branches": "unfixed",
+      "references": [
+        "https://httpd.apache.org/security/vulnerabilities_24.html",
+        "https://nvd.nist.gov/vuln/detail/CVE-2024-38475"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "nginx-resolver-2021",
+      "name": "nginx resolver overwrite",
+      "product": "nginx",
+      "token": "nginx",
+      "cves": ["CVE-2021-23017"],
+      "severity": "high",
+      "published": "2021-05-25",
+      "summary": "A one-byte memory overwrite in the nginx resolver, reachable by someone who can forge DNS answers to the server. It crashes the worker process and may allow more. Only where the resolver directive is used.",
+      "impact": "Someone who can forge DNS answers to the server can crash nginx, and possibly do more.",
+      "fix": "Update nginx to 1.20.1, 1.21.0 or later (or the patched package from your vendor) and restart it.",
+      "check": "On the server: nginx -v, and whether the configuration uses the resolver directive (nginx -T | grep resolver).",
+      "sources": ["server"],
+      "seen_cookies": [],
+      "seen_paths": [],
+      "fixed": ["1.21.0", "1.20.1"],
+      "introduced": "0.6.18",
+      "older_branches": "unfixed",
+      "references": [
+        "https://nginx.org/en/security_advisories.html",
+        "https://nvd.nist.gov/vuln/detail/CVE-2021-23017"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "php-fpm-underflow-2019",
+      "name": "PHP-FPM underflow",
+      "product": "PHP",
+      "token": "PHP",
+      "cves": ["CVE-2019-11043"],
+      "severity": "critical",
+      "published": "2019-10-28",
+      "summary": "A buffer underflow in PHP-FPM, reachable through nginx setups that split the path with fastcgi_split_path_info: a crafted address runs code on the server without signing in. On CISA's list of exploited vulnerabilities.",
+      "impact": "With the affected nginx setup, anyone can run code on the server without signing in.",
+      "fix": "Update PHP to 7.3.11, 7.2.24 or 7.1.33 or later (better: a supported branch) and restart PHP-FPM.",
+      "check": "On the server: php-fpm -v, and the nginx locations that use fastcgi_split_path_info.",
+      "sources": ["x-powered-by", "server"],
+      "seen_cookies": ["phpsessid"],
+      "seen_paths": [".php"],
+      "fixed": ["7.3.11", "7.2.24", "7.1.33"],
+      "introduced": "",
+      "older_branches": "unfixed",
+      "references": [
+        "https://bugs.php.net/bug.php?id=78599",
+        "https://nvd.nist.gov/vuln/detail/CVE-2019-11043"
+      ],
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.admin_advisories') }} · {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+
+    <main id="main" class="account-main account-main-wide">
+        <section class="account-section">
+            <h2 data-i18n="nav.admin_advisories">{{ t('nav.admin_advisories') }}</h2>
+            <p class="muted">The known vulnerable versions that every scan and Tools → Versions look for. A rule is data, not code: the product, the name it shows itself by in a response, where to read it, and the release with the fix per branch. It cannot send a request or run anything.</p>
+            <p class="muted">Built-in rules come with DomainLens and cannot be changed here. Use one as the start of a rule of your own. Every change is in the audit log.</p>
+            <div class="users-table-wrap">
+                <table class="users-table stack-table ar-table">
+                    <thead><tr><th>Rule</th><th>Product</th><th>Fixed in</th><th>Kind</th><th>State</th><th></th></tr></thead>
+                    <tbody id="arRules"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+            <h3>Export and import</h3>
+            <p class="muted">Export puts your own rules in one file, to move them to another DomainLens or keep them under version control. Import adds the rules of such a file: all of them or, when one cannot be used, none.</p>
+            <div class="ar-transfer">
+                <a class="btn-ghost" id="arExport" href="/api/admin/advisories/export">Export rules</a>
+                <input type="file" id="arImportFile" accept=".json,application/json">
+                <label class="ar-check"><input type="checkbox" id="arImportReplace"> Replace rules with the same id</label>
+                <button class="btn-primary-lite" id="arImport" type="button">Import</button>
+            </div>
+            <div class="login-error hidden" id="arImportProblems"></div>
+            <p class="ct-desc" id="arImportResult"></p>
+        </section>
+
+        <section class="account-section">
+            <h2>Example rules</h2>
+            <p class="muted">Serious vulnerabilities that were exploited and whose version a web server shows. They are suggestions: nothing looks for them until you add one. An added example is a rule of your own, to change or switch off.</p>
+            <div class="users-table-wrap">
+                <table class="users-table stack-table ar-table">
+                    <thead><tr><th>Rule</th><th>Product</th><th>Fixed in</th><th>Severity</th><th></th></tr></thead>
+                    <tbody id="arExamples"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+            <div class="mt-actions">
+                <button class="btn-ghost-sm" id="arAddAllExamples" type="button">Add all examples</button>
+            </div>
+        </section>
+
+        <section class="account-section" id="arEditor">
+            <div class="lc-head">
+                <h2 id="arEditorTitle">New rule</h2>
+                <button class="btn-ghost-sm" id="arNew" type="button">Start a new rule</button>
+            </div>
+            <div class="login-error hidden" id="arProblems"></div>
+            <div class="ar-grid">
+                <label>Id <input type="text" id="arId" maxlength="40" spellcheck="false" placeholder="nginx-2026-0001">
+                    <span class="ct-desc">Lower-case letters, digits and dashes. Cannot be changed later.</span></label>
+                <label>Name <input type="text" id="arName" maxlength="80" placeholder="nginx resolver overflow"></label>
+                <label>Product <input type="text" id="arProduct" maxlength="60" placeholder="nginx"></label>
+                <label>Token <input type="text" id="arToken" maxlength="40" spellcheck="false" placeholder="nginx">
+                    <span class="ct-desc">How the software names itself before its version: PHP in PHP/8.2.7, Apache in Apache/2.4.58, WordPress in WordPress 6.4.2.</span></label>
+                <label>Severity when vulnerable
+                    <select id="arSeverity">
+                        {% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select></label>
+                <label>Published <input type="date" id="arPublished"></label>
+                <label>CVEs <textarea id="arCves" rows="2" spellcheck="false" placeholder="CVE-2026-12345"></textarea>
+                    <span class="ct-desc">One per line.</span></label>
+                <label>Releases with the fix <textarea id="arFixed" rows="4" spellcheck="false" placeholder="1.27.3&#10;1.26.5"></textarea>
+                    <span class="ct-desc">One per branch, as major.minor.patch. A newer branch than any listed counts as fixed.</span></label>
+                <label>Introduced in <input type="text" id="arIntroduced" maxlength="20" spellcheck="false" placeholder="2.4.49">
+                    <span class="ct-desc">Optional. The release the flaw came in with; anything older is not affected.</span></label>
+                <label>Branches older than the ones listed
+                    <select id="arOlder">
+                        <option value="unfixed">No longer get fixes: vulnerable</option>
+                        <option value="not_affected">Came before the flaw: not affected</option>
+                    </select></label>
+                <label>Read the version from <input type="text" id="arSources" spellcheck="false" placeholder="server, x-powered-by">
+                    <span class="ct-desc">Header names, separated by commas, or <code>{{ generator }}</code> for the page's generator tag.</span></label>
+                <label>Also in use when these cookies are set <input type="text" id="arSeenCookies" spellcheck="false" placeholder="phpsessid">
+                    <span class="ct-desc">Optional, separated by commas: the software is there but its version is hidden, so the answer is "cannot tell".</span></label>
+                <label>Also in use when the address contains <input type="text" id="arSeenPaths" spellcheck="false" placeholder=".php">
+                    <span class="ct-desc">Optional, separated by commas.</span></label>
+            </div>
+            <div class="ar-grid ar-grid-wide">
+                <label>Summary <textarea id="arSummary" rows="2" maxlength="600"></textarea></label>
+                <label>Impact <textarea id="arImpact" rows="2" maxlength="400"></textarea>
+                    <span class="ct-desc">Optional. Added to the finding when a version is vulnerable.</span></label>
+                <label>How to fix <textarea id="arFix" rows="2" maxlength="400"></textarea>
+                    <span class="ct-desc">Optional. Shown with a vulnerable version.</span></label>
+                <label>What to check on the server <textarea id="arCheck" rows="2" maxlength="400"></textarea>
+                    <span class="ct-desc">Optional. Shown when the version cannot be told from outside.</span></label>
+                <label>References <textarea id="arReferences" rows="2" spellcheck="false" placeholder="https://"></textarea>
+                    <span class="ct-desc">One address per line.</span></label>
+            </div>
+            <div class="mt-actions">
+                <button class="btn-primary-lite" id="arSave" type="button">Save rule</button>
+            </div>
+        </section>
+
+        <section class="account-section">
+            <h2>Test the rule</h2>
+            <p class="muted">Paste the headers of a response (from the browser's network tab, or <code>curl -sI https://example.org/</code>) and see what the rule above reads and decides. Nothing is fetched and nothing is saved.</p>
+            <div class="ar-grid ar-grid-wide">
+                <label>Response headers <textarea id="arHeaders" rows="5" spellcheck="false" placeholder="Server: nginx/1.24.0&#10;X-Powered-By: PHP/8.2.7"></textarea></label>
+                <label>Address <input type="text" id="arUrl" spellcheck="false" placeholder="https://example.org/"></label>
+                <label>Page source <textarea id="arBody" rows="3" spellcheck="false" placeholder="&lt;meta name=&quot;generator&quot; content=&quot;WordPress 6.4.2&quot;&gt;"></textarea>
+                    <span class="ct-desc">Optional. Only read for the generator tag.</span></label>
+            </div>
+            <div class="mt-actions">
+                <button class="btn-primary-lite" id="arTest" type="button">Test</button>
+            </div>
+            <div id="arTestResult"></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    {# Data block, not executable script — the CSP blocks inline <script>. #}
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/advisories_admin.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

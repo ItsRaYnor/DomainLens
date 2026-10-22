@@ -402,7 +402,8 @@ The CSV export has the columns `decision`, `threat_intel`, `mail`, `web` (`yes`,
 empty for not measured), `contact`, `contact_email` and `contact_from` (`domain` or `unit`).
 
 Changing the portfolio needs the Analyst role and is audited. API: `GET /api/portfolio`,
-`GET /api/portfolio/csv`, `POST /api/portfolio/import` (JSON `text`, or a multipart `file` .xlsx), `POST /api/portfolio/groups`,
+`GET /api/portfolio/csv` (`?unit={id}` for one unit and the units under it; 404 for a unit
+that does not exist), `POST /api/portfolio/import` (JSON `text`, or a multipart `file` .xlsx), `POST /api/portfolio/groups`,
 `PUT/DELETE /api/portfolio/groups/{id}`, `POST /api/portfolio/domains` (`action`: `move`,
 `remove`, `lifecycle` with `value` keep/review/cancel/claim, `threat_intel` with `value`
 true/false, `contact` with `value` a contact id or null, or `monitor` with `value` a frequency
@@ -559,15 +560,18 @@ vulnerability, the way a version scan (`nmap -sV` with a vulnerability script) d
 site's home page is asked for once, like a browser, and the version the server shows --
 `X-Powered-By: PHP/8.2.7`, or `PHP/…` in the Server header, redirects included -- is compared
 with the release that has the fix. Nothing is sent to trigger a flaw. Choose all portfolio
-domains with a website, or paste domains; they are checked ten at a time and the table fills
-in as it goes, worst first.
+domains with a website, one organisation unit (that unit and the units under it), or paste
+domains; they are checked ten at a time and the table fills in as it goes, worst first.
+A domain that sits in no unit is part of the whole portfolio only. A domain being cancelled,
+only wanted, or known to have no website is left out.
 
 | Result | Meaning |
 |---|---|
 | Vulnerable | The version shown is older than the fix for its branch, or its branch gets no fixes |
-| Cannot tell from outside | PHP in use with its version hidden, or a distribution build (`8.2.7-1~deb12u1`) whose package may carry the fix |
+| Cannot tell from outside | The software in use with its version hidden, or a distribution build (`PHP/8.2.7-1~deb12u1`, `Apache/2.4.52 (Ubuntu)`) whose package may carry the fix |
 | Has the fix | The version shown carries the fix |
-| No PHP seen | Nothing in the response shows PHP |
+| Not affected | The version shown is from a branch older than the flaw (when the rule says so) |
+| None of the software seen | Nothing in the response shows any of the software the rules look for |
 | No response | The site did not answer over https, http or www |
 
 A version a server shows is what it claims; a hidden version is not a fixed one. Check the
@@ -576,15 +580,87 @@ agent-based scanner such as InsightVM sees the installed package. A redirect int
 own network is not followed.
 
 **Export CSV** gives the table to the teams that patch: one row per domain and advisory, with
-`result` (`vulnerable`, `cannot_tell`, `fixed`, `no_php`, `no_response`), the CVEs, the version
+`result` (`vulnerable`, `cannot_tell`, `fixed`, `not_affected`, `not_seen`, `no_response`), the CVEs, the version
 shown, the X-Powered-By and Server headers, the reason and the address checked. The file is made
 on the server, so a header written as a spreadsheet formula is defused like in the other exports.
 
-Every scan does the same for its domain (Security audit): a vulnerable version is a critical
-finding, one that cannot be told an informational one, so monitors report it too.
+Every scan does the same for its domain (Security audit): a vulnerable version is a finding at
+the rule's severity, one that cannot be told an informational one, so monitors report it too.
 
-Checked for now: **PHP2Shell** (CVE-2026-109618, CVE-2026-109619), fixed in PHP 8.5.12, 8.4.27,
-8.3.36 and 8.2.35. Advisories are listed in `software_advisories.py`.
+Built in: **PHP2Shell** (CVE-2026-109618, CVE-2026-109619), fixed in PHP 8.5.12, 8.4.27,
+8.3.36 and 8.2.35.
+
+### Vulnerability rules (Admin)
+
+**Admin → Vulnerability rules** adds a known vulnerable version without a new release of
+DomainLens. A rule is data, not code -- it cannot send a request, run anything or carry a regular
+expression:
+
+| Field | Meaning |
+|---|---|
+| Id | Lower-case letters, digits and dashes; fixed once saved |
+| Name, product, CVEs, severity, published, summary | What the scan and the page show |
+| Token | How the software names itself before its version: `PHP` in `PHP/8.2.7`, `nginx` in `nginx/1.27.1`, `WordPress` in `WordPress 6.4.2`. Matched literally |
+| Read the version from | Header names (`server`, `x-powered-by`, ...) or `meta:generator` for the page's generator tag. Cookie and authorization headers are refused |
+| Also in use when | Cookie names or parts of the address that show the software without its version: the answer is then "cannot tell" |
+| Releases with the fix | One per branch, `major.minor.patch`. A newer branch than any listed counts as fixed; a branch between the listed ones without its own release is "cannot tell" |
+| Introduced in | Optional: the release the flaw came in with (`2.4.49`). Anything older is not affected |
+| Branches older than the ones listed | No longer get fixes (vulnerable), or came before the flaw (not affected) |
+| Impact, how to fix, what to check on the server | Optional texts for the scan finding |
+
+The token is matched as a word of its own: `Apache-Coyote/1.1` (Tomcat) does not count as `Apache`.
+
+**Test** runs the rule in the form against headers pasted from a response (and, for the generator
+tag, the page source) and shows what it reads, its verdict and the scan finding. Nothing is
+fetched and nothing is saved.
+
+Built-in rules cannot be changed, switched off or removed; **Use as start** copies one into a new
+rule. Custom rules can be switched off and on, changed and removed, and every change is in the
+audit log (`advisory_rule.create`, `.update`, `.enable`, `.disable`, `.delete`). A saved rule is
+used by the next scan and the next version check. A stored rule that a later version of
+DomainLens no longer accepts is listed as "Not used" with the reason and skipped; the other rules
+keep working. Only administrators see this page.
+
+**Example rules.** The page lists example rules for serious, exploited flaws whose version a web
+server shows; they come with DomainLens in `advisory_examples.json`. Nothing looks for them until
+an administrator adds one (**Add**, or **Add all examples**); an added example is a rule of your
+own, to change or switch off.
+
+| Example | CVE | Fixed in |
+|---|---|---|
+| Apache path traversal (2.4.49-2.4.50) | CVE-2021-41773, CVE-2021-42013 | Apache HTTP Server 2.4.51 |
+| Apache mod_rewrite escaping | CVE-2024-38475 | Apache HTTP Server 2.4.60 |
+| nginx resolver overwrite | CVE-2021-23017 | nginx 1.20.1, 1.21.0 |
+| PHP-FPM underflow | CVE-2019-11043 | PHP 7.3.11, 7.2.24, 7.1.33 |
+
+**Export and import.** **Export rules** downloads your own rules (not the built-in ones) as one
+JSON file, switched-off rules included and marked so. **Import** reads such a file: every rule is
+checked first, and one that cannot be used refuses the whole file with the reasons of each rule,
+so a half-imported set never runs. A rule whose id exists is skipped, or replaced when **Replace
+rules with the same id** is ticked. The file looks like this (`advisory_examples.json` is one):
+
+```json
+{"format": "domainlens-advisory-rules", "version": 1,
+ "rules": [{"id": "nginx-resolver-2021", "name": "nginx resolver overwrite", "product": "nginx",
+            "token": "nginx", "cves": ["CVE-2021-23017"], "severity": "high",
+            "summary": "...", "sources": ["server"], "fixed": ["1.21.0", "1.20.1"],
+            "introduced": "0.6.18", "older_branches": "unfixed", "enabled": true}]}
+```
+
+API (admin): `GET /api/admin/advisories`, `POST /api/admin/advisories` (the rule as JSON),
+`PUT /api/admin/advisories/{id}`, `POST /api/admin/advisories/{id}/enabled` (`{"enabled": false}`),
+`DELETE /api/admin/advisories/{id}` and `POST /api/admin/advisories/test`
+(`{"rule": {...}, "headers": "Server: nginx/1.27.1", "url": "...", "body": "..."}`).
+`GET /api/admin/advisories/export`, `POST /api/admin/advisories/import` (the file as the body;
+`?replace=1` to replace), `GET /api/admin/advisories/examples` and
+`POST /api/admin/advisories/examples` (`{"ids": ["nginx-resolver-2021"]}`). A refused rule or file
+answers 400 with every reason in `problems`. Export and import are in the audit log
+(`advisory_rule.export`, `advisory_rule.import`).
+
+API: `GET /api/advisories/units` (the units to choose from, `id` and `path`),
+`GET /api/advisories/sites` (the sites to check; `?unit={id}` for one unit and the units under
+it, 404 for a unit that does not exist), `POST /api/advisories/check` (`{"domains": [...]}`, ten
+at a time) and `POST /api/advisories/csv` (`{"results": [...]}`).
 
 ## Mail & web
 

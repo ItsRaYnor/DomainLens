@@ -10,6 +10,10 @@ fix) -- in every scan, and for the whole portfolio on one page. Nothing is
 sent but an ordinary request for the home page.
 """
 
+import json
+import pathlib
+import shutil
+import subprocess
 import unittest
 from unittest import mock
 
@@ -17,11 +21,12 @@ import security_checks
 import software_advisories as sa
 from enterprise_harness import EnterpriseAppTestCase
 
-PHP2SHELL = sa.ADVISORIES[0]
+PHP2SHELL = sa.builtin_rules()[0]
+ONLY_BUILTIN = [PHP2SHELL]
 
 
 def _verdict(raw):
-    return sa.verdict(PHP2SHELL, sa.parse_php([raw]))[0]
+    return sa.verdict(PHP2SHELL, sa.parse_version(PHP2SHELL, [raw]))[0]
 
 
 class VerdictTests(unittest.TestCase):
@@ -38,19 +43,20 @@ class VerdictTests(unittest.TestCase):
             self.assertEqual(expected, _verdict(raw), raw)
 
     def test_the_version_is_read_from_the_server_header_too(self):
-        found = sa.match({"server": "Apache/2.4.57 (Unix) PHP/8.3.10"})
+        found = sa.match({"server": "Apache/2.4.57 (Unix) PHP/8.3.10"}, rules=ONLY_BUILTIN)
         self.assertEqual(("vulnerable", "PHP/8.3.10"), (found[0]["verdict"], found[0]["version"]))
 
     def test_php_without_a_version_cannot_be_told_and_no_php_is_not_applicable(self):
-        self.assertEqual("cannot_tell", sa.match({"server": "nginx"}, "PHPSESSID=x; path=/")[0]["verdict"])
-        self.assertEqual([], sa.match({"server": "nginx"}, ""))
+        self.assertEqual("cannot_tell", sa.match({"server": "nginx"}, "PHPSESSID=x; path=/", rules=ONLY_BUILTIN)[0]["verdict"])
+        self.assertEqual([], sa.match({"server": "nginx"}, "", rules=ONLY_BUILTIN))
 
 
 class ScanTests(unittest.TestCase):
     def _info(self, headers):
         resp = mock.Mock(headers=headers, text="<html></html>", history=[], url="https://example.org/")
         with mock.patch.object(security_checks, "_safe_host", return_value=True), \
-             mock.patch.object(security_checks, "_get", return_value=resp):
+             mock.patch.object(security_checks, "_get", return_value=resp), \
+             mock.patch.object(sa, "active_rules", return_value=ONLY_BUILTIN):
             return security_checks.check_info_disclosure("example.org")
 
     def test_a_vulnerable_version_is_a_critical_finding(self):
@@ -78,19 +84,19 @@ class FleetTests(unittest.TestCase):
         a private address would aim it at its own network."""
         first = mock.Mock(status_code=302, headers={"location": "http://127.0.0.1/admin", "X-Powered-By": "PHP/8.2.7"})
         with mock.patch("requests.get", return_value=first) as get:
-            result = sa.check_host("example.org", safe=lambda host: host not in ("127.0.0.1",))
+            result = sa.check_host("example.org", safe=lambda host: host not in ("127.0.0.1",), rules=ONLY_BUILTIN)
         self.assertEqual(1, get.call_count)
         self.assertEqual("vulnerable", result["advisories"][0]["verdict"])
 
     def test_no_answer_is_unmeasured(self):
         with mock.patch("requests.get", side_effect=OSError("down")):
-            result = sa.check_host("example.org", safe=lambda host: True)
+            result = sa.check_host("example.org", safe=lambda host: True, rules=ONLY_BUILTIN)
         self.assertEqual("unmeasured", result["state"])
 
     def test_only_the_home_page_is_asked_for(self):
         resp = mock.Mock(status_code=200, headers={"X-Powered-By": "PHP/8.5.12"})
         with mock.patch("requests.get", return_value=resp) as get:
-            sa.check_host("example.org", safe=lambda host: True)
+            sa.check_host("example.org", safe=lambda host: True, rules=ONLY_BUILTIN)
         self.assertEqual("https://example.org/", get.call_args[0][0])
         self.assertFalse(get.call_args[1]["allow_redirects"])
 
@@ -105,12 +111,12 @@ class CsvTests(unittest.TestCase):
         import io
         results = [
             {"domain": "a.example.org", "state": "measured", "powered_by": "PHP/8.2.7", "server": "Apache",
-             "url": "https://a.example.org/", "advisories": sa.match({"x-powered-by": "PHP/8.2.7"})},
+             "url": "https://a.example.org/", "advisories": sa.match({"x-powered-by": "PHP/8.2.7"}, rules=ONLY_BUILTIN)},
             {"domain": "b.example.org", "state": "measured", "server": "nginx", "advisories": []},
             {"domain": "c.example.org", "state": "unmeasured", "error": "No response", "advisories": []},
         ]
         rows = list(csv.DictReader(io.StringIO(sa.to_csv(results))))
-        self.assertEqual(["vulnerable", "no_php", "no_response"], [r["result"] for r in rows])
+        self.assertEqual(["vulnerable", "not_seen", "no_response"], [r["result"] for r in rows])
         self.assertEqual("CVE-2026-109618 CVE-2026-109619", rows[0]["cves"])
 
     def test_a_header_written_as_a_formula_is_defused(self):
@@ -126,7 +132,7 @@ class ExportPageTests(EnterpriseAppTestCase):
             {"domain": "a.example.org", "state": "measured", "advisories": []}]})
         self.assertEqual("text/csv", resp.mimetype)
         self.assertIn("domainlens-versions-", resp.headers["Content-Disposition"])
-        self.assertIn("a.example.org,no_php", resp.get_data(as_text=True))
+        self.assertIn("a.example.org,not_seen", resp.get_data(as_text=True))
 
     def test_the_page_lists_the_advisory_and_the_endpoint_takes_ten_at_a_time(self):
         self.login_as("user")
@@ -135,7 +141,7 @@ class ExportPageTests(EnterpriseAppTestCase):
         self.assertIn('href="/tools/versions"', html)
         seen = []
         with mock.patch.object(security_checks, "_safe_host", return_value=True), \
-             mock.patch.object(sa, "check_host", side_effect=lambda d: seen.append(d) or {"domain": d}):
+             mock.patch.object(sa, "check_host", side_effect=lambda d, **kw: seen.append(d) or {"domain": d}):
             self.client.post("/api/advisories/check", json={"domains": [f"site{n}.example.org" for n in range(15)]})
         self.assertEqual(10, len(seen))
 
@@ -145,6 +151,178 @@ class ExportPageTests(EnterpriseAppTestCase):
              mock.patch.object(sa, "check_host") as check:
             self.client.post("/api/advisories/check", json={"domains": ["intranet.example.org"]})
         check.assert_not_called()
+
+
+class VersionScopeTests(EnterpriseAppTestCase):
+    """Choosing an organisation unit used to be impossible: the only portfolio
+    scope was every held domain with a website, so a check of one company
+    also asked for the sites of the others."""
+
+    def setUp(self):
+        super().setUp()
+        self.login_as("user")
+
+    def _unit(self, name, parent=None):
+        import domain_portfolio
+        return domain_portfolio.ensure_group(name, parent_id=parent)
+
+    def _add(self, domain, unit_id=None, lifecycle=None, web=None):
+        body = {"text": domain}
+        if unit_id is not None:
+            body["unit_id"] = unit_id
+        if lifecycle:
+            body["lifecycle"] = lifecycle
+        resp = self.client.post("/api/portfolio/import", json=body)
+        self.assertEqual(201, resp.status_code, resp.get_data(as_text=True))
+        if web is not None:
+            with self.db._connect() as conn:
+                conn.execute("UPDATE portfolio_domains SET uses_web = ? WHERE domain = ?", (web, domain))
+
+    def _sites(self, unit=None):
+        url = "/api/advisories/sites" if unit is None else f"/api/advisories/sites?unit={unit}"
+        resp = self.client.get(url)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        return resp.get_json()
+
+    def test_the_whole_portfolio_leaves_out_what_is_not_a_held_website(self):
+        self._add("held.example")
+        self._add("unknown-web.example")
+        self._add("noweb.example", web="no")
+        self._add("wanted.example", lifecycle="claim")
+        self._add("lapsing.example", lifecycle="cancel")
+        self.assertEqual(["held.example", "unknown-web.example"], self._sites()["domains"])
+
+    def test_a_parent_unit_includes_the_units_under_it_and_not_its_sibling(self):
+        company = self._unit("North")
+        shop = self._unit("Shop", company)
+        other = self._unit("South")
+        self._add("north.example", unit_id=company)
+        self._add("shop.example", unit_id=shop)
+        self._add("south.example", unit_id=other)
+        self._add("loose.example")
+        self.assertEqual(["north.example", "shop.example"], self._sites(company)["domains"])
+
+    def test_the_old_group_parameter_still_limits_the_list(self):
+        """`?group=` was accepted by the portfolio export but ignored here,
+        so the same link checked the whole portfolio instead of one unit."""
+        unit = self._unit("North")
+        self._add("north.example", unit_id=unit)
+        self._add("south.example")
+        resp = self.client.get(f"/api/advisories/sites?group={unit}")
+        self.assertEqual(["north.example"], resp.get_json()["domains"])
+
+    def test_the_unit_list_comes_on_its_own_in_tree_order(self):
+        """Filling the dropdown used to compute the whole portfolio's site
+        list as well, only to throw it away."""
+        company = self._unit("North")
+        self._unit("Shop", company)
+        self._unit("South")
+        self._add("north.example", unit_id=company)
+        resp = self.client.get("/api/advisories/units")
+        self.assertEqual(200, resp.status_code)
+        body = resp.get_json()
+        self.assertEqual(["units"], list(body))
+        self.assertEqual(["North", "North › Shop", "South"], [u["path"] for u in body["units"]])
+        self.assertEqual({"id", "path"}, set(body["units"][0]))
+
+    def test_an_unknown_unit_is_refused_rather_than_returning_everything(self):
+        self._add("held.example")
+        resp = self.client.get("/api/advisories/sites?unit=99999")
+        self.assertEqual(404, resp.status_code)
+        self.assertNotIn("held.example", resp.get_data(as_text=True))
+
+    def test_a_unit_that_is_not_a_number_is_refused(self):
+        self.assertEqual(400, self.client.get("/api/advisories/sites?unit=north").status_code)
+
+    def test_the_portfolio_export_refuses_an_unknown_unit_instead_of_an_empty_file(self):
+        """The export answered a unit that does not exist with a CSV of only
+        headers, which reads as "this unit has no domains"."""
+        self._add("held.example")
+        resp = self.client.get("/api/portfolio/csv?unit=99999")
+        self.assertEqual(404, resp.status_code)
+        self.assertNotIn("held.example", resp.get_data(as_text=True))
+
+
+_VERSIONS_JS = pathlib.Path(__file__).resolve().parent.parent / "static" / "js" / "versions.js"
+
+# Just enough of a page for versions.js: $, requestJson, toast and a few
+# elements. The scenario below the source prints its result as JSON.
+_DOM_STUB = r"""
+function makeEl(tag) {
+    return { tagName: (tag || 'div').toUpperCase(), value: '', label: '', textContent: '',
+        dataset: {}, attrs: {}, children: [], listeners: {},
+        classList: { toggle() {}, add() {}, remove() {} },
+        addEventListener(type, fn) { this.listeners[type] = fn; },
+        setAttribute(k, v) { this.attrs[k] = v; },
+        appendChild(c) { this.children.push(c); return c; },
+        insertBefore(c, ref) {
+            const i = this.children.indexOf(ref);
+            this.children.splice(i < 0 ? this.children.length : i, 0, c);
+            return c;
+        },
+        querySelector() { return this.children.find(c => c.value === 'paste') || null; } };
+}
+const els = {};
+const $ = id => (els[id] = els[id] || makeEl());
+const document = { createElement: makeEl, addEventListener() {} };
+let requestJson = async () => ({});
+let toast = () => {};
+"""
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not installed")
+class VersionPageTests(unittest.TestCase):
+    """The page itself, run in Node: what it asks the server for."""
+
+    def _run(self, scenario):
+        script = _DOM_STUB + _VERSIONS_JS.read_text(encoding="utf-8") + "\n" + scenario
+        done = subprocess.run(["node", "-"], input=script, capture_output=True,
+                              text=True, encoding="utf-8", timeout=30)
+        self.assertEqual(0, done.returncode, done.stderr)
+        return json.loads(done.stdout.strip().splitlines()[-1])
+
+    def test_choosing_a_unit_asks_for_that_unit_not_the_whole_portfolio(self):
+        """The only portfolio choice used to be every held site, so checking
+        one company also sent requests to the sites of all the others."""
+        calls = self._run("""
+            const calls = [];
+            requestJson = async url => { calls.push(url); return { domains: [] }; };
+            (async () => {
+                $('vcScope').value = 'unit:7';
+                await vcPortfolioDomains();
+                $('vcScope').value = 'portfolio';
+                await vcPortfolioDomains();
+                console.log(JSON.stringify(calls));
+            })();
+        """)
+        self.assertEqual(["/api/advisories/sites?unit=7", "/api/advisories/sites"], calls)
+
+    def test_a_failed_unit_load_is_tried_again_and_fills_the_list_once(self):
+        """The list was marked as filled before the request; one failed load
+        left it without units until the page was reloaded."""
+        out = self._run("""
+            const calls = [];
+            let attempt = 0;
+            requestJson = async url => {
+                calls.push(url);
+                if (attempt++ === 0) throw new Error('down');
+                return { units: [{ id: 3, path: 'North' }] };
+            };
+            const paste = makeEl('option');
+            paste.value = 'paste';
+            $('vcScope').children.push(paste);
+            (async () => {
+                await vcLoadUnits().catch(() => {});
+                await Promise.all([vcLoadUnits(), vcLoadUnits()]);
+                await vcLoadUnits();
+                const groups = $('vcScope').children.filter(c => c.tagName === 'OPTGROUP');
+                console.log(JSON.stringify({ calls, groups: groups.map(g => g.children.map(o => o.value)),
+                                             last: $('vcScope').children.at(-1).value }));
+            })();
+        """)
+        self.assertEqual([["unit:3"]], out["groups"])
+        self.assertEqual("paste", out["last"])
+        self.assertEqual(["/api/advisories/units"] * 3, out["calls"])
 
 
 if __name__ == "__main__":

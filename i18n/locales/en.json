@@ -39,7 +39,8 @@
     "admin_users": "Users",
     "admin_audit": "Audit log",
     "admin_domains": "Verified domains",
-    "admin_risks": "Accepted risks"
+    "admin_risks": "Accepted risks",
+    "admin_advisories": "Vulnerability rules"
   },
   "search": {
     "placeholder": "Enter domain name (e.g. example.com)",

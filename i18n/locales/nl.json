@@ -39,7 +39,8 @@
     "admin_users": "Gebruikers",
     "admin_audit": "Auditlog",
     "admin_domains": "Geverifieerde domeinen",
-    "admin_risks": "Geaccepteerde risico's"
+    "admin_risks": "Geaccepteerde risico's",
+    "admin_advisories": "Kwetsbaarheidsregels"
   },
   "search": {
     "placeholder": "Voer een domeinnaam in (bijv. example.com)",

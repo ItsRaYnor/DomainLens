@@ -3053,3 +3053,16 @@ span.pf-shield { cursor: default; }
     display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 0.75rem; padding: 0.6rem 0.8rem;
     border: 1px solid var(--orange-line); border-radius: var(--radius); background: var(--orange-bg);
 }
+
+/* Admin -> Vulnerability rules */
+.ar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.75rem 1rem; margin: 0.75rem 0; }
+.ar-grid-wide { grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); }
+.ar-grid label { display: grid; gap: 0.3rem; align-content: start; font-size: 0.85rem; color: var(--text-muted); }
+.ar-grid input, .ar-grid select, .ar-grid textarea { width: 100%; box-sizing: border-box; }
+.ar-grid textarea { font-family: var(--font-mono); font-size: 0.8rem; }
+.ar-table td { vertical-align: top; overflow-wrap: anywhere; }
+#arProblems ul { margin: 0.4rem 0 0 1.1rem; padding: 0; }
+@media (max-width: 480px) { .ar-grid, .ar-grid-wide { grid-template-columns: 1fr; } }
+.ar-transfer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.5rem 0; }
+.ar-transfer input[type="file"] { max-width: 100%; }
+.ar-check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; color: var(--text-muted); }

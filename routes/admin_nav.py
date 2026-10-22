@@ -10,6 +10,7 @@ ADMIN_SUBNAV = [
     ("nav.admin_users", "/admin/users"),
     ("nav.admin_domains", "/admin/domains"),
     ("nav.admin_risks", "/admin/risks"),
+    ("nav.admin_advisories", "/admin/advisories"),
     ("nav.admin_audit", "/admin/audit"),
 ]
 

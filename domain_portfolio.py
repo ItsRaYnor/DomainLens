@@ -1101,6 +1101,29 @@ def list_all(today=None):
     return [_enrich(r, groups, today, people) for r in rows]
 
 
+def version_check_domains(unit_ids=None):
+    """Held domains a version check may list, in name order.
+
+    A website in use, or web use not measured yet. A domain known to have no
+    website is left out, and so is one being cancelled or only wanted: that
+    one is not the organisation's site.
+
+    `unit_ids` is None for the whole portfolio, or the ids of a unit and every
+    unit under it (see `descendants`). A domain that sits in no unit belongs
+    to the whole portfolio only, not to a unit that happens to exist.
+
+    Only the four columns that decide this are read: the full enrichment of
+    `list_all` (units, contacts, transfer and expiry state) is not needed.
+    """
+    with db._connect() as conn:
+        rows = conn.execute("SELECT domain, group_id, lifecycle, uses_web "
+                            "FROM portfolio_domains ORDER BY domain").fetchall()
+    return [r["domain"] for r in rows
+            if (unit_ids is None or r["group_id"] in unit_ids)
+            and r["lifecycle"] not in _NOT_HELD
+            and r["uses_web"] != "no"]
+
+
 def get(domain_id):
     with db._connect() as conn:
         row = conn.execute("SELECT * FROM portfolio_domains WHERE id = ?", (int(domain_id),)).fetchone()

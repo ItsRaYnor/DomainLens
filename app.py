@@ -4241,6 +4241,26 @@ def _unit_arg(source, key="unit_id", legacy="group_id"):
     return value if value not in (None, "") else source.get(legacy)
 
 
+def _unit_below(source, groups=None):
+    """The unit a request is limited to and every unit under it, as a set of
+    ids, or None when it names no unit (the whole portfolio).
+
+    Read from `unit`, or `group` as it was called before. ValueError when the
+    value is not a number, LookupError when no such unit exists: a unit that
+    is not there is refused, never answered with an empty or a full list."""
+    raw = _unit_arg(source, "unit", "group")
+    if raw in (None, ""):
+        return None
+    try:
+        unit_id = int(raw)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid unit") from None
+    groups = groups if groups is not None else domain_portfolio.list_groups()
+    if not any(g["id"] == unit_id for g in groups):
+        raise LookupError("Unknown unit")
+    return domain_portfolio.descendants(unit_id, groups)
+
+
 def _portfolio_payload():
     domains = domain_portfolio.list_all()
     groups = domain_portfolio.list_groups()
@@ -4272,13 +4292,14 @@ def api_portfolio():
 
 @app.route("/api/portfolio/csv", methods=["GET"])
 def api_portfolio_csv():
-    domains, _ = _portfolio_payload()
-    group = _unit_arg(request.args, "unit", "group")
-    if group:
-        try:
-            below = domain_portfolio.descendants(int(group))
-        except ValueError:
-            return jsonify({"error": "Invalid unit"}), 400
+    domains, groups = _portfolio_payload()
+    try:
+        below = _unit_below(request.args, groups)
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if below is not None:
         domains = [d for d in domains if d.get("group_id") in below]
     return Response(domain_portfolio.to_csv(domains), mimetype="text/csv", headers={
         "Content-Disposition": "attachment; filename=domainlens-portfolio.csv"})
@@ -4680,13 +4701,36 @@ def api_portfolio_check(domain_id):
     return jsonify(domain_portfolio.get(domain_id))
 
 
+@app.route("/api/advisories/sites", methods=["GET"])
+def api_advisories_sites():
+    """The sites the version check runs over. `unit` is that unit and every
+    unit under it; without it, the whole portfolio. A domain with no website,
+    or one that is not held, is not in the list."""
+    try:
+        below = _unit_below(request.args)
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"domains": domain_portfolio.version_check_domains(below)})
+
+
+@app.route("/api/advisories/units", methods=["GET"])
+def api_advisories_units():
+    """The organisation units the version check can be limited to, in tree
+    order. The path carries the hierarchy, so nothing else is sent."""
+    return jsonify({"units": [{"id": g["id"], "path": g["path"]}
+                              for g in domain_portfolio.list_groups()]})
+
+
 @app.route("/tools/versions")
 def lookup_versions_view():
     """Known vulnerable software versions across the organisation's sites."""
     import software_advisories
     return render_template(
-        "lookup_versions.html", section="tools", advisories=software_advisories.ADVISORIES,
-        subnav=_subnav(_TOOLS_SUBNAV, "/tools/versions"))
+        "lookup_versions.html", section="tools", advisories=software_advisories.active_rules(),
+        subnav=_subnav(_TOOLS_SUBNAV, "/tools/versions"),
+        is_admin=(not auth.config().get("enabled")) or roles.at_least(auth.current_role(), roles.ADMIN))
 
 
 _VERSION_CHECK_BATCH = 10
@@ -4706,8 +4750,10 @@ def api_advisories_check():
         domain = _normalize_domain(str(raw))
         if _is_valid_domain(domain) and security_checks._safe_host(domain) and domain not in domains:
             domains.append(domain)
+    # The rules are read once for the batch, not once per domain.
+    rules = software_advisories.active_rules()
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
-        results = list(pool.map(software_advisories.check_host, domains))
+        results = list(pool.map(lambda d: software_advisories.check_host(d, rules=rules), domains))
     return jsonify({"results": results})
 
 
