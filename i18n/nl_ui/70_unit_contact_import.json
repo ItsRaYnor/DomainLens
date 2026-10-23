@@ -1,0 +1,46 @@
+{
+ "text": {
+  "The person to ask about this unit and its domains. Units and domains below it have this contact unless they name their own.": "De persoon bij wie je terechtkunt over deze eenheid en haar domeinen. Eenheden en domeinen eronder hebben deze contactpersoon, tenzij ze er zelf een noemen.",
+  "Contact of this unit": "Contactpersoon van deze eenheid",
+  "An existing contact, an account, or \"New contact…\" to add someone.": "Een bestaande contactpersoon, een account, of \"Nieuwe contactpersoon…\" om iemand toe te voegen.",
+  "Save contact": "Contactpersoon opslaan",
+  "Remove contact": "Contactpersoon verwijderen",
+  "Edit contact details": "Gegevens van contactpersoon bewerken",
+  "No contact yet, here or in a unit above it.": "Nog geen contactpersoon, hier of in een eenheid erboven.",
+  "Inherited from": "Overgenomen van",
+  "Nothing changed.": "Er is niets veranderd.",
+  "Contact removed.": "Contactpersoon verwijderd.",
+  "For new domains, and domains not in a unit yet, on lines that name no unit themselves.": "Voor nieuwe domeinen, en domeinen die nog in geen eenheid staan, op regels die zelf geen eenheid noemen.",
+  "Domains already in the portfolio are updated from the columns the file has: export the CSV, change a decision or switch threat intelligence on, and import it again. Columns DomainLens measures itself, such as phase, registrar, mail and web, are not read. Afterwards the result shows per domain what changed from what to what, and every value that could not be used.": "Domeinen die al in het portfolio staan, worden bijgewerkt met de kolommen die het bestand heeft: exporteer de CSV, wijzig een besluit of zet threat intelligence aan, en importeer hem opnieuw. Kolommen die DomainLens zelf meet, zoals fase, registrar, mail en web, worden niet gelezen. Daarna toont het resultaat per domein wat er van wat naar wat is veranderd, en elke waarde die niet gebruikt kon worden.",
+  "Changes to domains already in the portfolio": "Wijzigingen aan domeinen die al in het portfolio stonden",
+  "Values from the file that were not used": "Waarden uit het bestand die niet zijn gebruikt",
+  "Not a decision this tool knows": "Geen besluit dat deze tool kent",
+  "Not yes or no": "Geen ja of nee",
+  "Name the unit on the line itself to move a domain.": "Noem de eenheid op de regel zelf om een domein te verplaatsen.",
+  "On more than one line: only the first line was used": "Op meer dan één regel: alleen de eerste regel is gebruikt",
+  "Columns not read": "Kolommen die niet zijn gelezen",
+  "DomainLens measures these itself, or does not know them; their values in the file were not used.": "DomainLens meet deze zelf, of kent ze niet; hun waarden in het bestand zijn niet gebruikt."
+ },
+ "patterns": [
+  [
+   "None\\ of\\ its\\ own\\ \\(inherits\\ (.+?)\\)",
+   "Geen eigen (neemt $1 over)"
+  ],
+  [
+   "Remove\\ (.+?)\\ as\\ the\\ contact\\ of\\ (.+?)\\?\\ The\\ contact\\ itself\\ is\\ kept;\\ this\\ unit\\ then\\ has\\ the\\ contact\\ of\\ the\\ unit\\ above\\ it,\\ if\\ that\\ has\\ one\\.",
+   "$1 verwijderen als contactpersoon van $2? De contactpersoon zelf blijft bestaan; deze eenheid krijgt dan de contactpersoon van de eenheid erboven, als die er een heeft."
+  ],
+  [
+   "(\\d[\\d.,]*)\\ added,\\ (\\d[\\d.,]*)\\ updated,\\ (\\d[\\d.,]*)\\ unchanged\\.",
+   "$1 toegevoegd, $2 bijgewerkt, $3 ongewijzigd."
+  ],
+  [
+   "New\\ domains\\ without\\ a\\ unit\\ on\\ their\\ line\\ went\\ to\\ (.+?)\\.",
+   "Nieuwe domeinen zonder eenheid op hun regel zijn naar $1 gegaan."
+  ],
+  [
+   "Already\\ in\\ a\\ unit,\\ so\\ not\\ moved\\ to\\ (.+?)",
+   "Staat al in een eenheid, dus niet verplaatst naar $1"
+  ]
+ ]
+}

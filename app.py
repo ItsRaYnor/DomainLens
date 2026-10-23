@@ -4328,7 +4328,8 @@ def api_portfolio_import():
     else:
         data = request.get_json(silent=True) or {}
         text, group = str(data.get("text") or ""), _unit_arg(data, "unit", "group")
-    entries, rejected, converted, extras = domain_portfolio.parse_import_full(text)
+    parsed = domain_portfolio.parse_import_details(text)
+    entries, rejected, converted = parsed["entries"], parsed["rejected"], parsed["converted"]
     if not entries:
         return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
     try:
@@ -4336,16 +4337,22 @@ def api_portfolio_import():
         result = domain_portfolio.import_domains(
             entries, default_group=(group or "").strip() or None,
             default_group_id=int(group_id) if group_id not in (None, "") else None,
-            created_by=(auth.current_user() or {}).get("email"), extras=extras,
-            default_lifecycle=(data if upload is None else request.form).get("lifecycle"))
+            created_by=(auth.current_user() or {}).get("email"), extras=parsed["extras"],
+            default_lifecycle=(data if upload is None else request.form).get("lifecycle"),
+            labels=parsed["labels"])
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     monitored = _monitor_new_in_units(set(result["added"]) | set(result["moved"]))
+    # What changed on domains that were already there, field by field: an
+    # import can rewrite hundreds of decisions, and the log should say which.
     audit_log.record("portfolio.import", target_type="portfolio",
                      details={"added": len(result["added"]), "moved": len(result["moved"]),
-                              "monitored": len(monitored)})
+                              "updated": len(result["updated"]), "unchanged": len(result["unchanged"]),
+                              "not_used": len(result["not_used"]), "monitored": len(monitored),
+                              "changes": result["changes"][:500]})
     return jsonify({**result, "monitored": monitored, "rejected": rejected[:50],
-                    "converted": [{"from": k, "to": v} for k, v in list(converted.items())[:50]]}), 201
+                    "converted": [{"from": k, "to": v} for k, v in list(converted.items())[:50]],
+                    "columns": parsed["columns"], "repeated": parsed["repeated"][:50]}), 201
 
 
 @app.route("/api/organisation/units", methods=["POST"])
@@ -4393,11 +4400,26 @@ def api_portfolio_group(group_id):
     if "contact_id" in data:
         changes["contact_id"] = data.get("contact_id")
     try:
-        group = domain_portfolio.update_group(group_id, **changes)
+        updated = domain_portfolio.update_group(group_id, **changes)
     except (TypeError, ValueError) as exc:
         return jsonify({"error": str(exc) or "Invalid unit"}), 400
-    audit_log.record("portfolio.group_update", target_type="portfolio", target_id=group["path"])
-    return jsonify(group)
+    audit_log.record("portfolio.group_update", target_type="portfolio", target_id=updated["path"],
+                     details={"changes": _unit_changes(group, updated)})
+    return jsonify(updated)
+
+
+def _unit_changes(before, after):
+    """{field: {"from", "to"}} for what an edit of a unit changed. The
+    contact is the unit's own: one it inherits is not its to change."""
+    def own_contact(g):
+        person = g.get("contact") if g.get("contact_id") else None
+        return {"id": person["id"], "name": person["name"]} if person else None
+
+    fields = (("name", lambda g: g["name"]), ("parent_id", lambda g: g["parent_id"]),
+              ("expected_registrar", lambda g: g.get("expected_registrar")),
+              ("notify_emails", lambda g: g.get("notify_emails")), ("contact", own_contact))
+    return {name: {"from": read(before), "to": read(after)}
+            for name, read in fields if read(before) != read(after)}
 
 
 def _monitors_by_domain():
@@ -4748,7 +4770,9 @@ def api_advisories_check():
     domains = []
     for raw in (data.get("domains") or [])[:_VERSION_CHECK_BATCH]:
         domain = _normalize_domain(str(raw))
-        if _is_valid_domain(domain) and security_checks._safe_host(domain) and domain not in domains:
+        # Whether a domain may be asked is check_host's to say, per host:
+        # one without an address comes back saying so, never left out.
+        if _is_valid_domain(domain) and domain not in domains:
             domains.append(domain)
     # The rules are read once for the batch, not once per domain.
     rules = software_advisories.active_rules()

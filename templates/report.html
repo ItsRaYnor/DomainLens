@@ -299,6 +299,11 @@
         {% if info.success and info.technologies %}
         <p><strong>Detected technologies:</strong> {{ info.technologies|join(', ') }}</p>
         {% endif %}
+        {% if info.success and info.redirect %}
+        <p>This domain redirects to <span class="mono">{{ info.redirect.domain }}</span>. What that server shows
+            is its own, not this domain's:
+            <span class="mono">{{ [info.redirect.powered_by, info.redirect.server, info.redirect.generator]|select|join(' · ') or '—' }}</span></p>
+        {% endif %}
         {% endif %}
 
         {% set hs = results.hubspot_cf or {} %}

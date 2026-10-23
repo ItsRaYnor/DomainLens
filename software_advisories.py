@@ -360,6 +360,28 @@ def finding(adv):
     return None
 
 
+def redirect_finding(adv, target, url=""):
+    """The scan finding for a vulnerable version on the other domain this
+    domain redirects to, or None.
+
+    Its visitors end up on that server, so the risk is theirs; the fix is
+    on that server, not on this domain's own. Said as such, with the other
+    domain named, so it is never read as this domain's own version. A
+    version that server hides is for its own scan to say."""
+    if adv.get("verdict") != "vulnerable":
+        return None
+    rule = next((r for r in _BUILTIN if r["id"] == adv.get("advisory")), {})
+    product = adv.get("product") or rule.get("product") or "the software"
+    cves = ", ".join(adv.get("cves") or [])
+    fix = adv.get("fix") or rule.get("fix") or f"Update {product} to the release with the fix."
+    return {"severity": adv.get("severity") or rule.get("severity") or "high",
+            "title": f"{adv['name']} ({cves}): {target}, where this domain redirects, shows a vulnerable {product} version",
+            "detail": (f"This domain sends its visitors to {url or target}. That server, not this domain's own, "
+                       f"shows the version: {adv['reason']}"),
+            "fix": f"For whoever runs {target}: {fix}",
+            "evidence": adv.get("version") or ""}
+
+
 def generator_of(body):
     """The content of the page's <meta name="generator">, or None."""
     found = _GENERATOR_TAG.search(body[:20000]) if isinstance(body, str) else None
@@ -374,34 +396,116 @@ def wanted_headers(rules):
     return names
 
 
-def read_response(resp, rules):
-    """What a response and the redirects before it show: (headers, cookies,
-    url, generator). A redirect can carry the version even when the final
-    page does not. The page itself is read only when a rule asks for its
-    generator tag."""
+def _site(host, fallback=""):
+    """The registered domain a host belongs to: example.org for www.example.org."""
+    from domain_portfolio import registrable
+    host = (host or fallback or "").lower().rstrip(".")
+    return registrable(host) if host else ""
+
+
+def _url_of(step):
+    url = getattr(step, "url", "")
+    return url if isinstance(url, str) else ""
+
+
+def hops_of(resp, rules):
+    """Every response on the way to the page, first to last, each with the
+    headers the rules read: {"url", "host", "status", "headers", "cookies"}."""
+    import urllib.parse
     wanted = wanted_headers(rules)
-    merged, cookies = {}, []
+    hops = []
     for step in list(getattr(resp, "history", []) or []) + [resp]:
+        headers, cookies = {}, []
         for key, value in step.headers.items():
             key = key.lower()
             if key == "set-cookie":
                 cookies.append(value)
-            elif key in wanted and value and value not in merged.setdefault(key, []):
+            elif key in wanted and value:
+                headers[key] = value
+        url = _url_of(step)
+        hops.append({"url": url, "host": urllib.parse.urlsplit(url).hostname or "",
+                     "status": getattr(step, "status_code", None), "headers": headers, "cookies": " ".join(cookies)})
+    return hops
+
+
+def split_hops(hops, domain):
+    """(own, target_site, target): the hops on the domain's own registered
+    domain (http to https, www., a subdomain), and, when the chain ends on
+    another registered domain, that domain and its hops.
+
+    A redirect to another domain hands the visitor to another server. What
+    that server shows is its measurement, not the domain's: counting it as
+    the domain's would report one site's PHP as another's."""
+    site = _site(domain)
+    count = 1  # the first answer always comes from the domain itself
+    while count < len(hops) and _site(hops[count]["host"], domain) == site:
+        count += 1
+    own, rest = hops[:count], hops[count:]
+    if not rest:
+        return own, None, []
+    target_site = _site(rest[-1]["host"], domain)
+    target = []
+    for hop in reversed(rest):
+        if _site(hop["host"], domain) != target_site:
+            break
+        target.insert(0, hop)
+    return own, target_site, target
+
+
+def _side(hops, generator, rules):
+    merged, cookies = {}, []
+    for hop in hops:
+        for key, value in hop["headers"].items():
+            if value not in merged.setdefault(key, []):
                 merged[key].append(value)
-    headers = {key: " ".join(values) for key, values in merged.items() if values}
+        if hop["cookies"]:
+            cookies.append(hop["cookies"])
+    headers = {key: " ".join(values) for key, values in merged.items()}
+    url = hops[-1]["url"]
+    found = match(headers, " ".join(cookies), url, generator, rules=rules)
+    return {"url": url, "status": hops[-1]["status"], "server": headers.get("server"),
+            "powered_by": headers.get("x-powered-by"), "generator": generator, "seen": bool(found),
+            "advisories": found}
+
+
+def measure(resp, domain, rules):
+    """What the domain's own server shows, and apart from it what the server
+    shows that a redirect to another registered domain ends on.
+
+    {"url", "status", "server", "powered_by", "generator", "seen",
+    "advisories", "redirect": None | {"domain", ...the same keys}, "hops":
+    [{"url", "status", "server", "powered_by", "own"}]}. A redirect can carry
+    the version even when the final page does not, so every hop on the
+    domain's own name counts. The page itself is read only when a rule asks
+    for its generator tag, and belongs to the side it was served on."""
+    hops = hops_of(resp, rules)
+    own, target_site, target = split_hops(hops, domain)
     generator = None
     if any(GENERATOR in rule["sources"] for rule in rules):
         generator = generator_of(getattr(resp, "text", ""))
-    return headers, " ".join(cookies), getattr(resp, "url", "") or "", generator
+    result = _side(own, None if target else generator, rules)
+    result["redirect"] = {"domain": target_site, **_side(target, generator, rules)} if target else None
+    result["hops"] = [{"url": h["url"], "status": h["status"], "server": h["headers"].get("server"),
+                       "powered_by": h["headers"].get("x-powered-by"), "own": i < len(own)}
+                      for i, h in enumerate(hops)]
+    return result
 
 
-class _Followed:
+class _Step:
+    """One answer on the way, with the address it came from."""
+
+    def __init__(self, resp, url):
+        self.headers, self.status_code, self.url = resp.headers, resp.status_code, url
+        text = getattr(resp, "text", "")
+        self.text = text if isinstance(text, str) else ""
+
+
+class _Followed(_Step):
     """The last response of a chain of redirects, with the ones before it."""
 
     def __init__(self, resp, history, url):
-        self.headers, self.status_code, self.history, self.url = resp.headers, resp.status_code, history, url
-        text = getattr(resp, "text", "")
-        self.text = text if isinstance(text, str) else ""
+        super().__init__(resp, url)
+        self.history = history
 
 
 def _fetch(url, safe, max_hops=5):
@@ -411,59 +515,111 @@ def _fetch(url, safe, max_hops=5):
     import urllib.parse
     import requests
     history = []
+    here = url
     for _ in range(max_hops + 1):
         resp = requests.get(url, timeout=8, allow_redirects=False,
                             headers={"User-Agent": "Mozilla/5.0 (compatible; DomainLens version check)"})
         location = resp.headers.get("location")
         if resp.status_code not in (301, 302, 303, 307, 308) or not location:
             return _Followed(resp, history, url)
-        history.append(resp)
-        url = urllib.parse.urljoin(url, location)
+        here, url = url, urllib.parse.urljoin(url, location)
         host = urllib.parse.urlsplit(url).hostname or ""
         if urllib.parse.urlsplit(url).scheme not in ("http", "https") or not safe(host):
-            return _Followed(resp, history[:-1], url)  # stop at the last safe answer
-    return _Followed(resp, history[:-1], url)
+            return _Followed(resp, history, here)  # stop at the last safe answer
+        history.append(_Step(resp, here))
+    return _Followed(resp, history[:-1], here)
 
 
-def check_host(domain, get=None, safe=None, rules=None):
+def address_of(host):
+    """What DNS says about a host before anything is asked of it: "public",
+    "private" (an address inside a network, never asked), "none" (DNS
+    answers, without an address) or "failed" (DNS gave no answer)."""
+    from security_checks import _is_private_ip, _resolve
+    ips = _resolve(host, "A")
+    if ips:
+        return "private" if _is_private_ip(ips[0]) else "public"
+    return "none" if getattr(ips, "state", "measured") == "measured" else "failed"
+
+
+def check_host(domain, get=None, safe=None, rules=None, address=None):
     """The fleet check for one domain: its home page asked for once (https,
     then http, then www.), every response on the way read, nothing else.
-    {"domain", "url", "state", "seen", "advisories", "error"}; state is
-    "measured" (a response came), "unmeasured" (none did)."""
+    {"domain", "url", "state", "seen", "advisories", "redirect", "hops",
+    "error"} (see measure). state is "measured" (a response came),
+    "unmeasured" (no response, or DNS gave no answer), "no_address" (DNS
+    says the domain and its www. have no address: there is no website to
+    ask) or "not_checked" (an address inside a network, never asked).
+
+    A domain is never left out: one that cannot be checked says why, so a
+    list of results never silently has fewer domains than were asked for."""
     if rules is None:
         rules = active_rules()
+    if address is None:
+        address = (lambda host: "public" if safe(host) else "private") if safe else address_of  # noqa: E731
+    if safe is None:
+        safe = lambda host: address(host) == "public"  # noqa: E731
     if get is None:
-        if safe is None:
-            from security_checks import _safe_host as safe
         get = lambda url: _fetch(url, safe)  # noqa: E731
-    candidates = [f"https://{domain}/", f"http://{domain}/"]
+    candidates = [(f"https://{domain}/", domain), (f"http://{domain}/", domain)]
     if not domain.startswith("www."):
-        candidates += [f"https://www.{domain}/"]
-    errors = []
-    for url in candidates:
+        candidates += [(f"https://www.{domain}/", f"www.{domain}")]
+    # What was looked up and asked, in order, for the page's details: the
+    # answer and the way to it, so a result can be checked by hand.
+    known, errors, attempts = {}, [], []
+    for url, host in candidates:
+        if host not in known:
+            known[host] = address(host)
+        if known[host] != "public":
+            continue
         try:
             resp = get(url)
         except Exception as exc:
             errors.append(type(exc).__name__)
+            attempts.append({"url": url, "error": type(exc).__name__})
             continue
-        headers, cookies, final, generator = read_response(resp, rules)
-        found = match(headers, cookies, final or url, generator, rules=rules)
-        return {"domain": domain, "url": final or url, "state": "measured",
-                "status": getattr(resp, "status_code", None),
-                "server": headers.get("server"), "powered_by": headers.get("x-powered-by"),
-                "generator": generator, "seen": bool(found), "advisories": found, "error": None}
-    return {"domain": domain, "url": None, "state": "unmeasured", "seen": None, "advisories": [],
-            "error": "No response over https, http or www (" + ", ".join(dict.fromkeys(errors)) + ")"}
+        attempts.append({"url": url, "error": None})
+        measured = measure(resp, domain, rules)
+        return {"domain": domain, "state": "measured", **measured, "url": measured["url"] or url, "error": None,
+                "lookups": [{"host": h, "address": a} for h, a in known.items()], "attempts": attempts}
+    base = {"domain": domain, "url": None, "seen": None, "advisories": [], "redirect": None, "hops": [],
+            "lookups": [{"host": h, "address": a} for h, a in known.items()], "attempts": attempts}
+    states = set(known.values())
+    if errors:
+        return {**base, "state": "unmeasured",
+                "error": "No response over https, http or www (" + ", ".join(dict.fromkeys(errors)) + ")"}
+    if "failed" in states:
+        return {**base, "state": "unmeasured",
+                "error": "The DNS lookup gave no answer, so whether the site has an address is not known."}
+    if "private" in states:
+        return {**base, "state": "not_checked",
+                "error": "Resolves to an address inside a network; not asked, so this server is not aimed at "
+                         "its own network."}
+    return {**base, "state": "no_address",
+            "error": "No address in DNS for the domain or its www.: there is no website to ask."}
 
 
-CSV_COLUMNS = ["domain", "result", "advisory", "cves", "verdict", "version_shown", "x_powered_by", "server",
-               "reason", "url"]
+CSV_COLUMNS = ["domain", "measured_on", "result", "advisory", "cves", "verdict", "version_shown", "x_powered_by",
+               "server", "reason", "url"]
+
+
+def _csv_rows(domain, measured_on, side):
+    base = {"domain": domain, "measured_on": measured_on, "x_powered_by": side.get("powered_by"),
+            "server": side.get("server"), "url": side.get("url")}
+    advisories = side.get("advisories") or []
+    if not advisories:
+        return [{**base, "result": "not_seen"}]
+    return [{**base, "result": a.get("verdict"), "advisory": a.get("name"), "cves": " ".join(a.get("cves") or []),
+             "verdict": a.get("verdict"), "version_shown": a.get("version"), "reason": a.get("reason")}
+            for a in advisories]
 
 
 def to_csv(results):
     """The version check as CSV, one row per domain and advisory, for the
-    teams that patch. Every cell came from a server that is not ours, so a
-    value a spreadsheet would run as a formula is defused."""
+    teams that patch. `measured_on` names the server a row was read from:
+    the domain itself, or the other domain a redirect sends its visitors to
+    (those rows come after the domain's own). Every cell came from a server
+    that is not ours, so a value a spreadsheet would run as a formula is
+    defused."""
     import csv
     import io
     from whois_batch import _csv_safe
@@ -471,17 +627,15 @@ def to_csv(results):
     writer = csv.writer(out)
     writer.writerow(CSV_COLUMNS)
     for r in results:
-        base = {"domain": r.get("domain"), "x_powered_by": r.get("powered_by"), "server": r.get("server"),
-                "url": r.get("url")}
-        advisories = r.get("advisories") or []
+        domain = r.get("domain")
         if r.get("state") != "measured":
-            rows = [{**base, "result": "no_response", "reason": r.get("error")}]
-        elif not advisories:
-            rows = [{**base, "result": "not_seen"}]
+            result = {"no_address": "no_address", "not_checked": "not_checked"}.get(r.get("state"), "no_response")
+            rows = [{"domain": domain, "measured_on": domain, "result": result, "reason": r.get("error")}]
         else:
-            rows = [{**base, "result": a.get("verdict"), "advisory": a.get("name"), "cves": " ".join(a.get("cves") or []),
-                     "verdict": a.get("verdict"), "version_shown": a.get("version"), "reason": a.get("reason")}
-                    for a in advisories]
+            rows = _csv_rows(domain, domain, r)
+            redirect = r.get("redirect")
+            if isinstance(redirect, dict):
+                rows += _csv_rows(domain, redirect.get("domain"), redirect)
         for row in rows:
             writer.writerow([_csv_safe(row.get(c)) for c in CSV_COLUMNS])
     return out.getvalue()

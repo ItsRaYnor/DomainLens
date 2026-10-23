@@ -48,24 +48,71 @@ async function vcLoadUnits() {
 }
 
 function vcPasted() {
+    // "https://example.org/home", "//example.org" and "/example.org" are all example.org.
     return [...new Set($('vcDomains').value.split(/[\s,;]+/).map(s => s.trim().toLowerCase()
-        .replace(/^https?:\/\//, '').replace(/\/.*$/, '')).filter(s => s.includes('.')))];
+        .replace(/^https?:/, '').replace(/^\/+/, '').replace(/\/.*$/, '')).filter(s => s.includes('.')))];
 }
 
 // One row per domain: what the server shows, and the verdict per rule.
 // "Not seen" (none of the software the rules look for) and "no response"
 // are their own states, never "has the fix".
+function vcVerdict(side) {
+    if (!(side.advisories || []).length) return ['None of the software seen', 'muted', 4];
+    return side.advisories.map(a => VC_VERDICT[a.verdict] || VC_VERDICT.cannot_tell).sort((a, b) => a[2] - b[2])[0];
+}
+
 function vcState(r) {
+    if (r.state === 'no_address') return ['No website in DNS', 'muted', 5];
+    if (r.state === 'not_checked') return ['Not checked', 'muted', 5];
     if (r.state !== 'measured') return ['No response', 'status-warn', 2];
-    if (!(r.advisories || []).length) return ['None of the software seen', 'muted', 4];
-    const worst = r.advisories.map(a => VC_VERDICT[a.verdict] || VC_VERDICT.cannot_tell).sort((a, b) => a[2] - b[2])[0];
-    return worst;
+    return vcVerdict(r);
+}
+
+function vcShown(side) {
+    const shown = [side.powered_by, side.server, side.generator].filter(Boolean).join(' · ');
+    return shown ? `<code>${esc(shown)}</code>` : '<span class="muted">—</span>';
+}
+
+const VC_ADDRESS = {
+    public: 'Public address', none: 'No address', failed: 'No answer from DNS', private: 'Inside a network, not asked',
+};
+
+// What was looked up and asked for one domain, and every answer on the way:
+// the result can be followed by hand. Each text its own element, so the
+// page's translation finds it.
+function vcDetails(r) {
+    const value = (name, v) => (v ? ` · <span>${esc(name)}</span> <code>${esc(v)}</code>` : '');
+    let html = '<div class="vc-detail-block"><strong>DNS</strong><ul>'
+        + (r.lookups || []).map(l => `<li><code>${esc(l.host)}</code> <span>${esc(VC_ADDRESS[l.address] || l.address)}</span></li>`).join('')
+        + '</ul></div>';
+    if ((r.attempts || []).length) {
+        html += '<div class="vc-detail-block"><strong>Asked for</strong><ul>'
+            + r.attempts.map(a => `<li><code>${esc(a.url)}</code> `
+                + (a.error ? `<span>${esc(`No answer: ${a.error}`)}</span>` : '<span>Answered</span>') + '</li>').join('')
+            + '</ul></div>';
+    }
+    if ((r.hops || []).length) {
+        const other = (r.redirect || {}).domain || '';
+        html += '<div class="vc-detail-block"><strong>Steps</strong><ol>'
+            + r.hops.map(h => `<li><code>${esc(h.url || '')}</code> <span class="vc-hop-status">${esc(String(h.status ?? ''))}</span>`
+                + value('Server', h.server) + value('X-Powered-By', h.powered_by)
+                + ` · <span class="${h.own ? '' : 'vc-hop-other'}">${h.own ? 'This domain' : esc(`Other domain: ${other}`)}</span></li>`).join('')
+            + '</ol></div>';
+    }
+    return `<details class="vc-details"><summary>Details</summary>${html}</details>`;
+}
+
+// The advisory's name and its reason apart, each its own text.
+function vcWhy(side, where) {
+    return (side.advisories || []).map(a => `<div><strong>${esc(a.name)}</strong> `
+        + (where ? `<span class="muted">${esc(`On ${where}:`)}</span> ` : '') + `<span>${esc(a.reason)}</span></div>`).join('');
 }
 
 function vcRender() {
     const sorted = [...vcRows].sort((a, b) => vcState(a)[2] - vcState(b)[2] || a.domain.localeCompare(b.domain));
     const count = label => vcRows.filter(r => vcState(r)[0] === label).length;
-    const summary = ['Vulnerable', 'Cannot tell from outside', 'Has the fix', 'Not affected', 'None of the software seen', 'No response']
+    const summary = ['Vulnerable', 'Cannot tell from outside', 'Has the fix', 'Not affected', 'None of the software seen', 'No response',
+        'No website in DNS', 'Not checked']
         .map(label => `<span class="vc-count"><strong>${count(label)}</strong> ${esc(label)}</span>`).join('');
     $('vcResult').innerHTML = `<section class="card"><div class="lc-head"><h3>${esc(`${vcRows.length} site(s) checked`)}</h3>`
         + '<button class="btn-ghost-sm" id="vcExport" type="button">Export CSV</button></div>'
@@ -74,13 +121,21 @@ function vcRender() {
         + '<tr><th>Domain</th><th>Result</th><th>Shown by the server</th><th>Why</th></tr>'
         + sorted.map(r => {
             const [label, cls] = vcState(r);
-            const shown = [r.powered_by, r.server, r.generator].filter(Boolean).join(' · ');
-            // The advisory's name and its reason apart, each its own text.
-            const why = r.state !== 'measured' ? `<span>${esc(r.error || '')}</span>`
-                : (r.advisories || []).map(a => `<div><strong>${esc(a.name)}</strong> <span>${esc(a.reason)}</span></div>`).join('');
-            return `<tr><td><code>${esc(r.domain)}</code></td><td><span class="status ${cls}">${esc(label)}</span></td>`
-                + `<td>${shown ? `<code>${esc(shown)}</code>` : '<span class="muted">—</span>'}</td>`
-                + `<td>${why}</td></tr>`;
+            const details = `<tr class="vc-detail-row"><td colspan="4">${vcDetails(r)}</td></tr>`;
+            if (r.state !== 'measured') {
+                return `<tr><td><code>${esc(r.domain)}</code></td><td><span class="status ${cls}">${esc(label)}</span></td>`
+                    + `<td><span class="muted">—</span></td><td><span>${esc(r.error || '')}</span></td></tr>` + details;
+            }
+            // A redirect to another domain ends on another server: its
+            // verdict is that domain's, shown under the domain's own.
+            const to = r.redirect;
+            const [toLabel, toCls] = to ? vcVerdict(to) : [];
+            const toName = to ? `<code>${esc(to.domain)}</code>` : '';
+            return `<tr><td><code>${esc(r.domain)}</code></td><td><span class="status ${cls}">${esc(label)}</span>`
+                + (to ? `<div class="vc-redirect"><span>Redirects to</span> ${toName}: <span class="status ${toCls}">${esc(toLabel)}</span></div>` : '')
+                + `</td><td>${vcShown(r)}`
+                + (to ? `<div class="vc-redirect">${toName}: ${vcShown(to)}</div>` : '')
+                + `</td><td>${vcWhy(r)}${to ? vcWhy(to, to.domain) : ''}</td></tr>` + details;
         }).join('')
         + '</table></div></section>';
     $('vcExport').addEventListener('click', vcExport);

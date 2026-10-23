@@ -98,13 +98,90 @@ function unitRender(d) {
         : '<li class="muted">No changes yet.</li>';
 }
 
+// The unit's contact: who it is now (its own, or the one it inherits and
+// from where), and for those who may edit, a choice to add, change or remove
+// its own. Uses contactOptions and friends from contact_picker.js.
+const unitState = { unit: null, canEdit: false };
+
+function unitContactRender(unit) {
+    const c = unit.contact;
+    const reach = c ? [c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '', c.phone ? esc(c.phone) : '']
+        .filter(Boolean) : [];
+    let html;
+    if (!c) {
+        html = '<p class="muted">No contact yet, here or in a unit above it.</p>';
+    } else {
+        html = `<p><strong>${esc(c.name)}</strong>${reach.length ? ' &middot; ' + reach.join(' &middot; ') : ''}</p>`;
+        if (unit.contact_inherited && unit.contact_unit) {
+            html += `<p class="muted"><span>Inherited from</span> <a href="/monitoring/organisation/${unit.contact_unit.id}">${esc(unit.contact_unit.path)}</a></p>`;
+        }
+    }
+    $('unitContactNow').innerHTML = html;
+    const pick = $('unitContactChoice');
+    if (!pick) return;
+    pick.innerHTML = contactOptions(unit.contact_inherited && c ? `None of its own (inherits ${c.name})` : 'None', unit.contact_id || '');
+    if (!pick.parentElement.querySelector('.contact-new')) pick.insertAdjacentHTML('afterend', contactNewFields('unit'));
+    contactToggleNew(pick);
+    $('unitContactRemove').classList.toggle('hidden', !unit.contact_id);
+}
+
+async function unitSetContact(contactId) {
+    await requestJson('/api/organisation/units/' + $('main').dataset.unitId, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contact_id: contactId }),
+    });
+}
+
+function unitWireContact() {
+    const pick = $('unitContactChoice');
+    if (!pick) return;
+    pick.addEventListener('change', () => contactToggleNew(pick));
+    pick.parentElement.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.closest('.contact-new')) $('unitContactSave').click();
+    });
+    $('unitContactSave').addEventListener('click', async () => {
+        const btn = $('unitContactSave');
+        btn.disabled = true;
+        try {
+            const id = await contactResolve(pick);
+            if (id === (unitState.unit.contact_id || null)) {
+                toast('Nothing changed.');
+            } else {
+                await unitSetContact(id);
+                toast(id ? 'Contact saved.' : 'Contact removed.');
+            }
+        } catch (err) { toast(err.message); }
+        btn.disabled = false;
+        unitLoad();
+    });
+    $('unitContactRemove').addEventListener('click', async () => {
+        const u = unitState.unit;
+        if (!u || !u.contact_id) return;
+        if (!confirm(`Remove ${u.contact.name} as the contact of ${u.name}? The contact itself is kept; `
+            + 'this unit then has the contact of the unit above it, if that has one.')) return;
+        try {
+            await unitSetContact(null);
+            toast('Contact removed.');
+        } catch (err) { toast(err.message); }
+        unitLoad();
+    });
+}
+
 async function unitLoad() {
     const id = $('main').dataset.unitId;
-    try { unitRender(await requestJson('/api/organisation/' + id)); } catch (err) { toast(err.message); }
+    try {
+        const data = await requestJson('/api/organisation/' + id);
+        // Contacts and accounts to choose from; a new one shows up at once.
+        if (unitState.canEdit) await contactBookLoad();
+        unitState.unit = data.unit;
+        unitRender(data);
+        unitContactRender(data.unit);
+    } catch (err) { toast(err.message); }
 }
 
 function initUnit() {
     if (!$('unitKpis')) return;
+    unitState.canEdit = $('main').dataset.canEdit === 'true';
+    unitWireContact();
     const btn = $('unitMonitorBtn');
     if (btn) {
         btn.addEventListener('click', async () => {

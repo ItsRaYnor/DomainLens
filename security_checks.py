@@ -1347,7 +1347,21 @@ def check_info_disclosure(domain):
         result["error"] = "No HTTP response"
         return result
 
-    headers_lc = {k.lower(): v for k, v in resp.headers.items()}
+    # A redirect to another registered domain ends on another server. What
+    # that server shows is kept apart under "redirect": it is not this
+    # domain's version, nor this domain's leak. Everything below reads the
+    # domain's own last answer -- the page itself when it stays on its name.
+    import software_advisories
+    rules = software_advisories.active_rules()
+    measured = software_advisories.measure(resp, domain, rules)
+    steps = list(getattr(resp, "history", []) or []) + [resp]
+    page = steps[sum(1 for hop in measured["hops"] if hop["own"]) - 1]
+    result["url"] = measured["url"]
+    redirect = measured["redirect"]
+    result["redirect"] = None if not redirect else {
+        key: redirect[key] for key in ("domain", "url", "status", "server", "powered_by", "generator", "advisories")}
+
+    headers_lc = {k.lower(): v for k, v in page.headers.items()}
     techs = set()
 
     # Header-based tech + version leaks
@@ -1369,7 +1383,7 @@ def check_info_disclosure(domain):
     # Cookie-based tech fingerprint
     cookie_hdr = ""
     try:
-        cookie_hdr = " ".join(v for k, v in resp.headers.items() if k.lower() == "set-cookie")
+        cookie_hdr = " ".join(v for k, v in page.headers.items() if k.lower() == "set-cookie")
     except Exception:
         pass
     cl = cookie_hdr.lower()
@@ -1379,7 +1393,7 @@ def check_info_disclosure(domain):
 
     # Generator meta tag in body
     try:
-        body = resp.text[:20000]
+        body = page.text[:20000]
         m = re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)', body, re.I)
         if m:
             gen = m.group(1)
@@ -1390,12 +1404,10 @@ def check_info_disclosure(domain):
     except Exception:
         pass
 
-    # Known vulnerable versions among what the server shows, the redirects
-    # on the way included (software_advisories.py): read, never probed.
-    import software_advisories
-    rules = software_advisories.active_rules()
-    headers, cookies, url, generator = software_advisories.read_response(resp, rules)
-    result["advisories"] = software_advisories.match(headers, cookies, url, generator, rules=rules)
+    # Known vulnerable versions among what the domain's own server shows,
+    # its redirects on the way included (software_advisories.py): read,
+    # never probed.
+    result["advisories"] = measured["advisories"]
 
     result["technologies"] = sorted(techs)
     result["success"] = True
@@ -1720,6 +1732,12 @@ def audit_findings(audit):
     import software_advisories
     for adv in info.get("advisories", []):
         found = software_advisories.finding(adv)
+        if found:
+            findings.append(_finding(found["severity"], "Known vulnerability", found["title"], found["detail"],
+                                     evidence=found["evidence"], fix=found["fix"]))
+    redirect = info.get("redirect") or {}
+    for adv in redirect.get("advisories", []):
+        found = software_advisories.redirect_finding(adv, redirect.get("domain"), redirect.get("url"))
         if found:
             findings.append(_finding(found["severity"], "Known vulnerability", found["title"], found["detail"],
                                      evidence=found["evidence"], fix=found["fix"]))

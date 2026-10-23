@@ -34,6 +34,27 @@
 
         <section class="mgmt-kpis" id="unitKpis"></section>
 
+        {# The contact could only be chosen when the unit was made; adding
+           one later meant making the unit again. #}
+        <section class="card" id="unitContactCard">
+            <h3>Contact</h3>
+            <p class="chart-sub">The person to ask about this unit and its domains. Units and domains below it have this contact unless they name their own.</p>
+            <div id="unitContactNow"><span class="muted">Loading&hellip;</span></div>
+            {% if can_edit %}
+            <div class="form-grid">
+                <label class="form-field" for="unitContactChoice"><span>Contact of this unit</span>
+                    <span class="contact-pick"><select id="unitContactChoice"></select></span>
+                    <small class="muted">An existing contact, an account, or "New contact…" to add someone.</small>
+                </label>
+            </div>
+            <div class="dns-lookup-form">
+                <button type="button" class="btn-primary-lite" id="unitContactSave">Save contact</button>
+                <button type="button" class="btn-ghost danger hidden" id="unitContactRemove">Remove contact</button>
+                <a class="btn-ghost" href="/monitoring/organisation#orgContacts">Edit contact details</a>
+            </div>
+            {% endif %}
+        </section>
+
         <section class="card hidden" id="unitChildrenCard">
             <h3>Units</h3>
             <div class="users-table-wrap"><table class="data-table org-table stack-table" id="unitChildren"></table></div>
@@ -67,6 +88,7 @@
     <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
     <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
     <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/contact_picker.js?v={{ asset_token }}"></script>
     <script src="/static/js/unit.js?v={{ asset_token }}"></script>
     <script src="/static/js/theme.js?v={{ asset_token }}"></script>
 </body>

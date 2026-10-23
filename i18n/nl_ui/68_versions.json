@@ -26,7 +26,25 @@
   "Update PHP to the release with the fix (or the patched package from your vendor) and restart the web server and PHP-FPM.": "Werk PHP bij naar de release met de fix (of het gepatchte pakket van je leverancier) en herstart de webserver en PHP-FPM.",
   "On the server: php -v, or the package version (dpkg -l 'php*', rpm -qa 'php*'), against the release with the fix.": "Op de server: php -v, of de pakketversie (dpkg -l 'php*', rpm -qa 'php*'), tegenover de release met de fix.",
   "Known vulnerability": "Bekende kwetsbaarheid",
-  "Export CSV": "CSV exporteren"
+  "Export CSV": "CSV exporteren",
+  "Redirects to": "Stuurt door naar",
+  "This domain redirects to": "Dit domein stuurt door naar",
+  "The identifiers above come from the server of this domain itself. The server it redirects to shows:": "De kenmerken hierboven komen van de server van dit domein zelf. De server waar het naar doorstuurt, toont:",
+  "No software or version shown.": "Geen software of versie getoond.",
+  ". What that server shows is its own, not this domain's:": ". Wat die server toont, is van die server, niet van dit domein:",
+  "No website in DNS": "Geen website in DNS",
+  "No address in DNS for the domain or its www.: there is no website to ask.": "Geen adres in DNS voor het domein of zijn www.: er is geen website om op te vragen.",
+  "The DNS lookup gave no answer, so whether the site has an address is not known.": "De DNS-opvraging gaf geen antwoord, dus of de site een adres heeft, is niet bekend.",
+  "Resolves to an address inside a network; not asked, so this server is not aimed at its own network.": "Wijst naar een adres binnen een netwerk; niet opgevraagd, zodat deze server niet op zijn eigen netwerk wordt gericht.",
+  "Details": "Details",
+  "Public address": "Publiek adres",
+  "No address": "Geen adres",
+  "No answer from DNS": "Geen antwoord van DNS",
+  "Inside a network, not asked": "Binnen een netwerk, niet opgevraagd",
+  "Asked for": "Opgevraagd",
+  "Answered": "Antwoord gekregen",
+  "Steps": "Stappen",
+  "This domain": "Dit domein"
  },
  "patterns": [
   [
@@ -120,6 +138,30 @@
   [
    "On\\ the\\ server:\\ the\\ installed\\ (.+?)\\ version\\ or\\ package,\\ against\\ the\\ release\\ with\\ the\\ fix\\.",
    "Op de server: de geïnstalleerde $1-versie of het pakket, tegenover de release met de fix."
+  ],
+  [
+   "On\\ (.+?):",
+   "Op $1:"
+  ],
+  [
+   "(.+?)\\ \\((.+?)\\):\\ (.+?),\\ where\\ this\\ domain\\ redirects,\\ shows\\ a\\ vulnerable\\ (.+?)\\ version",
+   "$1 ($2): $3, waar dit domein naar doorstuurt, toont een kwetsbare $4-versie"
+  ],
+  [
+   "This\\ domain\\ sends\\ its\\ visitors\\ to\\ (.+?)\\.\\ That\\ server,\\ not\\ this\\ domain's\\ own,\\ shows\\ the\\ version:\\ (.+?)",
+   "Dit domein stuurt zijn bezoekers naar $1. Die server, niet die van dit domein zelf, toont de versie: $2"
+  ],
+  [
+   "For\\ whoever\\ runs\\ (.+?):\\ (.+?)",
+   "Voor wie $1 beheert: $2"
+  ],
+  [
+   "No\\ answer:\\ (.+?)",
+   "Geen antwoord: $1"
+  ],
+  [
+   "Other\\ domain:\\ (.+?)",
+   "Ander domein: $1"
   ]
  ]
 }

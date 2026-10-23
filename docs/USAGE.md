@@ -299,7 +299,9 @@ With a header row naming the columns (`Domain`/`Domein` and `Company`/`Bedrijf`/
 `Afdeling`), only those columns are read. A subdomain or URL is added as its registered
 domain (`https://shop.example.nl/x` becomes `example.nl`; common second-level suffixes such
 as `co.uk` are kept), and the import lists what it converted. A domain imported again moves
-to the group named for it. Each group can name the
+to the group named for it. The unit chosen under the import is for new domains and for
+domains not in a unit yet: a domain already in a unit is not moved by a line that names no
+unit, and the result lists it under "Already in a unit". Each group can name the
 registrar its domains belong at (matched against the registrar and the reseller, several
 names separated by commas); a domain registered elsewhere is marked **to move**.
 
@@ -374,7 +376,8 @@ a domain in use and not enrolled is flagged ("In use, no threat intel"); one tha
 or being cancelled or claimed, does not need it.
 
 A **contact** belongs with a company or business unit: give a unit its contact under
-**Organisation** (when adding the unit, or in "Edit, move or merge units"), and every unit and
+**Organisation** (when adding the unit, in "Edit, move or merge units", or later on the unit's
+own page: click the unit, then **Contact**), and every unit and
 domain below it has that contact unless it names its own, the way the expected registrar is
 inherited. A domain gets its own contact with "Link contact" in its row ("From the unit" says
 it has its unit's); choosing "The unit's contact" there removes the domain's own again.
@@ -387,6 +390,13 @@ follow the account, as SCIM or each sign-in keeps it current. Wherever a contact
 known name and says "Account removed". Deleting a contact leaves its units and domains
 without one of their own.
 
+On a unit's page (**Organisation**, click the unit) the **Contact** card shows the unit's
+contact, or the one it inherits and the unit that sets it. With the Analyst role you choose a
+contact there -- an existing one, an account, or "New contact…" -- and **Save contact** adds or
+changes it; **Remove contact** takes the unit's own contact away (the contact itself is kept,
+and the unit falls back on the one above it). Each change is in the audit log as
+`portfolio.group_update`, with the contact before and after under `changes`.
+
 Threat intelligence is switched on or off per domain with the switch in its row, or for many
 at once with **Threat intel** in the selection bar.
 
@@ -395,11 +405,29 @@ The import reads these columns too when a header row names them: **Decision**/`B
 **Contact**/`Contactpersoon`/`Owner`/`Eigenaar` (a name, an address, or `Name <address>`),
 **E-mail**, and **Threat intel** (`yes`/`no`, `ja`/`nee`). A contact is found by its address,
 then by its name; an address of an account makes a contact of that account; otherwise a
-contact is added. An empty cell changes nothing, and a value that is not understood is listed
-in the result and left as it was.
+contact is added. An empty cell, or a column the file does not have, changes nothing, and a
+value that is not understood is listed in the result and left as it was.
 
 The CSV export has the columns `decision`, `threat_intel`, `mail`, `web` (`yes`, `no`, or
 empty for not measured), `contact`, `contact_email` and `contact_from` (`domain` or `unit`).
+
+**Updating domains with an import.** A domain that is already in the portfolio is updated
+from the file: export the CSV, change a `decision`, set `threat_intel` to `yes`, move a domain
+with its `unit`, and import the file again. The export's own `threat_intel` states read back as
+they were (`enrolled` is enrolled; `missing`, `not_needed` and `unmeasured` are not), and a
+contact the file names that the domain already has -- its own, or its unit's -- changes
+nothing, so the unit's contact is not copied onto each domain. Columns DomainLens measures
+itself (`phase`, `registrar`, `expires`, `mail`, `web`, `dns` and the like) are not read. The
+result then shows:
+
+- how many domains were added, updated and unchanged;
+- per updated domain, each field (unit, decision, threat intelligence, contact) and what it went
+  from and to;
+- every value from the file that was not used, with its column and why (a decision or yes/no
+  not understood, an address that is not one);
+- domains on more than one line (only the first line is used), and the columns not read.
+
+The import is audited as `portfolio.import` with the counts and the list of changes.
 
 Changing the portfolio needs the Analyst role and is audited. API: `GET /api/portfolio`,
 `GET /api/portfolio/csv` (`?unit={id}` for one unit and the units under it; 404 for a unit
@@ -412,6 +440,9 @@ in minutes, or 0 to pause), `POST /api/portfolio/groups/{id}/monitoring`
 `POST /api/portfolio/domains/{id}/check`, `GET/POST /api/contacts` (`{name, email, phone}` or
 `{user_id}`), `PUT/DELETE /api/contacts/{id}`; a unit's contact is `contact_id` on
 `POST /api/organisation/units` and `PUT /api/organisation/units/{id}` (null clears it).
+The import answers with `added`, `updated`, `unchanged`, `moved`, `changes`
+(`{domain, field, from, to}`), `not_used` (`{domain, column, value, reason}`), `stayed`,
+`repeated` and `columns` (`read`, `not_read`).
 
 ## DNS propagation check
 
@@ -558,8 +589,8 @@ loaded, and lets an admin refresh them at once.
 **Tools → Versions** checks whether your sites run a software version with a known, serious
 vulnerability, the way a version scan (`nmap -sV` with a vulnerability script) does: each
 site's home page is asked for once, like a browser, and the version the server shows --
-`X-Powered-By: PHP/8.2.7`, or `PHP/…` in the Server header, redirects included -- is compared
-with the release that has the fix. Nothing is sent to trigger a flaw. Choose all portfolio
+`X-Powered-By: PHP/8.2.7`, or `PHP/…` in the Server header, redirects on its own name included
+-- is compared with the release that has the fix. Nothing is sent to trigger a flaw. Choose all portfolio
 domains with a website, one organisation unit (that unit and the units under it), or paste
 domains; they are checked ten at a time and the table fills in as it goes, worst first.
 A domain that sits in no unit is part of the whole portfolio only. A domain being cancelled,
@@ -572,20 +603,40 @@ only wanted, or known to have no website is left out.
 | Has the fix | The version shown carries the fix |
 | Not affected | The version shown is from a branch older than the flaw (when the rule says so) |
 | None of the software seen | Nothing in the response shows any of the software the rules look for |
-| No response | The site did not answer over https, http or www |
+| No response | The site did not answer over https, http or www, or DNS gave no answer |
+| No website in DNS | DNS has no address for the domain or its `www.`: there is no website to ask |
+| Not checked | The domain points to an address inside a network; it is not asked |
 
 A version a server shows is what it claims; a hidden version is not a fixed one. Check the
 "cannot tell" sites on the server (`php -v`, `dpkg -l 'php*'`, `rpm -qa 'php*'`); an
 agent-based scanner such as InsightVM sees the installed package. A redirect into the server's
 own network is not followed.
 
+**Details** under each row shows how the result came about: what DNS said per host, each
+address asked for and whether it answered, and every redirect step with its status, Server and
+X-Powered-By and whether it counts for the domain itself or for another one.
+
+**A redirect to another domain.** Only the answers on the domain's own registered name (http to
+https, `www.`, a subdomain) count as its measurement. When `example.org` redirects to
+`example.net`, the row for `example.org` shows what its own server showed (often only `Apache`
+on the redirect itself), and under it **Redirects to example.net** with that server's headers and
+verdict, each reason marked "On example.net:". The other server's PHP is that domain's, not this
+one's: it can be fixed or vulnerable while this domain's own server is neither.
+
 **Export CSV** gives the table to the teams that patch: one row per domain and advisory, with
-`result` (`vulnerable`, `cannot_tell`, `fixed`, `not_affected`, `not_seen`, `no_response`), the CVEs, the version
+`measured_on` (the domain itself, or for the rows after it the other domain it redirects to:
+the server to patch), `result` (`vulnerable`, `cannot_tell`, `fixed`, `not_affected`, `not_seen`, `no_response`, `no_address`,
+`not_checked`), the CVEs, the version
 shown, the X-Powered-By and Server headers, the reason and the address checked. The file is made
 on the server, so a header written as a spreadsheet formula is defused like in the other exports.
 
 Every scan does the same for its domain (Security audit): a vulnerable version is a finding at
 the rule's severity, one that cannot be told an informational one, so monitors report it too.
+The disclosed headers and version leaks are those of the domain's own server as well. When the
+site redirects to another domain, the report shows that server's headers apart; a vulnerable
+version there is its own finding ("example.net, where this domain redirects, shows a vulnerable
+PHP version"), with the fix for whoever runs that server. A version that server hides is left
+to its own scan.
 
 Built in: **PHP2Shell** (CVE-2026-109618, CVE-2026-109619), fixed in PHP 8.5.12, 8.4.27,
 8.3.36 and 8.2.35.

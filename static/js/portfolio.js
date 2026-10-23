@@ -524,23 +524,61 @@ function pfRowMenu(button) {
     });
 }
 
+const PF_IMPORT_FIELD = {
+    unit: 'Unit', decision: 'Decision', threat_intel: 'Threat intelligence', contact: 'Contact',
+};
+
+// After an import: the counts, then per domain what changed from what to
+// what, and every value from the file that could not be used, with why.
+// An import that reported "already there" for a domain it had just updated
+// left no way to see what it did.
 function pfShowImport(res, unitName) {
-    const parts = [`${res.added.length} added, ${res.moved.length} moved to another unit, `
-        + `${res.unchanged.length} already there.`];
-    if (unitName && (res.added.length || res.moved.length)) parts.push(`Lines without a unit went to ${unitName}.`);
+    const updated = res.updated || [];
+    const none = field => `<span class="muted">${field === 'unit' ? 'Not in a unit' : 'None'}</span>`;
+    const list = items => `<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
+    let html = `<p><strong>${res.added.length} added, ${updated.length} updated, ${res.unchanged.length} unchanged.</strong></p>`;
+    if (unitName && res.added.length) html += `<p>New domains without a unit on their line went to ${esc(unitName)}.</p>`;
+    const changes = res.changes || [];
+    if (changes.length) {
+        html += '<h5>Changes to domains already in the portfolio</h5>'
+            + '<div class="users-table-wrap"><table class="data-table stack-table pf-import-changes">'
+            + '<tr><th>Domain</th><th>Field</th><th>Was</th><th>Now</th></tr>'
+            + changes.map(c => `<tr><td><code>${esc(c.domain)}</code></td><td>${esc(PF_IMPORT_FIELD[c.field] || c.field)}</td>`
+                + `<td>${c.from ? esc(c.from) : none(c.field)}</td><td>${c.to ? esc(c.to) : none(c.field)}</td></tr>`).join('')
+            + '</table></div>';
+    }
+    const notUsed = res.not_used || [];
+    if (notUsed.length) {
+        html += '<h5 class="pf-count-warn">Values from the file that were not used</h5>'
+            + list(notUsed.map(n => `<code>${esc(n.domain)}</code> &middot; ${esc(n.column)}: `
+                + `&ldquo;${esc(n.value)}&rdquo; &middot; <span>${esc(n.reason)}</span>`));
+    }
+    if (res.stayed && res.stayed.length) {
+        html += `<h5>Already in a unit, so not moved to ${esc(res.default_unit || unitName || '')}</h5>`
+            + `<p class="muted">Name the unit on the line itself to move a domain.</p>`
+            + list(res.stayed.map(s => `<code>${esc(s.domain)}</code> (${esc(s.unit || '')})`));
+    }
+    if (res.repeated && res.repeated.length) {
+        html += '<h5>On more than one line: only the first line was used</h5>'
+            + list(res.repeated.map(d => `<code>${esc(d)}</code>`));
+    }
+    const notRead = (res.columns && res.columns.not_read) || [];
+    if (notRead.length) {
+        html += '<h5>Columns not read</h5><p class="muted">DomainLens measures these itself, or does not know them; '
+            + 'their values in the file were not used.</p>'
+            + `<p>${notRead.map(c => `<code>${esc(c)}</code>`).join(' ')}</p>`;
+    }
+    const notes = [];
     if (res.converted && res.converted.length) {
-        parts.push('Subdomains replaced by their registered domain: '
+        notes.push('Subdomains replaced by their registered domain: '
             + res.converted.map(c => `${c.from} → ${c.to}`).join(', ') + '.');
     }
-    if (res.rejected.length) parts.push(`Not a domain name: ${res.rejected.join(', ')}.`);
-    if (res.decisions) parts.push(`Decision set for ${res.decisions} domain(s).`);
-    if (res.contacts) parts.push(`Contact linked to ${res.contacts} domain(s).`);
-    if (res.contacts_created && res.contacts_created.length) parts.push(`New contacts: ${res.contacts_created.join(', ')}.`);
-    if (res.threat_intel) parts.push(`Threat intelligence set for ${res.threat_intel} domain(s).`);
-    if (res.monitored && res.monitored.length) parts.push(`Security monitoring started for ${res.monitored.length} domain(s), as their unit asks.`);
-    if (res.not_understood && res.not_understood.length) parts.push(`Not understood, left as it was: ${res.not_understood.join('; ')}.`);
-    if (res.added.length) parts.push('New domains are looked up within a few minutes.');
-    $('pfImportResult').textContent = parts.join(' ');
+    if (res.rejected.length) notes.push(`Not a domain name: ${res.rejected.join(', ')}.`);
+    if (res.contacts_created && res.contacts_created.length) notes.push(`New contacts: ${res.contacts_created.join(', ')}.`);
+    if (res.monitored && res.monitored.length) notes.push(`Security monitoring started for ${res.monitored.length} domain(s), as their unit asks.`);
+    if (res.added.length) notes.push('New domains are looked up within a few minutes.');
+    html += notes.map(n => `<p>${esc(n)}</p>`).join('');
+    $('pfImportResult').innerHTML = html;
 }
 
 function initPortfolio() {

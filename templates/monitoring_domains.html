@@ -58,13 +58,14 @@
         <section class="card">
             <details class="monitor-fold" id="pfImportFold">
                 <summary><h4>Add domains</h4></summary>
-                <p class="ct-desc">Paste one domain per line, optionally followed by its unit (<code>example.nl;Sales</code>, or a path: <code>example.nl;Org X &gt; Sales</code>; missing levels are created), or choose a CSV, text or Excel (.xlsx) file. With a header row that names the columns &mdash; for example <code>Domain</code> and <code>Company</code>, or <code>Domein</code> and <code>Bedrijf</code> (or <code>Unit</code>, <code>Eenheid</code>) &mdash; only those columns are used and the others are ignored. A subdomain or web address is added as its registered domain (<code>https://shop.example.nl/x</code> becomes <code>example.nl</code>), and the result lists what was converted. A domain already in the portfolio moves to the unit named for it; lines without a unit go to the unit chosen below. At most 2,000 domains in all.</p>
+                <p class="ct-desc">Paste one domain per line, optionally followed by its unit (<code>example.nl;Sales</code>, or a path: <code>example.nl;Org X &gt; Sales</code>; missing levels are created), or choose a CSV, text or Excel (.xlsx) file. With a header row that names the columns &mdash; for example <code>Domain</code> and <code>Company</code>, or <code>Domein</code> and <code>Bedrijf</code> (or <code>Unit</code>, <code>Eenheid</code>) &mdash; only those columns are used and the others are ignored. A subdomain or web address is added as its registered domain (<code>https://shop.example.nl/x</code> becomes <code>example.nl</code>), and the result lists what was converted. A domain already in the portfolio moves to the unit named for it; lines without a unit put new domains, and domains not in a unit yet, in the unit chosen below. At most 2,000 domains in all.</p>
                 <p class="ct-desc">A header row may also name a Decision (Besluit) column &mdash; keep, to decide, cancel, or request/claim, in English or Dutch &mdash; a Contact (Contactpersoon) column with a name, an e-mail address or "Name &lt;address&gt;", an E-mail column, and a Threat intel column (yes or no). A contact is found by e-mail address or name, made from the account with that address, or added. An empty cell changes nothing.</p>
+                <p class="ct-desc">Domains already in the portfolio are updated from the columns the file has: export the CSV, change a decision or switch threat intelligence on, and import it again. Columns DomainLens measures itself, such as phase, registrar, mail and web, are not read. Afterwards the result shows per domain what changed from what to what, and every value that could not be used.</p>
                 <textarea id="pfImportInput" rows="8" class="mono" placeholder="example.nl;Sales&#10;example.com;Holding&#10;example.org" spellcheck="false"></textarea>
                 <div class="form-grid">
                     <label class="form-field" for="pfImportUnit"><span>Put these domains in</span>
                         <select id="pfImportUnit"></select>
-                        <small class="muted">For lines that name no unit themselves.</small>
+                        <small class="muted">For new domains, and domains not in a unit yet, on lines that name no unit themselves.</small>
                     </label>
                     <label class="form-field" for="pfImportLifecycle"><span>Decision for new domains</span>
                         <select id="pfImportLifecycle">
@@ -85,7 +86,7 @@
                     <input type="file" id="pfImportFile" accept=".csv,.txt,.xlsx,text/csv,text/plain">
                     <button class="btn-primary-lite" id="pfImportBtn" type="button">Add to portfolio</button>
                 </div>
-                <p class="ct-desc" id="pfImportResult"></p>
+                <div class="pf-import-result" id="pfImportResult" role="status"></div>
             </details>
         </section>
 

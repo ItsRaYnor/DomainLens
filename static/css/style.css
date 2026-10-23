@@ -2982,6 +2982,14 @@ button.btn-danger:hover:not(:disabled) { background: var(--red); border-color: v
 .vc-form textarea { width: 100%; font-family: var(--font-mono); font-size: 0.8rem; }
 .vc-counts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0.25rem 0 0.75rem; font-size: 0.85rem; }
 .vc-table td { word-break: normal; overflow-wrap: anywhere; vertical-align: top; }
+.vc-redirect { margin-top: 0.35rem; font-size: 0.85rem; }
+.vc-detail-row > td { padding-top: 0; border-top: none; }
+.vc-details > summary { cursor: pointer; font-size: 0.85rem; color: var(--text-muted); }
+.vc-detail-block { margin: 0.5rem 0 0.75rem; font-size: 0.85rem; }
+.vc-detail-block ul, .vc-detail-block ol { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+.vc-detail-block li { margin: 0.15rem 0; overflow-wrap: anywhere; }
+.vc-hop-status { font-weight: 600; }
+.vc-hop-other { color: var(--orange); }
 /* Mail and web analysis: its two tabs, and a checked link's heading with
    its verdict beside it (below it on a phone). */
 .mt-tabs { margin: 0.75rem 0 1rem; }
@@ -3066,3 +3074,11 @@ span.pf-shield { cursor: default; }
 .ar-transfer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.5rem 0; }
 .ar-transfer input[type="file"] { max-width: 100%; }
 .ar-check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; color: var(--text-muted); }
+/* What a portfolio import did: counts, the changes per domain, and the
+   values from the file it could not use. */
+.pf-import-result { margin-top: 0.75rem; font-size: 0.85rem; }
+.pf-import-result h5 { margin: 0.9rem 0 0.3rem; font-size: 0.85rem; }
+.pf-import-result p { margin: 0.3rem 0; }
+.pf-import-result ul { margin: 0.25rem 0; padding-left: 1.25rem; }
+.pf-import-result li { margin: 0.15rem 0; overflow-wrap: anywhere; }
+.pf-import-changes td { word-break: normal; overflow-wrap: anywhere; }

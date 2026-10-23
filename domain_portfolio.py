@@ -259,7 +259,7 @@ def list_groups():
         children.setdefault(parent, []).append(r)
     out = []
 
-    def walk(parent, path, depth, inherited, person, scan, seen):
+    def walk(parent, path, depth, inherited, person, person_unit, scan, seen):
         for r in sorted(children.get(parent, []), key=lambda g: g["name"].lower()):
             if r["id"] in seen:          # a cycle written by hand; never loop on it
                 continue
@@ -267,6 +267,10 @@ def list_groups():
             expected = r.get("expected_registrar") or inherited
             own = people.get(r.get("contact_id"))
             contact = own or person
+            # Where the contact is set: this unit, or the one above it that
+            # names it -- so a unit page can say where to change it.
+            here = {"id": r["id"], "path": PATH_SEPARATOR.join(names)}
+            contact_unit = here if own else person_unit
             # Security monitoring for the unit's domains: its own setting, or
             # the one of a unit above, as with the registrar and the contact.
             monitor = r.get("monitor_minutes") or scan
@@ -274,11 +278,12 @@ def list_groups():
                         "effective_registrar": expected,
                         "registrar_inherited": bool(expected and not r.get("expected_registrar")),
                         "contact": contact, "contact_inherited": bool(contact and not own),
+                        "contact_unit": contact_unit if contact else None,
                         "monitor_effective": monitor,
                         "monitor_inherited": bool(monitor and not r.get("monitor_minutes"))})
-            walk(r["id"], names, depth + 1, expected, contact, monitor, seen | {r["id"]})
+            walk(r["id"], names, depth + 1, expected, contact, contact_unit, monitor, seen | {r["id"]})
 
-    walk(None, [], 0, None, None, None, frozenset())
+    walk(None, [], 0, None, None, None, None, frozenset())
     return out
 
 
@@ -626,7 +631,10 @@ _DECISION_HEADERS = {"decision", "besluit", "beslissing", "lifecycle", "action",
 _CONTACT_HEADERS = {"contact", "contactpersoon", "contact person", "contact name", "owner",
                     "eigenaar", "domain owner", "verantwoordelijke", "responsible",
                     "aanspreekpunt", "beheerder"}
-_EMAIL_HEADERS = {"e-mail", "email", "mail", "contact e-mail", "contact email", "e-mailadres",
+# Not "mail": the portfolio's own export has a mail column (does the domain
+# receive mail, yes or no), and reading it as the contact's address made
+# every re-imported row fail on "yes".
+_EMAIL_HEADERS = {"e-mail", "email", "contact e-mail", "contact email", "e-mailadres",
                   "emailadres", "owner e-mail", "owner email"}
 _INTEL_HEADERS = {"threat intel", "threat intelligence", "ti", "threatintel", "cti"}
 
@@ -644,7 +652,11 @@ _DECISION_WORDS = {
     "verwerven": "claim", "registreren": "claim",
 }
 _YES = {"yes", "ja", "y", "j", "true", "1", "x", "on", "aan", "enrolled", "aangemeld"}
-_NO = {"no", "nee", "n", "false", "0", "off", "uit", "not enrolled", "niet aangemeld"}
+# The export writes the state, not yes or no: every state but "enrolled"
+# means not enrolled, so an exported file reads back unchanged.
+_NO = {"no", "nee", "n", "false", "0", "off", "uit", "not enrolled", "niet aangemeld",
+       "missing", "not needed", "unmeasured"}
+_INTEL_TEXT = {True: "Enrolled", False: "Not enrolled"}
 
 
 def decision_of(text):
@@ -656,7 +668,7 @@ def decision_of(text):
 
 
 def _intel_of(text):
-    value = " ".join(str(text or "").lower().split())
+    value = " ".join(str(text or "").lower().replace("_", " ").split())
     return True if value in _YES else False if value in _NO else None
 
 
@@ -698,11 +710,16 @@ def parse_import(text):
 
 
 def parse_import_full(text):
+    """(entries, rejected, converted, extras): see parse_import_details."""
+    found = parse_import_details(text)
+    return found["entries"], found["rejected"], found["converted"], found["extras"]
+
+
+def parse_import_details(text):
     """Domains and their groups from a paste, a CSV or a converted sheet.
 
-    Returns (entries, rejected, converted): entries are (domain, group or
-    None); converted maps what was given to the registered domain used
-    instead (shop.example.nl -> example.nl).
+    entries are (domain, group or None); converted maps what was given to
+    the registered domain used instead (shop.example.nl -> example.nl).
 
     Without a header: one or more domains per line, the group in the first
     cell that is not a domain ("example.nl;Sales"). With a header row that
@@ -711,21 +728,27 @@ def parse_import_full(text):
     not a domain name is rejected rather than guessed.
 
     A header may also name a decision, a contact (a name, an address, or
-    "Name <address>"), a contact e-mail and threat intelligence column; the
-    fourth value returned maps each domain to what those cells said. An
-    empty cell says nothing, so an import never clears what is set.
+    "Name <address>"), a contact e-mail and threat intelligence column;
+    extras maps each domain to what those cells said. An empty cell says
+    nothing, so an import never clears what is set.
+
+    columns names the header's columns that are read and those that are
+    not (a measured column of the export, or one this tool does not know),
+    and labels maps each read field to the column it came from. repeated
+    lists domains a later line names again with values of its own: only the
+    first line is used, and the import says so.
     """
-    entries, rejected, converted, seen = [], [], {}, set()
-    extras = {}
-    columns = None
-    for line in (text or "").splitlines():
+    entries, rejected, converted, first_line = [], [], {}, {}
+    extras, repeated = {}, []
+    columns, header = None, []
+    for number, line in enumerate((text or "").splitlines()):
         if not line.strip():
             continue
         raw = [c.strip().strip('"\'') for c in next(csv.reader([line], delimiter=_delimiter(line)), [])]
         if columns is None and not entries:
-            header = _header(raw)
-            if header:
-                columns = header
+            found = _header(raw)
+            if found:
+                columns, header = found, raw
                 continue
         cells = [c for c in raw if c]
         names, others = [], []
@@ -765,18 +788,28 @@ def parse_import_full(text):
             # "example.nl;Sales" names its group; "example.nl, example.com"
             # is just a list. The group is the first cell that is not a domain.
             group = others[0] if others else None
+        extra = {"decision": at("decision"), "contact": at("contact"),
+                 "email": at("email"), "intel": at("intel")}
         for name in names:
             domain = registrable(name)
             if domain != name:
                 converted.setdefault(name, domain)
-            if domain not in seen:
-                seen.add(domain)
+            if domain not in first_line:
+                first_line[domain] = number
                 entries.append((domain, " ".join(group.split())[:80] if group else None))
-                extra = {"decision": at("decision"), "contact": at("contact"),
-                         "email": at("email"), "intel": at("intel")}
                 if any(extra.values()):
                     extras[domain] = extra
-    return entries, rejected, converted, extras
+            elif (first_line[domain] != number and (group or any(extra.values()))
+                  and domain not in repeated):
+                # www.example.nl on one line and example.nl on another are
+                # one domain; the second line's values are not silently lost.
+                repeated.append(domain)
+    used = {i for i in (columns or {}).values() if i is not None}
+    labels = {key: header[i] for key, i in (columns or {}).items() if i is not None and i < len(header)}
+    return {"entries": entries, "rejected": rejected, "converted": converted, "extras": extras,
+            "repeated": repeated, "labels": labels,
+            "columns": {"read": [header[i] for i in sorted(used) if i < len(header)],
+                        "not_read": [c for i, c in enumerate(header) if c and i not in used]}}
 
 
 MAX_SHEET_ROWS = 10000
@@ -806,25 +839,40 @@ def _delimiter(line):
     return ","
 
 
-def _contact_for(name, email, people, made):
-    """The contact a sheet names: an existing one by address or name, an
-    account with that address, or a new contact. None when the cells name
-    no one; ValueError for an address that is not one."""
-    import contacts
+def _contact_cells(name, email):
+    """(name, address) from a contact cell and an e-mail cell."""
     if "<" in name and name.rstrip().endswith(">") and not email:
         name, _, email = name.rstrip(">").partition("<")
     name, email = " ".join(name.split()), email.strip().lower()
     if not email and "@" in name and " " not in name:
         name, email = "", name.lower()
-    if not (name or email):
-        return None
+    return name, email
+
+
+def _known_contact(name, email, people):
+    """The id of an existing contact the cells name, by address or else by
+    name; None when there is none. Nothing is made here."""
     for c in people:
         if email and (c.get("email") or "").lower() == email:
             return c["id"]
-    if not email:
+    if not email and name:
         for c in people:
             if (c.get("name") or "").lower() == name.lower():
                 return c["id"]
+    return None
+
+
+def _contact_for(name, email, people, made):
+    """The contact a sheet names: an existing one by address or name, an
+    account with that address, or a new contact. None when the cells name
+    no one; ValueError for an address that is not one."""
+    import contacts
+    name, email = _contact_cells(name, email)
+    if not (name or email):
+        return None
+    known = _known_contact(name, email, people)
+    if known is not None:
+        return known
     if email:
         user = db.get_user_by_email(email)
         if user:
@@ -837,54 +885,109 @@ def _contact_for(name, email, people, made):
     return contact["id"]
 
 
-def _apply_extras(extras):
-    """Decision, contact and threat intelligence from the sheet's columns."""
+def _apply_extras(extras, *, added=(), labels=None):
+    """Decision, contact and threat intelligence from the sheet's columns.
+
+    A domain already in the portfolio is updated where the file says
+    something other than what is stored, and each such change is listed
+    (field, from, to). A value that cannot be used is listed with the
+    reason, never dropped silently. The counts say for how many domains a
+    column gave a usable value."""
     import contacts
     report = {"decisions": 0, "contacts": 0, "threat_intel": 0, "contacts_created": [],
-              "not_understood": []}
+              "not_understood": [], "not_used": [], "changes": []}
     if not extras:
         return report
+    labels = labels or {}
+    added = set(added)
     people = contacts.list_contacts()
+    groups = {g["id"]: g for g in list_groups()}
     with db._connect() as conn:
-        ids = {r["domain"]: r["id"] for r in conn.execute("SELECT id, domain FROM portfolio_domains")}
+        rows = {r["domain"]: dict(r) for r in conn.execute(
+            "SELECT id, domain, group_id, lifecycle, threat_intel, contact_id FROM portfolio_domains")}
+
+    def name_of(contact_id):
+        return next((c["name"] for c in people if c["id"] == contact_id), f"Contact {contact_id}")
+
+    def changed(domain, field, was, now):
+        # A new domain has no "before": it is listed as added.
+        if domain not in added:
+            report["changes"].append({"domain": domain, "field": field, "from": was, "to": now})
+
+    def unused(domain, key, value, reason, legacy):
+        report["not_understood"].append(f"{domain}: {legacy}")
+        report["not_used"].append({"domain": domain, "column": labels.get(key, key),
+                                   "value": value, "reason": reason})
+
     for domain, extra in extras.items():
-        domain_id = ids.get(domain)
-        if domain_id is None:
+        row = rows.get(domain)
+        if row is None:
             continue
         decision = decision_of(extra.get("decision"))
         if decision:
-            set_lifecycle([domain_id], decision)
+            if decision != row["lifecycle"]:
+                set_lifecycle([row["id"]], decision)
+                changed(domain, "decision", LIFECYCLE_TEXT.get(row["lifecycle"], row["lifecycle"]),
+                        LIFECYCLE_TEXT[decision])
             report["decisions"] += 1
         elif decision == "":
-            report["not_understood"].append(f"{domain}: {extra['decision']}")
+            unused(domain, "decision", extra["decision"], "Not a decision this tool knows",
+                   extra["decision"])
         intel = _intel_of(extra.get("intel"))
         if intel is not None:
-            set_threat_intel([domain_id], intel)
+            if intel != bool(row["threat_intel"]):
+                set_threat_intel([row["id"]], intel)
+                changed(domain, "threat_intel", _INTEL_TEXT[bool(row["threat_intel"])], _INTEL_TEXT[intel])
             report["threat_intel"] += 1
         elif extra.get("intel"):
-            report["not_understood"].append(f"{domain}: {extra['intel']}")
-        try:
-            contact_id = _contact_for(extra.get("contact") or "", extra.get("email") or "",
-                                      people, report["contacts_created"])
-        except ValueError as exc:
-            report["not_understood"].append(f"{domain}: {exc}")
+            unused(domain, "intel", extra["intel"], "Not yes or no", extra["intel"])
+        name, email = _contact_cells(extra.get("contact") or "", extra.get("email") or "")
+        if not (name or email):
             continue
-        if contact_id is not None:
-            set_contact([domain_id], contact_id)
+        # The contact the domain has now: its own, or its unit's. A file
+        # that names that one -- as the export does for an inherited
+        # contact -- changes nothing, so a round trip does not copy the
+        # unit's contact onto every domain.
+        inherited = ((groups.get(row["group_id"]) or {}).get("contact") or {}).get("id")
+        current = row["contact_id"] or inherited
+        if current is not None and _known_contact(name, email, people) == current:
             report["contacts"] += 1
+            continue
+        try:
+            contact_id = _contact_for(name, email, people, report["contacts_created"])
+        except ValueError as exc:
+            unused(domain, "contact" if extra.get("contact") else "email",
+                   " ".join(x for x in (extra.get("contact"), extra.get("email")) if x), str(exc), exc)
+            continue
+        if contact_id is not None and contact_id != current:
+            set_contact([row["id"]], contact_id)
+            was = (None if current is None
+                   else name_of(current) + ("" if row["contact_id"] else " (inherited)"))
+            changed(domain, "contact", was, name_of(contact_id))
+        report["contacts"] += 1
     return report
 
 
+_CHANGE_FIELDS = ("unit", "decision", "threat_intel", "contact")
+
+
 def import_domains(entries, *, default_group=None, default_group_id=None, created_by=None,
-                   extras=None, default_lifecycle=None, note=None):
-    """Add or regroup domains. Returns counts and the names that changed.
+                   extras=None, default_lifecycle=None, note=None, labels=None):
+    """Add domains, and update the ones already in the portfolio.
 
     A group is a unit path ("Org X > Sales"); missing levels are created. A
-    domain already in the portfolio is moved to the unit the import names
-    for it; one imported without a unit keeps the unit it has. `extras`
-    (from parse_import_full) sets a decision, contact or threat intelligence.
-    `default_lifecycle` is the decision for domains new to the portfolio; one
-    already there keeps its own unless the sheet names another.
+    domain already in the portfolio moves to the unit its line names. The
+    default unit is for new domains and for domains in no unit yet: one
+    already in a unit is not moved by a line that names none -- a missing
+    cell never overwrites what is stored -- and the result says so.
+    `extras` (from parse_import_full) sets a decision, contact or threat
+    intelligence, on new and existing domains alike. `default_lifecycle` is
+    the decision for domains new to the portfolio.
+
+    Returns added, moved, updated (existing domains with at least one
+    change), unchanged, changes ({domain, field, from, to}), not_used (a
+    value that could not be used, and why) and stayed (domains the default
+    unit did not move).
     """
     if default_group_id is not None and not get_group(default_group_id):
         raise ValueError("Unknown unit")
@@ -900,26 +1003,45 @@ def import_domains(entries, *, default_group=None, default_group_id=None, create
     if len(existing) + len(new) > MAX_DOMAINS:
         raise ValueError(f"At most {MAX_DOMAINS} domains in the portfolio "
                          f"({len(existing)} now, {len(new)} new in this import)")
-    added, moved, unchanged = [], [], []
+    added, moved, stayed, unit_moves = [], [], [], {}
     now = _now().isoformat()
     with db._lock, db._connect() as conn:
         default_id = (int(default_group_id) if default_group_id is not None
                       else ensure_path(default_group, conn) if default_group else None)
         for domain, group in entries:
-            group_id = ensure_path(group, conn) if group else default_id
+            named = ensure_path(group, conn) if group else None
             current = existing.get(domain)
             if current is None:
                 conn.execute("INSERT INTO portfolio_domains (domain, group_id, created_by, created_at, "
                              "lifecycle, note) VALUES (?, ?, ?, ?, ?, ?)",
-                             (domain, group_id, created_by, now, default_lifecycle, note))
+                             (domain, named or default_id, created_by, now, default_lifecycle, note))
                 added.append(domain)
-            elif group_id is not None and group_id != current["group_id"]:
+                continue
+            target = named
+            if target is None and default_id is not None:
+                if current["group_id"] is None:
+                    target = default_id
+                elif current["group_id"] != default_id:
+                    stayed.append(domain)
+            if target is not None and target != current["group_id"]:
                 conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE id = ?",
-                             (group_id, current["id"]))
+                             (target, current["id"]))
                 moved.append(domain)
-            else:
-                unchanged.append(domain)
-    return {"added": added, "moved": moved, "unchanged": unchanged, **_apply_extras(extras)}
+                unit_moves[domain] = (current["group_id"], target)
+    report = _apply_extras(extras, added=added, labels=labels)
+    paths = {g["id"]: g["path"] for g in list_groups()}
+    order = {d: i for i, (d, _) in enumerate(entries)}
+    changes = sorted(
+        [{"domain": d, "field": "unit", "from": paths.get(a), "to": paths.get(b)}
+         for d, (a, b) in unit_moves.items()] + report.pop("changes"),
+        key=lambda c: (order.get(c["domain"], 0), _CHANGE_FIELDS.index(c["field"])))
+    touched = {c["domain"] for c in changes}
+    return {"added": added, "moved": moved,
+            "updated": [d for d, _ in entries if d in existing and d in touched],
+            "unchanged": [d for d, _ in entries if d in existing and d not in touched],
+            "changes": changes,
+            "stayed": [{"domain": d, "unit": paths.get(existing[d]["group_id"])} for d in stayed],
+            "default_unit": paths.get(default_id), **report}
 
 
 def move(domain_ids, group_id):

@@ -1407,6 +1407,23 @@ function renderSecurity(data) {
             dk.forEach(k => { html += `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(disc[k])}</td></tr>`; });
             html += '</table></details>';
         }
+        // A redirect to another domain ends on another server: what it shows
+        // is that domain's, not this one's, so it stands apart.
+        const to = info.redirect;
+        if (to) {
+            html += `<p class="ct-desc" style="margin-top:0.75rem"><span>This domain redirects to</span> <code>${escapeHtml(to.domain)}</code>. `
+                + '<span>The identifiers above come from the server of this domain itself. The server it redirects to shows:</span></p>'
+                + '<table class="data-table">';
+            [['Server', to.server], ['X-Powered-By', to.powered_by], ['Meta generator', to.generator]]
+                .filter(([, v]) => v).forEach(([k, v]) => { html += `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`; });
+            (to.advisories || []).forEach(a => {
+                html += `<tr><th>${escapeHtml(a.name)}</th><td>${escapeHtml(a.reason)}</td></tr>`;
+            });
+            if (!to.server && !to.powered_by && !to.generator && !(to.advisories || []).length) {
+                html += '<tr><td colspan="2" class="muted">No software or version shown.</td></tr>';
+            }
+            html += '</table>';
+        }
         infoEl.innerHTML = html;
     } else {
         infoEl.innerHTML = `<p class="status status-warn">${escapeHtml(info.error || 'Info disclosure scan unavailable')}</p>`;

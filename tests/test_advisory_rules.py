@@ -105,9 +105,9 @@ class EngineTests(unittest.TestCase):
                                       sources=["meta:generator"], fixed=["6.4.3"]))
         resp = mock.Mock(headers={"Server": "nginx"}, history=[], url="https://example.org/",
                          text='<html><meta name="generator" content="WordPress 6.4.2"></html>')
-        headers, cookies, url, generator = sa.read_response(resp, [rule])
-        self.assertEqual("WordPress 6.4.2", generator)
-        self.assertEqual("vulnerable", sa.match(headers, cookies, url, generator, rules=[rule])[0]["verdict"])
+        measured = sa.measure(resp, "example.org", [rule])
+        self.assertEqual("WordPress 6.4.2", measured["generator"])
+        self.assertEqual("vulnerable", measured["advisories"][0]["verdict"])
 
     def test_php2shell_findings_read_exactly_as_before(self):
         """Accepted risks are keyed on the finding's title. PHP2Shell's title
@@ -157,7 +157,7 @@ class RuleAdminTests(EnterpriseAppTestCase):
         self.assertEqual("high", findings[0]["severity"])
         self.assertEqual("nginx resolver (CVE-2026-11111): the nginx version shown is vulnerable", findings[0]["title"])
         self.assertIn("Anyone can crash the resolver.", findings[0]["detail"])
-        result = sa.check_host("example.org", get=lambda url: mock.Mock(
+        result = sa.check_host("example.org", address=lambda host: "public", get=lambda url: mock.Mock(
             status_code=200, headers={"Server": "nginx/1.27.1"}, history=[], url=url))
         self.assertIn("nginx-resolver", [a["advisory"] for a in result["advisories"]])
         html = self.client.get("/tools/versions").get_data(as_text=True)
