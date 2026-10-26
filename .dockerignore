@@ -16,6 +16,9 @@
 # Docs and markdown (Hub description is read from the checkout, not the image)
 docs/
 *.md
+# ...except the manual, which the app shows itself under Help.
+!static/help/
+!static/help/*.md
 
 # Tests and Python debris
 tests/

@@ -73,7 +73,8 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(["443/HTTPS", "80/HTTP"], scan_diff._open_ports(_scan()))
 
     def test_the_panel_leads_with_what_moved(self):
-        js = (ROOT / "static" / "js" / "app.js").read_text(encoding="utf-8")
+        # The panel is shared by the history, the monitors and the events page.
+        js = (ROOT / "static" / "js" / "compare_view.js").read_text(encoding="utf-8")
         self.assertIn("const moved = shown.filter(", js)
         self.assertIn("Unchanged or not measured (", js)
         self.assertIn("Nothing that is compared moved between these two scans.", js)

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.monitoring_events') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.monitoring_events">{{ t('nav.monitoring_events') }}</h2>
+            <p class="ct-desc">What each <a href="/monitoring">monitor</a> found on its scans: a change against the scan before it, a scan without changes, the first scan (its baseline), or a scan that failed. <strong>What changed?</strong> on a change compares the two scans: the fields that moved, the findings that came or went, and the DNS record the monitor watches.</p>
+            <div class="lv-filters">
+                <div class="lv-row">
+                    <input type="search" id="evSearch" placeholder="Search host, label or text" autocomplete="off">
+                    <select id="evMonitor" aria-label="Monitor"><option value="">All monitors</option></select>
+                    <select id="evUnit" aria-label="Unit"><option value="">All units</option></select>
+                    <button type="button" class="btn-ghost-sm" id="evReset">Clear filters</button>
+                </div>
+                <div class="lv-row">
+                    <span class="lv-label">Period</span>
+                    <div class="lv-period" id="evPeriod" role="group" aria-label="Period"></div>
+                    <label class="mon-sched-at">From <input type="date" id="evFrom"></label>
+                    <label class="mon-sched-at">to <input type="date" id="evTo"></label>
+                </div>
+                <div class="lv-row"><span class="lv-label">Kind</span><div class="lv-chips" id="evTypes"></div></div>
+                <div class="lv-row"><span class="lv-label">Severity</span><div class="lv-chips" id="evSeverities"></div></div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="lv-summary">
+                <strong id="evCount" role="status">Loading&hellip;</strong>
+                {% if can_edit %}
+                <span class="event-tools hidden" id="evTools">
+                    <span class="muted" id="evSelCount"></span>
+                    <button type="button" class="btn-ghost-sm danger" id="evDelete">Delete selected</button>
+                </span>
+                {% endif %}
+            </div>
+            <div class="table-scroll">
+                <table class="data-table lv-table stack-table">
+                    <thead><tr>{% if can_edit %}<th><span class="sr-only">Select</span></th>{% endif %}<th>When</th><th>Severity</th><th>Monitor</th><th>Unit</th><th>What happened</th><th></th></tr></thead>
+                    <tbody id="evRows"></tbody>
+                </table>
+            </div>
+            <div class="lv-more"><button type="button" class="btn-ghost hidden" id="evMore">Show more</button></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script type="application/json" id="evCanEdit">{{ (can_edit and true or false)|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/logview.js?v={{ asset_token }}"></script>
+    <script src="/static/js/compare_view.js?v={{ asset_token }}"></script>
+    <script src="/static/js/events.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

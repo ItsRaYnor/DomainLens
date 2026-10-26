@@ -29,11 +29,13 @@ intelligence service, one that is not does not need it.
 
 from __future__ import annotations
 
+import contextvars
 import csv
 import io
 import json
 import re
 import threading
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 
 import db
@@ -168,7 +170,30 @@ def init_schema(conn):
         )
         """
     )
+    _migrate_events(conn)
     _adopt_watchlist(conn)
+
+
+# What a change was and who made it, apart from its sentence, so the list of
+# changes can be filtered and read column by column. Rows written before
+# these existed have the sentence only; events() reads before and after back
+# out of it where it can.
+_EVENT_COLUMNS = {
+    "severity": "TEXT",
+    "before": "TEXT",
+    "after": "TEXT",
+    "source": "TEXT",       # 'registry' (a lookup found it), 'edit', 'import'; NULL: registry
+    "actor": "TEXT",
+}
+
+
+def _migrate_events(conn):
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(portfolio_events)").fetchall()}
+    for name, kind in _EVENT_COLUMNS.items():
+        if name not in columns:
+            conn.execute(f"ALTER TABLE portfolio_events ADD COLUMN {name} {kind}")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_portfolio_events_at ON portfolio_events (at)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_portfolio_events_domain ON portfolio_events (domain)")
 
 
 _DOMAIN_COLUMNS = {
@@ -232,6 +257,118 @@ def _adopt_watchlist(conn):
 
 def _now():
     return datetime.now(timezone.utc)
+
+
+# ---------------------------------------------------------------- change log
+#
+# Every change of a domain is one row of portfolio_events: what a registry
+# lookup found (registrar, phase, name servers, ...) and what someone changed
+# by hand or by an import (decision, threat intelligence, contact, unit,
+# added, removed). Before, only the lookups were kept, so "who switched
+# threat intelligence off, and when" had no answer.
+
+EVENT_KIND_TEXT = {
+    "phase": "Registration phase",
+    "registrar": "Registrar",
+    "reseller": "Reseller",
+    "nameservers": "Name servers",
+    "expiry": "Expiry",
+    "dns": "DNS answers",
+    "added": "Added",
+    "removed": "Removed",
+    "unit": "Unit",
+    "decision": "Decision",
+    "threat_intel": "Threat intel",
+    "contact": "Contact",
+}
+EVENT_SOURCE_TEXT = {"registry": "Registry lookup", "edit": "Changed by hand", "import": "Import"}
+# Severity of rows written before it was stored, by kind (as check() gives it).
+_KIND_SEVERITY = {"registrar": "high", "reseller": "high", "nameservers": "high",
+                  "phase": "medium", "expiry": "medium", "dns": "medium"}
+
+_edit_source = contextvars.ContextVar("portfolio_edit_source", default="edit")
+
+
+@contextmanager
+def edit_source(source):
+    """Changes made inside are recorded as coming from `source` ('import')."""
+    token = _edit_source.set(source)
+    try:
+        yield
+    finally:
+        _edit_source.reset(token)
+
+
+def _actor():
+    """Who is making a change: the signed-in account, or None (the scheduler,
+    a test, a server without sign-in).
+
+    Read from what the request already holds, not with auth.current_user():
+    that may read the users table, and changes are recorded while the
+    database lock is held."""
+    try:
+        from flask import g, has_request_context, session
+        if not has_request_context():
+            return None
+        import auth
+        user = (g.get("domainlens_user") or getattr(g, "api_token_user", None)
+                or session.get(auth.SESSION_USER_KEY) or {})
+    except Exception:
+        return None
+    return (user.get("email") or user.get("name") or None) if isinstance(user, dict) else None
+
+
+def _record(conn, domain, kind, detail, *, before=None, after=None, severity="info",
+            source=None, at=None):
+    conn.execute(
+        "INSERT INTO portfolio_events (domain, at, kind, detail, severity, before, after, source, actor) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (domain, at or _now().isoformat(), kind, detail, severity,
+         None if before is None else str(before), None if after is None else str(after),
+         source or _edit_source.get(), _actor() if (source or _edit_source.get()) != "registry" else None))
+
+
+def _shown(kind, value):
+    """A stored value as the change log writes it."""
+    if value is None or value == "":
+        return None
+    if kind == "decision":
+        return LIFECYCLE_TEXT.get(value, value)
+    if kind == "threat_intel":
+        return _INTEL_TEXT[bool(int(value))]
+    return value
+
+
+def _contact_name(conn, contact_id):
+    if contact_id is None:
+        return None
+    try:
+        row = conn.execute("SELECT name, email FROM contacts WHERE id = ?", (contact_id,)).fetchone()
+    except Exception:
+        row = None
+    return (row["name"] or row["email"]) if row else f"Contact {contact_id}"
+
+
+def _unit_path(group_id, paths=None):
+    if group_id is None:
+        return None
+    paths = paths if paths is not None else {g["id"]: g["path"] for g in list_groups()}
+    return paths.get(group_id, f"Unit {group_id}")
+
+
+# Reading before and after back out of the sentence of an older row.
+_LEGACY_PATTERNS = {
+    "registrar": re.compile(r" changed registrar: (?P<before>.*) -> (?P<after>.*)\.$"),
+    "reseller": re.compile(r" changed reseller: (?P<before>.*) -> (?P<after>.*)\.$"),
+    "nameservers": re.compile(r" has new name servers: (?P<after>.*) \(was (?P<before>.*)\)\.$"),
+    "phase": re.compile(r"^[^ ]+: (?P<before>.*?) -> (?P<after>.*?)(?: \(.*\))?\.$"),
+}
+
+
+def _legacy_values(kind, detail):
+    match = _LEGACY_PATTERNS.get(kind)
+    found = match.search(detail or "") if match else None
+    return (found["before"], found["after"]) if found else (None, None)
 
 
 # ---------------------------------------------------------------- organisation
@@ -593,15 +730,27 @@ def assign(hostname, group_id, *, created_by=None):
     if row is None:
         if total >= MAX_DOMAINS:
             raise ValueError(f"At most {MAX_DOMAINS} domains in the portfolio")
+        paths = {g["id"]: g["path"] for g in list_groups()}
         with db._lock, db._connect() as conn:
             conn.execute("INSERT INTO portfolio_domains (domain, group_id, created_by, created_at) "
                          "VALUES (?, ?, ?, ?)", (domain, group_id, created_by, _now().isoformat()))
+            _record_added(conn, domain, group_id, paths)
         return domain, "added"
     if row["group_id"] == group_id:
         return domain, "unchanged"
+    paths = {g["id"]: g["path"] for g in list_groups()}
     with db._lock, db._connect() as conn:
         conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE id = ?", (group_id, row["id"]))
+        _record_unit(conn, domain, row["group_id"], group_id, paths)
     return domain, "moved"
+
+
+def _record_added(conn, domain, group_id, paths, lifecycle=None):
+    unit = _unit_path(group_id, paths)
+    decision = _shown("decision", lifecycle) if lifecycle and lifecycle != DEFAULT_LIFECYCLE else None
+    _record(conn, domain, "added",
+            f"{domain} was added to the portfolio" + (f" in {unit}" if unit else "")
+            + (f" ({decision.lower()})" if decision else "") + ".", after=unit)
 
 
 # ---------------------------------------------------------------- import
@@ -1003,7 +1152,7 @@ def import_domains(entries, *, default_group=None, default_group_id=None, create
     if len(existing) + len(new) > MAX_DOMAINS:
         raise ValueError(f"At most {MAX_DOMAINS} domains in the portfolio "
                          f"({len(existing)} now, {len(new)} new in this import)")
-    added, moved, stayed, unit_moves = [], [], [], {}
+    added, moved, stayed, unit_moves, added_units = [], [], [], {}, {}
     now = _now().isoformat()
     with db._lock, db._connect() as conn:
         default_id = (int(default_group_id) if default_group_id is not None
@@ -1016,6 +1165,7 @@ def import_domains(entries, *, default_group=None, default_group_id=None, create
                              "lifecycle, note) VALUES (?, ?, ?, ?, ?, ?)",
                              (domain, named or default_id, created_by, now, default_lifecycle, note))
                 added.append(domain)
+                added_units[domain] = named or default_id
                 continue
             target = named
             if target is None and default_id is not None:
@@ -1028,8 +1178,13 @@ def import_domains(entries, *, default_group=None, default_group_id=None, create
                              (target, current["id"]))
                 moved.append(domain)
                 unit_moves[domain] = (current["group_id"], target)
-    report = _apply_extras(extras, added=added, labels=labels)
     paths = {g["id"]: g["path"] for g in list_groups()}
+    with db._lock, db._connect() as conn:
+        for domain in added:
+            _record_added(conn, domain, added_units.get(domain), paths, default_lifecycle)
+        for domain, (was, now_id) in unit_moves.items():
+            _record_unit(conn, domain, was, now_id, paths)
+    report = _apply_extras(extras, added=added, labels=labels)
     order = {d: i for i, (d, _) in enumerate(entries)}
     changes = sorted(
         [{"domain": d, "field": "unit", "from": paths.get(a), "to": paths.get(b)}
@@ -1048,16 +1203,41 @@ def move(domain_ids, group_id):
     if group_id is not None and not get_group(group_id):
         raise ValueError("Unknown unit")
     ids = [int(i) for i in domain_ids]
+    paths = {g["id"]: g["path"] for g in list_groups()}
     with db._lock, db._connect() as conn:
-        return sum(conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE id = ?",
-                                (group_id, i)).rowcount for i in ids)
+        count = 0
+        for i in ids:
+            row = conn.execute("SELECT domain, group_id FROM portfolio_domains WHERE id = ?", (i,)).fetchone()
+            if row is None:
+                continue
+            count += conn.execute("UPDATE portfolio_domains SET group_id = ? WHERE id = ?",
+                                  (group_id, i)).rowcount
+            if row["group_id"] != group_id:
+                _record_unit(conn, row["domain"], row["group_id"], group_id, paths)
+        return count
+
+
+def _record_unit(conn, domain, was, now, paths):
+    before, after = _unit_path(was, paths), _unit_path(now, paths)
+    _record(conn, domain, "unit", f"{domain}: unit {before or 'none'} -> {after or 'none'}.",
+            before=before, after=after)
 
 
 def remove(domain_ids):
     ids = [int(i) for i in domain_ids]
+    paths = {g["id"]: g["path"] for g in list_groups()}
     with db._lock, db._connect() as conn:
-        return sum(conn.execute("DELETE FROM portfolio_domains WHERE id = ?", (i,)).rowcount
-                   for i in ids)
+        count = 0
+        for i in ids:
+            row = conn.execute("SELECT domain, group_id FROM portfolio_domains WHERE id = ?", (i,)).fetchone()
+            if row is None:
+                continue
+            count += conn.execute("DELETE FROM portfolio_domains WHERE id = ?", (i,)).rowcount
+            unit = _unit_path(row["group_id"], paths)
+            _record(conn, row["domain"], "removed",
+                    f"{row['domain']} was removed from the portfolio"
+                    + (f" (unit {unit})." if unit else "."), before=unit)
+        return count
 
 
 def add_wanted(domains, *, note=None, created_by=None):
@@ -1091,11 +1271,33 @@ def set_contact(domain_ids, contact_id):
     return _set(domain_ids, "contact_id", contact_id)
 
 
+_COLUMN_KIND = {"lifecycle": "decision", "threat_intel": "threat_intel", "contact_id": "contact"}
+
+
 def _set(domain_ids, column, value):
+    """Set one column on these domains; each domain whose value changes gets
+    a row in the change log, from what it was to what it is now."""
     ids = [int(i) for i in domain_ids]
+    kind = _COLUMN_KIND[column]
     with db._lock, db._connect() as conn:
-        return sum(conn.execute(f"UPDATE portfolio_domains SET {column} = ? WHERE id = ?",
-                                (value, i)).rowcount for i in ids)
+        count = 0
+        for i in ids:
+            row = conn.execute(f"SELECT domain, {column} AS value FROM portfolio_domains WHERE id = ?",
+                               (i,)).fetchone()
+            if row is None:
+                continue
+            count += conn.execute(f"UPDATE portfolio_domains SET {column} = ? WHERE id = ?",
+                                  (value, i)).rowcount
+            if row["value"] == value:
+                continue
+            if kind == "contact":
+                before, after = _contact_name(conn, row["value"]), _contact_name(conn, value)
+            else:
+                before, after = _shown(kind, row["value"]), _shown(kind, value)
+            _record(conn, row["domain"], kind,
+                    f"{row['domain']}: {EVENT_KIND_TEXT[kind].lower()} {before or 'none'} -> {after or 'none'}.",
+                    before=before, after=after)
+        return count
 
 
 # ---------------------------------------------------------------- reading
@@ -1274,7 +1476,113 @@ def events(limit=50):
     with db._connect() as conn:
         rows = conn.execute("SELECT * FROM portfolio_events ORDER BY id DESC LIMIT ?",
                             (int(limit),)).fetchall()
-    return [dict(r) for r in rows]
+    return [_event(dict(r)) for r in rows]
+
+
+def _event(row):
+    """A change log row as the page shows it: before and after read from the
+    sentence when an older row did not store them, its kind and source in
+    words, and the unit the domain is in now."""
+    if row.get("before") is None and row.get("after") is None:
+        row["before"], row["after"] = _legacy_values(row.get("kind"), row.get("detail"))
+    row["source"] = row.get("source") or "registry"
+    row["severity"] = row.get("severity") or _KIND_SEVERITY.get(row.get("kind"), "info")
+    row["kind_text"] = EVENT_KIND_TEXT.get(row.get("kind"), row.get("kind"))
+    row["source_text"] = EVENT_SOURCE_TEXT.get(row["source"], row["source"])
+    return row
+
+
+EVENT_PAGE_MAX = 500
+
+
+def query_events(*, kinds=None, sources=None, domains=None, text=None, since=None, until=None,
+                 severities=None, limit=100, offset=0):
+    """Change log rows that match every filter given, newest first.
+
+    `domains` limits to a set of names (a unit's); `text` is matched against
+    the domain, the sentence, before, after and who made it. Returns the page
+    of rows, how many match in all, and per kind how many match the other
+    filters -- what choosing that kind would show."""
+    clauses, params = [], []
+    if since:
+        clauses.append("at >= ?")
+        params.append(since)
+    if until:
+        clauses.append("at <= ?")
+        params.append(until)
+    if domains is not None:
+        if not domains:
+            return {"events": [], "total": 0, "kinds": {}, "sources": {}}
+        clauses.append(f"domain IN ({','.join('?' * len(domains))})")
+        params.extend(sorted(domains))
+    if text:
+        like = "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        clauses.append("(" + " OR ".join(f"COALESCE({c}, '') LIKE ? ESCAPE '\\'" for c in
+                                          ("domain", "detail", "before", "after", "actor")) + ")")
+        params.extend([like] * 5)
+    base = " AND ".join(clauses) or "1=1"
+    narrow, narrow_params = [base], list(params)
+    if kinds:
+        narrow.append(f"kind IN ({','.join('?' * len(kinds))})")
+        narrow_params.extend(kinds)
+    if sources:
+        wanted = list(sources)
+        narrow.append(f"COALESCE(source, 'registry') IN ({','.join('?' * len(wanted))})")
+        narrow_params.extend(wanted)
+    rows_all = None
+    with db._connect() as conn:
+        # Severity is stored on newer rows only; older ones take their kind's.
+        # Filtering on it therefore happens here, on the rows themselves.
+        if severities:
+            rows_all = [_event(dict(r)) for r in conn.execute(
+                f"SELECT * FROM portfolio_events WHERE {' AND '.join(narrow)} ORDER BY at DESC, id DESC",
+                narrow_params)]
+            rows_all = [r for r in rows_all if r["severity"] in severities]
+        else:
+            total = conn.execute(f"SELECT COUNT(*) AS c FROM portfolio_events WHERE {' AND '.join(narrow)}",
+                                 narrow_params).fetchone()["c"]
+            page = [_event(dict(r)) for r in conn.execute(
+                f"SELECT * FROM portfolio_events WHERE {' AND '.join(narrow)} "
+                f"ORDER BY at DESC, id DESC LIMIT ? OFFSET ?",
+                narrow_params + [int(limit), int(offset)])]
+        kind_params = list(params)
+        kind_where = base
+        if sources:
+            kind_where += f" AND COALESCE(source, 'registry') IN ({','.join('?' * len(sources))})"
+            kind_params.extend(sources)
+        kind_counts = {r["kind"]: r["c"] for r in conn.execute(
+            f"SELECT kind, COUNT(*) AS c FROM portfolio_events WHERE {kind_where} GROUP BY kind", kind_params)}
+        source_params = list(params)
+        source_where = base
+        if kinds:
+            source_where += f" AND kind IN ({','.join('?' * len(kinds))})"
+            source_params.extend(kinds)
+        source_counts = {r["s"]: r["c"] for r in conn.execute(
+            f"SELECT COALESCE(source, 'registry') AS s, COUNT(*) AS c FROM portfolio_events "
+            f"WHERE {source_where} GROUP BY s", source_params)}
+    if rows_all is not None:
+        total = len(rows_all)
+        page = rows_all[int(offset):int(offset) + int(limit)]
+    units = units_by_domain()
+    paths = {g["id"]: g["path"] for g in list_groups()}
+    for row in page:
+        row["unit_id"] = units.get(row["domain"])
+        row["unit"] = paths.get(row["unit_id"])
+    return {"events": page, "total": total, "kinds": kind_counts, "sources": source_counts}
+
+
+EVENT_CSV_COLUMNS = ["at", "domain", "unit", "kind", "severity", "before", "after", "source", "actor", "detail"]
+
+
+def events_csv(rows):
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(EVENT_CSV_COLUMNS)
+    for r in rows:
+        writer.writerow([whois_batch._csv_safe(r.get(c)) for c in
+                         ("at", "domain", "unit", "kind_text", "severity", "before", "after",
+                          "source_text", "actor", "detail")])
+    return out.getvalue()
 
 
 CSV_COLUMNS = ["domain", "unit", "phase", "registrar", "reseller", "transfer", "expires",
@@ -1483,17 +1791,18 @@ def check(row, *, fetch=None, notify=None, now=None, probe=None):
             (new["phase"], new["status"], new["registrar"], new["reseller"], new["registered_on"],
              new["expires"], new["released_from"], new["dnssec"], new["nameservers"], new["source"],
              stamp, stamp, expiry_warned, stamp if changes else None, row["id"]))
-        for kind, _, text in changes:
-            conn.execute("INSERT INTO portfolio_events (domain, at, kind, detail) VALUES (?, ?, ?, ?)",
-                         (row["domain"], stamp, kind, text))
+        for kind, severity, text in changes:
+            before, after = _registry_values(kind, row, new)
+            _record(conn, row["domain"], kind, text, before=before, after=after, severity=severity,
+                    source="registry", at=stamp)
     dns = _store_usage(row, new["phase"], probe, stamp)
     if (row.get("lifecycle") or DEFAULT_LIFECYCLE) not in _NOT_HELD:
         change = _dns_change(row["domain"], row.get("dns_state"), dns)
         if change:
             changes.append(("dns",) + change)
             with db._lock, db._connect() as conn:
-                conn.execute("INSERT INTO portfolio_events (domain, at, kind, detail) VALUES (?, ?, 'dns', ?)",
-                             (row["domain"], stamp, change[1]))
+                _record(conn, row["domain"], "dns", change[1], severity=change[0], source="registry",
+                        before=_DNS_TEXT.get(row.get("dns_state")), after=_DNS_TEXT.get(dns), at=stamp)
     for _, severity, text in changes:
         (notify or _notify)(row["domain"], severity, text)
     return [{"domain": row["domain"], "kind": k, "severity": s, "detail": t} for k, s, t in changes]
@@ -1523,6 +1832,21 @@ def _store_usage(row, phase, probe, stamp):
                      "uses_web = COALESCE(?, uses_web), dns_state = ?, usage_checked_at = ? WHERE id = ?",
                      (mail, web, dns, stamp, row["id"]))
     return dns
+
+
+_DNS_TEXT = {"ok": "Name servers answer", "no_answer": "Name servers do not answer"}
+
+
+def _registry_values(kind, old, new):
+    """(before, after) of a change a lookup found, for the change log."""
+    if kind == "phase":
+        return (PHASE_TEXT.get(old.get("phase"), old.get("phase")),
+                PHASE_TEXT.get(new.get("phase"), new.get("phase")))
+    if kind in ("registrar", "reseller", "nameservers"):
+        return old.get(kind), new.get(kind)
+    if kind == "expiry":
+        return None, new.get("expires")
+    return None, None
 
 
 def _dns_change(domain, was, now):

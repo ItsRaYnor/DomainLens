@@ -3611,13 +3611,18 @@ def _watched_record_transition(monitor, results, previous_results):
 
     rtype = current.get("type") or monitor.get("record_type") or "record"
     target = monitor["target"]
+    was = ", ".join(previous.get("records") or []) or "none"
+    now = ", ".join(current.get("records") or []) or "none"
     if previous.get("present") and not current.get("present"):
         # The value the CNAME/A/... pointed at is gone. This is the dangling
         # signal a takeover scan would otherwise only catch on a full re-enum.
         return "high", f"{rtype} record for {target} disappeared (now {current.get('rcode') or 'empty'})"
     if not previous.get("present") and current.get("present"):
-        return "medium", f"{rtype} record for {target} reappeared"
-    return "medium", f"{rtype} record for {target} changed value"
+        return "medium", f"{rtype} record for {target} reappeared: {now}"
+    # The values themselves: the comparison of the two scans compares fields
+    # and findings, not the watched record, so "changed value" alone left an
+    # event that its own "what changed?" could not explain.
+    return "medium", f"{rtype} record for {target} changed value: {was} -> {now}"
 
 
 def _monitor_event_from_results(monitor, results, previous_record):
@@ -3695,6 +3700,9 @@ def _monitor_event_from_results(monitor, results, previous_record):
             summary = f"Observed changes for {monitor['target']}"
             if changes and changes["changed"]:
                 summary += f": {scan_diff.describe(changes)}"
+        if record_transition:
+            # The value it had, so the event can show before and after.
+            details["previous_record_values"] = (previous_results.get("monitored_record") or {}).get("records") or []
         if changes:
             details["changes"] = {"fields": len(changes["fields"]), "dimensions": len(changes["dimensions"]),
                                   "new_findings": len(changes["findings"]["new"]),
@@ -4334,12 +4342,13 @@ def api_portfolio_import():
         return jsonify({"error": "No valid domain names in the input", "rejected": rejected[:50]}), 400
     try:
         group_id = _unit_arg(data if upload is None else request.form)
-        result = domain_portfolio.import_domains(
-            entries, default_group=(group or "").strip() or None,
-            default_group_id=int(group_id) if group_id not in (None, "") else None,
-            created_by=(auth.current_user() or {}).get("email"), extras=parsed["extras"],
-            default_lifecycle=(data if upload is None else request.form).get("lifecycle"),
-            labels=parsed["labels"])
+        with domain_portfolio.edit_source("import"):
+            result = domain_portfolio.import_domains(
+                entries, default_group=(group or "").strip() or None,
+                default_group_id=int(group_id) if group_id not in (None, "") else None,
+                created_by=(auth.current_user() or {}).get("email"), extras=parsed["extras"],
+                default_lifecycle=(data if upload is None else request.form).get("lifecycle"),
+                labels=parsed["labels"])
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     monitored = _monitor_new_in_units(set(result["added"]) | set(result["moved"]))
@@ -4829,11 +4838,84 @@ def lookup_impersonation_view_legacy():
     return redirect("/tools/impersonation", code=301)
 
 
+# Each list of what happened is a page of its own, next to what it is about:
+# the monitor events after the monitors, the domain changes after the
+# portfolio. They were a column of lines at the bottom of those pages.
 _MONITORING_SUBNAV = [
     ("nav.monitoring_monitors", "/monitoring"),
+    ("nav.monitoring_events", "/monitoring/events"),
     ("nav.monitoring_domains", "/monitoring/domains"),
+    ("nav.monitoring_changes", "/monitoring/domains/changes"),
     ("nav.monitoring_organisation", "/monitoring/organisation"),
 ]
+
+
+def _day_bound(value, end=False):
+    """A YYYY-MM-DD from the query string as the start or end of that day
+    (UTC), or None. ValueError for anything else."""
+    value = (value or "").strip()
+    if not value:
+        return None
+    datetime.strptime(value[:10], "%Y-%m-%d")
+    return value[:10] + ("T23:59:59.999999+00:00" if end else "T00:00:00+00:00")
+
+
+def _csv_list(value, allowed=None):
+    items = [v.strip() for v in str(value or "").split(",") if v.strip()]
+    return [v for v in items if allowed is None or v in allowed]
+
+
+def _portfolio_change_filters(args):
+    """The change log filters of a request: (filters, error)."""
+    try:
+        since, until = _day_bound(args.get("from")), _day_bound(args.get("to"), end=True)
+    except ValueError:
+        return None, "Dates are YYYY-MM-DD"
+    try:
+        below = _unit_below(args)
+    except (ValueError, LookupError) as exc:
+        return None, str(exc)
+    domains = None
+    if below is not None:
+        domains = {d["domain"] for d in domain_portfolio.list_all() if d.get("group_id") in below}
+    return {"kinds": _csv_list(args.get("kind"), domain_portfolio.EVENT_KIND_TEXT),
+            "sources": _csv_list(args.get("source"), domain_portfolio.EVENT_SOURCE_TEXT),
+            "severities": _csv_list(args.get("severity"), ("critical", "high", "medium", "low", "info")),
+            "domains": domains, "text": (args.get("q") or "").strip()[:200] or None,
+            "since": since, "until": until}, None
+
+
+@app.route("/monitoring/domains/changes")
+def monitoring_changes_view():
+    return render_template(
+        "monitoring_changes.html", section="monitoring",
+        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/domains/changes"))
+
+
+@app.route("/api/portfolio/changes", methods=["GET"])
+def api_portfolio_changes():
+    """Every change of the portfolio's domains, filtered: what a lookup found
+    and what someone changed, each with before, after and who."""
+    filters, error = _portfolio_change_filters(request.args)
+    if error:
+        return jsonify({"error": error}), 400
+    limit = _parse_positive_int(request.args.get("limit"), 100, minimum=1,
+                                maximum=domain_portfolio.EVENT_PAGE_MAX)
+    offset = _parse_positive_int(request.args.get("offset"), 0, minimum=0, maximum=10 ** 7)
+    result = domain_portfolio.query_events(**filters, limit=limit, offset=offset)
+    return jsonify({**result, "limit": limit, "offset": offset,
+                    "kind_text": domain_portfolio.EVENT_KIND_TEXT,
+                    "source_text": domain_portfolio.EVENT_SOURCE_TEXT})
+
+
+@app.route("/api/portfolio/changes.csv", methods=["GET"])
+def api_portfolio_changes_csv():
+    filters, error = _portfolio_change_filters(request.args)
+    if error:
+        return jsonify({"error": error}), 400
+    rows = domain_portfolio.query_events(**filters, limit=100000)["events"]
+    return Response(domain_portfolio.events_csv(rows), mimetype="text/csv", headers={
+        "Content-Disposition": "attachment; filename=domainlens-domain-changes.csv"})
 
 
 @app.route("/monitoring/wanted")
@@ -4963,6 +5045,22 @@ def monitoring_domains_view():
     return render_template(
         "monitoring_domains.html", section="monitoring",
         subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/domains"),
+        can_edit=(not auth.config().get("enabled"))
+        or roles.at_least(auth.current_role(), roles.USER))
+
+
+@app.route("/help")
+def help_view():
+    """The manual (static/help/handleiding.md), shown in the app: one file,
+    read on GitHub as well, and in the image where docs/ is not."""
+    return render_template("help.html", section="help")
+
+
+@app.route("/monitoring/events")
+def monitoring_events_view():
+    return render_template(
+        "monitoring_events.html", section="monitoring",
+        subnav=_subnav(_MONITORING_SUBNAV, "/monitoring/events"),
         can_edit=(not auth.config().get("enabled"))
         or roles.at_least(auth.current_role(), roles.USER))
 
@@ -5950,6 +6048,35 @@ def api_reporting_dashboard():
         return jsonify(management.dashboard(days=days, group_id=int(group) if group else None))
     except ValueError as exc:
         return jsonify({"error": str(exc) or "Unknown group"}), 400
+
+
+@app.route("/api/reporting/dashboard/drill", methods=["GET"])
+def api_reporting_dashboard_drill():
+    """The domains behind one figure of the dashboard: a risk, an area, a
+    control, a rating, a severity."""
+    days = _parse_positive_int(request.args.get("days"), 90, minimum=7, maximum=365)
+    group = _unit_arg(request.args, "unit", "group")
+    try:
+        return jsonify(management.drill(
+            request.args.get("kind") or "", request.args.get("value") or None,
+            severity=request.args.get("severity") or None, state=request.args.get("state") or None,
+            days=days, group_id=int(group) if group else None))
+    except ValueError as exc:
+        return jsonify({"error": str(exc) or "Unknown group"}), 400
+
+
+@app.route("/api/reporting/day", methods=["GET"])
+def api_reporting_day():
+    """The scans of one day of the trend charts, each with the scan before it."""
+    day = (request.args.get("day") or "").strip()
+    try:
+        datetime.strptime(day, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "day is YYYY-MM-DD"}), 400
+    domain = request.args.get("domain", "").strip().lower() or None
+    if domain and not _is_valid_domain(domain):
+        return jsonify({"error": "Invalid domain filter"}), 400
+    return jsonify({"day": day, "domain": domain, "scans": db.reporting_day_scans(day, domain)})
 
 
 @app.route("/api/reporting/overview", methods=["GET"])
@@ -7056,7 +7183,24 @@ def api_compare_scans():
         "fields": changes["fields"],
         "findings": changes["findings"],
         "changed": changes["changed"],
+        "record": _record_change(old["data"], new["data"]),
     })
+
+
+def _record_change(old, new):
+    """The monitor's watched DNS record in both scans, when both measured it
+    and it differs, else None. A monitor raises an event for it, so the
+    comparison has to show it: without it a record change read as "nothing
+    moved"."""
+    before = (old or {}).get("monitored_record") or {}
+    after = (new or {}).get("monitored_record") or {}
+    if not before.get("measured") or not after.get("measured"):
+        return None
+    if before.get("records") == after.get("records"):
+        return None
+    return {"type": after.get("type") or before.get("type"),
+            "before": before.get("records") or [], "after": after.get("records") or [],
+            "rcode_before": before.get("rcode"), "rcode_after": after.get("rcode")}
 
 
 def _with_postures(monitors, latest):
@@ -7261,16 +7405,69 @@ def api_monitors_run_due():
 
 @app.route("/api/monitor-events", methods=["GET"])
 def api_monitor_events():
+    """Monitor events, newest first, filtered by severity, type, monitor,
+    unit, period and text. Without filters: the latest, as before."""
     limit = _parse_positive_int(request.args.get("limit"), 100, minimum=1, maximum=500)
+    offset = _parse_positive_int(request.args.get("offset"), 0, minimum=0, maximum=10 ** 7)
+    monitor_ids = None
     monitor_id = request.args.get("monitor_id")
     if monitor_id:
         try:
-            monitor_id = int(monitor_id)
+            monitor_ids = [int(monitor_id)]
         except ValueError:
             return jsonify({"error": "Invalid monitor_id"}), 400
-    else:
-        monitor_id = None
-    return jsonify({"events": db.list_monitor_events(monitor_id=monitor_id, limit=limit)})
+    try:
+        since = _day_bound(request.args.get("from"))
+        until = _day_bound(request.args.get("to"), end=True)
+    except ValueError:
+        return jsonify({"error": "Dates are YYYY-MM-DD"}), 400
+    try:
+        below = _unit_below(request.args)
+    except (ValueError, LookupError) as exc:
+        return jsonify({"error": str(exc)}), 400
+    monitors = db.list_monitors(limit=10000)
+    if below is not None:
+        names = {d["domain"] for d in domain_portfolio.list_all() if d.get("group_id") in below}
+        in_unit = [m["id"] for m in monitors
+                   if domain_portfolio.registrable(domain_portfolio.host_of(m.get("target"))) in names]
+        monitor_ids = in_unit if monitor_ids is None else [i for i in monitor_ids if i in in_unit]
+    result = db.query_monitor_events(
+        severities=_csv_list(request.args.get("severity"), ("critical", "high", "medium", "low", "info")),
+        types=_csv_list(request.args.get("type")),
+        monitor_ids=monitor_ids, text=(request.args.get("q") or "").strip()[:200] or None,
+        since=since, until=until, domain=(request.args.get("domain") or "").strip().lower() or None,
+        servicenow=request.args.get("servicenow") == "1", limit=limit, offset=offset)
+    units = domain_portfolio.units_by_domain()
+    paths = {g["id"]: g["path"] for g in domain_portfolio.list_groups()}
+    for e in result["events"]:
+        domain = domain_portfolio.registrable(domain_portfolio.host_of(e.get("monitor_target")))
+        e["unit"] = paths.get(units.get(domain))
+        e["type_text"] = db.EVENT_TYPE_TEXT.get(e.get("event_type"), e.get("event_type"))
+        e["explained"] = _event_explained(e)
+    return jsonify({**result, "limit": limit, "offset": offset, "type_text": db.EVENT_TYPE_TEXT,
+                    "monitors": [{"id": m["id"], "target": m.get("target"), "name": m.get("name")}
+                                 for m in monitors]})
+
+
+def _event_explained(event):
+    """Whether a change event says what changed before it is opened: "yes"
+    (it counted moved fields or findings, or names the record's old and new
+    value), "no" (both scans were compared and nothing moved: an event of the
+    earlier way of detecting changes) or None (not a change, or not known
+    until the comparison is opened)."""
+    if event.get("event_type") != "scan_changed":
+        return None
+    details = event.get("details") or {}
+    if details.get("previous_record_values") is not None:
+        return "yes"
+    counts = details.get("changes")
+    if not isinstance(counts, dict):
+        return None
+    if any(counts.values()):
+        return "yes"
+    # Nothing counted: a record change is all that can explain it, and
+    # events from before 0.1.18 did not keep the old value to tell.
+    return None if details.get("record_values") is not None else "no"
 
 
 @app.route("/api/monitor-events/delete", methods=["POST"])

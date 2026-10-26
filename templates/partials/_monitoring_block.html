@@ -43,7 +43,11 @@
                     <div id="monitorList" class="monitor-list"></div>
                 </section>
                 <section class="monitor-section">
-                    <h4>Recent monitor events</h4>
+                    {# The latest few; the whole list, with filters, is a page of its own. #}
+                    <div class="monitor-section-head">
+                        <h4>Latest monitor events</h4>
+                        <a href="/monitoring/events" class="btn-ghost-sm">All events, with filters &rarr;</a>
+                    </div>
                     <div class="event-tools hidden" id="eventTools">
                         <button type="button" class="btn-ghost-sm danger" id="eventDeleteBtn">Delete selected</button>
                         <span class="muted" id="eventSelCount"></span>

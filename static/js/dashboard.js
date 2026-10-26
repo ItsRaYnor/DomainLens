@@ -10,7 +10,12 @@ const MG_SEV_COLOR = {
     critical: 'var(--sev-critical-badge)', high: 'var(--sev-high-badge)',
     medium: 'var(--sev-medium-badge)', low: 'var(--text-faint)',
 };
-const mg = { days: 90, group: '' };
+const mg = { days: 90, group: '', drill: null };
+
+function mgDrillAttrs(params) {
+    return ' class="mg-click" role="button" tabindex="0"' + Object.entries(params)
+        .map(([k, v]) => ` data-drill-${k}="${esc(v)}"`).join('');
+}
 
 function mgPct(part, whole) { return whole ? Math.round(100 * part / whole) : 0; }
 
@@ -59,28 +64,35 @@ function mgLine(series, key) {
         + `<polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2"/>${dots}${labels}</svg>`;
 }
 
-function mgBarRow(label, segments, value, title) {
+function mgBarRow(label, segments, value, title, drill) {
     const total = segments.reduce((a, s) => a + s.n, 0);
     const bar = segments.filter(s => s.n).map(s =>
         `<span style="width:${100 * s.n / (total || 1)}%;background:${s.color}" title="${esc(s.label)}: ${s.n}"></span>`).join('');
-    return `<div class="mgmt-bar-row"${title ? ` title="${esc(title)}"` : ''}><span>${esc(label)}</span>`
+    const attrs = drill ? mgDrillAttrs(drill).replace(' class="mg-click"', '') : '';
+    return `<div class="mgmt-bar-row${drill ? ' mg-click' : ''}"${attrs}${title ? ` title="${esc(title)}"` : ''}><span>${esc(label)}</span>`
         + `<div class="mgmt-bar">${bar}</div><span class="mgmt-bar-value">${value}</span></div>`;
 }
 
 function mgKpis(d) {
     const k = d.kpis;
-    const kpi = (value, label, sub, cls) => `<div class="mgmt-kpi ${cls || ''}"><div class="value">${value}</div>`
+    const kpi = (value, label, sub, cls, drill) => `<div class="mgmt-kpi ${cls || ''}${drill ? ' mg-click' : ''}"`
+        + `${drill ? mgDrillAttrs(drill).replace(' class="mg-click"', '') : ''}><div class="value">${value}</div>`
         + `<div class="label">${esc(label)}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
     const trend = k.compared
         ? `${k.improved} better, ${k.worsened} worse than ${d.days} days ago` : 'No earlier scan to compare with';
-    let html = kpi(k.domains, 'Domains assessed', k.not_rescanned ? `${k.not_rescanned} not scanned again in this period` : '')
+    let html = kpi(k.domains, 'Domains assessed', k.not_rescanned ? `${k.not_rescanned} not scanned again in this period` : '',
+            '', k.domains ? { kind: 'domains' } : null)
         + kpi(k.in_order_pct === null ? '&mdash;' : `${k.in_order_pct}%`, 'In order (rating A or B)',
-            `${k.in_order} of ${k.domains}`, k.in_order_pct === null ? '' : k.in_order_pct >= 80 ? 'good' : k.in_order_pct >= 50 ? 'warn' : 'bad')
-        + kpi(k.critical, 'Open critical findings', '', k.critical ? 'bad' : 'good')
-        + kpi(k.high, 'Open high findings', '', k.high ? 'warn' : 'good')
+            `${k.in_order} of ${k.domains}`, k.in_order_pct === null ? '' : k.in_order_pct >= 80 ? 'good' : k.in_order_pct >= 50 ? 'warn' : 'bad',
+            k.in_order ? { kind: 'rating', value: 'A,B' } : null)
+        + kpi(k.critical, 'Open critical findings', '', k.critical ? 'bad' : 'good',
+            k.critical ? { kind: 'severity', value: 'critical' } : null)
+        + kpi(k.high, 'Open high findings', '', k.high ? 'warn' : 'good',
+            k.high ? { kind: 'severity', value: 'high' } : null)
         + kpi(k.improved - k.worsened >= 0 ? `+${k.improved - k.worsened}` : k.improved - k.worsened,
             'Net change in ratings', trend, k.worsened > k.improved ? 'bad' : k.improved ? 'good' : '')
-        + kpi(k.accepted, 'Accepted risks', 'Decided, with an owner and an end date');
+        + kpi(k.accepted, 'Accepted risks', 'Decided, with an owner and an end date', '',
+            k.accepted ? { kind: 'accepted' } : null);
     if (d.portfolio) {
         // A registration nobody has looked up yet is not "fine": with every
         // domain unmeasured the tile says so instead of a green zero.
@@ -103,7 +115,7 @@ function mgRender(d) {
 
     $('mgRatingChart').innerHTML = d.kpis.domains ? mgDonut(d.ratings, 190) : '<p class="muted">No domains were scanned in this period.</p>';
     $('mgRatingLegend').innerHTML = Object.entries(d.ratings).map(([r, n]) =>
-        `<li><span class="mgmt-swatch" style="background:${MG_RATING_COLOR[r]}"></span>`
+        `<li${n ? mgDrillAttrs({ kind: 'rating', value: r }) : ''}><span class="mgmt-swatch" style="background:${MG_RATING_COLOR[r]}"></span>`
         + `<span><strong>${r}</strong> &middot; ${n} (${mgPct(n, d.kpis.domains)}%) <span class="muted">${esc((d.band_text || d.rating_text)[r])}</span></span></li>`).join('');
     // Before the first scan there is nothing to count; a zero there would
     // read as a clean start.
@@ -114,7 +126,7 @@ function mgRender(d) {
         { n: c.fail, color: 'var(--red)', label: 'Missing' },
         { n: c.unmeasured, color: 'var(--border-hover)', label: 'Could not be measured' },
     ], c.pass_rate === null ? '&mdash;' : `${c.pass_rate}%`,
-    `${c.pass} in place, ${c.fail} missing, ${c.unmeasured} not measured`)).join('')
+    `${c.pass} in place, ${c.fail} missing, ${c.unmeasured} not measured`, { kind: 'control', value: c.key })).join('')
         + '<p class="muted mgmt-legend-line"><span class="mgmt-swatch" style="background:var(--green)"></span> in place &nbsp; '
         + '<span class="mgmt-swatch" style="background:var(--red)"></span> missing &nbsp; '
         + '<span class="mgmt-swatch" style="background:var(--border-hover)"></span> not measured</p>';
@@ -124,13 +136,15 @@ function mgRender(d) {
         ? d.top_findings.map(f => mgBarRow(f.title, [
             { n: f.domains, color: MG_SEV_COLOR[f.severity], label: f.severity },
             { n: maxDomains - f.domains, color: 'transparent', label: '' },
-        ], f.domains, `${f.severity}: ${f.examples.join(', ')}${f.domains > f.examples.length ? ', …' : ''}`)).join('')
+        ], f.domains, `${f.severity}: ${f.examples.join(', ')}${f.domains > f.examples.length ? ', …' : ''}`,
+            { kind: 'finding', value: f.title, severity: f.severity })).join('')
         : '<p class="muted">No open findings of medium severity or worse.</p>';
 
     const cats = Object.entries(d.by_category);
     $('mgCategories').innerHTML = cats.length
         ? cats.map(([cat, c]) => mgBarRow(cat, ['critical', 'high', 'medium', 'low'].map(s =>
-            ({ n: c[s], color: MG_SEV_COLOR[s], label: s })), c.critical + c.high + c.medium + c.low)).join('')
+            ({ n: c[s], color: MG_SEV_COLOR[s], label: s })), c.critical + c.high + c.medium + c.low,
+            '', { kind: 'category', value: cat })).join('')
           + '<p class="muted">' + ['critical', 'high', 'medium', 'low'].map(s =>
             `<span class="mgmt-swatch" style="background:${MG_SEV_COLOR[s]}"></span> ${s}`).join(' &nbsp; ') + '</p>'
         : '<p class="muted">No open findings.</p>';
@@ -172,6 +186,90 @@ function mgRender(d) {
     ].map(t => `<li>${esc(t)}</li>`).join('');
 }
 
+const MG_STATE_TEXT = { fail: 'Missing', unmeasured: 'Could not be measured', pass: 'In place',
+    not_applicable: 'Not applicable' };
+const MG_STATE_CLASS = { fail: 'status-fail', unmeasured: 'status-warn', pass: 'status-pass', not_applicable: '' };
+
+function mgDrillTitle(d) {
+    if (d.kind === 'finding') return d.value;
+    if (d.kind === 'category') return `Open findings in ${d.value}`;
+    if (d.kind === 'control') return d.label || d.value;
+    if (d.kind === 'rating') return d.value === 'A,B' ? 'Domains in order (rating A or B)' : `Domains rated ${d.value}`;
+    if (d.kind === 'severity') return `Domains with open ${d.value} findings`;
+    if (d.kind === 'accepted') return 'Domains with accepted risks';
+    return 'Domains assessed';
+}
+
+function mgDrillWhat(d, r) {
+    if (d.kind === 'control') {
+        return `<span class="status ${MG_STATE_CLASS[r.state] || ''}">${esc(MG_STATE_TEXT[r.state] || r.state)}</span>`;
+    }
+    if (r.findings && r.findings.length && d.kind !== 'finding') {
+        return '<ul class="cmp-findings">' + r.findings.map(f => `<li><span class="rec-badge sev-${esc(f.severity)}">`
+            + `${esc(f.severity.toUpperCase())}</span> <span>${esc(f.title)}</span></li>`).join('') + '</ul>';
+    }
+    const c = r.counts;
+    return `<span>${esc(`${c.critical} critical, ${c.high} high, ${c.medium} medium`)}</span>`
+        + (r.accepted ? `<span class="lv-sub">${esc(`${r.accepted} accepted`)}</span>` : '');
+}
+
+function mgDrillRender(d) {
+    mg.drillData = d;
+    $('mgDrillTitle').textContent = mgDrillTitle(d);
+    const scope = `${d.group ? d.group : 'All domains'} · last ${d.days} days`;
+    let note = `${d.total === 1 ? '1 domain' : `${d.total} domains`} · ${scope} · each on its latest scan in the period.`;
+    if (d.kind === 'control' && d.states) {
+        note = ['fail', 'unmeasured', 'pass', 'not_applicable'].filter(s => d.states[s])
+            .map(s => `${MG_STATE_TEXT[s]}: ${d.states[s]}`).join(' · ') + ` · ${scope}`;
+    }
+    $('mgDrillNote').textContent = note;
+    const what = d.kind === 'control' ? 'State' : d.kind === 'finding' ? 'Open findings' : 'Findings';
+    $('mgDrillBody').innerHTML = d.domains.length
+        ? `<div class="table-scroll"><table class="data-table stack-table"><thead><tr><th>Domain</th><th>Unit</th>`
+          + `<th>Rating</th><th>${esc(what)}</th><th>Scanned</th></tr></thead><tbody>`
+          + d.domains.map(r => `<tr><td><a href="/report/${r.scan_id}"><code>${esc(r.domain)}</code></a></td>`
+              + `<td>${r.unit ? `<span>${esc(r.unit)}</span>` : '<span class="muted">—</span>'}</td>`
+              + `<td>${mgRatingBadge(r.rating)}</td><td>${mgDrillWhat(d, r)}</td>`
+              + `<td class="nowrap">${esc(new Date(r.scanned_at).toLocaleDateString())}</td></tr>`).join('')
+          + '</tbody></table></div>'
+        : '<p class="muted">No domain in this period.</p>';
+}
+
+// Opened under the card that holds what was clicked.
+async function mgOpenDrill(params, anchor) {
+    mg.drill = params;
+    const panel = $('mgDrill');
+    const host = anchor && anchor.closest('section');
+    if (host && host !== panel && host.parentNode) host.after(panel);
+    panel.classList.remove('hidden');
+    $('mgDrillTitle').textContent = mgDrillTitle(params);
+    $('mgDrillNote').textContent = '';
+    $('mgDrillBody').innerHTML = '<p class="muted">Loading…</p>';
+    mgSyncUrl();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const qs = new URLSearchParams({ days: mg.days, ...params });
+    if (mg.group) qs.set('unit', mg.group);
+    try {
+        mgDrillRender(await requestJson('/api/reporting/dashboard/drill?' + qs));
+    } catch (err) {
+        $('mgDrillBody').innerHTML = `<p class="status status-fail">${esc(err.message)}</p>`;
+    }
+}
+
+function mgCloseDrill() {
+    mg.drill = null;
+    $('mgDrill').classList.add('hidden');
+    mgSyncUrl();
+}
+
+function mgDrillOf(el) {
+    const params = {};
+    Object.entries(el.dataset).forEach(([k, v]) => {
+        if (k.startsWith('drill')) params[k.slice(5).toLowerCase()] = v;
+    });
+    return params;
+}
+
 async function mgLoad() {
     const qs = new URLSearchParams({ days: mg.days });
     if (mg.group) qs.set('unit', mg.group);
@@ -203,17 +301,46 @@ function initDashboard() {
         });
     });
     $('mgGroup').addEventListener('change', () => { mg.group = $('mgGroup').value; mgSync(); });
+    document.querySelector('main').addEventListener('click', e => {
+        const el = e.target.closest('[data-drill-kind]');
+        if (el) mgOpenDrill(mgDrillOf(el), el);
+    });
+    document.querySelector('main').addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const el = e.target.closest('[data-drill-kind]');
+        if (el) { e.preventDefault(); mgOpenDrill(mgDrillOf(el), el); }
+    });
+    $('mgDrillClose').addEventListener('click', mgCloseDrill);
+    $('mgDrillCopy').addEventListener('click', async () => {
+        const names = ((mg.drillData || {}).domains || []).map(r => r.domain).join('\n');
+        try { await navigator.clipboard.writeText(names); toast('Domains copied.'); }
+        catch (e) { toast('Copying is not allowed here; select the list instead.'); }
+    });
+    const drill = {};
+    ['kind', 'value', 'severity', 'state'].forEach(k => { if (params.get('drill_' + k)) drill[k] = params.get('drill_' + k); });
     $('mgPrint').addEventListener('click', () => window.print());
     mgLoadGroups().then(() => { $('mgGroup').value = mg.group; });
-    mgLoad();
+    mgLoad().then(() => {
+        if (drill.kind) {
+            const sel = `[data-drill-kind="${CSS.escape(drill.kind)}"]`;
+            const anchor = [...document.querySelectorAll(sel)].find(el => (el.dataset.drillValue || '') === (drill.value || ''));
+            mgOpenDrill(drill, anchor);
+        }
+    });
 }
 
-// The address carries the view, so a link to "Sales, last year" opens it.
-function mgSync() {
+// The address carries the view, so a link to "Sales, last year" opens it --
+// with the list of domains that was open, if one was.
+function mgSyncUrl() {
     const qs = new URLSearchParams({ days: mg.days });
     if (mg.group) qs.set('unit', mg.group);
+    Object.entries(mg.drill || {}).forEach(([k, v]) => qs.set('drill_' + k, v));
     history.replaceState(null, '', '?' + qs);
-    mgLoad();
+}
+
+function mgSync() {
+    mgSyncUrl();
+    mgLoad().then(() => { if (mg.drill) mgOpenDrill(mg.drill, null); });
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);

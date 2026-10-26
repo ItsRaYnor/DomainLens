@@ -1040,6 +1040,77 @@ def delete_monitor_events(event_ids):
     return [dict(r) for r in rows]
 
 
+EVENT_TYPE_TEXT = {
+    "scan_changed": "Changed",
+    "scan_unchanged": "No change",
+    "baseline_created": "Baseline",
+    "scan_failed": "Scan failed",
+    "dns_unanswered": "DNS did not answer",
+}
+
+
+def query_monitor_events(*, severities=None, types=None, monitor_ids=None, text=None,
+                         since=None, until=None, domain=None, servicenow=False, limit=100, offset=0):
+    """Monitor events that match every filter given, newest first.
+
+    Returns the page, how many match in all, and how many match per
+    severity and per type with the other filters applied -- what choosing
+    that one would show."""
+    clauses, params = [], []
+    if since:
+        clauses.append("e.created_at >= ?")
+        params.append(since)
+    if until:
+        clauses.append("e.created_at <= ?")
+        params.append(until)
+    if monitor_ids is not None:
+        ids = [int(i) for i in monitor_ids]
+        if not ids:
+            return {"events": [], "total": 0, "severities": {}, "types": {}}
+        clauses.append(f"e.monitor_id IN ({','.join('?' * len(ids))})")
+        params.extend(ids)
+    if domain:
+        # The monitor's zone, as the trends page filters its events.
+        clauses.append("m.domain = ?")
+        params.append(domain)
+    if servicenow:
+        clauses.append("COALESCE(e.servicenow_number, '') != ''")
+    if text:
+        like = "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        clauses.append("(" + " OR ".join(f"COALESCE({c}, '') LIKE ? ESCAPE '\\'" for c in
+                                          ("e.summary", "m.target", "m.name", "e.servicenow_number")) + ")")
+        params.extend([like] * 4)
+
+    def where(extra):
+        parts, values = list(clauses), list(params)
+        for column, wanted in extra:
+            if wanted:
+                parts.append(f"{column} IN ({','.join('?' * len(wanted))})")
+                values.extend(wanted)
+        return (" AND ".join(parts) or "1=1"), values
+
+    joined = "FROM monitor_events e JOIN monitors m ON m.id = e.monitor_id"
+    with _lock, _connect() as conn:
+        w, v = where([("e.severity", severities), ("e.event_type", types)])
+        total = conn.execute(f"SELECT COUNT(*) AS c {joined} WHERE {w}", v).fetchone()["c"]
+        rows = conn.execute(
+            f"SELECT e.*, m.name AS monitor_name, m.target AS monitor_target, m.domain AS monitor_domain "
+            f"{joined} WHERE {w} ORDER BY e.created_at DESC, e.id DESC LIMIT ? OFFSET ?",
+            v + [int(limit), int(offset)]).fetchall()
+        w, v = where([("e.event_type", types)])
+        by_severity = {r["s"]: r["c"] for r in conn.execute(
+            f"SELECT e.severity AS s, COUNT(*) AS c {joined} WHERE {w} GROUP BY e.severity", v)}
+        w, v = where([("e.severity", severities)])
+        by_type = {r["t"]: r["c"] for r in conn.execute(
+            f"SELECT e.event_type AS t, COUNT(*) AS c {joined} WHERE {w} GROUP BY e.event_type", v)}
+    events = []
+    for row in rows:
+        item = dict(row)
+        item["details"] = _from_json(item.get("details"), {})
+        events.append(item)
+    return {"events": events, "total": total, "severities": by_severity, "types": by_type}
+
+
 def list_monitor_events(monitor_id=None, limit=100):
     """List recent monitor events, optionally for a single monitor."""
     with _lock, _connect() as conn:
@@ -1263,6 +1334,30 @@ def reporting_domains(days=30, domain=None):
         "domain": domain,
         "domains": [dict(r) for r in rows],
     }
+
+
+def reporting_day_scans(day, domain=None):
+    """Every scan of one day (UTC, as the trend charts count days) with its
+    figures, and the scan of the same domain before it, so a point on a
+    chart opens on what moved that day and links to what changed."""
+    clauses, params = ["sm.day = ?"], [day]
+    if domain:
+        clauses.append("sm.domain = ?")
+        params.append(domain)
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT sm.scan_id, sm.domain, sm.created_at, sm.grade, sm.grade_score, sm.header_score,
+                   sm.issues_count, sm.blacklist_listed, sm.dnssec_signed, sm.https_redirect,
+                   prev.scan_id AS previous_scan_id, prev.issues_count AS previous_issues,
+                   prev.grade_score AS previous_grade_score, prev.header_score AS previous_header_score
+            FROM scan_metrics sm
+            LEFT JOIN scan_metrics prev ON prev.scan_id = (
+                SELECT MAX(p.scan_id) FROM scan_metrics p WHERE p.domain = sm.domain AND p.scan_id < sm.scan_id)
+            WHERE {' AND '.join(clauses)}
+            ORDER BY sm.created_at DESC, sm.scan_id DESC
+            """, params).fetchall()
+    return [dict(r) for r in rows]
 
 
 def reporting_deltas(days=30, domain=None):

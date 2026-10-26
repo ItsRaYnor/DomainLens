@@ -379,6 +379,82 @@ def dashboard(days=90, group_id=None, now=None):
     }
 
 
+DRILL_KINDS = ("finding", "category", "control", "rating", "severity", "domains", "accepted")
+_CONTROL_STATES = ("fail", "unmeasured", "pass", "not_applicable")
+
+
+def drill(kind, value=None, *, severity=None, state=None, days=90, group_id=None, now=None):
+    """The domains behind one figure of the dashboard, on the same scans.
+
+    A tile or bar said "8 domains" and named five of them in a tooltip; this
+    is the list itself, each domain with its latest scan, rating and unit,
+    and what of it the figure counted (the findings of that area, the state
+    of that control)."""
+    if kind not in DRILL_KINDS:
+        raise ValueError("Unknown kind")
+    days = max(7, min(int(days), 365))
+    now = now or datetime.now(timezone.utc)
+    start = now - timedelta(days=days)
+    wanted, group_name = _scope(group_id)
+    current = _latest_scans(now.isoformat(), wanted, since=start.isoformat())
+    summaries = _load(set(current.values()))
+    try:
+        import domain_portfolio
+        units = domain_portfolio.units_by_domain()
+        paths = {g["id"]: g["path"] for g in domain_portfolio.list_groups()}
+
+        def unit_of(host):
+            return paths.get(units.get(domain_portfolio.registrable(host)))
+    except Exception:
+        def unit_of(host):
+            return None
+
+    rows = []
+    for domain, key in sorted(current.items()):
+        s = summaries.get(key)
+        if not s:
+            continue
+        row = {"domain": domain, "scan_id": key[0], "scanned_at": key[1], "rating": s["rating"],
+               "counts": s["counts"], "accepted": s["accepted"], "unit": unit_of(domain)}
+        if kind == "finding":
+            hits = [f for f in s["findings"] if f["title"] == value and (not severity or f["severity"] == severity)]
+            if not hits:
+                continue
+            row["findings"] = hits[:1]
+        elif kind == "category":
+            hits = [f for f in s["findings"] if f["category"] == value]
+            if not hits:
+                continue
+            row["findings"] = sorted(hits, key=lambda f: SEVERITIES.index(f["severity"]))
+        elif kind == "control":
+            row["state"] = s["controls"].get(value, "unmeasured")
+            if state and row["state"] != state:
+                continue
+        elif kind == "rating":
+            # One band (A), or several (A,B: "in order").
+            if band(s["rating"]) not in str(value or "").split(","):
+                continue
+        elif kind == "severity":
+            if value not in SEVERITIES or not s["counts"].get(value):
+                continue
+            row["findings"] = [f for f in s["findings"] if f["severity"] == value]
+        elif kind == "accepted":
+            if not s["accepted"]:
+                continue
+        rows.append(row)
+
+    rank = {r: i for i, r in enumerate(RATINGS)}
+    if kind == "control":
+        order = {st: i for i, st in enumerate(_CONTROL_STATES)}
+        rows.sort(key=lambda r: (order.get(r["state"], 9), r["domain"]))
+    else:
+        rows.sort(key=lambda r: (-rank[r["rating"]], -r["counts"]["critical"], -r["counts"]["high"], r["domain"]))
+    label = dict((k, text) for k, text, _ in CONTROLS).get(value) if kind == "control" else None
+    return {"kind": kind, "value": value, "severity": severity, "state": state, "label": label,
+            "days": days, "group": group_name, "total": len(rows), "domains": rows,
+            "states": dict(Counter(r["state"] for r in rows)) if kind == "control" else None}
+
+
 def _portfolio(group_id):
     try:
         import domain_portfolio

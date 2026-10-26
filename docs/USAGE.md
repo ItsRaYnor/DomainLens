@@ -1,5 +1,9 @@
 # Usage guide
 
+The manual for people who use DomainLens, in Dutch, is in the app under **Help**
+(`static/help/handleiding.md`). This guide is the technical reference: what each part measures,
+its limits, and the API.
+
 ## Ad-hoc scan
 
 1. Open the web UI (`http://127.0.0.1:5000` or Docker port `5050`).
@@ -101,7 +105,7 @@ mail analysis.
 
 ### Create a monitor (UI)
 
-1. Open **Monitors** drawer.
+1. Open **Monitoring → Monitors** and fold open **Add monitors**.
 2. Enter domain, target, record type, schedule (minutes), and checks.
 3. Optionally a time of day ("at 03:00").
 4. Save — without a time the first scan runs at once; with one, at that time.
@@ -155,7 +159,7 @@ curl -s -X POST http://127.0.0.1:5000/api/monitors \
 ### Removing wrong events
 
 An event raised in error -- an outage of the scanner read as a change of the domain -- can be
-removed: tick it under **Recent monitor events** and choose **Delete selected**. It leaves the
+removed: tick it under **Monitoring → Monitor events** and choose **Delete selected**. It leaves the
 history and the counts; the report it points to stays. Each removal is kept in the audit log
 (`monitor_event.delete`, with what was removed). Over the API: `POST /api/monitor-events/delete`
 with `{"ids": [...]}`. Viewers cannot remove events.
@@ -217,7 +221,7 @@ See **[INTEGRATIONS_RAPID7_SERVICENOW.md](INTEGRATIONS_RAPID7_SERVICENOW.md)** f
 
 1. Settings → Rapid7 → `source_mode` = `console_api` or `cloud_api` (or upload a lean CSV).
 2. Set API min severity to **high** (Critical + Severe).
-3. Monitoring drawer → **Sync via InsightVM API**, or upload a filtered file.
+3. **Monitoring → Monitors** → **Sync via InsightVM API**, or upload a filtered file.
 4. Optional: enable ServiceNow CMDB bridge to match `cmdb_ci` and create `sn_vul_vulnerable_item`.
 5. Set `DOMAINLENS_PUBLIC_URL` so each VI includes a link back to DomainLens Advies / retest (`/remediate/vuln/<id>`). Ownership stays in ServiceNow.
 5. Scan a domain — matching hosts appear under **Rapid7** and in **Advies**.
@@ -232,7 +236,25 @@ curl -s 'http://127.0.0.1:5000/api/vuln-findings?domain=example.com'
 
 ### Events & ServiceNow
 
-Monitor scans create events: `baseline_created`, `scan_changed`, `scan_unchanged`, `scan_failed`.
+Monitor scans create events: `baseline_created`, `scan_changed`, `scan_unchanged`, `scan_failed`,
+`dns_unanswered`.
+
+**Monitoring → Monitor events** lists them all, newest first, to filter on kind, severity,
+monitor, unit, period and text; each kind and severity says how many events choosing it would
+show with the other filters as they are. The page opens without `scan_unchanged`. The filters
+are in the address. **What changed?** on a change opens the comparison of its two scans in the
+row: the fields that moved, the findings that came or went, and the record the monitor watches.
+A change of that record alone names its values in the event (`A record for www.example.com
+changed value: 192.0.2.10 -> 192.0.2.11`, with `previous_record_values` in the details), and the
+comparison (`GET /api/compare`) has it under `record` (`type`, `before`, `after`). A change
+event whose counted fields and findings are all zero, without a record change, is marked
+`explained: "no"`: an event of the earlier way of detecting changes. The monitors page shows the
+five latest events.
+
+`GET /api/monitor-events` takes `severity` and `type` (comma lists), `monitor_id`, `unit`,
+`domain` (the monitor's zone), `q`, `from` and `to` (`YYYY-MM-DD`, UTC days), `servicenow=1`,
+`limit` (at most 500) and `offset`; it answers `events`, `total`, `severities`, `types` and the
+`monitors` to choose from. Each event has `unit` and `type_text`.
 
 Configure ServiceNow env vars to auto-create incidents for high/critical events.
 
@@ -399,6 +421,23 @@ and the unit falls back on the one above it). Each change is in the audit log as
 
 Threat intelligence is switched on or off per domain with the switch in its row, or for many
 at once with **Threat intel** in the selection bar.
+
+### Domain changes
+
+**Monitoring → Domain changes** lists every change of the portfolio's domains: what a registry
+lookup found (phase, registrar, reseller, name servers, expiry, DNS answers) and what someone
+changed by hand or with an import (decision, threat intelligence, contact, unit, added, removed),
+each with its value before and after, its severity, where it came from (`registry`, `edit`,
+`import`) and, for a change by hand or an import, the account. Filter on kind, source, unit,
+period and text (matched against the domain, the sentence, before, after and the account);
+a domain or unit in the list filters on it. Changes by hand and by import are recorded from
+0.1.18; registry rows from before have their before and after read back from their sentence.
+
+API: `GET /api/portfolio/changes` with `kind`, `source`, `severity` (comma lists), `unit`, `q`,
+`from`, `to`, `limit` (at most 500) and `offset`; it answers `events`, `total`, and per `kinds`
+and `sources` how many match the other filters. `GET /api/portfolio/changes.csv` takes the same
+filters and has the columns `at`, `domain`, `unit`, `kind`, `severity`, `before`, `after`,
+`source`, `actor`, `detail`.
 
 The import reads these columns too when a header row names them: **Decision**/`Besluit`
 (keep, to decide, cancel, request or claim, in English or Dutch, e.g. `Opzeggen`, `Behouden`),
@@ -1238,6 +1277,16 @@ risk or expiring. Choose 30 days, 90 days or a year, and narrow it to one portfo
 the address keeps the choice, so a link opens the same view. **Print / PDF** prints it as a
 light, two-column report.
 
+Every figure opens the domains behind it, under the card that was clicked: a tile (domains
+assessed, in order, open critical, open high, accepted risks), a rating, a control (each domain
+with its state: in place, missing, not measured, not applicable), a risk, an area (each domain
+with its findings in it). Each domain links to its latest scan in the period and shows its
+rating and unit; **Copy domains** copies the names. The open list is in the address
+(`drill_kind`, `drill_value`, ...). API: `GET /api/reporting/dashboard/drill` with `kind`
+(`finding`, `category`, `control`, `rating`, `severity`, `domains`, `accepted`), `value` (the
+finding title, area, control key, rating band or bands such as `A,B`, severity), `severity` for a
+finding, `state` for a control, `days` and `unit`.
+
 Each domain is judged on its latest scan in the period and rated on its open findings:
 A+ no open findings, A only low, A- one or two medium, B three or more medium, C one or two
 high, D three or more high, F any critical. This is not the stored TLS grade, which only
@@ -1254,6 +1303,12 @@ and listed by name. API: `GET /api/reporting/dashboard?days=90&group={id}`.
 ## Trends & reporting
 
 - **Trends** page: `/trends` — scan activity and scores from `scan_metrics`, for whoever runs the scans.
+  A day in a chart opens what that chart counts: for issues and for the TLS and header scores, that
+  day's scans with the change against the scan of the same domain before it and **What changed?**;
+  for scan volume the scans; for event severity the monitor events of the day. The ServiceNow tile
+  lists the events with an incident; a domain under *Noisiest domains* filters the page on it.
+- `GET /api/reporting/day?day=YYYY-MM-DD&domain=` — the scans of one (UTC) day with
+  `previous_scan_id` and the previous issues and scores.
 - `GET /api/reporting/overview?days=30`
 - `GET /api/reporting/trends?days=30&domain=example.com`
 

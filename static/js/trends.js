@@ -241,7 +241,7 @@ function renderKpis(overview) {
           hint: 'Average over the latest scan of each domain' },
         { label: 'Blacklist hits', value: overview.blacklist_hits, drill: 'blacklist',
           hint: 'Domains currently on a DNS blocklist' },
-        { label: 'SN incidents', value: overview.servicenow_incidents,
+        { label: 'SN incidents', value: overview.servicenow_incidents, drill: 'servicenow',
           hint: 'Monitor events linked to a ServiceNow incident' },
     ];
     $('kpiGrid').innerHTML = items.map(item => {
@@ -275,6 +275,23 @@ const DRILL = {
     },
     tls: { title: 'Domains by TLS score', note: 'Latest scan per domain, lowest TLS score first.' },
     headers: { title: 'Domains by header score', note: 'Latest scan per domain, lowest header score first.' },
+    // A point on a chart opens what that chart counts, on that day.
+    day_issues: {
+        title: 'Issues on {day}',
+        note: 'Every scan of the day, most issues first, with the change against the scan of the same domain before it.',
+    },
+    day_scores: {
+        title: 'TLS and header scores on {day}',
+        note: 'Every scan of the day, lowest TLS score first, with the change against the scan of the same domain before it.',
+    },
+    day_events: {
+        title: 'Monitor events on {day}',
+        note: 'What the monitors raised that day, every kind and severity the chart counts.',
+    },
+    servicenow: {
+        title: 'Events with a ServiceNow incident',
+        note: 'Monitor events in this period that were sent to ServiceNow, with the incident number.',
+    },
     blacklist: {
         title: 'Blacklisted domains',
         note: 'A blacklist (DNSBL) hit means the domain or its IP appears on a spam/abuse blocklist, '
@@ -421,6 +438,103 @@ async function renderDomainsDrill(body, kind) {
         </tbody></table></div>`;
 }
 
+function deltaOf(now, before, higherIsWorse) {
+    if (now == null || before == null) return '';
+    const d = Math.round((now - before) * 10) / 10;
+    if (!d) return ' <span class="muted">(=)</span>';
+    const worse = higherIsWorse ? d > 0 : d < 0;
+    return ` <span class="status ${worse ? 'status-fail' : 'status-pass'}">(${d > 0 ? '+' : ''}${escapeHtml(String(d))})</span>`;
+}
+
+async function renderDayDrill(body, day, focus) {
+    const qs = new URLSearchParams({ day });
+    const domain = $('domainFilter').value.trim().toLowerCase();
+    if (domain) qs.set('domain', domain);
+    const resp = await fetch('/api/reporting/day?' + qs.toString());
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Could not load the day');
+    const scans = (data.scans || []).slice();
+    if (!scans.length) {
+        body.innerHTML = `<div class="chart-empty">No scans on ${escapeHtml(day)}</div>`;
+        return;
+    }
+    if (focus === 'scores') scans.sort((a, b) => (a.grade_score ?? 999) - (b.grade_score ?? 999));
+    else scans.sort((a, b) => (b.issues_count ?? 0) - (a.issues_count ?? 0));
+    body.innerHTML = `<div class="table-scroll"><table class="data-table drill-table stack-table">
+        <thead><tr><th>When</th><th>Domain</th><th>Issues</th><th>TLS</th><th>Header score</th><th>Blacklist</th><th></th></tr></thead>
+        <tbody>${scans.map(s => `
+            <tr>
+                <td>${escapeHtml(fmtDate(s.created_at))}</td>
+                <td><a href="/report/${escapeHtml(String(s.scan_id))}">${escapeHtml(s.domain)}</a></td>
+                <td>${escapeHtml(String(s.issues_count ?? 0))}${deltaOf(s.issues_count, s.previous_issues, true)}</td>
+                <td>${gradeCell(s.grade, s.grade_score)}${deltaOf(s.grade_score, s.previous_grade_score, false)}</td>
+                <td>${s.header_score != null ? escapeHtml(String(s.header_score)) : '<span class="muted">-</span>'}${deltaOf(s.header_score, s.previous_header_score, false)}</td>
+                <td>${s.blacklist_listed ? '<span class="status status-fail">listed</span>' : '<span class="status status-pass">clean</span>'}</td>
+                <td>${s.previous_scan_id
+                    ? `<button type="button" class="btn-ghost drill-compare" data-a="${escapeHtml(String(s.previous_scan_id))}" data-b="${escapeHtml(String(s.scan_id))}">What changed?</button>`
+                    : '<span class="muted" title="The first scan of this domain: nothing to compare with">first scan</span>'}</td>
+            </tr>`).join('')}
+        </tbody></table></div>`;
+}
+
+async function renderEventsDrill(body, params, linkQuery) {
+    const domain = $('domainFilter').value.trim().toLowerCase();
+    const qs = new URLSearchParams({ limit: '200', ...params });
+    if (domain) qs.set('domain', domain);
+    const resp = await fetch('/api/monitor-events?' + qs.toString());
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Could not load the events');
+    const link = linkQuery
+        ? `<p class="drill-note"><a href="/monitoring/events?${linkQuery.toString()}">Open these on Monitor events, to filter further</a></p>` : '';
+    const events = data.events || [];
+    if (!events.length) {
+        body.innerHTML = '<div class="chart-empty">No monitor events</div>' + link;
+        return;
+    }
+    body.innerHTML = `<p class="drill-note">${escapeHtml(data.total === 1 ? '1 event' : `${data.total} events`)}</p>
+        <div class="table-scroll"><table class="data-table drill-table stack-table">
+        <thead><tr><th>When</th><th>Severity</th><th>Monitor</th><th>What happened</th><th></th></tr></thead>
+        <tbody>${events.map(e => `
+            <tr>
+                <td>${escapeHtml(fmtDate(e.created_at))}</td>
+                <td><span class="rec-badge sev-${escapeHtml(e.severity)}">${escapeHtml(String(e.severity || 'info').toUpperCase())}</span></td>
+                <td>${escapeHtml(e.monitor_target || e.monitor_name || '')}</td>
+                <td>${escapeHtml(e.summary || '')}${e.servicenow_number ? ` <span class="muted">${escapeHtml(e.servicenow_number)}</span>` : ''}</td>
+                <td>${e.event_type === 'scan_changed' && e.details && e.details.previous_scan_id && e.scan_id
+                    ? `<button type="button" class="btn-ghost drill-compare" data-a="${escapeHtml(String(e.details.previous_scan_id))}" data-b="${escapeHtml(String(e.scan_id))}">What changed?</button>`
+                    : (e.scan_id ? `<a href="/report/${escapeHtml(String(e.scan_id))}">Report</a>` : '')}</td>
+            </tr>`).join('')}
+        </tbody></table></div>` + link;
+}
+
+const ALL_EVENT_TYPES = 'scan_changed,scan_failed,dns_unanswered,baseline_created,scan_unchanged';
+
+function periodStart() {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - (currentDays - 1));
+    return d.toISOString().slice(0, 10);
+}
+
+// "What changed?" in a drill-down row: the comparison of the two scans, in place.
+async function toggleCompare(btn) {
+    const tr = btn.closest('tr');
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('lv-detail-row')) { next.remove(); return; }
+    const row = document.createElement('tr');
+    row.className = 'lv-detail-row';
+    row.innerHTML = `<td colspan="${tr.children.length}"><div class="chart-empty">Comparing…</div></td>`;
+    tr.after(row);
+    try {
+        const resp = await fetch(`/api/compare?a=${encodeURIComponent(btn.dataset.a)}&b=${encodeURIComponent(btn.dataset.b)}`);
+        const data = await resp.json();
+        row.firstElementChild.innerHTML = (!resp.ok || data.error)
+            ? `<p class="status status-fail">${escapeHtml(data.error || 'Compare failed')}</p>`
+            : renderCompareHtml(data);
+    } catch (err) {
+        row.firstElementChild.innerHTML = '<p class="status status-fail">Network error</p>';
+    }
+}
+
 // The chart series keys each day as created_at[:10] (UTC date prefix), so the
 // client must derive a point's day the same way to line a click up with a row.
 function localDay(createdAt) { return String(createdAt || '').slice(0, 10); }
@@ -429,15 +543,25 @@ async function openDrill(kind, day) {
     const meta = DRILL[kind];
     if (!meta) return;
     currentDrill = kind;
-    currentDrillDay = kind === 'scans' ? (day || null) : null;
+    currentDrillDay = (kind === 'scans' || kind.startsWith('day_')) ? (day || null) : null;
     const panel = $('drilldown');
     const body = $('drilldownBody');
     panel.classList.remove('hidden');
-    $('drilldownTitle').textContent = meta.title;
+    $('drilldownTitle').textContent = meta.title.replace('{day}', currentDrillDay || '');
     $('drilldownNote').textContent = meta.note;
     body.innerHTML = '<div class="chart-empty">Loading…</div>';
     try {
         if (kind === 'scans') await renderScansDrill(body, currentDrillDay);
+        else if (kind === 'day_issues') await renderDayDrill(body, currentDrillDay, 'issues');
+        else if (kind === 'day_scores') await renderDayDrill(body, currentDrillDay, 'scores');
+        else if (kind === 'day_events') {
+            const day = currentDrillDay;
+            await renderEventsDrill(body, { from: day, to: day, type: ALL_EVENT_TYPES },
+                new URLSearchParams({ from: day, to: day, type: ALL_EVENT_TYPES }));
+        } else if (kind === 'servicenow') {
+            const from = periodStart();
+            await renderEventsDrill(body, { from, servicenow: '1', type: ALL_EVENT_TYPES }, null);
+        }
         else if (kind === 'issues') await renderDeltaDrill(body);
         else await renderDomainsDrill(body, kind);
     } catch (err) {
@@ -470,8 +594,10 @@ function renderTopDomains(rows) {
         $('topDomains').innerHTML = '<div class="chart-empty">No domain metrics yet</div>';
         return;
     }
+    // A row filters the whole page on that domain and lists its scans.
     $('topDomains').innerHTML = rows.map(row => `
-        <div class="domain-row">
+        <div class="domain-row kpi-clickable" role="button" tabindex="0" data-domain="${escapeHtml(row.domain)}"
+             title="Show this domain only">
             <strong>${escapeHtml(row.domain)}</strong>
             <span class="muted">${escapeHtml(String(row.scans))} scans</span>
             <span>${escapeHtml(Number(row.avg_issues || 0).toFixed(1))} avg issues</span>
@@ -591,22 +717,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tile) { e.preventDefault(); openDrill(tile.getAttribute('data-drill')); }
     });
 
-    // Clicking a chart point opens the scans for that day, each linking to its
-    // report — so a spike in the graph leads straight to the scans behind it.
-    ['issuesChart', 'scoreChart', 'volumeChart', 'eventsChart'].forEach(id => {
+    // Clicking a chart point opens what that chart counts on that day: the
+    // issues and scores of each scan against the one before it, the scans,
+    // or the monitor events. Every chart used to open the same scan list,
+    // the events chart included, which showed no events at all.
+    const CHART_DRILL = { issuesChart: 'day_issues', scoreChart: 'day_scores', volumeChart: 'scans', eventsChart: 'day_events' };
+    Object.entries(CHART_DRILL).forEach(([id, kind]) => {
         const el = $(id);
         if (!el) return;
         el.addEventListener('click', e => {
             const pt = e.target.closest('.chart-point');
             const day = pt && pt.getAttribute('data-day');
-            if (day) openDrill('scans', day);
+            if (day) openDrill(kind, day);
         });
     });
+    const pickDomain = e => {
+        const row = e.target.closest('[data-domain]');
+        if (!row) return;
+        $('domainFilter').value = row.getAttribute('data-domain');
+        currentDrill = 'scans';
+        currentDrillDay = null;
+        reload();
+    };
+    on('topDomains', 'click', pickDomain);
+    on('topDomains', 'keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickDomain(e); } });
 
     on('drilldownClose', 'click', closeDrill);
     on('drilldownBody', 'click', e => {
         const btn = e.target.closest('.scan-delete');
         if (btn) deleteScan(btn.getAttribute('data-scan-id'));
+        const cmp = e.target.closest('.drill-compare');
+        if (cmp) toggleCompare(cmp);
     });
 
     loadTrends();

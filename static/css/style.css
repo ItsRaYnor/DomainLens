@@ -3082,3 +3082,72 @@ span.pf-shield { cursor: default; }
 .pf-import-result ul { margin: 0.25rem 0; padding-left: 1.25rem; }
 .pf-import-result li { margin: 0.15rem 0; overflow-wrap: anywhere; }
 .pf-import-changes td { word-break: normal; overflow-wrap: anywhere; }
+
+/* ===== Lists of what happened: Monitor events, Domain changes ===== */
+.monitor-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.lv-filters { display: grid; gap: 0.75rem; }
+.lv-row { display: flex; flex-wrap: wrap; gap: 0.6rem 0.9rem; align-items: center; }
+.lv-row input[type="search"] { flex: 1 1 260px; }
+.lv-row input[type="date"] { width: auto; }
+.lv-label { font-size: 0.78rem; color: var(--text-muted); min-width: 5.5rem; }
+.lv-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.lv-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font: inherit; font-size: 0.8rem; cursor: pointer; }
+.lv-chip:hover { border-color: var(--accent); color: var(--text); }
+.lv-chip[aria-pressed="true"] { background: var(--accent-glow); border-color: var(--accent); color: var(--text); font-weight: 600; }
+.lv-chip .lv-n { font-variant-numeric: tabular-nums; opacity: 0.8; }
+.lv-chip.is-empty { opacity: 0.5; }
+.lv-period { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.lv-period button { background: transparent; border: none; color: var(--text-muted); padding: 0.4rem 0.7rem; cursor: pointer; font: inherit; font-size: 0.82rem; }
+.lv-period button.active, .lv-period button:hover { background: var(--bg-card-hover); color: var(--text); }
+.lv-summary { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin: 0.25rem 0 0.5rem; }
+.lv-summary strong { font-size: 0.95rem; }
+.lv-table td { word-break: normal; overflow-wrap: anywhere; vertical-align: top; }
+.lv-table .nowrap { white-space: nowrap; }
+.lv-change { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: baseline; }
+.lv-before { color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.lv-arrow { color: var(--text-faint); }
+.lv-after { font-weight: 600; }
+.lv-sub { display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; }
+.lv-more { display: flex; justify-content: center; margin-top: 0.75rem; }
+.lv-detail-row > td { background: var(--bg-subtle); }
+.lv-toggle { background: none; border: none; color: var(--accent); cursor: pointer; font: inherit; font-size: 0.82rem; padding: 0; }
+.lv-note { font-size: 0.78rem; color: var(--orange); }
+.lv-empty { padding: 1rem 0; color: var(--text-muted); }
+
+/* ===== Dashboard: the domains behind a figure ===== */
+.mg-click { cursor: pointer; border-radius: var(--radius-sm); }
+.mg-click:hover, .mg-click:focus-visible { background: var(--bg-card-hover); outline: none; }
+.mgmt-bar-row.mg-click { padding: 0.1rem 0.3rem; margin-left: -0.3rem; margin-right: -0.3rem; }
+.mgmt-kpi.mg-click:hover { border-color: var(--accent); }
+.mg-drill { scroll-margin-top: 5rem; }
+.mg-drill-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; }
+.mg-drill-head h3 { margin: 0; }
+.mg-drill .data-table td { word-break: normal; overflow-wrap: anywhere; }
+.mg-hint { font-size: 0.78rem; color: var(--text-faint); }
+
+/* ===== Help: the manual ===== */
+.help-layout { display: grid; grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.help-toc { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+.help-toc input[type="search"] { width: 100%; margin-bottom: 0.6rem; }
+.help-toc-list { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
+.help-toc-list li { margin: 0.2rem 0; }
+.help-toc-list .help-toc-3 { padding-left: 0.9rem; font-size: 0.8rem; }
+.help-toc-list a { color: var(--text-muted); text-decoration: none; }
+.help-toc-list a:hover { color: var(--accent); }
+.help-body { line-height: 1.6; max-width: 60rem; }
+.help-body h1 { margin-top: 0; }
+.help-body h2 { margin-top: 2rem; padding-top: 0.5rem; border-top: 1px solid var(--border); scroll-margin-top: 1rem; }
+.help-body h3 { margin-top: 1.4rem; color: var(--accent); scroll-margin-top: 1rem; }
+.help-body p, .help-body li { font-size: 0.92rem; }
+.help-body ul, .help-body ol { padding-left: 1.3rem; }
+.help-body .help-table td, .help-body .help-table th { word-break: normal; overflow-wrap: anywhere; font-size: 0.85rem; }
+.help-tip { border-left: 3px solid var(--accent); background: var(--accent-glow); padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); margin: 0.8rem 0; font-size: 0.9rem; }
+@media (max-width: 800px) {
+    .help-layout { grid-template-columns: 1fr; }
+    .help-toc { position: static; max-height: 18rem; }
+}
+/* Between the phone menu and a wide screen the header has room for the
+   icon only; the label stays for screen readers and in the phone menu. */
+@media (min-width: 861px) and (max-width: 1279px) {
+    .nav-help span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}

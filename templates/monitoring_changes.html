@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.monitoring_changes') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    <main id="main">
+        <section class="card">
+            <h2 data-i18n="nav.monitoring_changes">{{ t('nav.monitoring_changes') }}</h2>
+            <p class="ct-desc">Every change of the domains in the <a href="/monitoring/domains">portfolio</a>: what a registry lookup found (registrar, reseller, name servers, phase, expiry) and what someone changed by hand or with an import (decision, threat intelligence, contact, unit, added or removed), each with what it was, what it is now and who made it. The first lookup of a domain is its baseline, not a change. Changes made by hand are kept from version 0.1.18 on.</p>
+            <div class="lv-filters">
+                <div class="lv-row">
+                    <input type="search" id="chSearch" placeholder="Search domain, value or person" autocomplete="off">
+                    <select id="chUnit" aria-label="Unit"><option value="">All units</option></select>
+                    <button type="button" class="btn-ghost-sm" id="chReset">Clear filters</button>
+                </div>
+                <div class="lv-row">
+                    <span class="lv-label">Period</span>
+                    <div class="lv-period" id="chPeriod" role="group" aria-label="Period"></div>
+                    <label class="mon-sched-at">From <input type="date" id="chFrom"></label>
+                    <label class="mon-sched-at">to <input type="date" id="chTo"></label>
+                </div>
+                <div class="lv-row"><span class="lv-label">What</span><div class="lv-chips" id="chKinds"></div></div>
+                <div class="lv-row"><span class="lv-label">Found by</span><div class="lv-chips" id="chSources"></div></div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="lv-summary">
+                <strong id="chCount" role="status">Loading&hellip;</strong>
+                <a class="btn-ghost-sm" id="chCsv" href="/api/portfolio/changes.csv">Download CSV</a>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table lv-table stack-table" id="chTable">
+                    <thead><tr><th>When</th><th>Domain</th><th>Unit</th><th>What</th><th>Change</th><th>By</th></tr></thead>
+                    <tbody id="chRows"></tbody>
+                </table>
+            </div>
+            <div class="lv-more"><button type="button" class="btn-ghost hidden" id="chMore">Show more</button></div>
+        </section>
+    </main>
+    <div id="errorToast" class="toast hidden"></div>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/i18n.js?v={{ asset_token }}"></script>
+    <script type="application/json" id="pageLocale">{{ locale|tojson }}</script>
+    <script src="/static/js/lookup.js?v={{ asset_token }}"></script>
+    <script src="/static/js/logview.js?v={{ asset_token }}"></script>
+    <script src="/static/js/changes.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

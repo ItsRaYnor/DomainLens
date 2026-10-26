@@ -273,9 +273,6 @@ function pfRenderChrome() {
     }
     const groupKey = current.startsWith('g') ? current.slice(1) : '';
     $('pfCsvBtn').href = '/api/portfolio/csv' + (groupKey ? `?unit=${encodeURIComponent(groupKey)}` : '');
-    $('pfEvents').innerHTML = (data.events || []).slice(0, 15)
-        .map(e => `<div>${esc(pfWhen(e.at))} &mdash; ${esc(e.detail)}</div>`).join('')
-        || '<span class="muted">No changes yet. The first lookup of a domain is its baseline, not a change.</span>';
 }
 
 function pfDescendants(groups, id) {
@@ -596,6 +593,8 @@ function initPortfolio() {
     // ?flag=wanted (the former Wanted domains page) and the like: open filtered.
     const flag = params.get('flag');
     if (flag && [...$('pfFlagFilter').options].some(o => o.value === flag)) $('pfFlagFilter').value = flag;
+    // ?q=example.nl: open on one domain (a link from Domain changes).
+    if (params.get('q')) $('pfSearch').value = params.get('q');
     // "+ Domains" on a unit: the add form, open, with that unit chosen.
     if (wanted) pf.importUnit = wanted;
     if (params.get('add') && $('pfImportFold')) {

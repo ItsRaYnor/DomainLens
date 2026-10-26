@@ -1,0 +1,127 @@
+# Monitor events and Domain changes as pages of their own (events.js, changes.js, logview.js),
+# the dashboard's domains behind a figure (dashboard.js), the trend charts per day (trends.js), Help.
+Contents	Inhoud
+Search the manual	Zoek in de handleiding
+Search domain, value or person	Zoek op domein, waarde of persoon
+Search host, label or text	Zoek op host, label of tekst
+Clear filters	Filters wissen
+Show more	Meer tonen
+to	tot
+Found by	Gevonden door
+Monitor	Monitor
+All monitors	Alle monitors
+What happened	Wat er gebeurde
+Select	Selecteren
+Latest monitor events	Laatste monitor-events
+All events, with filters →	Alle events, met filters →
+Copy domains	Domeinen kopiëren
+Click a figure, a bar or a rating to see the domains behind it.	Klik op een getal, een balk of een rating om de domeinen erachter te zien.
+Monitor events per day, stacked by severity. Click a day for its events.	Monitor-events per dag, gestapeld naar ernst. Klik op een dag voor de events van die dag.
+Most issues on average. Click a domain to show only that domain.	De meeste issues gemiddeld. Klik op een domein om alleen dat domein te tonen.
+Average findings per scan, per day. Hover a day for exact values; click it for that day's scans.	Gemiddeld aantal bevindingen per scan, per dag. Wijs een dag aan voor de precieze waarden; klik erop voor de scans van die dag.
+7 days	7 dagen
+30 days	30 dagen
+90 days	90 dagen
+1 year	1 jaar
+All	Alles
+none	geen
+Period	Periode
+What	Wat
+Kind	Soort
+Severity	Ernst
+Change	Wijziging
+By	Door
+When	Wanneer
+Unit	Eenheid
+Domain	Domein
+All units	Alle eenheden
+Only this domain	Alleen dit domein
+Only this unit	Alleen deze eenheid
+Only this monitor	Alleen deze monitor
+In the portfolio	In het portfolio
+1 change	1 wijziging
+{n} changes	{} wijzigingen
+1 event	1 event
+{n} events	{} events
+1 selected	1 geselecteerd
+{n} selected	{} geselecteerd
+No change matches these filters.	Geen wijziging past bij deze filters.
+No changes yet. The first lookup of a domain is its baseline, not a change.	Nog geen wijzigingen. De eerste opzoeking van een domein is het vergelijkingspunt, geen wijziging.
+No event matches these filters.	Geen event past bij deze filters.
+No monitor events yet.	Nog geen monitor-events.
+What changed?	Wat is er veranderd?
+Report	Rapport
+Report deleted	Rapport verwijderd
+Comparing…	Vergelijken…
+ServiceNow {}	ServiceNow {}
+The comparison shows no difference: recorded by the earlier way of detecting changes, which also counted values that differ on every scan.	De vergelijking toont geen verschil: vastgelegd met de eerdere manier van wijzigingen detecteren, die ook waarden telde die bij elke scan verschillen.
+Delete {n} event(s)? They are removed from the history; the reports they point to stay.	{} event(s) verwijderen? Ze verdwijnen uit de geschiedenis; de rapporten waar ze naar verwijzen blijven bestaan.
+{n} event(s) deleted.	{} event(s) verwijderd.
+Registration phase	Registratiefase
+Registrar	Registrar
+Reseller	Reseller
+Name servers	Nameservers
+Expiry	Verloopdatum
+DNS answers	DNS-antwoorden
+Added	Toegevoegd
+Removed	Verwijderd
+Decision	Besluit
+Threat intel	Threat intel
+Contact	Contactpersoon
+Registry lookup	Opzoeking bij het register
+Changed by hand	Met de hand gewijzigd
+Import	Import
+Changed	Gewijzigd
+No change	Geen wijziging
+Baseline	Vergelijkingspunt
+Scan failed	Scan mislukt
+DNS did not answer	DNS gaf geen antwoord
+{} record (watched)	{}-record (bewaakt)
+DNS record (watched)	DNS-record (bewaakt)
+Loading…	Laden…
+Close	Sluiten
+Missing	Ontbreekt
+Could not be measured	Kon niet worden gemeten
+In place	Aanwezig
+Not applicable	Niet van toepassing
+State	Toestand
+Open findings	Open bevindingen
+Findings	Bevindingen
+Rating	Rating
+Scanned	Gescand
+Domains assessed	Beoordeelde domeinen
+Domains in order (rating A or B)	Domeinen in orde (rating A of B)
+Domains rated {}	Domeinen met rating {}
+Domains with open {} findings	Domeinen met open {}-bevindingen
+Domains with accepted risks	Domeinen met geaccepteerde risico's
+Open findings in {}	Open bevindingen in {}
+1 domain	1 domein
+{n} domains	{} domeinen
+All domains	Alle domeinen
+last {n} days	afgelopen {} dagen
+each on its latest scan in the period.	elk op zijn laatste scan in de periode.
+{n} critical, {n} high, {n} medium	{} kritiek, {} hoog, {} middel
+{n} accepted	{} geaccepteerd
+No domain in this period.	Geen domein in deze periode.
+Domains copied.	Domeinen gekopieerd.
+Copying is not allowed here; select the list instead.	Kopiëren mag hier niet; selecteer de lijst.
+Issues on {}	Issues op {}
+TLS and header scores on {}	TLS- en headerscores op {}
+Monitor events on {}	Monitor-events op {}
+Events with a ServiceNow incident	Events met een ServiceNow-incident
+Every scan of the day, most issues first, with the change against the scan of the same domain before it.	Elke scan van die dag, de meeste issues eerst, met het verschil ten opzichte van de vorige scan van hetzelfde domein.
+Every scan of the day, lowest TLS score first, with the change against the scan of the same domain before it.	Elke scan van die dag, de laagste TLS-score eerst, met het verschil ten opzichte van de vorige scan van hetzelfde domein.
+What the monitors raised that day, every kind and severity the chart counts.	Wat de monitors die dag meldden, elke soort en ernst die de grafiek telt.
+Monitor events in this period that were sent to ServiceNow, with the incident number.	Monitor-events in deze periode die naar ServiceNow zijn gestuurd, met het incidentnummer.
+Header score	Headerscore
+Issues	Issues
+Blacklist	Blacklist
+listed	vermeld
+clean	schoon
+first scan	eerste scan
+The first scan of this domain: nothing to compare with	De eerste scan van dit domein: niets om mee te vergelijken
+No monitor events	Geen monitor-events
+No scans on {}	Geen scans op {}
+Open these on Monitor events, to filter further	Open deze bij Monitor-events om verder te filteren
+Show this domain only	Alleen dit domein tonen
+The manual could not be loaded ({}).	De handleiding kon niet worden geladen ({}).

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}"{{ theme_attr }}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('nav.help') }} — {{ general.app_title or 'DomainLens' }}</title>
+    <link rel="icon" href="/static/favicon.svg?v={{ asset_token }}" type="image/svg+xml">
+    <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_token }}">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_token }}">
+</head>
+<body>
+    {% include "partials/nav.html" %}
+    {# The manual is written in Dutch; translate="no" keeps the page's
+       English-to-Dutch translation off it. #}
+    <main id="main" class="help-layout">
+        <nav class="card help-toc" aria-label="Contents">
+            <input type="search" id="helpFilter" placeholder="Search the manual" autocomplete="off">
+            <div id="helpToc" translate="no"></div>
+        </nav>
+        <article class="card help-body" id="helpBody" translate="no" lang="nl"
+                 data-src="/static/help/handleiding.md?v={{ asset_token }}">
+            <p class="muted">Loading&hellip;</p>
+        </article>
+    </main>
+    {% include "partials/footer.html" %}
+    <script src="/static/js/help.js?v={{ asset_token }}"></script>
+    <script src="/static/js/theme.js?v={{ asset_token }}"></script>
+</body>
+</html>

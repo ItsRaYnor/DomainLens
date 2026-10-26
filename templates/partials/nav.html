@@ -74,6 +74,10 @@
                 </button>
             </div>
 
+            <a class="btn-ghost nav-help{% if section == 'help' %} current{% endif %}" href="/help" title="{{ t('nav.help') }}"
+               {% if section == 'help' %}aria-current="page"{% endif %}
+               ><svg class="icon" aria-hidden="true"><use href="#i-help"></use></svg><span data-i18n="nav.help">{{ t('nav.help') }}</span></a>
+
             {% if auth_status and auth_status.enabled and current_user %}
             <span class="user-chip" title="{{ current_user.email or current_user.name }}">{{ current_user.name or current_user.email }}</span>
             {% if current_user.provider == 'local' %}

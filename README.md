@@ -59,6 +59,7 @@ See [docs/ENTERPRISE.md](docs/ENTERPRISE.md).
 
 ## Documentation
 
+- **[Handleiding (Dutch manual)](static/help/handleiding.md)** — every page and how to use it; also in the app under **Help**
 - **[Usage](docs/USAGE.md)** — scans, monitors, scheduling, weak-auth, Advice
 - **[Configuration](docs/CONFIGURATION.md)** — `config/domainlens.json`, scheduler, reporting, credentials
 - **[Docker & updates](docs/DOCKER_AND_UPDATES.md)** — version, compose, `./scripts/docker-update.sh`, in-app update check

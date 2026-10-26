@@ -2244,72 +2244,6 @@ function clearHistoryCompare() {
     if (typeof lastHistoryScans !== 'undefined' && lastHistoryScans) renderHistoryList(lastHistoryScans);
 }
 
-function compareValueText(row) {
-    const fmt = v => {
-        if (v === null || v === undefined) return '—';
-        if (typeof v === 'boolean') return v ? 'yes' : 'no';
-        if (Array.isArray(v)) return v.length ? v.join(', ') : 'none';
-        if (v && typeof v === 'object') {
-            return Object.entries(v).filter(([, n]) => n).map(([k, n]) => `${k}:${n}`).join(' ') || 'none';
-        }
-        return String(v);
-    };
-    return { old: fmt(row.old), now: fmt(row.new) };
-}
-
-// Reusable old-vs-new table used by both the history compare and a monitor
-// event's "what changed" panel. `data` is the /api/compare payload.
-function renderCompareHtml(data) {
-    const rows = (data.diff && data.diff.dimensions) || [];
-    const order = { worse: 0, better: 1, changed: 2, unmeasured: 3, unchanged: 4 };
-    const shown = rows.slice().sort((p, q) => (order[p.status] ?? 9) - (order[q.status] ?? 9));
-    const badge = s => `<span class="cmp-badge cmp-${escapeHtml(s)}">${escapeHtml(s)}</span>`;
-    const head = `
-        <div class="cmp-head">
-            <a href="${escapeHtml(data.a.report_url)}" target="_blank" rel="noopener">A · ${escapeHtml(data.a.domain || '')} (${escapeHtml(data.a.grade || 'N/A')})</a>
-            <span>→</span>
-            <a href="${escapeHtml(data.b.report_url)}" target="_blank" rel="noopener">B · ${escapeHtml(data.b.domain || '')} (${escapeHtml(data.b.grade || 'N/A')})</a>
-        </div>`;
-    const row = r => {
-        const v = compareValueText(r);
-        return `<tr class="cmp-row cmp-${escapeHtml(r.status)}">
-            <td>${escapeHtml(r.label)}</td>
-            <td class="nowrap">${badge(r.status)}</td>
-            <td class="mono">${escapeHtml(v.old)} → ${escapeHtml(v.now)}</td>
-        </tr>`;
-    };
-    // What moved first; the rows that did not move stay folded away. They
-    // used to fill the panel, so a change listed nothing but "unchanged".
-    const moved = shown.filter(r => ['worse', 'better', 'changed'].includes(r.status));
-    const still = shown.filter(r => !['worse', 'better', 'changed'].includes(r.status));
-    const findings = data.findings || { new: [], resolved: [] };
-    const findingList = (title, list, cls) => list.length
-        ? `<h4 class="cmp-subhead">${escapeHtml(title)}</h4><ul class="cmp-findings">`
-          + list.map(f => `<li><span class="rec-badge sev-${escapeHtml(f.severity)}">${escapeHtml((f.severity || '').toUpperCase())}</span> `
-              + `<span class="${cls}">${escapeHtml(f.title)}</span></li>`).join('') + '</ul>'
-        : '';
-    const shownLabels = new Set(moved.map(r => r.label.toLowerCase()));
-    const fields = (data.fields || []).filter(f => !shownLabels.has(String(f.label).toLowerCase()));
-    const fieldRows = fields.map(f => `<tr class="cmp-row cmp-${escapeHtml(f.direction)}"><td>${escapeHtml(f.label)}</td>`
-        + `<td class="nowrap">${badge(f.direction)}</td>`
-        + `<td class="mono">${escapeHtml(f.before === null || f.before === undefined ? 'none' : String(f.before))} → `
-        + `${escapeHtml(f.after === null || f.after === undefined ? 'none' : String(f.after))}</td></tr>`).join('');
-    const nothing = !moved.length && !fields.length && !findings.new.length && !findings.resolved.length;
-    return head
-        + (nothing ? '<p class="ct-desc">Nothing that is compared moved between these two scans. An event like this '
-            + 'came from the earlier way of detecting changes, which also counted values that differ on every scan; '
-            + 'such differences no longer raise an event.</p>' : '')
-        + findingList('New findings', findings.new, '')
-        + findingList('Resolved findings', findings.resolved, 'muted')
-        + (moved.length || fieldRows
-            ? `<div class="table-scroll"><table class="data-table cmp-table stack-table"><tr><th>What</th><th>Change</th><th>Before → after</th></tr>`
-              + moved.map(row).join('') + fieldRows + '</table></div>' : '')
-        + (still.length
-            ? `<details class="cmp-still"><summary>${escapeHtml(`Unchanged or not measured (${still.length})`)}</summary>`
-              + `<div class="table-scroll"><table class="data-table cmp-table"><tbody>${still.map(row).join('')}</tbody></table></div></details>`
-            : '');
-}
-
 // The A-F rating, the same letter the dashboard and the lists use. It is
 // worked out from the open findings; the TLS grade stays in the TLS tab.
 function postureClass(letter) {
@@ -3146,13 +3080,18 @@ async function deleteMonitor(monitorId) {
     }
 }
 
+// The latest few only: every event, filtered, is on Monitoring -> Monitor
+// events. A hundred lines here pushed "Add monitors" off the page.
+const MONITOR_EVENTS_SHOWN = 5;
+
 function renderMonitorEvents(events) {
     const el = $('monitorEventList');
+    if (!el) return;
     if (!events.length) {
         el.innerHTML = '<p class="history-empty">No monitor events yet</p>';
         return;
     }
-    el.innerHTML = events.map(event => {
+    el.innerHTML = events.slice(0, MONITOR_EVENTS_SHOWN).map(event => {
         const when = event.created_at ? new Date(event.created_at).toLocaleString() : '';
         // An event is a point in time, so this links to the scan that
         // detected it — deliberately not the newest report. "open scan

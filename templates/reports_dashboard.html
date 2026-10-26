@@ -28,6 +28,23 @@
         </section>
 
         <section class="mgmt-kpis" id="mgKpis"></section>
+        <p class="mg-hint no-print">Click a figure, a bar or a rating to see the domains behind it.</p>
+
+        {# The domains behind the figure that was clicked. Placed under the card
+           that was clicked, so the list opens where the eye already is. #}
+        <section class="card mg-drill hidden" id="mgDrill" aria-live="polite">
+            <div class="mg-drill-head">
+                <div>
+                    <h3 id="mgDrillTitle"></h3>
+                    <p class="chart-sub" id="mgDrillNote"></p>
+                </div>
+                <div class="no-print">
+                    <button type="button" class="btn-ghost-sm" id="mgDrillCopy">Copy domains</button>
+                    <button type="button" class="btn-ghost-sm" id="mgDrillClose">Close</button>
+                </div>
+            </div>
+            <div id="mgDrillBody"></div>
+        </section>
 
         <section class="mgmt-grid">
             <article class="card">
