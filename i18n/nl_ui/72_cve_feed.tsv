@@ -1,0 +1,95 @@
+# Admin -> Vulnerability rules, known CVEs (templates/admin_advisories.html, static/js/advisories_admin.js).
+Known CVEs (NVD, NCSC-NL)	Bekende CVE's (NVD, NCSC-NL)
+Sync now	Nu synchroniseren
+Beside the rules, every scan can compare the version a site shows with all known CVEs of PHP, nginx, the Apache HTTP Server, lighttpd, OpenSSL, WordPress and Drupal, from the National Vulnerability Database. One finding per product, not one per CVE. Off by default: switch it on under Admin → Settings → CVE data. Synced once a day; data older than the setting allows is reported as not measured, never as no known CVEs.	Naast de regels kan elke scan de versie die een site toont vergelijken met alle bekende CVE's van PHP, nginx, de Apache HTTP Server, lighttpd, OpenSSL, WordPress en Drupal, uit de National Vulnerability Database. Eén bevinding per product, niet één per CVE. Standaard uit: zet het aan onder Admin → Instellingen → CVE-gegevens. Eens per dag gesynchroniseerd; gegevens die ouder zijn dan de instelling toestaat gelden als niet gemeten, nooit als geen bekende CVE's.
+Known CVEs kept	Bewaarde bekende CVE's
+Synced	Gesynchroniseerd
+Last problem	Laatste probleem
+NCSC-NL advisories about followed products	NCSC-NL-advisories over gevolgde producten
+An NCSC-NL advisory names its CVEs and its likelihood and damage, but not versions a response can be compared with. Use one as the start of a rule: the CVEs, the link and, where the NVD gives them, the releases with the fix are filled in. Check them before you save.	Een NCSC-NL-advisory noemt zijn CVE's en zijn kans en schade, maar geen versies waarmee een antwoord te vergelijken is. Gebruik er een als begin van een regel: de CVE's, de link en, waar de NVD ze geeft, de releases met de fix zijn ingevuld. Controleer ze voordat je opslaat.
+Advisory	Advisory
+Likelihood / damage	Kans / schade
+# Filled in by the page.
+never	nooit
+Switched off: scans say nothing about known CVEs.	Uitgeschakeld: scans zeggen niets over bekende CVE's.
+Not synced yet: scans report the comparison as not measured.	Nog niet gesynchroniseerd: scans melden de vergelijking als niet gemeten.
+Older than the setting allows: scans report the comparison as not measured.	Ouder dan de instelling toestaat: scans melden de vergelijking als niet gemeten.
+Current.	Actueel.
+With an NVD API key.	Met een NVD-API-sleutel.
+Without an NVD API key (allowed; the sync pauses six seconds between requests).	Zonder NVD-API-sleutel (toegestaan; de sync pauzeert zes seconden tussen verzoeken).
+Data may be {n} day(s) old.	Gegevens mogen {} dag(en) oud zijn.
+A sync is running.	Er loopt een synchronisatie.
+NCSC-NL advisories: switched off.	NCSC-NL-advisories: uitgeschakeld.
+NCSC-NL advisories: {n} kept, synced {}.	NCSC-NL-advisories: {} bewaard, gesynchroniseerd {}.
+Last problem: {}	Laatste probleem: {}
+The CVE data or the NCSC-NL advisories are switched off.	De CVE-gegevens of de NCSC-NL-advisories staan uit.
+No advisory about a followed product has been read.	Er is nog geen advisory over een gevolgd product gelezen.
+Rule added	Regel toegevoegd
+The CVE data is being synced. This can take a few minutes without an NVD API key.	De CVE-gegevens worden gesynchroniseerd. Zonder NVD-API-sleutel kan dat een paar minuten duren.
+The CVE data state could not be read.	De stand van de CVE-gegevens kon niet worden gelezen.
+The sync could not be started.	De synchronisatie kon niet worden gestart.
+The CVE data is switched off (Admin -> Settings -> CVE data (NVD, NCSC-NL)).	De CVE-gegevens staan uit (Admin -> Instellingen -> CVE-gegevens (NVD, NCSC-NL)).
+A sync is already running.	Er loopt al een synchronisatie.
+The NVD asks not to be synced more than once every two hours; the last sync started at {}.	De NVD vraagt niet vaker dan eens per twee uur te synchroniseren; de laatste synchronisatie begon om {}.
+# Scan findings (cve_feed.py).
+{}: {n} known CVE(s), {n} exploited	{}: {} bekende CVE('s), {} misbruikt
+{}: {n} known CVE(s)	{}: {} bekende CVE('s)
+{}: known CVEs may apply, not visible from outside	{}: bekende CVE's kunnen gelden, van buitenaf niet zichtbaar
+{}: not compared with known CVEs	{}: niet vergeleken met bekende CVE's
+{} is inside the affected versions of {n} known CVE(s), {n} of them exploited (CISA KEV).	{} valt binnen de getroffen versies van {} bekende CVE('s), waarvan {} misbruikt (CISA KEV).
+{} is inside the affected versions of {n} known CVE(s).	{} valt binnen de getroffen versies van {} bekende CVE('s).
+{} is a distribution build; its package may carry the fixes without a new number.	{} is een distributiebuild; het pakket kan de fixes bevatten zonder nieuw nummer.
+{} does not show its patch release.	{} toont zijn patchrelease niet.
+{} matches CVEs that apply only together with a platform or component a response does not show.	{} valt onder CVE's die alleen gelden samen met een platform of onderdeel dat een antwoord niet toont.
+{n} known CVE(s) may apply.	{} bekende CVE('s) kunnen gelden.
+No CVE the NVD has analysed names {}.	Geen CVE die de NVD heeft geanalyseerd noemt {}.
+CVEs not analysed yet are not included.	CVE's die nog niet geanalyseerd zijn, tellen niet mee.
+The CVE data has not been fetched yet, so the {} version was not compared.	De CVE-gegevens zijn nog niet opgehaald, dus de {}-versie is niet vergeleken.
+The CVE data is older than {n} days, so the {} version was not compared.	De CVE-gegevens zijn ouder dan {} dagen, dus de {}-versie is niet vergeleken.
+{} is in use but its version is not shown.	{} is in gebruik, maar de versie wordt niet getoond.
+NCSC-NL: {} (likelihood {}, damage {}).	NCSC-NL: {} (kans {}, schade {}).
+{n} more NCSC-NL advisories name these CVEs.	Nog {} NCSC-NL-advisories noemen deze CVE's.
+Update {} to {} or later (or the patched package from your vendor).	Werk {} bij naar {} of later (of het gepatchte pakket van je leverancier).
+Update {} to a current release of a branch that still gets fixes (or the patched package from your vendor).	Werk {} bij naar een actuele release van een tak die nog fixes krijgt (of het gepatchte pakket van je leverancier).
+On the server: the installed {} version or package, against the CVEs listed.	Op de server: de geïnstalleerde {}-versie of het pakket, tegen de genoemde CVE's.
+Admin -> Vulnerability rules: sync the CVE data, or check why the last sync failed.	Admin -> Kwetsbaarheidsregels: synchroniseer de CVE-gegevens, of kijk waarom de laatste synchronisatie mislukte.
+# Tools -> Versions (static/js/versions.js).
+No known CVEs	Geen bekende CVE's
+CVE data not current	CVE-gegevens niet actueel
+Known CVEs:	Bekende CVE's:
+The NVD lists none of these CVEs for {}: add the releases with the fix yourself.	De NVD noemt geen van deze CVE's voor {}: vul de releases met de fix zelf in.
+Releases with the fix, from the NVD:	Releases met de fix, volgens de NVD:
+The NVD gives no release with the fix for these CVEs: add them yourself.	De NVD geeft voor deze CVE's geen release met de fix: vul ze zelf in.
+No fixed release in the NVD for	Geen release met de fix in de NVD voor
+: check those yourself.	: controleer die zelf.
+Known CVEs (NVD)	Bekende CVE's (NVD)
+Switched off	Uitgeschakeld
+Not current	Niet actueel
+Not compared: switch it on under Admin → Settings → CVE data.	Niet vergeleken: zet het aan onder Beheer → Instellingen → CVE-gegevens.
+Every known CVE of these products is compared with the version a site shows. A site that hides its version is "cannot tell".	Elke bekende CVE van deze producten wordt vergeleken met de versie die een site toont. Een site die zijn versie verbergt is "niet te bepalen".
+Known CVEs kept:	Bewaarde bekende CVE's:
+Synced:	Gesynchroniseerd:
+The CVE data is not current: versions are reported as not compared until it is synced.	De CVE-gegevens zijn niet actueel: versies gelden als niet vergeleken tot ze gesynchroniseerd zijn.
+Known vulnerabilities	Bekende kwetsbaarheden
+Check	Controle
+Known CVEs (NVD): switched off, so not compared. An administrator switches it on under Admin → Settings → CVE data.	Bekende CVE's (NVD): uitgeschakeld, dus niet vergeleken. Een beheerder zet het aan onder Beheer → Instellingen → CVE-gegevens.
+None of the software the version checks look for was seen: PHP, nginx, Apache HTTP Server, lighttpd, OpenSSL, WordPress, Drupal and the software of the rules.	Geen van de software waar de versiecontroles naar kijken is gezien: PHP, nginx, Apache HTTP Server, lighttpd, OpenSSL, WordPress, Drupal en de software van de regels.
+{} shows only its major version, not the release, so it cannot be compared with the known CVEs.	{} toont alleen de hoofdversie, niet de release, dus is niet te vergelijken met de bekende CVE's.
+{} shows only its major version, not the release, so it cannot be compared with the fix.	{} toont alleen de hoofdversie, niet de release, dus is niet te vergelijken met de fix.
+Known CVEs	Bekende CVE's
+Exploited (KEV)	Misbruikt (KEV)
+No known CVE from	Geen bekende CVE vanaf
+Newest CVE	Nieuwste CVE
+Without versions:	Zonder versies:
+No release in the data	Geen release in de gegevens
+"No known CVE from" is, per branch, the release from which none of the known CVEs applies, up to the next branch: a site on that release or later in its branch has none of them. A CVE the NVD lists without versions cannot rule a release in or out and is counted apart. A branch not listed is older, or has a known CVE without a fix.	"Geen bekende CVE vanaf" is per tak de release vanaf welke geen van de bekende CVE's meer geldt, tot de volgende tak: een site op die release of later in zijn tak heeft er geen van. Een CVE die de NVD zonder versies noemt, kan een release niet in- of uitsluiten en wordt apart geteld. Een tak die er niet bij staat is ouder, of heeft een bekende CVE zonder fix.
+CVSS	CVSS
+KEV	KEV
+After every sync, the versions the monitored domains showed at their last scan are compared again. A CVE that is new for such a version, or one now listed as exploited (KEV), becomes a monitor event and goes out through the notification channels.	Na elke synchronisatie worden de versies die de gemonitorde domeinen bij hun laatste scan toonden opnieuw vergeleken. Een CVE die nieuw is voor zo'n versie, of die nu als misbruikt (KEV) te boek staat, wordt een monitor-event en gaat via de meldingskanalen uit.
+Last compared:	Laatst vergeleken:
+Events:	Events:
+New known CVE	Nieuwe bekende CVE
+{n} new known CVE(s) for {} on {}: {}	{} nieuwe bekende CVE('s) voor {} op {}: {}
+Now exploited (CISA KEV) for {} on {}: {}	Nu misbruikt (CISA KEV) voor {} op {}: {}
+{} is named beside a distribution build {} in the same header; that distribution's package may carry the fixes without a new number.	{} staat naast een distributiebuild {} in dezelfde header; het pakket van die distributie kan de fixes bevatten zonder nieuw nummer.
+Read from its own core file {}.	Gelezen uit een eigen kernbestand: {}.

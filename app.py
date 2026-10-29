@@ -28,7 +28,9 @@ import dns.rdatatype
 import dns.query
 import dns.zone
 import requests
-import whois
+import http_tls
+import cve_alerts
+import cve_feed
 from flask import Flask, Response, render_template, request, jsonify, abort, redirect, url_for, session
 
 import db
@@ -95,6 +97,9 @@ from settings.store import get_store
 from settings.defaults import DEFAULT_SECURITY_HEADERS, DEFAULT_DKIM_SELECTORS, DEFAULT_SCAN_PORTS
 
 log = logging.getLogger("domainlens")
+
+# One CA bundle load for all HTTPS requests instead of one per connection.
+http_tls.install()
 
 app = Flask(__name__)
 
@@ -427,19 +432,6 @@ def _parse_positive_int(value, default, minimum=1, maximum=525600):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _clean(value):
-    """Convert non-serializable types to strings."""
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, (list, tuple)):
-        return [_clean(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _clean(v) for k, v in value.items()}
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return value
-
-
 def _get_apex_domain(domain):
     """Return the zone apex by walking up labels until SOA is found.
 
@@ -499,51 +491,31 @@ def _dns_measurement(records):
 # ---------------------------------------------------------------------------
 
 def lookup_whois(domain):
-    """WHOIS over port 43, plus the same registration through RDAP.
+    """Registration data: RDAP, and the registry's own port-43 WHOIS where
+    RDAP gives no answer.
 
-    The port-43 parser missed most of a .nl record (reseller, DNSSEC,
-    registrar address); RDAP returns those as structured data for every
-    registry. Either one succeeding is a result.
+    The general WHOIS text parser (python-whois, with the whois command in
+    the image) ran beside RDAP on every lookup. It read most registries'
+    layouts wrong, took a free domain for an error, and shelled out with the
+    domain name; everything it gave, RDAP and whois_port43 give structured.
+    `data` keeps the flat fields older code reads (expiry, registrar, abuse
+    address), now taken from that one registration result.
     """
     registration = rdap.lookup(domain)
-    if registration.get("state") == "not_applicable":
-        # No RDAP at this registry (.be, .eu, .de, .at, ...): its own WHOIS,
-        # read into the same structured shape, instead of the general parser
-        # that missed the registrar and took a free domain for an error.
-        port43 = whois_port43.lookup(domain)
-        if port43.get("success") or port43.get("registered") is False:
-            port43.update(domain=domain, registry_lookup=registration.get("registry_lookup")
-                          or rdap.registry_lookup(domain))
-            return {"success": True, "data": {}, "rdap": port43}
-    result = _lookup_whois_text(domain)
-    result["rdap"] = registration
-    if not result["success"] and registration.get("success"):
-        result["success"] = True
-        result.setdefault("data", {})
-    return result
-
-
-def _lookup_whois_text(domain):
-    try:
-        w = whois.whois(domain)
-        data = {}
-        for key in (
-            "domain_name", "registrar", "whois_server", "creation_date",
-            "expiration_date", "updated_date", "name_servers", "status",
-            "emails", "dnssec", "org", "address", "city", "state",
-            "country", "registrant_postal_code",
-            # The address a notice or takedown is actually sent to. ICANN
-            # requires registrars to publish it, and without it a report has
-            # nowhere to go.
-            "registrar_abuse_contact_email", "registrar_abuse_contact_phone",
-            "registrar_url", "registrar_iana_id", "reseller",
-        ):
-            val = getattr(w, key, None)
-            if val is not None:
-                data[key] = _clean(val)
-        return {"success": True, "data": data}
-    except Exception as exc:
-        return {"success": False, "error": _safe_error(exc)}
+    if registration.get("success") or registration.get("registered") is False:
+        return {"success": True, "data": rdap.as_whois_data(registration), "data_from": "registration",
+                "rdap": registration}
+    # No RDAP at this registry (.be, .eu, .de, .at, ...), or no answer from
+    # it: the registry's own WHOIS, read into the same structured shape.
+    port43 = whois_port43.lookup(domain)
+    if port43.get("success") or port43.get("registered") is False:
+        port43.update(domain=domain, registry_lookup=registration.get("registry_lookup")
+                      or rdap.registry_lookup(domain))
+        if registration.get("state") != "not_applicable":
+            port43["rdap_error"] = registration.get("error")
+        return {"success": True, "data": rdap.as_whois_data(port43), "data_from": "registration", "rdap": port43}
+    return {"success": False, "data": {}, "rdap": registration,
+            "error": registration.get("error") or port43.get("error") or "Registration data could not be retrieved"}
 
 
 # ---------------------------------------------------------------------------
@@ -830,6 +802,9 @@ def _parse_dkim_tags(record_text):
     return tags
 
 
+_DKIM_WORKERS = 8
+
+
 def check_dkim(domain, selectors=None, extra_selectors=None):
     """Check common DKIM selectors, plus any caller-supplied extra ones.
 
@@ -852,8 +827,16 @@ def check_dkim(domain, selectors=None, extra_selectors=None):
         selectors = list(selectors) + [s for s in extra_selectors if s not in seen and not seen.add(s)]
     found = []
     unmeasured = []
-    for sel in selectors:
-        records = _resolve(f"{sel}._domainkey.{domain}", "TXT")
+    # Asked side by side: around thirty selectors one after another made DKIM
+    # wait 1 to 3 seconds on answers that do not depend on each other. The
+    # results are read back in list order, so the report reads the same.
+    names = [f"{sel}._domainkey.{domain}" for sel in selectors]
+    if len(names) > 1:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(_DKIM_WORKERS, len(names))) as pool:
+            answers = list(pool.map(lambda name: _resolve(name, "TXT"), names))
+    else:
+        answers = [_resolve(name, "TXT") for name in names]
+    for sel, records in zip(selectors, answers):
         if _dns_measurement(records) != "measured":
             unmeasured.append(sel)
             continue
@@ -967,6 +950,83 @@ def check_tlsrpt(domain):
 # SSL / TLS certificate
 # ---------------------------------------------------------------------------
 
+# Verification failures that are the certificate's own: they hold wherever
+# the scanner stands. Any other failure means the chain could not be built to
+# a CA this scanner trusts, which TLS inspection on the scanner's network, a
+# container without CA certificates and a server that leaves out its
+# intermediate all produce alike.
+_CERT_FAULTS = {
+    9: "not yet valid",
+    10: "expired",
+    18: "self-signed",
+    62: "issued for another name",
+}
+
+
+def _presented_certificate(domain, port=443):
+    """Who issued the certificate that answered, read without verifying it."""
+    try:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with ctx.wrap_socket(socket.create_connection((domain, port), timeout=10),
+                             server_hostname=domain) as sock:
+            der = sock.getpeercert(binary_form=True)
+        if not der:
+            return {}
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+
+        cert = x509.load_der_x509_certificate(der)
+
+        def _name(name):
+            for oid in (NameOID.ORGANIZATION_NAME, NameOID.COMMON_NAME):
+                attrs = name.get_attributes_for_oid(oid)
+                if attrs:
+                    return str(attrs[0].value)
+            return ""
+
+        try:
+            san = cert.extensions.get_extension_for_class(
+                x509.SubjectAlternativeName).value.get_values_for_type(x509.DNSName)
+        except x509.ExtensionNotFound:
+            san = []
+        subject_cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        return {
+            "issuer": _name(cert.issuer),
+            "subject": str(subject_cn[0].value) if subject_cn else "",
+            "san": list(san)[:20],
+            "self_signed": cert.issuer == cert.subject,
+            "not_after": cert.not_valid_after_utc.isoformat(),
+        }
+    except Exception:
+        return {}
+
+
+def _cert_verify_failure(exc, domain, port=443):
+    """A failed verification, told apart by whose fault it can be.
+
+    Every failure was "not trusted" and graded T, its reason dropped. A scan
+    from a container behind TLS inspection then gave T to every site: the
+    certificate it saw was the inspection device's, not the site's.
+    """
+    code = getattr(exc, "verify_code", None)
+    reason = str(getattr(exc, "verify_message", "") or "certificate verify failed")
+    presented = _presented_certificate(domain, port)
+    issuer = presented.get("issuer") or "an issuer that could not be read"
+    result = {"success": False, "verify_code": code, "verify_reason": reason, "presented": presented}
+    if code in _CERT_FAULTS:
+        result.update(trusted=False, trust_scope="certificate",
+                      error=f"Certificate not trusted: {reason}.")
+    else:
+        result.update(trusted=None, trust_scope="unverified", error=(
+            f"The certificate could not be verified from this scanner ({reason}). It was issued by "
+            f"{issuer}. TLS inspection or a firewall on the scanner's network, a scanner without CA "
+            "certificates, or a server that leaves out its intermediate certificate all look like "
+            "this. Not measured."))
+    return result
+
+
 def check_ssl(domain, port=443):
     """Retrieve and analyse the SSL/TLS certificate."""
     try:
@@ -1003,6 +1063,8 @@ def check_ssl(domain, port=443):
             "cipher": cipher[0] if cipher else None,
             "protocol": cipher[1] if cipher else None,
         }
+    except ssl.SSLCertVerificationError as exc:
+        return _cert_verify_failure(exc, domain, port)
     except Exception as exc:
         return {"success": False, "error": _safe_error(exc)}
 
@@ -1623,7 +1685,7 @@ def _get_cert_details(domain, port=443):
         if key_info:
             result.update(key_info)
     except ssl.SSLCertVerificationError as exc:
-        result = {"success": False, "trusted": False, "error": _safe_error(exc)}
+        result = _cert_verify_failure(exc, domain, port)
         key_info = _peer_cert_key_info(domain, port)
         if key_info:
             result.update(key_info)
@@ -1830,8 +1892,15 @@ def _calculate_tls_grade(protocols, ciphers, cert, has_ocsp, has_compression, ha
         # could not be fetched at all (DNS, timeout, port closed) was graded T
         # too, and a monitor then raised "TLS grade regressed to T" for an
         # outage of the scanner's own network.
+        #
+        # And T only for a fault of the certificate itself. A chain the
+        # scanner could not build may be its own network's TLS inspection;
+        # that is not graded at all rather than graded as the site's.
         if cert.get("trusted") is False:
-            return "T", ["Certificate not trusted"]
+            reason = cert.get("verify_reason")
+            return "T", [f"Certificate not trusted: {reason}" if reason else "Certificate not trusted"]
+        if cert.get("trust_scope") == "unverified":
+            return None, [f"Certificate could not be verified from this scanner: {cert.get('verify_reason')}"]
         return None, ["Certificate could not be retrieved"]
     if cert.get("expired"):
         return "T", ["Certificate expired"]
@@ -1904,6 +1973,9 @@ _SIG_HASH_PROBES = (
     ("SHA384", "ECDSA+SHA384:RSA+SHA384:RSA-PSS+SHA384", ncsc_tls.LEVEL_GOOD),
     ("SHA512", "ECDSA+SHA512:RSA+SHA512:RSA-PSS+SHA512", ncsc_tls.LEVEL_GOOD),
 )
+
+
+_SIG_HASH_WORKERS = 10
 
 
 def _resolve_tls_endpoints(domain):
@@ -2008,14 +2080,23 @@ def check_tls_signature_hashes(domain, port=443, timeout=8, endpoints=None):
     good = set()
     by_address = []
 
+    # Every probe is its own openssl process and handshake, independent of
+    # the others. Run one after another they were up to 5 per address, each
+    # waiting on the last; side by side the check takes as long as its
+    # slowest probe. Results are read back in probe order per address.
+    jobs = [(ep["address"], sigalgs) for ep in endpoints for _name, sigalgs, _level in _SIG_HASH_PROBES]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(_SIG_HASH_WORKERS, len(jobs)))) as pool:
+        digests = list(pool.map(
+            lambda job: _openssl_peer_signing_digest(domain, port, job[0], job[1], timeout=timeout),
+            jobs))
+    digest_for = dict(zip(jobs, digests))
+
     for ep in endpoints:
         addr = ep["address"]
         accepted = []
         probe_errors = 0
         for hash_name, sigalgs, level in _SIG_HASH_PROBES:
-            digest = _openssl_peer_signing_digest(
-                domain, port, addr, sigalgs, timeout=timeout
-            )
+            digest = digest_for[(addr, sigalgs)]
             if not digest:
                 probe_errors += 1
                 continue
@@ -3111,7 +3192,7 @@ def _build_check_map(domain, apex, extra_dkim_selectors=None, force_refresh=Fals
         "ports": lambda: check_ports(domain),
         "osint": lambda: scan_cache.cached_call(
             scan_cache.KIND_OSINT, domain,
-            lambda: osint.collect_osint(domain), force=force_refresh,
+            lambda: osint.collect_osint(domain, force=force_refresh), force=force_refresh,
             should_store=osint.cacheable),
         "hubspot_cf": lambda: hubspot_cf.scan_hubspot_cloudflare(domain),
         "security": lambda: check_security(domain, force=force_refresh),
@@ -3761,6 +3842,9 @@ def _scan_monitor(monitor, progress_cb=None):
     db.mark_monitor_scanned(monitor["id"], scan_id, fresh.get("schedule_minutes") or 1440,
                             next_scan_at=_monitor_next_run(fresh).isoformat())
     db.update_monitor(monitor["id"], last_state_hash=current_hash)
+    # The CVEs this scan found are known: a later sync of the CVE data
+    # reports only what comes after (cve_alerts.py).
+    cve_alerts.note_scan(monitor["id"], scan_id, results)
     event_id = db.create_monitor_event(
         monitor["id"],
         scan_id=scan_id,
@@ -3814,6 +3898,10 @@ def _notify_event(event_id, event, monitor, scan_id=None):
     sn_result = _notify_servicenow(event_id, event, monitor)
     channel_results = notifications.dispatch(event, monitor, scan_id=scan_id)
     return sn_result, channel_results
+
+
+# New known CVEs found after a sync of the CVE data go out the same way.
+cve_alerts.notifier = _notify_event
 
 
 def _monitor_next_run(monitor, first=False):
@@ -3969,6 +4057,8 @@ def _run_scheduler_digest():
                      name="ip-lists").start()
     # The GeoLite2 location database, every few days when an account is set.
     threading.Thread(target=geoip.maybe_refresh, daemon=True, name="geoip").start()
+    # Known CVEs from the NVD (and NCSC-NL), once a day when switched on.
+    threading.Thread(target=cve_feed.maybe_sync, daemon=True, name="cve-feed").start()
 
 
 def _scheduler_config():
@@ -4758,8 +4848,19 @@ def api_advisories_units():
 def lookup_versions_view():
     """Known vulnerable software versions across the organisation's sites."""
     import software_advisories
+    # The known-CVE comparison is a check too: listed beside the rules, or
+    # said to be off, so its absence from a result is never a mystery.
+    try:
+        known_cves = cve_feed.status()
+        # What the data holds, as the rules above show theirs.
+        known_cves["overview"] = cve_feed.overview() if known_cves["enabled"] else []
+        known_cves["alerts"] = cve_alerts.last_run() if known_cves["enabled"] else None
+    except Exception:
+        log.exception("Known-CVE state could not be read")
+        known_cves = None
     return render_template(
         "lookup_versions.html", section="tools", advisories=software_advisories.active_rules(),
+        known_cves=known_cves,
         subnav=_subnav(_TOOLS_SUBNAV, "/tools/versions"),
         is_admin=(not auth.config().get("enabled")) or roles.at_least(auth.current_role(), roles.ADMIN))
 
@@ -7108,8 +7209,13 @@ def api_history_get(scan_id):
     # the same tiles as a new one.
     if isinstance(record.get("data"), dict):
         record["data"]["overview"] = overview.tile_states(record["data"])
-        # Current, like the tiles: an acceptance added since changes it.
-        record["data"]["posture"] = management.posture(recommendations.generate(record["data"]))
+        # Current, like the tiles: an acceptance added since changes it. The
+        # list itself too, so the posture and the items it counts agree and a
+        # scan saved earlier also shows what each item was measured from.
+        recs = recommendations.generate(record["data"])
+        record["data"]["posture"] = management.posture(recs)
+        record["data"]["recommendations"] = recs
+        record["data"]["recommendation_counts"] = recommendations.summarize_counts(recs)
     return jsonify(record)
 
 

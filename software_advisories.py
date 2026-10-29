@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import logging
 import re
+import urllib.parse
 from datetime import date
 
 log = logging.getLogger("domainlens.advisories")
@@ -56,9 +57,39 @@ _RELEASE = re.compile(r"^(\d{1,4})\.(\d{1,4})\.(\d{1,6})$")
 _CVE = re.compile(r"^CVE-\d{4}-\d{4,7}$")
 _URL = re.compile(r"^https?://[^\s<>\"']{3,300}$")
 # A distribution's own build, named after the version: "Apache/2.4.52 (Ubuntu)".
-_DISTRO = re.compile(r"^\s*\([^()]*\b(?:ubuntu|debian|red ?hat|centos|rocky|alma ?linux|fedora|suse|"
-                     r"amazon linux|oracle linux|raspbian)\b[^()]*\)", re.I)
+_DISTRO_NAMES = (r"\([^()]*\b(?:ubuntu|debian|red ?hat|centos|rocky|alma ?linux|fedora|suse|"
+                 r"amazon linux|oracle linux|raspbian)\b[^()]*\)")
+_DISTRO = re.compile(r"^\s*" + _DISTRO_NAMES, re.I)
+# The same anywhere in the header: "Apache/2.4.41 (Ubuntu) OpenSSL/1.1.1f".
+_DISTRO_ANYWHERE = re.compile(_DISTRO_NAMES, re.I)
+# How some products number their releases, by the token they show:
+#   letters    -- OpenSSL 1.x counts patch releases in letters: 1.1.1f, 1.1.1w;
+#   bundled    -- a library named in the web server's header comes with that
+#                 server's build: in "Apache/2.4.41 (Ubuntu) OpenSSL/1.1.1f"
+#                 the OpenSSL is Ubuntu's package too, fixes and all;
+#   whole_minor -- WordPress calls its x.y.0 release "6.8", so "6.8" is a
+#                 release, not a version without its patch number.
+_TRAITS = {"openssl": frozenset({"letters", "bundled"}), "wordpress": frozenset({"whole_minor"})}
+# Where a product's own files carry its release on the site's own pages, for
+# a site that removed its generator tag. Only files that carry the core
+# release: jQuery under /wp-includes/ has its own number, and so has every
+# plugin. The emoji script's address is in a JSON block with \/ for /.
+_CORE_ASSETS = {
+    "wordpress": re.compile(
+        r"[\"'(=]([^\"'\s()<>]*?wp-includes\\?/(?:js\\?/wp-emoji-release\.min\.js|"
+        r"css\\?/dist\\?/block-library\\?/style(?:\.min)?\.css)\?ver=(\d+\.\d+(?:\.\d+)?))(?![\w.-])", re.I),
+}
 _GENERATOR_TAG = re.compile(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)', re.I)
+# How much of the page is read. A theme that inlines its CSS put the generator
+# tag of one tested site 55,000 characters in, past the 20,000 read before.
+_PAGE_READ = 500_000
+# Paths on the site's own pages that show a product whose version is only in
+# its generator tag. Many sites remove that tag; the rule then fell silent on
+# a site full of /wp-content/, instead of saying the version is not shown.
+_PAGE_MARKERS = {
+    "wordpress": ("/wp-content/", "/wp-includes/"),
+    "drupal": ("/sites/default/files/", "/core/misc/drupal.js", "/misc/drupal.js"),
+}
 
 _LIMITS = {"name": 80, "product": 60, "summary": 600, "impact": 400, "fix": 400, "check": 400}
 _HEADERS_NOT_READ = {"set-cookie", "cookie", "authorization"}
@@ -211,13 +242,29 @@ def compile_rule(raw, builtin=False):
               "fix": fix, "check": check, "sources": sources, "seen_cookies": seen_cookies,
               "seen_paths": seen_paths, "fixed": newest_first, "older_branches": older,
               "introduced": _fmt(introduced) if introduced else "", "references": references}
+    return {**public, "builtin": builtin, "public": public, **reader(token, sources)["_compiled"],
+            "_fixed": fixed, "_introduced": introduced}
+
+
+def traits(token):
+    """How a product numbers its releases (see _TRAITS), by its token."""
+    return _TRAITS.get(str(token or "").lower(), frozenset())
+
+
+def reader(token, sources, seen_cookies=(), seen_paths=()):
+    """What parse_version and seen need to find a product in a response,
+    without a rule around it: the CVE data (cve_feed.py) reads versions
+    exactly the way the rules do."""
     # The token is matched literally, so nothing an administrator types can
     # make the expression slow: "PHP/8.2.7", "nginx/1.25.3", "WordPress 6.4.2".
     pattern = re.compile(r"(?<![A-Za-z0-9])" + re.escape(token) + r"[/ ]v?(\d+)\.(\d+)(?:\.(\d+))?([^\s,;()]*)",
                          re.I)
     word = re.compile(r"(?<![A-Za-z0-9])" + re.escape(token) + r"(?![A-Za-z0-9_-])", re.I)
-    return {**public, "builtin": builtin, "public": public, "_pattern": pattern, "_word": word, "_fixed": fixed,
-            "_introduced": introduced}
+    # Only a major version: "Drupal 11 (https://www.drupal.org)", "Apache/2".
+    major = re.compile(r"(?<![A-Za-z0-9])" + re.escape(token) + r"[/ ]v?\d+(?![\d.])", re.I)
+    compiled = {"_pattern": pattern, "_word": word, "_major": major, "_traits": traits(token)}
+    return {"sources": list(sources), "seen_cookies": list(seen_cookies), "seen_paths": list(seen_paths),
+            **compiled, "_compiled": compiled}
 
 
 _BUILTIN = [compile_rule(r, builtin=True) for r in BUILTIN_RULES]
@@ -248,18 +295,86 @@ def _values(rule, headers, generator):
 
 def parse_version(rule, values):
     """{"version": (8, 2, 7), "suffix": "-1~deb12u1", "raw": "PHP/8.2.7-1~deb12u1",
-    "vendor": bool} from what the server shows, or None. A suffix with letters
-    after the number, or a distribution named right after it, is a
-    distribution build."""
+    "vendor": bool, "beside": ""} from what the server shows, or None. A suffix
+    with letters after the number, or a distribution named right after it, is
+    a distribution build. OpenSSL's patch letter is a fourth number
+    (1.1.1f is 1.1.1.6), and a distribution named elsewhere in its header
+    ("beside") makes it that distribution's build."""
+    marks = rule.get("_traits") or frozenset()
     for value in values:
         match = rule["_pattern"].search(value or "")
         if match:
             major, minor, patch, suffix = match.groups()
+            suffix = suffix or ""
+            version, rest = (int(major), int(minor), int(patch or 0)), suffix
+            letter = re.match(r"[a-z](?![a-z])", suffix, re.I) if "letters" in marks and patch else None
+            if letter:
+                version += (ord(letter.group(0).lower()) - 96,)
+                rest = suffix[1:]
             distro = _DISTRO.match(value[match.end():])
-            vendor = bool(re.search(r"[a-z]", suffix or "", re.I)) or bool(distro)
-            return {"version": (int(major), int(minor), int(patch or 0)), "patch_known": patch is not None,
-                    "suffix": suffix or "", "vendor": vendor,
+            beside = _DISTRO_ANYWHERE.search(value) if "bundled" in marks and not distro else None
+            vendor = bool(re.search(r"[a-z]", rest, re.I)) or bool(distro) or bool(beside)
+            return {"version": version, "patch_known": patch is not None or "whole_minor" in marks,
+                    "suffix": suffix, "vendor": vendor, "beside": beside.group(0) if beside else "",
                     "raw": match.group(0) + (distro.group(0) if distro else "")}
+    return None
+
+
+def core_asset_version(rule, page, url):
+    """("WordPress 6.8.1", "/wp-includes/...?ver=6.8.1") from the product's
+    own core files on the site's own pages, or None.
+
+    Many sites remove the generator tag and leave the version on the files
+    the software links itself. A file on another site is that site's."""
+    pattern = _CORE_ASSETS.get(str(rule.get("token") or "").lower())
+    if not pattern or not isinstance(page, str) or not page:
+        return None
+    host = (urllib.parse.urlsplit(url or "").hostname or "").lower()
+    own = {host, host[4:] if host.startswith("www.") else "www." + host} if host else set()
+    for found in pattern.finditer(page[:_PAGE_READ]):
+        address = found.group(1).replace("\\/", "/")
+        parts = urllib.parse.urlsplit(address)
+        if "/wp-includes/" not in "/" + parts.path.lstrip("/"):
+            continue
+        if parts.netloc and (parts.hostname or "").lower() not in own:
+            continue
+        return f"{rule['token']} {found.group(2)}", parts.path + "?ver=" + found.group(2)
+    return None
+
+
+def read_version(rule, headers, generator=None, page=None, url=""):
+    """(shown, partial, read_from) for one rule or followed product: the
+    version from the headers or generator tag, else from its own core
+    files; a major version alone; and the file it was read from, if any."""
+    values = _values(rule, headers, generator)
+    shown = parse_version(rule, values)
+    read_from = None
+    if not shown:
+        asset = core_asset_version(rule, page, url)
+        if asset:
+            shown, read_from = parse_version(rule, [asset[0]]), asset[1]
+    partial = None if shown else major_only(rule, values)
+    return shown, partial, read_from
+
+
+def read_from_text(read_from):
+    """The sentence that says a version came from a file, not a header."""
+    return f" Read from its own core file {read_from}." if read_from else ""
+
+
+def major_only(rule, values):
+    """The software named with only its major version ("Drupal 11"), or None.
+
+    Drupal 8 and later never put more than that in their generator tag. It
+    was reported as "the version is not shown" beside a result column that
+    showed "Drupal 11", which read as a contradiction."""
+    pattern = rule.get("_major")
+    if pattern is None:
+        return None
+    for value in values:
+        found = pattern.search(value or "")
+        if found:
+            return found.group(0)
     return None
 
 
@@ -298,12 +413,14 @@ def verdict(rule, shown):
     return "vulnerable", f"{raw} is older than {_fmt(release)}, the release with the fix."
 
 
-def seen(rule, headers, cookies="", url="", generator=None):
+def seen(rule, headers, cookies="", url="", generator=None, page=None):
     """Whether the response shows the product at all, with or without a version.
 
     The token as a word of its own: "Apache-Coyote/1.1" is Tomcat, not the
     Apache HTTP Server, and must not read as it."""
     if any(rule["_word"].search(v or "") for v in _values(rule, headers, generator)):
+        return True
+    if _on_own_pages(rule, page, url):
         return True
     lowered = (cookies or "").lower()
     if any(c in lowered for c in rule["seen_cookies"]):
@@ -312,20 +429,23 @@ def seen(rule, headers, cookies="", url="", generator=None):
     return any(p in address for p in rule["seen_paths"])
 
 
-def match(headers, cookies="", url="", generator=None, rules=None):
+def match(headers, cookies="", url="", generator=None, rules=None, page=None):
     """One entry per rule whose product the response shows (headers with
     lower-case names): {"advisory", "name", "product", "cves", "severity",
     "verdict", "reason", "version", ...}. A rule whose product is not seen
     gives nothing: not applicable, not "fixed"."""
     out = []
     for rule in (active_rules() if rules is None else rules):
-        shown = parse_version(rule, _values(rule, headers, generator))
-        if not shown and not seen(rule, headers, cookies, url, generator):
+        shown, partial, read_from = read_version(rule, headers, generator, page, url)
+        if not shown and not partial and not seen(rule, headers, cookies, url, generator, page):
             continue
         state, reason = verdict(rule, shown)
+        reason += read_from_text(read_from)
+        if partial:
+            reason = f"{partial} shows only its major version, not the release, so it cannot be compared with the fix."
         out.append({"advisory": rule["id"], "name": rule["name"], "product": rule["product"],
                     "cves": rule["cves"], "severity": rule["severity"], "verdict": state, "reason": reason,
-                    "version": shown["raw"] if shown else None, "references": rule["references"],
+                    "version": shown["raw"] if shown else partial, "references": rule["references"],
                     "impact": rule["impact"], "fix": rule["fix"], "check": rule["check"]})
     return out
 
@@ -383,9 +503,27 @@ def redirect_finding(adv, target, url=""):
 
 
 def generator_of(body):
-    """The content of the page's <meta name="generator">, or None."""
-    found = _GENERATOR_TAG.search(body[:20000]) if isinstance(body, str) else None
-    return found.group(1) if found else None
+    """The content of the page's <meta name="generator"> tags, or None.
+
+    Every tag, not the first: a plugin's ("WordPress Download Manager 3.3.74")
+    can come before the one of the software itself."""
+    if not isinstance(body, str):
+        return None
+    found = dict.fromkeys(m.strip() for m in _GENERATOR_TAG.findall(body[:_PAGE_READ]) if m.strip())
+    return "; ".join(found) or None
+
+
+def _on_own_pages(rule, page, url):
+    """Whether the page links the product's own paths on its own site. A
+    link to /wp-content/ on another site is that site's WordPress."""
+    markers = _PAGE_MARKERS.get(str(rule.get("token") or "").lower())
+    if not markers or not isinstance(page, str) or not page:
+        return False
+    host = (urllib.parse.urlsplit(url or "").hostname or "").lower()
+    host = host[4:] if host.startswith("www.") else host
+    own = r"[\"'(=]" + (r"|//(?:www\.)?" + re.escape(host) if host else "")
+    pattern = re.compile(r"(?:" + own + r")(?:" + "|".join(re.escape(m) for m in markers) + r")", re.I)
+    return pattern.search(page[:_PAGE_READ]) is not None
 
 
 def wanted_headers(rules):
@@ -452,7 +590,7 @@ def split_hops(hops, domain):
     return own, target_site, target
 
 
-def _side(hops, generator, rules):
+def _side(hops, generator, rules, cves=False, page=None):
     merged, cookies = {}, []
     for hop in hops:
         for key, value in hop["headers"].items():
@@ -462,10 +600,32 @@ def _side(hops, generator, rules):
             cookies.append(hop["cookies"])
     headers = {key: " ".join(values) for key, values in merged.items()}
     url = hops[-1]["url"]
-    found = match(headers, " ".join(cookies), url, generator, rules=rules)
-    return {"url": url, "status": hops[-1]["status"], "server": headers.get("server"),
+    found = match(headers, " ".join(cookies), url, generator, rules=rules, page=page)
+    side = {"url": url, "status": hops[-1]["status"], "server": headers.get("server"),
             "powered_by": headers.get("x-powered-by"), "generator": generator, "seen": bool(found),
             "advisories": found}
+    # Known CVEs of the followed products (cve_feed.py); None when that is
+    # switched off, which is "not applicable", not "no CVEs".
+    side["cves"] = _cves(headers, generator, " ".join(cookies), url, page) if cves else None
+    return side
+
+
+def _cves(headers, generator, cookies, url, page=None):
+    try:
+        import cve_feed
+        return cve_feed.assess(headers, generator, cookies, url, page)
+    except Exception as exc:
+        log.warning("Known-CVE comparison failed: %s", exc)
+        return None
+
+
+def _cve_readers():
+    try:
+        import cve_feed
+        return cve_feed.readers()
+    except Exception as exc:
+        log.warning("Known-CVE products could not be read: %s", exc)
+        return []
 
 
 def measure(resp, domain, rules):
@@ -478,13 +638,20 @@ def measure(resp, domain, rules):
     the version even when the final page does not, so every hop on the
     domain's own name counts. The page itself is read only when a rule asks
     for its generator tag, and belongs to the side it was served on."""
-    hops = hops_of(resp, rules)
+    # The followed products of the CVE data read their versions from the same
+    # answers, so their headers are kept too.
+    readers = _cve_readers()
+    hops = hops_of(resp, list(rules) + readers)
     own, target_site, target = split_hops(hops, domain)
-    generator = None
-    if any(GENERATOR in rule["sources"] for rule in rules):
-        generator = generator_of(getattr(resp, "text", ""))
-    result = _side(own, None if target else generator, rules)
-    result["redirect"] = {"domain": target_site, **_side(target, generator, rules)} if target else None
+    generator = page = None
+    if any(GENERATOR in rule["sources"] for rule in list(rules) + readers):
+        page = getattr(resp, "text", "")
+        page = page if isinstance(page, str) else None
+        generator = generator_of(page)
+    cves = bool(readers)
+    result = _side(own, None if target else generator, rules, cves, None if target else page)
+    result["redirect"] = ({"domain": target_site, **_side(target, generator, rules, cves, page)}
+                          if target else None)
     result["hops"] = [{"url": h["url"], "status": h["status"], "server": h["headers"].get("server"),
                        "powered_by": h["headers"].get("x-powered-by"), "own": i < len(own)}
                       for i, h in enumerate(hops)]
@@ -606,11 +773,25 @@ def _csv_rows(domain, measured_on, side):
     base = {"domain": domain, "measured_on": measured_on, "x_powered_by": side.get("powered_by"),
             "server": side.get("server"), "url": side.get("url")}
     advisories = side.get("advisories") or []
-    if not advisories:
+    # Known CVEs (cve_feed.py) per product, when that is switched on: a row
+    # each, after the rules, so a team that patches sees them in one file.
+    known = [a for a in (side.get("cves") or []) if isinstance(a, dict)]
+    if not advisories and not known:
         return [{**base, "result": "not_seen"}]
-    return [{**base, "result": a.get("verdict"), "advisory": a.get("name"), "cves": " ".join(a.get("cves") or []),
+    rows = [{**base, "result": a.get("verdict"), "advisory": a.get("name"), "cves": " ".join(a.get("cves") or []),
              "verdict": a.get("verdict"), "version_shown": a.get("version"), "reason": a.get("reason")}
             for a in advisories]
+    rows += [{**base, "result": _cve_state(a), "advisory": f"Known CVEs: {a.get('product')} (NVD)",
+              "cves": " ".join(c.get("cve", "") for c in a.get("cves") or []), "verdict": _cve_state(a),
+              "version_shown": a.get("version"), "reason": a.get("reason")} for a in known]
+    return rows
+
+
+def _cve_state(assessment):
+    """A product in use with its version hidden is "cannot tell", as for a
+    rule; "unmeasured" stays for a version shown and not compared."""
+    state = assessment.get("state")
+    return "cannot_tell" if state == "unmeasured" and not assessment.get("version") else state
 
 
 def to_csv(results):

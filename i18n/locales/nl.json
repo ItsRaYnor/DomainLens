@@ -162,6 +162,7 @@
       "weak_auth": "Zwakke authenticatie",
       "active_scan": "Actieve kwetsbaarhedenscan",
       "ip_lists": "IP-dreigingslijsten",
+      "cve_feed": "CVE-gegevens (NVD, NCSC-NL)",
       "mail_test": "Mailanalyse: links",
       "js_scan": "JS-dependency- en secrets-scan",
       "auth_local": "Lokale authenticatie",
@@ -247,6 +248,11 @@
       "spamhaus_drop": "Spamhaus DROP (IPv4 en IPv6): netwerken die Spamhaus adviseert niet te routeren, gekaapt of beheerd door criminelen. Elke 12 uur gedownload van spamhaus.org. Gratis voor elk gebruik, met bronvermelding van The Spamhaus Project.",
       "dshield": "DShield Recommended Block List (SANS Internet Storm Center): de 20 netwerken die de afgelopen drie dagen het meest scanden. Zakelijk gebruik mag met bronvermelding en zonder doorverkoop, maar het bestand draagt een niet-commerciële licentie (CC BY-NC-SA): zet het alleen aan als dat bij je gebruik past.",
       "custom_lists": "Andere IP-lijsten (één https://-adres per regel; de lijst bevat één IP of CIDR per regel). Controleer de voorwaarden van een lijst voordat je hem gebruikt."
+    },
+    "cve_feed": {
+      "enabled": "Vergelijk de versies die een site toont met de bekende CVE's van PHP, nginx, de Apache HTTP Server, lighttpd, WordPress en Drupal. Stuurt eens per dag verzoeken naar nvd.nist.gov (en naar advisories.ncsc.nl als dat hieronder aanstaat). Uit: er wordt niets over CVE's gezegd.",
+      "ncsc": "Lees ook de NCSC-NL-advisories: hun kans en schade staan bij een CVE-bevinding, en een advisory over een gevolgd product wordt op Admin -> Kwetsbaarheidsregels aangeboden als begin van een regel.",
+      "max_age_days": "Dagen dat de CVE-gegevens oud mogen zijn. Oudere gegevens gelden als niet gemeten, nooit als geen bekende CVE's."
     },
     "mail_test": {
       "urlhaus_list": "De URLhaus-lijst met malware-links gebruiken, met de abuse.ch-sleutel onder API-sleutels. De lijst wordt elke 12 uur in zijn geheel gedownload en op deze server doorzocht.",

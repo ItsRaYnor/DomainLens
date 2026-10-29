@@ -985,50 +985,21 @@ def check_web_exposure(domain):
                          "strict" if "samesite=strict" in low else None),
         })
 
-    # --- CORS misconfiguration ---
+    # The CORS and OPTIONS requests and the soft-404 baseline do not depend on
+    # each other or on the sensitive-file probes, but each waited for the one
+    # before it. They now run while the probes do. The admin probes still
+    # come after the baseline, which they are compared against.
+    side = concurrent.futures.ThreadPoolExecutor(max_workers=3)
     try:
-        evil = "https://domainlens-cors-test.example"
-        cr = _get(base, timeout=6, headers={"Origin": evil})
-        acao = cr.headers.get("Access-Control-Allow-Origin", "")
-        acac = cr.headers.get("Access-Control-Allow-Credentials", "")
-        result["cors"] = {
-            "allow_origin": acao,
-            "allow_credentials": acac.lower() == "true",
-            "reflects_origin": acao == evil,
-            "wildcard": acao == "*",
-        }
-    except Exception:
-        pass
-
-    # --- Allowed HTTP methods ---
-    try:
-        opt = _get(base, timeout=6, method="OPTIONS")
-        allow = opt.headers.get("Allow", "") or opt.headers.get("access-control-allow-methods", "")
-        methods = [m.strip().upper() for m in allow.split(",") if m.strip()]
-        result["methods"] = {
-            "allow_header": allow,
-            "methods": methods,
-            "trace_enabled": "TRACE" in methods,
-            "dangerous": [m for m in methods if m in ("PUT", "DELETE", "TRACE", "CONNECT", "PATCH")],
-        }
-    except Exception:
-        pass
-
-    # --- Sensitive files (light wordlist) ---
-    security_txt_body = ""
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
-        futures = {ex.submit(_probe_path, base, p, sigs, html): p
-                   for p, sigs, html in _SENSITIVE_PATHS}
-        for fut in concurrent.futures.as_completed(futures):
-            try:
-                r = fut.result()
-                if r and r.get("positive") and r["path"].endswith("security.txt"):
-                    result["security_txt"] = True
-                    security_txt_body = r.get("body") or ""
-                elif r and not r.get("positive"):
-                    result["sensitive_files"].append(r)
-            except Exception:
-                continue
+        cors_future = side.submit(_cors_probe, base)
+        methods_future = side.submit(_methods_probe, base)
+        baseline_future = side.submit(_get_soft_404_baseline, base)
+        security_txt_body = _probe_sensitive_files(base, result)
+        result["cors"] = cors_future.result()
+        result["methods"] = methods_future.result()
+        baseline = baseline_future.result()
+    finally:
+        side.shutdown(wait=False)
 
     # --- security.txt PGP key (RFC 9116 Encryption:) ---
     # Only when the file was actually found: with no security.txt there is no
@@ -1046,7 +1017,6 @@ def check_web_exposure(domain):
             }
 
     # --- Admin / debug endpoints ---
-    baseline = _get_soft_404_baseline(base)
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
         futures = {ex.submit(_probe_admin, base, p, baseline): p for p in _ADMIN_PATHS}
         for fut in concurrent.futures.as_completed(futures):
@@ -1061,6 +1031,59 @@ def check_web_exposure(domain):
     result["admin_endpoints"].sort(key=lambda x: x["path"])
     result["success"] = True
     return result
+
+
+def _cors_probe(base):
+    """CORS misconfiguration: does the site echo an origin it has never seen?"""
+    try:
+        evil = "https://domainlens-cors-test.example"
+        cr = _get(base, timeout=6, headers={"Origin": evil})
+        acao = cr.headers.get("Access-Control-Allow-Origin", "")
+        acac = cr.headers.get("Access-Control-Allow-Credentials", "")
+        return {
+            "allow_origin": acao,
+            "allow_credentials": acac.lower() == "true",
+            "reflects_origin": acao == evil,
+            "wildcard": acao == "*",
+        }
+    except Exception:
+        return {}
+
+
+def _methods_probe(base):
+    """Allowed HTTP methods, as the OPTIONS answer states them."""
+    try:
+        opt = _get(base, timeout=6, method="OPTIONS")
+        allow = opt.headers.get("Allow", "") or opt.headers.get("access-control-allow-methods", "")
+        methods = [m.strip().upper() for m in allow.split(",") if m.strip()]
+        return {
+            "allow_header": allow,
+            "methods": methods,
+            "trace_enabled": "TRACE" in methods,
+            "dangerous": [m for m in methods if m in ("PUT", "DELETE", "TRACE", "CONNECT", "PATCH")],
+        }
+    except Exception:
+        return {}
+
+
+def _probe_sensitive_files(base, result):
+    """Sensitive files (light wordlist). Fills `result` and returns the
+    security.txt body, if one was found."""
+    security_txt_body = ""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(_probe_path, base, p, sigs, html): p
+                   for p, sigs, html in _SENSITIVE_PATHS}
+        for fut in concurrent.futures.as_completed(futures):
+            try:
+                r = fut.result()
+                if r and r.get("positive") and r["path"].endswith("security.txt"):
+                    result["security_txt"] = True
+                    security_txt_body = r.get("body") or ""
+                elif r and not r.get("positive"):
+                    result["sensitive_files"].append(r)
+            except Exception:
+                continue
+    return security_txt_body
 
 
 # ---------------------------------------------------------------------------
@@ -1359,7 +1382,8 @@ def check_info_disclosure(domain):
     result["url"] = measured["url"]
     redirect = measured["redirect"]
     result["redirect"] = None if not redirect else {
-        key: redirect[key] for key in ("domain", "url", "status", "server", "powered_by", "generator", "advisories")}
+        key: redirect.get(key) for key in ("domain", "url", "status", "server", "powered_by", "generator",
+                                            "advisories", "cves")}
 
     headers_lc = {k.lower(): v for k, v in page.headers.items()}
     techs = set()
@@ -1408,6 +1432,9 @@ def check_info_disclosure(domain):
     # its redirects on the way included (software_advisories.py): read,
     # never probed.
     result["advisories"] = measured["advisories"]
+    # Known CVEs of the version shown, from the NVD (cve_feed.py), when
+    # that is switched on; None otherwise.
+    result["cves"] = measured.get("cves")
 
     result["technologies"] = sorted(techs)
     result["success"] = True
@@ -1738,6 +1765,14 @@ def audit_findings(audit):
     redirect = info.get("redirect") or {}
     for adv in redirect.get("advisories", []):
         found = software_advisories.redirect_finding(adv, redirect.get("domain"), redirect.get("url"))
+        if found:
+            findings.append(_finding(found["severity"], "Known vulnerability", found["title"], found["detail"],
+                                     evidence=found["evidence"], fix=found["fix"]))
+    # Known CVEs of the version the domain's own server shows. A redirect's
+    # target is another site's server; its CVEs are not this domain's to fix.
+    import cve_feed
+    for assessment in info.get("cves") or []:
+        found = cve_feed.finding(assessment)
         if found:
             findings.append(_finding(found["severity"], "Known vulnerability", found["title"], found["detail"],
                                      evidence=found["evidence"], fix=found["fix"]))

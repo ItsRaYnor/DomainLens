@@ -1,0 +1,47 @@
+# The packages DomainLens uses directly. Edit this file, then regenerate the
+# lock (requirements.txt, every package pinned with its hashes) on the
+# interpreter the image runs:
+#
+#   docker run --rm -v "$PWD:/src" -w /src python:3.12-slim-bookworm sh -c
+#     "pip install -q pip-tools && pip-compile --generate-hashes --strip-extras
+#      --allow-unsafe -o requirements.txt requirements.in"
+#
+# The lock is what the image, CI and pip-audit install; nothing reaches the
+# image that was not in it, at the version and with the hash recorded there.
+# The lock is for Linux: on a Windows development machine install from this
+# file instead (qrcode needs colorama there, which the lock leaves out).
+
+Flask==3.1.3
+waitress==3.0.2
+dnspython==2.9.0
+requests==2.34.2
+openpyxl==3.1.5
+# Security: hardened XML parsing, SAML signature verification, JWT for SCIM/OAuth tokens
+defusedxml==0.7.1
+# NOTE: signxml must stay >=4.5.1 — cryptography>=47 removed the SECT* binary
+# curves (SECT163K1 etc.) that signxml<4.5.1 references unconditionally at
+# import time, which raises AttributeError and silently disables SAML
+# signature verification (saml_sp.py fails closed, but SSO stops working).
+# Pinned to the latest tested-compatible release rather than Dependabot's
+# 4.0.4 suggestion, which is still broken with cryptography 50.x.
+signxml==5.1.0
+lxml==6.1.1
+PyJWT==2.15.0
+# pyOpenSSL: the only way to request and observe a stapled OCSP response.
+# stdlib ssl exposes neither the status_request extension nor an OCSP
+# callback, so without this the stapling check cannot run at all and reports
+# "unknown" rather than guessing.
+pyOpenSSL==26.4.0
+cryptography==50.0.0
+qrcode==8.2
+# Mail test: DKIM signatures verified by the reference implementation, SPF
+# evaluated by a full RFC 7208 engine (include, redirect, macros, the lookup limit).
+dkimpy==1.1.8
+pyspf==2.0.14
+# A monitor's time of day is kept in the zone it was chosen in; the slim
+# image has no system time zone database of its own to rely on.
+tzdata==2025.3
+# Reads the MaxMind GeoLite2 database on this server (geoip.py).
+maxminddb==2.6.2
+# Mail analysis: reads Outlook .msg files (msg_file.py).
+olefile==0.47

@@ -9,8 +9,8 @@ const EV_PAGE = 100;
 const EV_SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
 // Opening the page shows what happened, not every scan that found nothing:
 // "No change" is one click away.
-const EV_DEFAULT_TYPES = ['scan_changed', 'baseline_created', 'scan_failed', 'dns_unanswered'];
-const EV_TYPE_ORDER = ['scan_changed', 'scan_failed', 'dns_unanswered', 'baseline_created', 'scan_unchanged'];
+const EV_DEFAULT_TYPES = ['scan_changed', 'known_cve_new', 'baseline_created', 'scan_failed', 'dns_unanswered'];
+const EV_TYPE_ORDER = ['scan_changed', 'known_cve_new', 'scan_failed', 'dns_unanswered', 'baseline_created', 'scan_unchanged'];
 const ev = { state: null, rows: [], canEdit: false, drawPeriod: null, monitorsLoaded: false };
 
 function evRow(e) {

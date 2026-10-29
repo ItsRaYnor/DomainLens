@@ -79,7 +79,8 @@ class NotDelegatedScanTests(EnterpriseAppTestCase):
              mock.patch.object(app, "lookup_whois", return_value=_QUARANTINE_WHOIS):
             data = self.client.post("/api/scan", json={"domain": "gone.example"}).get_json()
         self.assertEqual(1, len(data["recommendations"]))
-        self.assertEqual({"weak_auth": None, "blacklist": None, "ipv6_mail": None}, data["overview"])
+        self.assertEqual({"weak_auth": None, "blacklist": None, "ipv6_mail": None,
+                          "dkim": None, "mta_sts": None, "tlsrpt": None}, data["overview"])
 
 
 def _chain_nxdomain(name, target):

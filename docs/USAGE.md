@@ -10,7 +10,12 @@ its limits, and the API.
 2. Enter a domain (e.g. `example.com`).
 3. Select checks, or leave **All Checks** enabled.
 4. Click **Scan**.
-5. Review tabs: **Advies** (fix + retest steps), DNS, E-mail, SSL/TLS, Web, Network, OSINT.
+5. Read the **Security overview**: one tile per check, grouped as the tabs are (Registration
+   & DNS, Email security, Transport & web, Platform, External signals). A tile opens its
+   details: the tab they are in, scrolled to that check's card. Its tooltip names that card.
+   A mail tile reads **Not applicable** when the domain has said in DNS that it takes or sends
+   no mail (a null MX, or revoked DKIM keys with `v=spf1 -all`); the tile says which.
+6. Review tabs: **Advies** (fix + retest steps), DNS, E-mail, SSL/TLS, Web, Network, OSINT.
 
 ### API scan
 
@@ -35,8 +40,29 @@ The **Advies** tab lists every finding with:
 - **Probleem** — what is wrong
 - **Advies (oplossen)** — how to fix it
 - **Hertesten** — how to verify (re-scan in DomainLens, internet.nl, dig, curl, …)
+- **Wat de scan heeft gemeten** — the measured lines the finding rests on: the cipher suites by
+  name with both verdicts, the header as it was (not) sent and the URL it was read from, the
+  record as found or the name it was looked up under. Below it, a button opens the card in the
+  tab that shows the whole measurement, and **Ruwe uitvoer van de check** shows the check's raw
+  output as JSON, for when you need to drill down further.
 
-Prioritized items (critical / high / medium) appear at the top.
+The critical, high and medium items are listed first, at the top, as links to the item.
+
+The other way round, every card in the tabs ends with **Advies uit deze meting**: the findings
+that measurement led to, each a link to its item under Advies.
+
+A certificate is graded **T** only for a fault of its own: expired, not yet valid, self-signed or
+issued for another name. When the scanner cannot trace the chain to a CA it trusts, the TLS
+check reports **could not be verified from this scanner**. That happens behind TLS inspection
+or a firewall, in a container without CA certificates, or with a server that leaves out its
+intermediate. The check then gives no grade and names who issued the certificate that
+answered. Behind inspection, the whole SSL/TLS tab describes the inspecting device, so scan
+from a network without it.
+
+On **SSL/TLS** the accepted cipher suites are in one table under **Cipher Suites**, with
+DomainLens's own strength rating and the NCSC level side by side, and the cipher order above
+it. The NCSC card keeps the overall verdict; the level of each protocol is under **Protocol
+Support**.
 
 ### Web security & CSP
 
@@ -237,7 +263,7 @@ curl -s 'http://127.0.0.1:5000/api/vuln-findings?domain=example.com'
 ### Events & ServiceNow
 
 Monitor scans create events: `baseline_created`, `scan_changed`, `scan_unchanged`, `scan_failed`,
-`dns_unanswered`.
+`dns_unanswered`; with the CVE data on, a sync can add `known_cve_new` (see Known CVEs).
 
 **Monitoring → Monitor events** lists them all, newest first, to filter on kind, severity,
 monitor, unit, period and text; each kind and severity says how many events choosing it would
@@ -269,7 +295,7 @@ reseller, DNSSEC, name servers and dates. Holder and contacts are withheld by mo
 registries; the page says so and links to the registry's own lookup (SIDN for `.nl`).
 
 Some country registries offer no RDAP at all &mdash; `.be`, `.eu`, `.de`, `.at` among them. For
-those the registry's own port-43 WHOIS is asked and read into the same overview (source
+those, and when an RDAP server does not answer, the registry's own port-43 WHOIS is asked and read into the same overview (source
 "WHOIS (port 43)"): registered or free, quarantine, registrar where the registry publishes one
 (DENIC and nic.at do not), name servers, DNSSEC and the registration date. The domain
 portfolio and the batch lookup use the same fallback, so domains there are measured instead
@@ -700,6 +726,20 @@ expression:
 
 The token is matched as a word of its own: `Apache-Coyote/1.1` (Tomcat) does not count as `Apache`.
 
+For `meta:generator` the whole page is read, and every generator tag on it: a plugin's tag
+(`WordPress Download Manager 3.3.74`) often comes before the one of the software itself. Many
+WordPress and Drupal sites remove their generator tag. A rule with the token `WordPress` or
+`Drupal` then still counts the software as in use when the page links its own paths on the same
+site (`/wp-content/`, `/wp-includes/`; `/sites/default/files/`, `drupal.js`): the answer is
+"cannot tell", not silence. A link to those paths on another site does not count.
+
+WordPress's own core files carry its release in their address, and that is read when the
+generator tag is gone: `/wp-includes/css/dist/block-library/style.min.css?ver=6.8.1` and the
+emoji script `wp-emoji-release.min.js?ver=…`. Only those two: jQuery under `/wp-includes/` and
+every plugin have numbers of their own. The answer then says which file the version came from.
+WordPress calls its x.y.0 release `6.8`; that counts as a release, not as a version without its
+patch number.
+
 **Test** runs the rule in the form against headers pasted from a response (and, for the generator
 tag, the page source) and shows what it reads, its verdict and the scan finding. Nothing is
 fetched and nothing is saved.
@@ -751,6 +791,90 @@ API: `GET /api/advisories/units` (the units to choose from, `id` and `path`),
 `GET /api/advisories/sites` (the sites to check; `?unit={id}` for one unit and the units under
 it, 404 for a unit that does not exist), `POST /api/advisories/check` (`{"domains": [...]}`, ten
 at a time) and `POST /api/advisories/csv` (`{"results": [...]}`).
+
+### Known CVEs (NVD, NCSC-NL)
+
+Beside the rules, a scan can compare the version a site shows with every known CVE of seven
+products a web server or CMS names itself by: PHP, nginx, the Apache HTTP Server, lighttpd,
+OpenSSL, WordPress and Drupal. The data comes from the National Vulnerability Database. It is **off** until
+an administrator switches it on under **Admin → Settings → CVE data (NVD, NCSC-NL)**, because it
+sends requests to `nvd.nist.gov` (and `advisories.ncsc.nl`).
+
+| Setting | Meaning |
+|---|---|
+| Compare the versions ... | On: once a day the CVEs of the seven products are fetched, the first time in full, after that only what changed. Never twice within two hours, as the NVD asks |
+| Also read the NCSC-NL advisories | On by default once the CVE data is on: see below |
+| Days the CVE data may be old | 3 by default. Older data makes the comparison "not measured" |
+
+An NVD API key (**Admin → Settings → API keys**, `NVD_API_KEY`) is optional: without one the
+sync pauses six seconds between requests and takes a few minutes; with one it is faster.
+
+A scan gives **one finding per product**, not one per CVE: `PHP/8.1.5: 31 known CVE(s), 2
+exploited`. Its severity is the worst CVSS score among the CVEs that apply; a CVE on CISA's list
+of exploited vulnerabilities (KEV) makes it at least high. The evidence lists the CVEs, exploited
+ones first, and the fix names the release to move to when every CVE has a fix in the branch
+shown, or says to move to a branch that still gets fixes.
+
+| Answer | When | Finding |
+|---|---|---|
+| Vulnerable | The version is inside the affected range of at least one CVE | Yes |
+| No known CVEs | The data is current and no CVE the NVD has analysed names this version. CVEs the NVD has not analysed yet have no ranges and are not included | No |
+| Cannot tell | A distribution build (`Apache/2.4.52 (Ubuntu)`), a version without its patch release (`nginx/1.25`), or a CVE that applies only together with a platform | Info, with what to check on the server |
+| Cannot tell (version hidden) | The software is in use (a cookie such as `PHPSESSID`, a `.php` address, `/wp-content/` on the site's own pages) but shows no version | No: nothing to compare |
+| Cannot tell (major version only) | Only the major version is shown: `Drupal 11 (https://www.drupal.org)` (Drupal 8 and later show no more), `Apache/2` | No: the release decides |
+| Not measured | A version was shown, but the data is older than the setting allows or was never fetched | Info; never "no known CVEs" |
+
+OpenSSL is read from the Server header (`Apache/2.4.62 OpenSSL/3.0.13`). Its patch letters are
+releases: `1.1.1f` is older than `1.1.1w`, in the NVD's data too. Named beside a distribution build
+in the same header (`Apache/2.4.41 (Ubuntu) OpenSSL/1.1.1f`) it is that distribution's package,
+and a `-fips` build is one too: "cannot tell". A product added in an update is fetched at the next
+turn the NVD allows; until then only that product is "not measured".
+
+Where it shows: **Tools → Versions** lists **Known CVEs (NVD)** under **Checked for** (products,
+CVEs kept, last sync, or switched off), with a table per product: CVEs kept and how many have no
+versions in the NVD, how many are exploited (KEV), the newest CVE, and **No known CVE from**: per
+branch the release from which none of the known CVEs applies, up to the next branch. A branch
+with a CVE in a later release, or one without a fix, is left out. Each product also gets a line
+under **Why**; the scan's
+**Info Disclosure** card has **Known vulnerabilities**, with every rule and every product that
+was seen and its answer, findings or not.
+
+**New CVEs for monitored sites.** After every sync the versions each active monitor showed at
+its last scan are compared again with the data as it now is. A CVE that now applies and did not
+at the scan, or one that already applied and is now listed as exploited (KEV), becomes a **New
+known CVE** event under **Monitoring → Monitor events**, and goes out through the notification
+channels and ServiceNow like any other event (subject to the minimum severity set there). The
+severity is the worst score among those CVEs; exploited makes it at least high. What the scan
+reported is not reported again, nor is a CVE once reported. Only measured versions count: a hidden
+version, a distribution build, or a product whose data is not current gives no event. A monitor
+scanned before this existed is taken stock of silently at the first comparison. **Tools →
+Versions** shows when the last comparison ran and how many events it made.
+
+Switched off, the scan says nothing about CVEs: `info_disclosure.cves` is `null` (not applicable),
+and the card and the Versions page say the comparison is switched off.
+A CVE record that names a product without any versions is counted apart and does not make a
+version vulnerable.
+
+**NCSC-NL.** The NCSC's advisories (CSAF, public) name the CVEs they are about and the NCSC's
+likelihood and damage, but give products as free text without versions to compare. So they are
+not matched on. A CVE finding names the NCSC advisory about its CVEs, with likelihood and damage,
+and **Admin → Vulnerability rules** lists recent NCSC advisories about the seven products: **Use as
+start** fills in a rule with the advisory's CVEs and link, and the releases with the fix per branch
+from the NVD data for those CVEs. Where the NVD lists none of them for the product (an advisory
+about a suite that bundles it, say), or gives no fixed release, the list says so and you add them.
+An "HTTP Server" counts as Apache's only under vendor Apache, so Oracle's own is not matched.
+Advisories are read incrementally from `changes.csv` (the first time the last 90 days), and each
+is checked against its published SHA-512.
+
+**Admin → Vulnerability rules** shows per product how many CVEs are kept, when they were synced
+and the last problem, with **Sync now** (in the audit log as `cve_feed.sync`).
+
+API (admin): `GET /api/admin/cve-feed` (state per product, freshness, NCSC state),
+`POST /api/admin/cve-feed/sync` (202; 400 when switched off, 409 while a sync runs, 429 within two
+hours of the last one) and `GET /api/admin/cve-feed/candidates` (the NCSC advisories with a rule
+to start from).
+
+This product uses data from the NVD API but is not endorsed or certified by the NVD.
 
 ## Mail & web
 

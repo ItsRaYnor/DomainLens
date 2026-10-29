@@ -91,8 +91,10 @@ venv\Scripts\activate
 # Linux/macOS:
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies: the hashed lock on Linux/macOS,
+pip install --require-hashes -r requirements.txt
+# or the direct dependencies on Windows (the lock is made for the Linux image)
+pip install -r requirements.in
 
 # Optional: copy and adjust configuration
 cp config/domainlens.example.json config/domainlens.json
@@ -337,7 +339,8 @@ DomainLens/
 ├── saml_sp.py                   # SAML 2.0 SP (signature-validated)
 ├── scim.py / scim_oauth.py      # SCIM 2.0 provisioning + OAuth token issuer
 ├── recommendations.py           # Remediation recommendations
-├── requirements.txt
+├── requirements.in              # direct dependencies (edit this)
+├── requirements.txt             # hashed lock, generated from requirements.in
 ├── Dockerfile                   # Debian Bookworm slim image
 ├── docker-compose.yml           # local compose stack
 ├── docker-compose.portainer.yml # Synology / Portainer stack (build on the NAS)

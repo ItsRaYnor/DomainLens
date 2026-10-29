@@ -35,6 +35,31 @@
             <p class="ct-desc" id="arImportResult"></p>
         </section>
 
+        <section class="account-section" id="cfSection">
+            <div class="lc-head">
+                <h2>Known CVEs (NVD, NCSC-NL)</h2>
+                <button class="btn-ghost-sm" id="cfSync" type="button">Sync now</button>
+            </div>
+            <p class="muted">Beside the rules, every scan can compare the version a site shows with all known CVEs of PHP, nginx, the Apache HTTP Server, lighttpd, OpenSSL, WordPress and Drupal, from the National Vulnerability Database. One finding per product, not one per CVE. Off by default: switch it on under Admin → Settings → CVE data. Synced once a day; data older than the setting allows is reported as not measured, never as no known CVEs.</p>
+            <p class="ct-desc" id="cfState"></p>
+            <div class="users-table-wrap">
+                <table class="users-table stack-table">
+                    <thead><tr><th>Product</th><th>Known CVEs kept</th><th>Synced</th><th>Last problem</th></tr></thead>
+                    <tbody id="cfProducts"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+            <p class="ct-desc" id="cfNcsc"></p>
+            <p class="ct-desc" id="cfAttribution"></p>
+            <h3>NCSC-NL advisories about followed products</h3>
+            <p class="muted">An NCSC-NL advisory names its CVEs and its likelihood and damage, but not versions a response can be compared with. Use one as the start of a rule: the CVEs, the link and, where the NVD gives them, the releases with the fix are filled in. Check them before you save.</p>
+            <div class="users-table-wrap">
+                <table class="users-table stack-table ar-table">
+                    <thead><tr><th>Advisory</th><th>Product</th><th>Likelihood / damage</th><th></th></tr></thead>
+                    <tbody id="cfCandidates"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
         <section class="account-section">
             <h2>Example rules</h2>
             <p class="muted">Serious vulnerabilities that were exploited and whose version a web server shows. They are suggestions: nothing looks for them until you add one. An added example is a rule of your own, to change or switch off.</p>

@@ -81,12 +81,16 @@ class RdapLookupStatesTests(unittest.TestCase):
 
 
 class WhoisToolTests(EnterpriseAppTestCase):
-    def test_rdap_rescues_a_failed_port_43_lookup(self):
+    def test_port_43_rescues_a_failed_rdap_lookup(self):
         app = self.app_module
-        with mock.patch.object(app, "_lookup_whois_text",
-                               return_value={"success": False, "error": "timeout"}), \
-             mock.patch.object(app.rdap, "lookup", return_value={"success": True}):
-            self.assertTrue(app.lookup_whois("example.nl")["success"])
+        with mock.patch.object(app.rdap, "lookup", return_value={"success": False, "state": "unmeasured",
+                                                                  "error": "RDAP request failed: Timeout"}), \
+             mock.patch.object(app.whois_port43, "lookup", return_value={"success": True, "source": "whois",
+                                                                          "expires": "2027-01-01"}):
+            result = app.lookup_whois("example.nl")
+        self.assertTrue(result["success"])
+        self.assertEqual("2027-01-01", result["data"]["expiration_date"])
+        self.assertEqual("RDAP request failed: Timeout", result["rdap"]["rdap_error"])
 
     def test_the_tool_is_in_the_tools_menu_and_open_to_viewers(self):
         self.login_as("viewer")

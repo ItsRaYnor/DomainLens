@@ -12,7 +12,8 @@ them turned red for things that were not the scanned domain's defect:
   record, which the domain owner cannot change short of changing provider.
 
 Each tile gets one of: "pass", "fail", "context" (measured and true, but not
-a defect of this domain), "not_tested", or None when there is nothing to
+a defect of this domain), "not_applicable" (deliberately so: MTA-STS for a
+domain that takes no mail), "not_tested", or None when there is nothing to
 show. The note says why, in words the operator can check.
 """
 
@@ -121,6 +122,70 @@ def ipv6_mail(results):
     return _tile("fail", "The domain's own MX hosts have no IPv6 address.")
 
 
+def _null_mx(results):
+    """RFC 7505: a single `0 .` is the operator saying the domain takes no mail."""
+    records = [str(r).split() for r in ((results.get("dns") or {}).get("MX") or [])]
+    return len(records) == 1 and records[0][-1:] in (["."], [])
+
+
+def _sends_no_mail(results):
+    record = " ".join(str((results.get("spf") or {}).get("record") or "").lower().split())
+    return record == "v=spf1 -all"
+
+
+def _unmeasured(data):
+    return data.get("state") not in (None, "measured")
+
+
+def _inbound(results, key, name):
+    """MTA-STS and TLS-RPT protect mail on its way in; a null MX has none."""
+    data = results.get(key)
+    if not isinstance(data, dict):
+        return None
+    if _unmeasured(data):
+        return _tile("not_tested", data.get("error") or f"The {name} record could not be looked up.")
+    if data.get("pass"):
+        return _tile("pass")
+    if _null_mx(results):
+        return _tile("not_applicable", f"The domain publishes a null MX (0 .): it receives no mail, "
+                                       f"so {name} has no inbound mail to protect.")
+    return _tile("fail")
+
+
+def mta_sts(results):
+    return _inbound(results, "mta_sts", "MTA-STS")
+
+
+def tlsrpt(results):
+    return _inbound(results, "tlsrpt", "TLS-RPT")
+
+
+def dkim(results):
+    """Revoked keys on a domain that sends nothing are the intended setup."""
+    data = results.get("dkim")
+    if not isinstance(data, dict):
+        return None
+    if _unmeasured(data):
+        return _tile("not_tested", data.get("error") or "The DKIM selectors could not be looked up.")
+    if data.get("pass"):
+        return _tile("pass")
+    selectors = data.get("selectors") or []
+    if not data.get("found") or not selectors:
+        # Only a fixed list of selector names can be asked; the one in use
+        # may be another. Nothing found is not the same as nothing signed.
+        return _tile("not_tested", "No DKIM key under the selectors that were tried. A recent "
+                                   "message's DKIM-Signature header names the one in use.")
+    if all(s.get("revoked") for s in selectors):
+        if _sends_no_mail(results):
+            return _tile("not_applicable", "Every DKIM key found is revoked, and SPF says the "
+                                           "domain sends no mail (v=spf1 -all): nothing is meant "
+                                           "to be signed.")
+        return _tile("context", "Every DKIM key found is revoked. Mail may be signed under a "
+                                "selector that was not tried; a recent message's "
+                                "DKIM-Signature header names the one in use.")
+    return _tile("fail")
+
+
 def tile_states(results):
     """The overview states the browser shows instead of deciding them itself."""
     results = results or {}
@@ -128,4 +193,7 @@ def tile_states(results):
         "weak_auth": weak_auth(results),
         "blacklist": blacklist(results),
         "ipv6_mail": ipv6_mail(results),
+        "dkim": dkim(results),
+        "mta_sts": mta_sts(results),
+        "tlsrpt": tlsrpt(results),
     }

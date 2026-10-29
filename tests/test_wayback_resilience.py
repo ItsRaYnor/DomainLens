@@ -16,24 +16,23 @@ def _resp(status=200, payload=None):
 class WaybackTimeoutTests(unittest.TestCase):
     """Reported live: "web.archive.org ... Read timed out. (read timeout=12)".
 
-    The CDX API is queried with url=domain/*, which makes the server walk
-    every capture of the whole domain — routinely more than 12s of work.
+    The CDX API was queried with url=domain/*, which made the server walk
+    every capture of the whole domain. It is now asked for the homepage only,
+    which answers in about a second, but an outage still needs a budget.
     """
 
     def test_wayback_gets_a_longer_timeout_than_the_shared_one(self):
         self.assertGreater(osint._WAYBACK_TIMEOUT, osint._TIMEOUT)
 
-    def test_timeout_is_retried_then_succeeds(self):
-        rows = [
-            ["timestamp", "original", "statuscode"],
-            ["20250101000000", "http://example.com/", "200"],
-        ]
+    def test_a_timeout_is_not_asked_again(self):
+        """A second try after a timeout doubled the OSINT wait to a minute
+        during archive outages, and the second try timed out as well."""
         session = mock.Mock()
-        session.get.side_effect = [requests.Timeout("read timed out"), _resp(200, rows)]
+        session.get.side_effect = [requests.Timeout("read timed out"), _resp(200, [])]
         with mock.patch("osint._session", return_value=session):
             result = osint.wayback_snapshots("example.com")
-        self.assertTrue(result["success"])
-        self.assertEqual(result["count"], 1)
+        self.assertFalse(result["success"])
+        self.assertEqual(session.get.call_count, 1)
 
     def test_persistent_timeout_names_the_source_and_budget(self):
         session = mock.Mock()
@@ -71,7 +70,8 @@ class SharedFetchHelperTests(unittest.TestCase):
 
     def test_both_slow_sources_use_the_shared_helper(self):
         import inspect
-        self.assertIn("_fetch_json", inspect.getsource(osint.wayback_snapshots))
+        self.assertIn("_wayback_fetch", inspect.getsource(osint.wayback_snapshots))
+        self.assertIn("_fetch_json", inspect.getsource(osint._wayback_fetch))
         self.assertIn("_fetch_json", inspect.getsource(osint.otx_lookup))
 
     def test_auth_failure_short_circuits_only_when_a_message_is_given(self):

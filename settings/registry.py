@@ -109,6 +109,11 @@ FIELD_META = {
         "dshield": {"type": "bool", "label": "settings.ip_lists.dshield"},
         "custom_lists": {"type": "lines", "label": "settings.ip_lists.custom_lists"},
     },
+    "cve_feed": {
+        "enabled": {"type": "bool", "label": "settings.cve_feed.enabled"},
+        "ncsc": {"type": "bool", "label": "settings.cve_feed.ncsc"},
+        "max_age_days": {"type": "int", "min": 1, "max": 30, "label": "settings.cve_feed.max_age_days"},
+    },
     "ip_context": {
         "ip_api": {"type": "bool", "label": "settings.ip_context.ip_api"},
     },
@@ -261,7 +266,7 @@ FIELD_META = {
 SETTING_CATEGORIES = [
     {"key": "settings.categories.general", "sections": ["appearance", "general"]},
     {"key": "settings.categories.scanning",
-     "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra", "ip_lists", "mail_test"]},
+     "sections": ["scan", "ownership", "weak_auth", "active_scan", "js_scan", "own_infra", "ip_lists", "cve_feed", "mail_test"]},
     {"key": "settings.categories.automation", "sections": ["scheduler", "reporting"]},
     {"key": "settings.categories.integrations",
      "sections": ["api_keys", "api_limits", "ip_context", "notifications", "servicenow", "rapid7"]},
@@ -290,6 +295,7 @@ ADMIN_SECTIONS = [
     "active_scan",
     "js_scan",
     "ip_lists",
+    "cve_feed",
     "mail_test",
     "api_limits",
     "ip_context",

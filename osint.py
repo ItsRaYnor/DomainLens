@@ -84,11 +84,12 @@ def _api_key(env_name):
 
 
 # Some upstreams are much slower than the shared _TIMEOUT allows, and were
-# timing out on every scan as a result. OTX's passive_dns endpoint and the
-# Wayback CDX API (which walks every capture of the whole domain because of
-# the url=domain/* wildcard) are both routinely slow.
+# timing out on every scan as a result. OTX's passive_dns endpoint is
+# routinely slow. The Wayback CDX API was too while it was asked for every
+# capture of the whole domain (url=domain/*); asked for the homepage only it
+# answers in about a second, so its budget only matters during an outage.
 _OTX_TIMEOUT = 25
-_WAYBACK_TIMEOUT = 30
+_WAYBACK_TIMEOUT = 15
 
 
 def _fetch_json(session, url, *, label, timeout, headers=None, attempts=2, auth_message=None,
@@ -136,7 +137,10 @@ def certificate_transparency(domain, limit=100):
     }
     try:
         import crtsh
-        rows, fetch_error = crtsh.fetch(domain, timeout=_TIMEOUT, session=_session())
+        # crt.sh's own timeout, not the shorter one for the other feeds: the
+        # security audit asks for the same list during the same scan, and a
+        # lookup only stands in for a caller that would have waited as long.
+        rows, fetch_error = crtsh.fetch(domain, session=_session())
         if rows is None:
             result["error"] = fetch_error
             return result
@@ -167,8 +171,45 @@ def certificate_transparency(domain, limit=100):
     return result
 
 
+def _wayback_url(domain, extra):
+    # url=<domain> is the homepage, over http and https and with or without
+    # www (CDX folds those together). The url=<domain>/* wildcard made the
+    # archive walk every capture of every page, which took 5 to 60 seconds or
+    # ended in a 503, and returned the same homepage rows first anyway: CDX
+    # sorts by URL.
+    return (
+        "https://web.archive.org/cdx/search/cdx"
+        f"?url={quote(domain)}&output=json&fl=timestamp,original,statuscode"
+        f"&filter=statuscode:200{extra}"
+    )
+
+
+def _wayback_rows(rows):
+    snapshots = []
+    for row in (rows or [])[1:]:
+        if not isinstance(row, (list, tuple)) or len(row) < 3:
+            continue
+        ts, original, status = row[0], row[1], row[2]
+        snapshots.append({
+            "timestamp": ts,
+            "url": original,
+            "status": status,
+            "archive_url": f"https://web.archive.org/web/{ts}/{original}",
+        })
+    return snapshots
+
+
+def _wayback_fetch(url):
+    # One try. A CDX query that did not answer within the budget is the
+    # archive being overloaded, and asking again doubled the wait for the
+    # whole scan without making an answer more likely.
+    return _fetch_json(_session(), url, label="Wayback Machine", timeout=_WAYBACK_TIMEOUT,
+                       attempts=1, provider="wayback")
+
+
 def wayback_snapshots(domain, limit=15):
-    """Fetch recent Wayback Machine snapshots for the domain."""
+    """The most recent Wayback Machine snapshots of the homepage, one per day,
+    and the date of the first one."""
     result = {
         "success": False,
         "source": "web.archive.org",
@@ -176,14 +217,11 @@ def wayback_snapshots(domain, limit=15):
         "first_seen": None,
         "last_seen": None,
     }
-    url = (
-        "https://web.archive.org/cdx/search/cdx"
-        f"?url={quote(domain)}/*&output=json&fl=timestamp,original,statuscode"
-        f"&filter=statuscode:200&collapse=timestamp:8&limit={int(limit)}"
-    )
     try:
-        rows, error = _fetch_json(
-            _session(), url, label="Wayback Machine", timeout=_WAYBACK_TIMEOUT, provider="wayback")
+        # A negative limit is "the last N": without it CDX returned the
+        # oldest days, so "last seen" was the 15th capture ever made.
+        rows, error = _wayback_fetch(_wayback_url(
+            domain, f"&collapse=timestamp:8&limit=-{int(limit)}&fastLatest=true"))
         if rows is None:
             result["error"] = error
             return result
@@ -195,25 +233,24 @@ def wayback_snapshots(domain, limit=15):
             result["count"] = 0
             return result
 
-        snapshots = []
-        for row in rows[1:]:
-            if not isinstance(row, (list, tuple)) or len(row) < 3:
-                continue
-            ts, original, status = row[0], row[1], row[2]
-            snapshots.append({
-                "timestamp": ts,
-                "url": original,
-                "status": status,
-                "archive_url": f"https://web.archive.org/web/{ts}/{original}",
-            })
+        snapshots = _wayback_rows(rows)
         timestamps = [s["timestamp"] for s in snapshots if s.get("timestamp")]
         result.update({
             "success": True,
             "snapshots": snapshots,
-            "first_seen": min(timestamps) if timestamps else None,
             "last_seen": max(timestamps) if timestamps else None,
             "count": len(snapshots),
         })
+
+        # The first capture needs its own question now that the snapshots
+        # are the recent ones. If it goes unanswered, first_seen stays empty
+        # and says why; the oldest recent snapshot is not the first one.
+        first_rows, first_error = _wayback_fetch(_wayback_url(domain, "&limit=1"))
+        first = _wayback_rows(first_rows) if isinstance(first_rows, list) else []
+        if first:
+            result["first_seen"] = first[0]["timestamp"]
+        elif first_error:
+            result["first_seen_error"] = first_error
     except Exception as exc:
         result["error"] = _safe_error(exc)
     return result
@@ -516,16 +553,44 @@ def cacheable(result):
     for 24 hours is the failure, not the answer."""
     if not isinstance(result, dict) or result.get("success") is False:
         return False
-    for source in (result.get("sources") or {}).values():
+    for name, source in (result.get("sources") or {}).items():
         source = source or {}
         if net_errors.is_transient(source.get("error")) or net_errors.is_transient(source.get("passive_dns_error")):
+            return False
+        # A crt.sh failure is an outage at crt.sh, whatever its wording, and
+        # crt.sh is often back within minutes. Kept for a day, the subdomain
+        # list stayed "unavailable" on every scan until tomorrow.
+        if name == "certificate_transparency" and source.get("success") is False:
             return False
     return True
 
 
-def collect_osint(domain):
-    """Run all OSINT collectors and return a combined payload."""
-    collectors = {
+def _source_cacheable(result):
+    """One feed's answer is kept for a day only when it is an answer: not a
+    failure, and not "no key configured" (which ends the day a key is set)."""
+    return (isinstance(result, dict) and result.get("success") is True
+            and not result.get("skipped") and not result.get("error")
+            and not net_errors.is_transient(result.get("passive_dns_error")))
+
+
+def _cached_source(name, producer, domain, force):
+    import scan_cache
+    kind = scan_cache.OSINT_SOURCE_KINDS.get(name)
+    if kind is None:
+        return producer()
+    return scan_cache.cached_call(kind, domain, producer, force=force,
+                                  should_store=_source_cacheable)
+
+
+def collect_osint(domain, force=False):
+    """Run all OSINT collectors and return a combined payload.
+
+    Each feed's answer is reused for a day on its own. Before, the whole set
+    was kept only when every feed had answered, so one feed that was down
+    sent all of them out again on the next scan, the Wayback Machine's
+    20 to 60 seconds included. `force` asks every feed again.
+    """
+    feeds = {
         "certificate_transparency": lambda: certificate_transparency(domain),
         "wayback": lambda: wayback_snapshots(domain),
         "ip_context": lambda: ip_context(domain),
@@ -533,6 +598,10 @@ def collect_osint(domain):
         "urlhaus": lambda: urlhaus_lookup(domain),
         "otx": lambda: otx_lookup(domain),
         "virustotal": lambda: virustotal_lookup(domain),
+    }
+    collectors = {
+        name: (lambda name=name, fn=fn: _cached_source(name, fn, domain, force))
+        for name, fn in feeds.items()
     }
     results = {}
     with ThreadPoolExecutor(max_workers=7) as executor:

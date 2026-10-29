@@ -226,6 +226,101 @@ async function arTest() {
         + '<h3>Verdict</h3>' + verdict;
 }
 
+// Known CVEs (cve_feed.py): how current the data is per product, and the
+// NCSC-NL advisories about followed products as rules to start from.
+let cfCandidates = [];
+
+function cfWhen(iso) {
+    return iso ? new Date(iso).toLocaleString() : 'never';
+}
+
+const CF_FRESHNESS = {
+    off: ['Switched off: scans say nothing about known CVEs.', 'muted'],
+    never: ['Not synced yet: scans report the comparison as not measured.', 'status-warn'],
+    stale: ['Older than the setting allows: scans report the comparison as not measured.', 'status-warn'],
+    current: ['Current.', 'status-pass'],
+};
+
+function cfRender(data) {
+    const [text, cls] = CF_FRESHNESS[data.freshness.state] || CF_FRESHNESS.off;
+    const key = data.api_key ? 'With an NVD API key.' : 'Without an NVD API key (allowed; the sync pauses six seconds between requests).';
+    $('cfState').innerHTML = `<span class="status ${cls}">${esc(text)}</span> `
+        + (data.enabled ? `${esc(key)} Data may be ${data.max_age_days} day(s) old.` : '')
+        + (data.running ? ' <span class="status status-warn">A sync is running.</span>' : '');
+    $('cfSync').disabled = !data.enabled || data.running;
+    $('cfProducts').innerHTML = data.products.map(p =>
+        `<tr><td translate="no">${esc(p.product)}</td><td>${p.cves === null || p.cves === undefined ? '–' : p.cves}</td>`
+        + `<td>${esc(cfWhen(p.synced_at))}</td><td>${p.error ? `<span class="status status-warn">${esc(p.error)}</span>` : '–'}</td></tr>`
+    ).join('');
+    const ncsc = data.ncsc;
+    $('cfNcsc').textContent = !data.ncsc_enabled ? 'NCSC-NL advisories: switched off.'
+        : `NCSC-NL advisories: ${ncsc.advisories ?? 0} kept, synced ${cfWhen(ncsc.synced_at)}.`
+          + (ncsc.error ? ` Last problem: ${ncsc.error}` : '');
+    $('cfAttribution').textContent = data.attribution;
+}
+
+// What the NVD data adds to an advisory: the releases with the fix that
+// "Use as start" fills in, or that there are none to fill in.
+function cfNvdLine(c) {
+    const nvd = c.nvd || {};
+    if (!nvd.listed) {
+        return `<div class="status status-warn">The NVD lists none of these CVEs for ${esc(c.product)}: add the releases with the fix yourself.</div>`;
+    }
+    let html = (nvd.fixed || []).length
+        ? `<div class="status status-pass">Releases with the fix, from the NVD: <span translate="no">${esc(nvd.fixed.join(', '))}</span></div>`
+        : `<div class="status status-warn">The NVD gives no release with the fix for these CVEs: add them yourself.</div>`;
+    if ((nvd.without_fix || []).length && (nvd.fixed || []).length) {
+        html += `<div class="ct-desc">No fixed release in the NVD for <span translate="no">${esc(nvd.without_fix.join(', '))}</span>: check those yourself.</div>`;
+    }
+    return html;
+}
+
+function cfRenderCandidates(data) {
+    cfCandidates = data.candidates || [];
+    $('cfCandidates').innerHTML = !data.enabled
+        ? '<tr><td colspan="4" class="muted">The CVE data or the NCSC-NL advisories are switched off.</td></tr>'
+        : cfCandidates.map((c, i) => {
+            const action = c.rule_added ? '<span class="status status-pass">Rule added</span>'
+                : `<button class="btn-ghost-sm" type="button" data-candidate="${i}">Use as start</button>`;
+            const more = c.cve_count > c.cves.length ? ` and ${c.cve_count - c.cves.length} more` : '';
+            return `<tr><td><a href="${esc(c.url)}" target="_blank" rel="noopener noreferrer" translate="no">${esc(c.id)}</a>`
+                + `<div class="ct-desc" translate="no">${esc(c.title)}</div><div class="muted">${esc(c.cves.join(', '))}${esc(more)}</div>`
+                + `${cfNvdLine(c)}</td>`
+                + `<td translate="no">${esc(c.product)}</td><td>${esc(c.kans || '?')} / ${esc(c.schade || '?')}</td><td>${action}</td></tr>`;
+        }).join('') || '<tr><td colspan="4" class="muted">No advisory about a followed product has been read.</td></tr>';
+}
+
+async function cfLoad() {
+    const { ok, data } = await arSend('/api/admin/cve-feed', 'GET');
+    if (!ok) { toast(data.error || 'The CVE data state could not be read.'); return; }
+    cfRender(data);
+    const candidates = await arSend('/api/admin/cve-feed/candidates', 'GET');
+    if (candidates.ok) cfRenderCandidates(candidates.data);
+}
+
+async function cfSync() {
+    const { ok, data } = await arSend('/api/admin/cve-feed/sync', 'POST');
+    if (!ok) { toast(data.error || 'The sync could not be started.'); return; }
+    toast('The CVE data is being synced. This can take a few minutes without an NVD API key.');
+    setTimeout(() => cfLoad().catch(() => {}), 3000);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if ($('cfSection')) {
+        $('cfSync').addEventListener('click', () => cfSync().catch(err => toast(err.message)));
+        $('cfCandidates').addEventListener('click', event => {
+            const button = event.target.closest('button[data-candidate]');
+            const candidate = button && cfCandidates[Number(button.dataset.candidate)];
+            if (!candidate) return;
+            arFill(candidate.rule, false);
+            // A new rule, but with the id that marks it as made from this
+            // advisory, so the list can say the rule was added.
+            $('arId').value = candidate.rule.id;
+        });
+        cfLoad().catch(err => toast(err.message));
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     if (!$('arRules')) return;
     $('arRules').addEventListener('click', event => {

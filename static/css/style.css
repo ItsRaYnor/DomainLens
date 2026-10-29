@@ -395,13 +395,8 @@ main {
     margin-bottom: 1.5rem;
 }
 
-.score-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    grid-auto-flow: row dense;
-    gap: 0.6rem;
-    margin-top: 0.75rem;
-}
+/* The groups of tiles; each group is a grid of its own (.score-tiles). */
+.score-grid { margin-top: 0.25rem; }
 
 .score-item {
     background: var(--bg);
@@ -533,6 +528,25 @@ main {
 }
 
 .data-table td { word-break: break-all; }
+
+/* A table with a header row (a row of two or more th) is read column by
+   column. The 28% above is for a label beside its value; on a header row
+   every column claimed 28%, the first four took the width and the last
+   ones -- often the change itself -- were squeezed to a letter per line,
+   as break-all lets a cell shrink to one character. Here a header sizes
+   to its column, a value breaks between words and only inside one that
+   is too long by itself, and no column goes narrower than a short word. */
+.data-table tr:has(> th + th) > th { width: auto; white-space: nowrap; }
+.data-table:has(tr > th + th) td { word-break: normal; overflow-wrap: anywhere; }
+/* Not on a phone: there a wide list becomes cards (stack-table), and a
+   floor per column would push one that does not off the screen. */
+@media (min-width: 721px) {
+    .data-table:has(tr > th + th) td { min-width: 4.5rem; }
+    .data-table:has(tr > th + th) td.stack-check,
+    .data-table:has(tr > th + th) td:has(> input[type="checkbox"]:only-child) { min-width: 0; }
+}
+/* A table wider than its card scrolls sideways instead of running out of it. */
+.table-scroll { overflow-x: auto; max-width: 100%; }
 
 .data-table tr:last-child th,
 .data-table tr:last-child td { border-bottom: none; }
@@ -1615,7 +1629,8 @@ footer, .app-footer {
     .header-content h1 { font-size: 1.3rem; }
     .search-box { flex-direction: column; }
     .search-box button { width: 100%; }
-    .score-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .score-tiles > .score-item { flex: 1 1 6.25rem; }
+    .score-tiles > .score-item.has-note { flex-basis: 100%; }
     .data-table th { width: 35%; }
     .tab { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
     .results-header { flex-direction: column; align-items: flex-start; }
@@ -1824,22 +1839,102 @@ footer, .app-footer {
 
 
 /* ===== Grouped result tabs ===== */
-.tabs { flex-wrap: wrap; align-items: flex-end; gap: 1.1rem; }
-.tab-group {
-    display: flex;
-    flex-direction: column;
-    gap: .15rem;
-}
+/* One row, a thin line between the groups. Each group stacked its tabs in a
+   column under its own label, so the labels stood at different heights and
+   a group of one repeated itself ("EMAIL SECURITY / Email security"). The
+   overview above now names the groups; here the names are for screen
+   readers, and the overview reads them from here. */
+.tabs { flex-wrap: wrap; align-items: stretch; gap: 0; }
+.tab-group { display: flex; flex-direction: row; align-items: stretch; }
 .tab-group.hidden { display: none; }
 .tab-group-label {
-    font-size: .66rem;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-    opacity: .55;
-    padding-left: .2rem;
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
-.tab-group > .tab { display: inline-block; }
-.tab-group:not(:first-child) { position: relative; }
+.tab-group > .tab { display: inline-block; padding: 0.65rem 0.9rem; }
+.tab-group:not(:first-child)::before {
+    content: ""; align-self: center; width: 1px; height: 1.1rem;
+    background: var(--border); margin: 0 0.35rem;
+}
+
+/* ===== Overview, grouped as the tabs are ===== */
+.score-hint { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--text-muted); }
+.score-group { margin-top: 0.9rem; }
+.score-group-head {
+    margin: 0; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted);
+}
+/* Groups flow side by side, so a group of one tile does not take a row of
+   its own; a large group wraps its tiles within the width there is. */
+#scoreGrid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 1.75rem; }
+.score-group { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.score-tiles { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.4rem; }
+.score-tiles > .score-item { flex: 0 0 8.25rem; }
+.score-tiles > .score-item.has-note { flex-basis: 17.1rem; grid-column: auto; }
+/* A tile that opens its details looks and acts like the button it is;
+   one with nowhere to go no longer lifts on hover as if it would. */
+button.score-item {
+    display: block; width: 100%; text-align: center; line-height: normal;
+    font: inherit; color: inherit; cursor: pointer;
+}
+.score-item:not(button):hover { transform: none; border-color: var(--border); }
+button.score-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.score-target { animation: scoreTarget 1.6s ease-out; }
+@keyframes scoreTarget {
+    0%, 30% { box-shadow: 0 0 0 2px var(--accent); }
+    100% { box-shadow: 0 0 0 2px transparent; }
+}
+/* Seen without hovering, so a phone shows it too: this tile opens something. */
+button.score-item { position: relative; }
+button.score-item::after {
+    content: "\203A"; position: absolute; top: 0.3rem; right: 0.5rem;
+    font-size: 0.95rem; line-height: 1; color: var(--text-muted);
+}
+button.score-item:hover::after { color: var(--accent); }
+
+/* ===== Advice next to its measurement ===== */
+.remediation-head { margin: 0 0 0.5rem; color: var(--accent); }
+.remediation-list li { margin: 0.25rem 0; }
+.remediation-link {
+    display: inline-flex; align-items: baseline; gap: 0.45rem; padding: 0.1rem 0;
+    background: none; border: 0; font: inherit; color: var(--text); text-align: left; cursor: pointer;
+}
+.remediation-link:hover span:last-child { color: var(--accent); text-decoration: underline; }
+.rec-measured {
+    margin: 0.55rem 0; padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg);
+}
+.rec-body .rec-measured-head { margin-top: 0; }
+.rec-measured-lines { margin: 0.25rem 0 0.4rem 1.1rem; padding: 0; font-size: 0.82rem; }
+.rec-measured-lines li { margin: 0.15rem 0; }
+.rec-measured-lines code { white-space: normal; overflow-wrap: anywhere; background: none; padding: 0; }
+.rec-measured-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.4rem 0.75rem; margin-top: 0.35rem; }
+.rec-raw { flex: 1 1 100%; min-width: 0; }
+.rec-raw > summary { cursor: pointer; font-size: 0.82rem; color: var(--accent); }
+.rec-raw-source { margin: 0.5rem 0 0.2rem; font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+.rec-raw-json {
+    max-height: 22rem; overflow: auto; margin: 0; padding: 0.6rem;
+    font-size: 0.75rem; line-height: 1.4; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.card-advice { margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--border); }
+.card-advice-head {
+    margin: 0 0 0.4rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted);
+}
+.card-advice-items { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+.card-advice-item {
+    display: inline-flex; align-items: baseline; gap: 0.45rem; padding: 0.15rem 0;
+    background: none; border: 0; font: inherit; font-size: 0.86rem; color: var(--text);
+    text-align: left; cursor: pointer;
+}
+.card-advice-item:hover span:last-child { color: var(--accent); text-decoration: underline; }
+.card-advice-item.rec-is-accepted { opacity: 0.65; }
+.proto-ncsc { font-size: 0.75rem; margin-top: 0.25rem; color: var(--text-muted); }
+.cipher-name { font-size: 0.8rem; background: none; padding: 0; }
+.cipher-parts { font-size: 0.72rem; margin-top: 0.1rem; }
+.cipher-legend { margin: 0.5rem 0; }
 
 /* ===== Lookup pages ===== */
 .lookup-form {
@@ -2028,6 +2123,7 @@ footer, .app-footer {
     .tabs { gap: .4rem; align-items: center; border-bottom: none; }
     .tab-group { flex: 0 1 auto; flex-direction: row; flex-wrap: wrap; gap: .4rem; }
     .tab-group-label { display: none; }
+    .tab-group:not(:first-child)::before { display: none; }
     .tab-group > .tab {
         padding: .4rem .75rem; border: 1px solid var(--border); border-radius: 999px;
     }
@@ -2977,9 +3073,14 @@ button.btn-danger:hover:not(:disabled) { background: var(--red); border-color: v
    outcome and the table, which wraps its long server strings. */
 .vc-advisory { border-left: 3px solid var(--red); padding: 0.2rem 0 0.2rem 0.75rem; margin: 0.5rem 0 0.75rem; }
 .vc-advisory .ct-desc { margin: 0.2rem 0; }
+.vc-advisory.vc-known-cves { border-left-color: var(--accent, var(--border)); }
 .vc-form { display: grid; gap: 0.6rem; margin-top: 0.75rem; }
 .vc-form label { display: grid; gap: 0.3rem; font-size: 0.85rem; color: var(--text-muted); max-width: 32rem; }
 .vc-form textarea { width: 100%; font-family: var(--font-mono); font-size: 0.8rem; }
+/* A grid item is as wide as its longest option unless told otherwise: on a phone
+   the site list pushed the page sideways. */
+.vc-form label, .vc-form select { min-width: 0; }
+.vc-form select { width: 100%; }
 .vc-counts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0.25rem 0 0.75rem; font-size: 0.85rem; }
 .vc-table td { word-break: normal; overflow-wrap: anywhere; vertical-align: top; }
 .vc-redirect { margin-top: 0.35rem; font-size: 0.85rem; }
@@ -3102,6 +3203,9 @@ span.pf-shield { cursor: default; }
 .lv-summary { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin: 0.25rem 0 0.5rem; }
 .lv-summary strong { font-size: 0.95rem; }
 .lv-table td { word-break: normal; overflow-wrap: anywhere; vertical-align: top; }
+/* A domain or a name server is read as one word: its column is at least as
+   wide as the longest, rather than splitting "ns1.example.eu" over lines. */
+.data-table.lv-table:has(tr > th + th) td { overflow-wrap: break-word; }
 .lv-table .nowrap { white-space: nowrap; }
 .lv-change { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: baseline; }
 .lv-before { color: var(--text-muted); text-decoration: line-through; text-decoration-thickness: 1px; }

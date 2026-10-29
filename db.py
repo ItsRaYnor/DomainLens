@@ -16,7 +16,8 @@ _lock = threading.Lock()
 # Modules that keep their own tables and create them through init_schema(conn).
 FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens", "risk_acceptance",
                    "domain_watch", "domain_portfolio", "contacts", "mail_test",
-                   "link_check", "ip_lists", "advisory_rules")
+                   "link_check", "ip_lists", "advisory_rules", "cve_feed", "ncsc_advisories",
+                   "cve_alerts")
 
 
 def _db_path():
@@ -1046,6 +1047,7 @@ EVENT_TYPE_TEXT = {
     "baseline_created": "Baseline",
     "scan_failed": "Scan failed",
     "dns_unanswered": "DNS did not answer",
+    "known_cve_new": "New known CVE",
 }
 
 

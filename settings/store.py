@@ -318,4 +318,8 @@ def get_store(config_path: Path | None = None, db_module=None, force_new: bool =
         _store = SettingsStore(config_path=config_path, db_module=db_module)
     elif db_module and _store.db is None:
         _store.db = db_module
+        # The app reads its settings once before the database is attached;
+        # that cache holds none of the sections saved in it, and it stayed in
+        # use until the next save, so every restart undid Admin -> Settings.
+        _store.invalidate()
     return _store

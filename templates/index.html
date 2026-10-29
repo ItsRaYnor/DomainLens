@@ -188,6 +188,7 @@
             <!-- Score Overview -->
             <section id="scoreOverview" class="card score-card hidden">
                 <h3 data-i18n="results.security_overview">{{ t('results.security_overview') }}</h3>
+                <p class="score-hint">Grouped as the tabs below. Click a tile to open its details.</p>
                 <div class="score-grid" id="scoreGrid"></div>
             </section>
 
@@ -300,20 +301,20 @@
                     <h3>NCSC TLS Guidelines 2025-05</h3>
                     <div id="ncscTlsContent"></div>
                 </div>
-                <div class="card">
+                <div class="card" id="tlsProtocolsCard">
                     <h3>Protocol Support</h3>
                     <div id="tlsProtocolsContent" data-source="tls_deep"></div>
                 </div>
-                <div class="card">
+                <div class="card" id="tlsCipherCard">
                     <h3>Cipher Suites</h3>
                     <div id="tlsCipherSummary" data-source="tls_deep"></div>
                     <div id="tlsCiphersContent"></div>
                 </div>
-                <div class="card">
+                <div class="card" id="tlsCertCard">
                     <h3>Certificate Details</h3>
                     <div id="sslContent" data-source="ssl"></div>
                 </div>
-                <div class="card">
+                <div class="card" id="tlsFeaturesCard">
                     <h3>TLS Features</h3>
                     <div id="tlsFeaturesContent" data-source="tls_deep"></div>
                 </div>

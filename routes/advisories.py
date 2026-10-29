@@ -129,8 +129,9 @@ def register(app, *, auth):
             return _problems(exc)
         headers, cookies = parse_headers(data.get("headers"))
         url = str(data.get("url") or "")[:500]
-        generator = engine.generator_of(str(data.get("body") or ""))
-        results = engine.match(headers, cookies, url, generator, rules=[rule])
+        body = str(data.get("body") or "")
+        generator = engine.generator_of(body)
+        results = engine.match(headers, cookies, url, generator, rules=[rule], page=body)
         return jsonify({"read": {"headers": {k: v for k, v in headers.items() if k in rule["sources"]},
                                  "generator": generator if engine.GENERATOR in rule["sources"] else None},
                         "results": results,
@@ -181,3 +182,44 @@ def register(app, *, auth):
         if unknown:
             return jsonify({"error": "Unknown example: " + ", ".join(unknown)}), 404
         return _import(payload, False, "examples")
+
+    # ------------------------------------------------ known CVEs (cve_feed.py)
+
+    @app.route("/api/admin/cve-feed", methods=["GET"])
+    @auth.require_admin
+    def api_admin_cve_feed():
+        """Whether the CVE data is on, how current it is per product, and
+        the NCSC-NL state."""
+        import cve_feed
+        return jsonify(cve_feed.status())
+
+    @app.route("/api/admin/cve-feed/sync", methods=["POST"])
+    @auth.require_admin
+    def api_admin_cve_feed_sync():
+        """Fetch the CVE data now instead of waiting for the scheduler. The
+        NVD's two-hour minimum still applies."""
+        import threading
+        import cve_feed
+        if not cve_feed.enabled():
+            return jsonify({"error": "The CVE data is switched off (Admin -> Settings -> CVE data (NVD, NCSC-NL))."}), 400
+        if cve_feed.running():
+            return jsonify({"error": "A sync is already running."}), 409
+        last = cve_feed.last_attempt()
+        if last and datetime.now(timezone.utc) - last < cve_feed.MIN_INTERVAL:
+            return jsonify({"error": "The NVD asks not to be synced more than once every two hours; the last "
+                                     f"sync started at {last.isoformat(timespec='minutes')}."}), 429
+        threading.Thread(target=cve_feed.sync, daemon=True, name="cve-feed").start()
+        audit_log.record("cve_feed.sync", target_type="settings")
+        return jsonify({"started": True}), 202
+
+    @app.route("/api/admin/cve-feed/candidates", methods=["GET"])
+    @auth.require_admin
+    def api_admin_cve_feed_candidates():
+        """NCSC-NL advisories about a followed product, each with a rule to
+        start from (the releases with the fix left for the admin)."""
+        import cve_feed
+        import ncsc_advisories
+        if not cve_feed.enabled() or not cve_feed.settings()["ncsc"]:
+            return jsonify({"candidates": [], "enabled": False})
+        existing = [r["id"] for r in advisory_rules.list_rules()]
+        return jsonify({"candidates": ncsc_advisories.candidates(existing), "enabled": True})

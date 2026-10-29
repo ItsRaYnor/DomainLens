@@ -52,7 +52,8 @@ class PhoneTests(unittest.TestCase):
         self.assertIn(".tab-group { flex: 0 1 auto; flex-direction: row; flex-wrap: wrap; gap: .4rem; }", CSS)
 
     def test_cipher_tables_become_cards(self):
-        self.assertEqual(2, JS.count("cipher-table stack-table"))
+        # One table since the TLS and NCSC lists were merged into it.
+        self.assertEqual(1, JS.count("cipher-table stack-table"))
 
 
 if __name__ == "__main__":

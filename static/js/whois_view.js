@@ -103,7 +103,9 @@
     function render(result) {
         if (!result) return '';
         const r = result.rdap;
-        const text = textTable(result.data);
+        // A newer result's `data` is the registration below in flat form,
+        // not a second lookup; only an older scan has a port-43 text parse.
+        const text = result.data_from === 'registration' ? '' : textTable(result.data);
         if (r && r.success) {
             return rdapTable(r) + (text
                 ? `<details class="whois-raw"><summary>WHOIS (port 43)</summary>${text}</details>`

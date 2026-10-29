@@ -1,0 +1,32 @@
+# The security overview of a scan result: tiles grouped as the tabs, each opening its details (app.js).
+Grouped as the tabs below. Click a tile to open its details.	Gegroepeerd zoals de tabbladen hieronder. Klik op een tegel om de details te openen.
+# Each advice item with what the scan measured, and each card with the advice it led to (app.js).
+What the scan measured	Wat de scan heeft gemeten
+No summary for this item; the raw output of the check is below.	Geen samenvatting voor dit punt; de ruwe uitvoer van de check staat hieronder.
+Raw output of the check	Ruwe uitvoer van de check
+Open in {}	Openen in {}
+Advice from this measurement	Advies uit deze meting
+Open this item in Advice	Open dit punt in Advies
+# One cipher table on the SSL/TLS tab, with both verdicts (app.js).
+Strength is DomainLens's own rating. NCSC level follows the NCSC TLS guidelines 2025-05, which are stricter: they also rate static RSA key exchange and SHA-1 as insufficient. The advice follows the NCSC level.	Sterkte is de eigen beoordeling van DomainLens. Het NCSC-niveau volgt de NCSC TLS-richtlijnen 2025-05, die strenger zijn: die beoordelen ook statische RSA-sleuteluitwisseling en SHA-1 als onvoldoende. Het advies volgt het NCSC-niveau.
+The NCSC level of each cipher suite and the cipher order are under Cipher Suites, the level of each protocol under Protocol Support. What to change is in Advice.	Het NCSC-niveau per cipher suite en de cipher-volgorde staan onder Cipher Suites, het niveau per protocol onder Protocol Support. Wat er moet veranderen staat onder Advies.
+Weak means RC4, 3DES, DES, CCM-8 or SHA-1 message authentication; insecure means NULL, EXPORT or anonymous suites.	Zwak betekent RC4, 3DES, DES, CCM-8 of SHA-1 als berichtauthenticatie; onveilig betekent NULL-, EXPORT- of anonieme suites.
+The suites are named under what the scan measured.	De suites staan onder wat de scan heeft gemeten.
+# Mail tiles that do not apply to a domain that takes or sends no mail (overview.py).
+The domain publishes a null MX (0 .): it receives no mail, so {} has no inbound mail to protect.	Het domein publiceert een null MX (0 .): het ontvangt geen mail, dus {} heeft geen inkomende mail te beschermen.
+Every DKIM key found is revoked, and SPF says the domain sends no mail (v=spf1 -all): nothing is meant to be signed.	Elke gevonden DKIM-sleutel is ingetrokken, en SPF zegt dat het domein geen mail verstuurt (v=spf1 -all): er hoort niets ondertekend te worden.
+Every DKIM key found is revoked. Mail may be signed under a selector that was not tried; a recent message's DKIM-Signature header names the one in use.	Elke gevonden DKIM-sleutel is ingetrokken. Mail kan ondertekend zijn onder een selector die niet is geprobeerd; de DKIM-Signature-header van een recent bericht noemt de selector die in gebruik is.
+No DKIM key under the selectors that were tried. A recent message's DKIM-Signature header names the one in use.	Geen DKIM-sleutel onder de geprobeerde selectors. De DKIM-Signature-header van een recent bericht noemt de selector die in gebruik is.
+The DKIM selectors could not be looked up.	De DKIM-selectors konden niet worden opgevraagd.
+The {} record could not be looked up.	Het {}-record kon niet worden opgevraagd.
+# A certificate the scanner could not verify, told apart from one that is at fault (app.py, recommendations.py).
+Certificate not trusted: {}	Certificaat niet vertrouwd: {}
+Certificate could not be verified from this scanner	Certificaat kon niet worden geverifieerd vanaf deze scanner
+Certificate could not be verified from this scanner: {}	Certificaat kon niet worden geverifieerd vanaf deze scanner: {}
+The certificate could not be verified from this scanner ({}). It was issued by {}. TLS inspection or a firewall on the scanner's network, a scanner without CA certificates, or a server that leaves out its intermediate certificate all look like this. Not measured.	Het certificaat kon niet worden geverifieerd vanaf deze scanner ({}). Het is uitgegeven door {}. TLS-inspectie of een firewall op het netwerk van de scanner, een scanner zonder CA-certificaten, of een server die zijn tussencertificaat weglaat, zien er allemaal zo uit. Niet gemeten.
+Open https://{} in a browser on another network and see who issued the certificate. If it is {} only on the scanner's network, that is TLS inspection or a firewall answering for the site: scan from a network without it, or exempt the scanner. If the site itself sends it, have the server send its intermediate certificates too, and check with `openssl s_client -connect {}:443 -showcerts`.	Open https://{} in een browser op een ander netwerk en kijk wie het certificaat heeft uitgegeven. Is het alleen op het netwerk van de scanner {}, dan is dat TLS-inspectie of een firewall die namens de site antwoordt: scan vanaf een netwerk zonder, of sluit de scanner uit van die inspectie. Stuurt de site het zelf, laat de server dan ook zijn tussencertificaten meesturen, en controleer met `openssl s_client -connect {}:443 -showcerts`.
+Could not be verified from this scanner.	Kon niet worden geverifieerd vanaf deze scanner.
+No secure connection; not measured.	Geen beveiligde verbinding; niet gemeten.
+Presented by	Aangeboden door
+Issued for	Uitgegeven voor
+Verification	Verificatie

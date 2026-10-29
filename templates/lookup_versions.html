@@ -31,6 +31,45 @@
                 {% endif %}
             </div>
             {% endfor %}
+            {% if known_cves %}
+            <div class="vc-advisory vc-known-cves" id="vcKnownCves">
+                <strong>Known CVEs (NVD)</strong>
+                <span class="muted" translate="no">{{ known_cves.products | map(attribute='product') | join(', ') }}</span>
+                {% if not known_cves.enabled %}
+                <span class="status muted">Switched off</span>
+                <p class="ct-desc">Not compared: switch it on under Admin → Settings → CVE data.</p>
+                {% else %}
+                {% if known_cves.freshness.state == 'current' %}
+                <span class="status status-pass">On</span>
+                {% else %}
+                <span class="status status-warn">Not current</span>
+                {% endif %}
+                <p class="ct-desc">Every known CVE of these products is compared with the version a site shows. A site that hides its version is "cannot tell".</p>
+                <p class="ct-desc"><span>Known CVEs kept:</span> <span>{{ known_cves.products | map(attribute='cves') | select | sum }}</span>{% if known_cves.freshness.synced_at %} · <span>Synced:</span> <span class="vc-synced" data-at="{{ known_cves.freshness.synced_at }}">{{ known_cves.freshness.synced_at[:10] }}</span>{% endif %}</p>
+                {% if known_cves.freshness.state != 'current' %}
+                <p class="ct-desc">The CVE data is not current: versions are reported as not compared until it is synced.</p>
+                {% endif %}
+                <p class="ct-desc" id="vcCveAlerts">After every sync, the versions the monitored domains showed at their last scan are compared again. A CVE that is new for such a version, or one now listed as exploited (KEV), becomes a monitor event and goes out through the notification channels.{% if known_cves.alerts %} <span>Last compared:</span> <span class="vc-synced" data-at="{{ known_cves.alerts.at }}">{{ known_cves.alerts.at[:10] }}</span> · <span>Events:</span> <span>{{ known_cves.alerts.events or 0 }}</span>{% endif %}</p>
+                {% if known_cves.overview %}
+                <div class="users-table-wrap">
+                <table class="data-table stack-table vc-cve-table">
+                    <tr><th>Product</th><th>Known CVEs</th><th>Exploited (KEV)</th><th>No known CVE from</th><th>Newest CVE</th></tr>
+                    {% for p in known_cves.overview %}
+                    <tr>
+                        <td translate="no">{{ p.product }}</td>
+                        <td>{{ p.cves }}{% if p.not_versioned %}<div class="ct-desc"><span>Without versions:</span> <span>{{ p.not_versioned }}</span></div>{% endif %}</td>
+                        <td>{% if p.exploited %}<span class="status status-fail">{{ p.exploited }}</span>{% else %}0{% endif %}</td>
+                        <td>{% if p.clean_from %}<code>{{ p.clean_from | join(' · ') }}</code>{% else %}<span class="muted">No release in the data</span>{% endif %}</td>
+                        <td>{% if p.newest %}<code>{{ p.newest.cve }}</code>{% if p.newest.kev %} <span class="status status-fail">KEV</span>{% endif %}<div class="ct-desc"><span>{{ p.newest.published }}</span>{% if p.newest.score is not none %} · <span>CVSS</span> <span>{{ p.newest.score }}</span>{% endif %}</div>{% else %}–{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                </div>
+                <p class="ct-desc">"No known CVE from" is, per branch, the release from which none of the known CVEs applies, up to the next branch: a site on that release or later in its branch has none of them. A CVE the NVD lists without versions cannot rule a release in or out and is counted apart. A branch not listed is older, or has a known CVE without a fix.</p>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% endif %}
             {% if is_admin %}
             <p class="ct-desc"><a href="/admin/advisories">Add or change the rules</a> under Admin.</p>
             {% endif %}

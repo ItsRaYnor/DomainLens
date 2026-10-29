@@ -3,6 +3,8 @@ Remediation suggestions (Advies) for DomainLens findings.
 Each item includes how to solve the issue and how to retest.
 """
 
+import advice_evidence
+
 SEVERITY_CRITICAL = "critical"
 SEVERITY_HIGH = "high"
 SEVERITY_MEDIUM = "medium"
@@ -363,6 +365,9 @@ def _dkim(results):
 def _mta_sts(results):
     out = []
     mta = results.get("mta_sts")
+    # It protects mail on its way in; a null MX says none arrives.
+    if _mx_posture(results) == "null":
+        return out
     if mta and _measured(mta) and not mta.get("found"):
         out.append(_r(
             SEVERITY_LOW, "Email", "MTA-STS not configured",
@@ -376,6 +381,8 @@ def _mta_sts(results):
 def _tlsrpt(results):
     out = []
     rpt = results.get("tlsrpt")
+    if _mx_posture(results) == "null":
+        return out
     if rpt and _measured(rpt) and not rpt.get("found"):
         out.append(_r(
             SEVERITY_LOW, "Email", "TLS-RPT not configured",
@@ -393,6 +400,21 @@ def _tls(results):
         return out
 
     grade = tls.get("grade")
+    certificate = tls.get("certificate") or {}
+    if certificate.get("trust_scope") == "unverified":
+        # Not the site's fault as far as anyone can tell from here, and
+        # possibly not the site's certificate at all.
+        domain = results.get("domain") or "the domain"
+        issuer = (certificate.get("presented") or {}).get("issuer") or "the issuer shown"
+        out.append(_r(
+            SEVERITY_INFO, "Certificate", "Certificate could not be verified from this scanner",
+            certificate.get("error") or "The certificate chain could not be verified from this scanner.",
+            f"Open https://{domain} in a browser on another network and see who issued the "
+            f"certificate. If it is {issuer} only on the scanner's network, that is TLS inspection "
+            "or a firewall answering for the site: scan from a network without it, or exempt the "
+            "scanner. If the site itself sends it, have the server send its intermediate "
+            f"certificates too, and check with `openssl s_client -connect {domain}:443 -showcerts`.",
+        ))
     if grade in ("D", "F", "T"):
         out.append(_r(
             SEVERITY_CRITICAL, "TLS", f"Poor TLS grade ({grade})",
@@ -425,7 +447,9 @@ def _tls(results):
     if summary.get("weak", 0) > 0 or summary.get("insecure", 0) > 0:
         out.append(_r(
             SEVERITY_HIGH, "TLS", "Weak cipher suites accepted",
-            f"{summary.get('weak', 0)} weak and {summary.get('insecure', 0)} insecure cipher suites are accepted. These include RC4, 3DES, DES, NULL or EXPORT ciphers.",
+            f"{summary.get('weak', 0)} weak and {summary.get('insecure', 0)} insecure cipher suites are accepted. "
+            "Weak means RC4, 3DES, DES, CCM-8 or SHA-1 message authentication; insecure means "
+            "NULL, EXPORT or anonymous suites. The suites are named under what the scan measured.",
             "Restrict ciphers to modern AEAD suites, e.g. Nginx: `ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:...; ssl_prefer_server_ciphers on;`. Use Mozilla's SSL Config Generator (intermediate profile).",
             "https://ssl-config.mozilla.org/",
         ))
@@ -903,6 +927,8 @@ def _headers(results):
                 "https://owasp.org/www-project-secure-headers/",
                 domain=domain,
             ))
+            # The headers this item is about: CSP and HSTS have items of their own.
+            out[-1]["headers"] = missing
 
     # CSP quality when present
     csp = headers.get("csp") or (headers.get("web_security") or {}).get("csp") or {}
@@ -1211,6 +1237,11 @@ def _whois(results):
         try:
             from datetime import datetime, timezone
             parsed = datetime.fromisoformat(exp.replace("Z", "+00:00"))
+            # Registries give a date ("2026-11-05") or a time without a zone;
+            # compared with an aware "now" either raised TypeError, which the
+            # ValueError below did not catch. Read as UTC.
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
             days_left = (parsed - datetime.now(timezone.utc)).days
             if 0 <= days_left <= 30:
                 severity = (
@@ -1398,6 +1429,9 @@ def _ncsc_tls(results):
             retest=item.get("retest"),
             domain=domain,
         ))
+        if item.get("id"):
+            # Which NCSC check it is, so the measured suites can be named.
+            out[-1]["check"] = item["id"]
     return out
 
 
@@ -1641,6 +1675,12 @@ def _merge_duplicate(primary, duplicate):
         primary["fix"] = (primary.get("fix") or "").rstrip() + " " + extra_fix
     if not primary.get("reference") and duplicate.get("reference"):
         primary["reference"] = duplicate["reference"]
+    # Both checks measured it; either one's output is evidence for it.
+    for source in duplicate.get("sources") or []:
+        if source not in primary.setdefault("sources", []):
+            primary["sources"].append(source)
+    if not primary.get("check") and duplicate.get("check"):
+        primary["check"] = duplicate["check"]
     return primary
 
 
@@ -1680,6 +1720,20 @@ def _not_delegated(results):
                retest=f"Scan `{name}` again once it resolves.")]
 
 
+# Each advice function and the scan result it reads -- the key a card on the
+# scan page names in data-source, so an item can lead to its measurement.
+_SOURCES = (
+    (_whois, "whois"), (_dnssec, "dnssec"), (_spf, "spf"), (_dmarc, "dmarc"),
+    (_non_mailing_domain, "spf"), (_dkim, "dkim"), (_mta_sts, "mta_sts"), (_tlsrpt, "tlsrpt"),
+    (_own_infra, "own_infra"),
+    (_tls, "tls_deep"), (_ncsc_tls, "ncsc_tls"), (_weak_auth, "weak_auth"),
+    (_https_redirect, "https_redirect"), (_headers, "http_headers"), (_cdn_hardening, "ncsc_tls"),
+    (_ipv6, "ipv6"), (_blacklist, "blacklist"), (_ports, "ports"),
+    (_osint, "osint"), (_http_deep, "http_deep"), (_hubspot_cf, "hubspot_cf"), (_rapid7, "rapid7"),
+    (_security_audit, "security"), (_js_scan, "js_scan"), (_active_scan, "active_scan"),
+)
+
+
 def generate(results):
     """Return a sorted list of advies items (problem / fix / retest) for a scan."""
     if results.get("not_delegated"):
@@ -1688,17 +1742,13 @@ def generate(results):
         return _not_delegated(results)
     domain = results.get("domain")
     recs = []
-    for fn in (
-        _whois, _dnssec, _spf, _dmarc, _non_mailing_domain, _dkim, _mta_sts, _tlsrpt,
-        _own_infra,
-        _tls, _ncsc_tls, _weak_auth, _https_redirect, _headers, _cdn_hardening, _ipv6, _blacklist, _ports,
-        _osint, _http_deep, _hubspot_cf, _rapid7, _security_audit, _js_scan, _active_scan,
-    ):
+    for fn, source in _SOURCES:
         try:
             batch = fn(results) or []
         except Exception:
             continue
         for item in batch:
+            item.setdefault("sources", [source])
             if domain and not item.get("retest"):
                 item["retest"] = _default_retest(item.get("category"), item.get("title"), domain)
             elif domain and "the domain" in (item.get("retest") or ""):
@@ -1713,6 +1763,15 @@ def generate(results):
             else:
                 _merge_duplicate(existing, item)
     recs.sort(key=lambda r: _SEVERITY_ORDER.get(r["severity"], 99))
+    for rec in recs:
+        try:
+            lines = advice_evidence.lines_for(results, rec, _condition_key(rec))
+        except Exception:
+            lines = []
+        if lines:
+            rec["evidence"] = lines
+        else:
+            rec.pop("evidence", None)
     try:
         import risk_acceptance
         risk_acceptance.apply(results, recs, _condition_key)

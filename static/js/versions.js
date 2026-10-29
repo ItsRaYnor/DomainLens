@@ -56,9 +56,30 @@ function vcPasted() {
 // One row per domain: what the server shows, and the verdict per rule.
 // "Not seen" (none of the software the rules look for) and "no response"
 // are their own states, never "has the fix".
+// Known CVEs from the NVD (when switched on), per product beside the rules.
+// A product in use with its version hidden is "cannot tell", as for a rule:
+// leaving it out made the comparison look as if it had not run at all.
+// "CVE data not current" is only for a version shown and not compared.
+const VC_CVE = {
+    vulnerable: VC_VERDICT.vulnerable,
+    cannot_tell: VC_VERDICT.cannot_tell,
+    no_known_cves: ['No known CVEs', 'status-pass', 3],
+    unmeasured: ['CVE data not current', 'status-warn', 2],
+};
+
+function vcCveVerdict(a) {
+    return a.state === 'unmeasured' && !a.version ? VC_VERDICT.cannot_tell : VC_CVE[a.state];
+}
+
+function vcCveVerdicts(side) {
+    return (side.cves || []).map(vcCveVerdict).filter(Boolean);
+}
+
 function vcVerdict(side) {
-    if (!(side.advisories || []).length) return ['None of the software seen', 'muted', 4];
-    return side.advisories.map(a => VC_VERDICT[a.verdict] || VC_VERDICT.cannot_tell).sort((a, b) => a[2] - b[2])[0];
+    const verdicts = (side.advisories || []).map(a => VC_VERDICT[a.verdict] || VC_VERDICT.cannot_tell)
+        .concat(vcCveVerdicts(side));
+    if (!verdicts.length) return ['None of the software seen', 'muted', 4];
+    return verdicts.sort((a, b) => a[2] - b[2])[0];
 }
 
 function vcState(r) {
@@ -104,16 +125,23 @@ function vcDetails(r) {
 
 // The advisory's name and its reason apart, each its own text.
 function vcWhy(side, where) {
-    return (side.advisories || []).map(a => `<div><strong>${esc(a.name)}</strong> `
-        + (where ? `<span class="muted">${esc(`On ${where}:`)}</span> ` : '') + `<span>${esc(a.reason)}</span></div>`).join('');
+    const on = where ? `<span class="muted">${esc(`On ${where}:`)}</span> ` : '';
+    return (side.advisories || []).map(a => `<div><strong>${esc(a.name)}</strong> ${on}<span>${esc(a.reason)}</span></div>`).join('')
+        + (side.cves || [])
+            .map(a => `<div><strong translate="no">${esc(a.product)}</strong> <span class="muted">Known CVEs:</span> ${on}`
+                + `<span>${esc(a.reason)}</span>`
+                + ((a.cves || []).length ? `<div class="ct-desc" translate="no">${esc(a.cves.slice(0, 8).map(c => c.cve + (c.kev ? ' (KEV)' : '')).join(', '))}</div>` : '')
+                + '</div>').join('');
 }
 
 function vcRender() {
     const sorted = [...vcRows].sort((a, b) => vcState(a)[2] - vcState(b)[2] || a.domain.localeCompare(b.domain));
     const count = label => vcRows.filter(r => vcState(r)[0] === label).length;
-    const summary = ['Vulnerable', 'Cannot tell from outside', 'Has the fix', 'Not affected', 'None of the software seen', 'No response',
-        'No website in DNS', 'Not checked']
-        .map(label => `<span class="vc-count"><strong>${count(label)}</strong> ${esc(label)}</span>`).join('');
+    const cves = vcRows.some(r => Array.isArray(r.cves) || Array.isArray((r.redirect || {}).cves));
+    const labels = ['Vulnerable', 'Cannot tell from outside', 'Has the fix', 'Not affected']
+        .concat(cves ? ['No known CVEs', 'CVE data not current'] : [])
+        .concat(['None of the software seen', 'No response', 'No website in DNS', 'Not checked']);
+    const summary = labels.map(label => `<span class="vc-count"><strong>${count(label)}</strong> ${esc(label)}</span>`).join('');
     $('vcResult').innerHTML = `<section class="card"><div class="lc-head"><h3>${esc(`${vcRows.length} site(s) checked`)}</h3>`
         + '<button class="btn-ghost-sm" id="vcExport" type="button">Export CSV</button></div>'
         + `<div class="vc-counts">${summary}</div>`
@@ -137,7 +165,10 @@ function vcRender() {
                 + (to ? `<div class="vc-redirect">${toName}: ${vcShown(to)}</div>` : '')
                 + `</td><td>${vcWhy(r)}${to ? vcWhy(to, to.domain) : ''}</td></tr>` + details;
         }).join('')
-        + '</table></div></section>';
+        + '</table></div>'
+        // The NVD's terms ask for this wherever its data is shown.
+        + (cves ? '<p class="ct-desc">This product uses data from the NVD API but is not endorsed or certified by the NVD.</p>' : '')
+        + '</section>';
     $('vcExport').addEventListener('click', vcExport);
 }
 

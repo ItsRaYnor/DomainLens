@@ -133,6 +133,53 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(["php2shell"], [r["id"] for r in sa.active_rules()])
 
 
+WORDPRESS = sa.compile_rule(_nginx(id="wp-x", product="WordPress", token="WordPress",
+                                   sources=["meta:generator"], fixed=["6.4.3"]))
+
+
+def _page(text, url="https://example.org/"):
+    resp = mock.Mock(headers={"Server": "nginx"}, history=[], url=url, text=text)
+    return sa.measure(resp, "example.org", [WORDPRESS])
+
+
+def _wordpress(text, url="https://example.org/"):
+    return [(a["verdict"], a["reason"]) for a in _page(text, url)["advisories"]]
+
+
+class PageReadTests(unittest.TestCase):
+    """A WordPress site was tested and only the PHP rule answered: its theme
+    inlined 55,000 characters of CSS before the generator tag, only the first
+    20,000 were read, the one tag found was a plugin's, and the core tag had
+    been removed anyway. The WordPress rule fell silent on a site full of
+    /wp-content/, as if WordPress were not there."""
+
+    def test_a_generator_tag_far_into_the_page_is_read(self):
+        body = "<html><head><style>" + "x" * 60000 + '</style><meta name="generator" content="WordPress 6.4.2">'
+        self.assertEqual("vulnerable", _page(body)["advisories"][0]["verdict"])
+
+    def test_the_generator_of_the_software_counts_after_a_plugins(self):
+        body = ('<meta name="generator" content="WordPress Download Manager 3.3.74" />'
+                '<meta name="generator" content="WordPress 6.4.2" />')
+        measured = _page(body)
+        self.assertEqual("WordPress Download Manager 3.3.74; WordPress 6.4.2", measured["generator"])
+        self.assertEqual([("vulnerable", "WordPress 6.4.2 is older than 6.4.3, the release with the fix.")],
+                         _wordpress(body))
+
+    def test_wordpress_without_its_generator_tag_is_cannot_tell_not_silent(self):
+        for body in ('<link rel="stylesheet" href="/wp-content/themes/x/style.css">',
+                     '<script src="https://www.example.org/wp-includes/js/jquery.js"></script>'):
+            self.assertEqual([("cannot_tell", "The WordPress version is not shown.")], _wordpress(body), body)
+
+    def test_a_link_to_wordpress_on_another_site_is_not_this_sites(self):
+        body = '<img src="https://media.example.net/wp-content/uploads/logo.png">'
+        self.assertEqual([], _wordpress(body))
+
+    def test_the_rule_test_on_a_pasted_page_sees_it_too(self):
+        source = (pathlib.Path(__file__).resolve().parent.parent / "routes" / "advisories.py").read_text(
+            encoding="utf-8")
+        self.assertIn("engine.match(headers, cookies, url, generator, rules=[rule], page=body)", source)
+
+
 class RuleAdminTests(EnterpriseAppTestCase):
     """The admin page and its API: who may change rules, what is refused,
     and that a saved rule reaches the scans."""

@@ -507,7 +507,7 @@ async function renderEventsDrill(body, params, linkQuery) {
         </tbody></table></div>` + link;
 }
 
-const ALL_EVENT_TYPES = 'scan_changed,scan_failed,dns_unanswered,baseline_created,scan_unchanged';
+const ALL_EVENT_TYPES = 'scan_changed,known_cve_new,scan_failed,dns_unanswered,baseline_created,scan_unchanged';
 
 function periodStart() {
     const d = new Date();

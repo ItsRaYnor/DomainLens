@@ -194,6 +194,33 @@ def parse(data, domain, server=None):
     }
 
 
+def as_whois_data(registration):
+    """A registration result (RDAP, or port 43 in RDAP's shape) as the flat
+    fields the WHOIS text parser used to give: the expiry advice, its
+    evidence and the takedown dossier read these. Only what was measured;
+    a withheld holder gives no organisation, not an empty one."""
+    reg = registration or {}
+    if not reg.get("success"):
+        return {}
+    registrar = reg.get("registrar") or {}
+    reseller = reg.get("reseller") or {}
+    holder = reg.get("registrant") or {}
+    data = {
+        "domain_name": reg.get("domain"),
+        "registrar": registrar.get("name"),
+        "registrar_abuse_contact_email": registrar.get("abuse_email"),
+        "reseller": reseller.get("name"),
+        "creation_date": reg.get("registered"),
+        "updated_date": reg.get("updated"),
+        "expiration_date": reg.get("expires"),
+        "name_servers": reg.get("nameservers") or None,
+        "status": reg.get("status") or None,
+        "dnssec": reg.get("dnssec"),
+        "org": None if holder.get("withheld") else (holder.get("org") or holder.get("name")),
+    }
+    return {key: value for key, value in data.items() if value not in (None, "", [])}
+
+
 def lookup(domain):
     """RDAP registration data, or a result that says why there is none."""
     domain = (domain or "").strip().lower().rstrip(".")

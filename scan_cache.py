@@ -28,6 +28,13 @@ log = logging.getLogger("domainlens.scan_cache")
 # silently create a second, never-read cache.
 KIND_OSINT = "osint"
 KIND_CRTSH = "crtsh"
+# The OSINT feeds one by one, so one feed that is down for an hour does not
+# send all the others back out on the next scan. Certificate transparency is
+# not here: crtsh keeps its own cache, with the stale fallback.
+OSINT_SOURCE_KINDS = {
+    name: f"osint_{name}"
+    for name in ("wayback", "ip_context", "threatfox", "urlhaus", "otx", "virustotal")
+}
 
 _DEFAULT_TTL_HOURS = 24
 # During an outage a cached answer may be shown up to this old.

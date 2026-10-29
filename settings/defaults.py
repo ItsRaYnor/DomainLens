@@ -120,6 +120,14 @@ DEFAULTS = {
         "dshield": False,
         "custom_lists": [],
     },
+    # Known CVEs of the versions a site shows (cve_feed.py), from the NVD and
+    # optionally the NCSC-NL advisories. Off until an admin switches it on:
+    # it sends requests to nvd.nist.gov and advisories.ncsc.nl.
+    "cve_feed": {
+        "enabled": False,
+        "ncsc": True,
+        "max_age_days": 3,
+    },
     # Tools -> Mail analysis: how the links in a message are checked. Threat
     # lists are downloaded whole and searched locally; VirusTotal is asked
     # by hash only, and only when switched on here (link_check.py).
@@ -466,6 +474,13 @@ OPTIONAL_INTEGRATIONS = [
         "enables": "Downloading the GeoLite2 City database, together with the account ID",
         "without": "Location is reported as not configured",
         "signup": "https://www.maxmind.com/en/accounts/current/license-key",
+    },
+    {
+        "env": "NVD_API_KEY",
+        "name": "NVD (National Vulnerability Database)",
+        "enables": "A faster CVE data sync: 50 requests per 30 seconds instead of 5",
+        "without": "The CVE data still syncs, with six seconds between requests",
+        "signup": "https://nvd.nist.gov/developers/request-an-api-key",
     },
 ]
 

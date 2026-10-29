@@ -730,8 +730,9 @@ function renderResults(data) {
     renderMtaSts(data.mta_sts);
     renderTlsrpt(data.tlsrpt);
     renderSsl(data.ssl);
-    renderTlsDeep(data.tls_deep);
+    renderTlsDeep(data.tls_deep, data.ncsc_tls);
     renderNcscTls(data.ncsc_tls);
+    renderCipherSuites(data.tls_deep, data.ncsc_tls);
     renderHttpsRedirect(data.https_redirect);
     renderHeaders(data.http_headers);
     renderIpv6(data.ipv6);
@@ -746,6 +747,7 @@ function renderResults(data) {
     renderOwnInfra(data.own_infra);
     renderRapid7(data.rapid7);
     hideChecksNotRun(data);
+    linkAdviceToCards();
 
     document.querySelectorAll('.tab')[0].click();
     $('results').classList.remove('hidden');
@@ -791,7 +793,7 @@ function hideChecksNotRun(data) {
 // ===== Score Overview =====
 // The result key behind each server-decided tile; a tile whose check did not
 // run has no verdict to show.
-const OVERVIEW_SOURCES = { ipv6_mail: 'ipv6', blacklist: 'blacklist', weak_auth: 'weak_auth' };
+const OVERVIEW_SOURCES = { ipv6_mail: 'ipv6', blacklist: 'blacklist', weak_auth: 'weak_auth', dkim: 'dkim', mta_sts: 'mta_sts', tlsrpt: 'tlsrpt' };
 
 function renderScoreOverview(data) {
     const grid = $('scoreGrid');
@@ -801,21 +803,34 @@ function renderScoreOverview(data) {
         { label: 'DNSSEC', src: 'dnssec', pass: data.dnssec?.signed },
         { label: 'SPF', src: 'spf', pass: data.spf?.pass },
         { label: 'DMARC', src: 'dmarc', pass: data.dmarc?.pass },
-        { label: 'DKIM', src: 'dkim', pass: data.dkim?.pass },
-        { label: 'MTA-STS', src: 'mta_sts', pass: data.mta_sts?.pass },
-        { label: 'TLS-RPT', src: 'tlsrpt', pass: data.tlsrpt?.pass },
+        // Server-decided: revoked keys on a domain that sends nothing, or
+        // MTA-STS on one that receives nothing, are not failures.
+        fromOverview('DKIM', 'dkim', { pass: data.dkim?.pass }),
+        fromOverview('MTA-STS', 'mta_sts', { pass: data.mta_sts?.pass }),
+        fromOverview('TLS-RPT', 'tlsrpt', { pass: data.tlsrpt?.pass }),
         { label: 'HTTPS', src: 'https_redirect', pass: data.https_redirect?.pass === true, warn: data.https_redirect?.pass === null || data.https_redirect?.blocked },
-        { label: 'SSL Valid', src: 'ssl', pass: data.ssl?.success && !data.ssl?.expired },
-        { label: 'TLS Grade', src: 'tls_deep', pass: data.tls_deep?.grade && ['A+', 'A'].includes(data.tls_deep.grade), warn: data.tls_deep?.grade === 'B' },
+        // No connection, or a chain this scanner could not verify, is not
+        // measured -- not a failed certificate.
+        { label: 'SSL Valid', src: 'ssl', at: 'tlsCertCard', pass: data.ssl?.success && !data.ssl?.expired,
+          state: data.ssl && !data.ssl.success && data.ssl.trusted !== false ? 'not_tested' : undefined,
+          note: data.ssl?.trust_scope === 'unverified' ? 'Could not be verified from this scanner.'
+              : (data.ssl && !data.ssl.success && data.ssl.trusted !== false ? 'No secure connection; not measured.' : undefined) },
+        { label: 'TLS Grade', src: 'tls_deep', at: 'tlsGradeCard', pass: data.tls_deep?.grade && ['A+', 'A'].includes(data.tls_deep.grade), warn: data.tls_deep?.grade === 'B',
+          // No grade is not a failing one: it was not measured.
+          state: data.tls_deep && !data.tls_deep.grade ? 'not_tested' : undefined,
+          note: data.tls_deep && !data.tls_deep.grade ? ((data.tls_deep.warnings || [])[0] || data.tls_deep.error) : undefined },
         { label: 'NCSC TLS', src: 'ncsc_tls', pass: data.ncsc_tls?.pass === true, warn: data.ncsc_tls?.success && data.ncsc_tls?.overall_level === 'phased_out' },
         {
-            label: 'Cipher order', src: 'tls_deep',
+            label: 'Cipher order', src: 'tls_deep', at: 'tlsCipherCard',
             pass: !data.tls_deep?.cipher_order ? undefined :
                 (data.tls_deep.cipher_order.applicable === false || data.tls_deep.cipher_order.pass === true),
             warn: !!(data.tls_deep?.cipher_order?.applicable && data.tls_deep.cipher_order.pass == null),
         },
-        { label: 'HSTS', src: 'tls_deep', pass: data.tls_deep?.hsts?.enabled === true, warn: data.tls_deep?.hsts?.enabled == null || data.tls_deep?.hsts?.blocked },
-        { label: 'Fwd Secrecy', src: 'tls_deep', pass: data.tls_deep?.cipher_summary?.forward_secrecy > 0 },
+        { label: 'HSTS', src: 'tls_deep', at: 'tlsFeaturesCard', pass: data.tls_deep?.hsts?.enabled === true, warn: data.tls_deep?.hsts?.enabled == null || data.tls_deep?.hsts?.blocked },
+        // Pass only when every suite has it: the advice flags "not universal",
+        // and a green tile above an orange finding contradicted it.
+        { label: 'Fwd Secrecy', src: 'tls_deep', at: 'tlsCipherCard',
+          pass: fsShare(data.tls_deep) === 'all', warn: fsShare(data.tls_deep) === 'some' },
         { label: 'Headers', src: 'http_headers', pass: data.http_headers?.score >= 50, warn: data.http_headers?.blocked || (data.http_headers?.score >= 25 && data.http_headers?.score < 50) },
         { label: 'IPv6 Web', src: 'ipv6', pass: data.ipv6?.web_pass },
         fromOverview('IPv6 Mail', 'ipv6_mail', { pass: data.ipv6?.mail_pass }),
@@ -842,7 +857,8 @@ function renderScoreOverview(data) {
         if (!ov || !(key in ov)) return { label, src: OVERVIEW_SOURCES[key], ...fallback };
         const tile = ov[key];
         if (!tile) return { label, pass: undefined };
-        return { label, state: tile.state, note: tile.note };
+        // Not src: the server already decided the tile ran; only where to go.
+        return { label, state: tile.state, note: tile.note, target: OVERVIEW_SOURCES[key] };
     }
 
     const STATES = {
@@ -850,6 +866,7 @@ function renderScoreOverview(data) {
         fail: ['badge-fail', 'Fail'],
         context: ['badge-warn', 'Context'],
         not_tested: ['badge-info', 'Not tested'],
+        not_applicable: ['badge-info', 'Not applicable'],
     };
 
     // Tiles that explain themselves are twice as wide; placed last, the plain
@@ -857,12 +874,22 @@ function renderScoreOverview(data) {
     const explained = c => !!(c.note && c.state && c.state !== 'pass');
     const ordered = checks.filter(c => !explained(c)).concat(checks.filter(explained));
 
+    // The tiles looked like buttons and did nothing, and the tabs below them
+    // sorted the same checks by another scheme. Each tile now sits under the
+    // tab group its details are in, and opens them.
+    const groups = new Map();
     ordered.forEach(c => {
         if (c.src && !checkRan(data, c.src)) return;
         if (!c.state && c.pass === undefined && !c.warn) return;
-        const div = document.createElement('div');
+        const detail = scoreDetail(c);
+        const div = document.createElement(detail ? 'button' : 'div');
         div.className = 'score-item';
-        if (c.note) div.title = c.note;
+        if (detail) {
+            div.type = 'button';
+            div.dataset.tab = detail.tab;
+            div.addEventListener('click', () => openScoreDetail(detail));
+        }
+        div.title = c.note || (detail ? 'Open ' + detail.label : '');
 
         let badgeClass, badgeText;
         if (c.state && STATES[c.state]) { [badgeClass, badgeText] = STATES[c.state]; }
@@ -889,10 +916,58 @@ function renderScoreOverview(data) {
             div.appendChild(note);
             div.classList.add('has-note');
         }
-        grid.appendChild(div);
+        const key = detail ? detail.group : '';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(div);
     });
 
-    $('scoreOverview').classList.toggle('hidden', grid.children.length === 0);
+    // In the order of the tabs, so the overview and the tabs read alike.
+    const order = Array.from(document.querySelectorAll('#tabs .tab-group-label')).map(l => l.textContent.trim());
+    const keys = Array.from(groups.keys()).sort((a, b) =>
+        (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)));
+    keys.forEach(key => {
+        const section = document.createElement('div');
+        section.className = 'score-group';
+        if (key) {
+            const head = document.createElement('h4');
+            head.className = 'score-group-head';
+            head.textContent = key;
+            section.appendChild(head);
+        }
+        const tiles = document.createElement('div');
+        tiles.className = 'score-tiles';
+        groups.get(key).forEach(tile => tiles.appendChild(tile));
+        section.appendChild(tiles);
+        grid.appendChild(section);
+    });
+
+    $('scoreOverview').classList.toggle('hidden', groups.size === 0);
+}
+
+// How many of the accepted suites give forward secrecy: all, some or none.
+function fsShare(tls) {
+    const cs = (tls && tls.cipher_summary) || {};
+    if (!cs.total) return undefined;
+    const fs = cs.forward_secrecy || 0;
+    return fs >= cs.total ? 'all' : fs > 0 ? 'some' : 'none';
+}
+
+// Where a tile's details are: the card of its check, in its tab, and the
+// group that tab belongs to. null when that tab is not shown.
+function scoreDetail(c) {
+    const source = c.src || c.target;
+    return cardDetail((c.at && $(c.at)) || (source && document.querySelector(`.tab-content [data-source="${source}"]`)));
+}
+
+function openScoreDetail(detail) {
+    if (!selectTab(detail.tab)) return;
+    // After the tab is shown: a hidden card has no place to scroll to.
+    requestAnimationFrame(() => {
+        detail.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        detail.el.classList.remove('score-target');
+        void detail.el.offsetWidth;
+        detail.el.classList.add('score-target');
+    });
 }
 
 // ===== WHOIS =====
@@ -1030,7 +1105,19 @@ function renderTlsrpt(data) {
 function renderSsl(data) {
     const el = $('sslContent');
     if (!data || !data.success) {
-        el.innerHTML = `<p class="status status-fail">${escapeHtml(data?.error || 'SSL check failed')}</p>`;
+        // A fault of the certificate is red; one this scanner could not
+        // verify, or no connection at all, is not measured.
+        const cls = data && data.trusted === false ? 'status-fail' : 'status-warn';
+        let html = `<p class="status ${cls}">${escapeHtml(data?.error || 'SSL check failed')}</p>`;
+        const shown = data && data.presented;
+        if (shown && (shown.issuer || shown.subject)) {
+            html += `<table class="data-table">
+                <tr><th>Presented by</th><td>${escapeHtml(shown.issuer || '-')}</td></tr>
+                <tr><th>Issued for</th><td>${(shown.san && shown.san.length ? shown.san : [shown.subject]).map(escapeHtml).join('<br>')}</td></tr>
+                <tr><th>Verification</th><td><code>${escapeHtml(data.verify_reason || '')}</code></td></tr>
+            </table>`;
+        }
+        el.innerHTML = html;
         return;
     }
     const expCls = data.expired ? 'status-fail' : (data.days_until_expiry < 30 ? 'status-warn' : 'status-pass');
@@ -1051,18 +1138,14 @@ function renderSsl(data) {
 }
 
 // ===== TLS Deep Scan =====
-function renderTlsDeep(data) {
+function renderTlsDeep(data, ncsc) {
     const gradeCard = $('tlsGradeCard');
     const protoEl = $('tlsProtocolsContent');
-    const cipherSumEl = $('tlsCipherSummary');
-    const cipherEl = $('tlsCiphersContent');
     const featEl = $('tlsFeaturesContent');
 
     if (!data || !data.success) {
         gradeCard.style.display = 'none';
         protoEl.innerHTML = `<p class="status status-fail">${escapeHtml(data?.error || 'TLS scan not available')}</p>`;
-        cipherSumEl.innerHTML = '';
-        cipherEl.innerHTML = '';
         featEl.innerHTML = '';
         return;
     }
@@ -1083,6 +1166,8 @@ function renderTlsDeep(data) {
     let protoHtml = '<div class="proto-grid">';
     const protoOrder = ['TLS 1.0', 'TLS 1.1', 'TLS 1.2', 'TLS 1.3'];
     const deprecated = ['TLS 1.0', 'TLS 1.1'];
+    // The NCSC level sat in a second protocol table in the NCSC card.
+    const ncscProto = new Map(((ncsc && ncsc.success && ncsc.protocols) || []).map(p => [p.name, p]));
     for (const pname of protoOrder) {
         const p = (data.protocols || []).find(x => x.name === pname);
         if (!p) continue;
@@ -1098,38 +1183,11 @@ function renderTlsDeep(data) {
             <div class="proto-name">${escapeHtml(pname)}</div>
             <div class="proto-status">${escapeHtml(statusText)}</div>
             ${supported && p.cipher ? `<div class="proto-cipher">${escapeHtml(p.cipher)} (${escapeHtml(String(p.bits))} bit)</div>` : ''}
+            ${supported && ncscProto.get(pname) ? `<div class="proto-ncsc">NCSC: <span class="badge ${ncscLevelBadge(ncscProto.get(pname).level)}">${escapeHtml(ncscProto.get(pname).label || ncscProto.get(pname).level || '')}</span></div>` : ''}
         </div>`;
     }
     protoHtml += '</div>';
     protoEl.innerHTML = protoHtml;
-
-    const cs = data.cipher_summary || {};
-    cipherSumEl.innerHTML = `<div class="cipher-summary">
-        <span class="cipher-stat"><strong>${cs.total || 0}</strong> total</span>
-        <span class="cipher-stat cipher-strong"><strong>${cs.strong || 0}</strong> strong</span>
-        <span class="cipher-stat cipher-acceptable"><strong>${cs.acceptable || 0}</strong> acceptable</span>
-        <span class="cipher-stat cipher-weak"><strong>${cs.weak || 0}</strong> weak</span>
-        <span class="cipher-stat cipher-insecure"><strong>${cs.insecure || 0}</strong> insecure</span>
-        <span class="cipher-stat cipher-fs"><strong>${cs.forward_secrecy || 0}</strong> PFS</span>
-    </div>`;
-
-    if (data.ciphers && data.ciphers.length > 0) {
-        let cHtml = '<table class="data-table cipher-table stack-table"><thead><tr><th>Cipher Suite</th><th>Protocol</th><th>Bits</th><th>Strength</th><th>PFS</th></tr></thead><tbody>';
-        for (const c of data.ciphers) {
-            const strengthCls = c.strength === 'strong' ? 'badge-pass' : c.strength === 'acceptable' ? 'badge-info' : c.strength === 'weak' ? 'badge-warn' : 'badge-fail';
-            cHtml += `<tr>
-                <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(c.name)}</td>
-                <td>${escapeHtml(c.protocol)}</td>
-                <td>${escapeHtml(String(c.bits))}</td>
-                <td><span class="badge ${strengthCls}">${escapeHtml(c.strength)}</span></td>
-                <td>${c.forward_secrecy ? '<span class="status status-pass"></span>' : '<span class="status status-fail"></span>'}</td>
-            </tr>`;
-        }
-        cHtml += '</tbody></table>';
-        cipherEl.innerHTML = cHtml;
-    } else {
-        cipherEl.innerHTML = '<p class="status status-fail">No cipher suites detected</p>';
-    }
 
     let fHtml = '<table class="data-table">';
     fHtml += `<tr><th>OCSP Stapling</th><td><span class="status ${data.ocsp_stapling ? 'status-pass' : 'status-fail'}">${data.ocsp_stapling ? 'Enabled' : 'Not enabled'}</span></td></tr>`;
@@ -1163,6 +1221,100 @@ function renderTlsDeep(data) {
     }
     fHtml += '</table>';
     featEl.innerHTML = fHtml;
+}
+
+// ===== Cipher suites =====
+// One table for the suites the server accepts. The TLS scan and the NCSC
+// assessment each listed all of them, with their own verdicts, in two cards
+// of the same tab; a suite now has one row with both, and the NCSC's reason
+// (which part of it falls short) under its name.
+function renderCipherSuites(tls, ncsc) {
+    const el = $('tlsCiphersContent');
+    const sumEl = $('tlsCipherSummary');
+    if (!el) return;
+    const tlsOk = tls && tls.success;
+    const ncscOk = ncsc && ncsc.success;
+    const levels = new Map(((ncscOk && ncsc.ciphers) || []).map(c => [c.name, c]));
+    const rows = tlsOk && (tls.ciphers || []).length
+        ? tls.ciphers.map(c => ({ ...c, ncsc: levels.get(c.name) }))
+        : Array.from(levels.values()).map(c => ({ name: c.name, protocol: c.protocol, bits: c.bits, ncsc: c }));
+
+    let sum = '';
+    if (tlsOk) {
+        const cs = tls.cipher_summary || {};
+        sum += `<div class="cipher-summary">
+            <span class="cipher-stat"><strong>${cs.total || 0}</strong> total</span>
+            <span class="cipher-stat cipher-strong"><strong>${cs.strong || 0}</strong> strong</span>
+            <span class="cipher-stat cipher-acceptable"><strong>${cs.acceptable || 0}</strong> acceptable</span>
+            <span class="cipher-stat cipher-weak"><strong>${cs.weak || 0}</strong> weak</span>
+            <span class="cipher-stat cipher-insecure"><strong>${cs.insecure || 0}</strong> insecure</span>
+            <span class="cipher-stat cipher-fs"><strong>${cs.forward_secrecy || 0}</strong> PFS</span>
+        </div>`;
+    }
+    if (tlsOk && ncscOk) {
+        sum += '<p class="login-hint cipher-legend">Strength is DomainLens\'s own rating. NCSC level follows the NCSC TLS guidelines 2025-05, '
+            + 'which are stricter: they also rate static RSA key exchange and SHA-1 as insufficient. The advice follows the NCSC level.</p>';
+    }
+    sum += cipherOrderHtml((ncscOk && ncsc.cipher_order) || (tlsOk && tls.cipher_order) || {});
+    if (sumEl) sumEl.innerHTML = sum;
+
+    if (!rows.length) {
+        el.innerHTML = tlsOk || ncscOk ? '<p class="status status-fail">No cipher suites detected</p>' : '';
+        return;
+    }
+    let html = '<table class="data-table cipher-table stack-table"><thead><tr><th>Cipher suite</th><th>Protocol</th><th>Bits</th>'
+        + (tlsOk ? '<th>Strength</th><th>PFS</th>' : '') + (ncscOk ? '<th>NCSC level</th>' : '') + '</tr></thead><tbody>';
+    for (const c of rows) {
+        const strengthCls = c.strength === 'strong' ? 'badge-pass' : c.strength === 'acceptable' ? 'badge-info' : c.strength === 'weak' ? 'badge-warn' : 'badge-fail';
+        const comp = (c.ncsc && c.ncsc.components) || {};
+        const parts = ['key_exchange', 'authentication', 'bulk_encryption', 'hash']
+            .map(k => comp[k] && comp[k].name).filter(Boolean);
+        html += `<tr>
+            <td><code class="cipher-name">${escapeHtml(c.name)}</code>${parts.length ? `<div class="muted cipher-parts">${escapeHtml(parts.join(' · '))}</div>` : ''}</td>
+            <td>${escapeHtml(c.protocol || '-')}</td>
+            <td>${escapeHtml(c.bits != null ? String(c.bits) : '-')}</td>`;
+        if (tlsOk) {
+            html += `<td>${c.strength ? `<span class="badge ${strengthCls}">${escapeHtml(c.strength)}</span>` : '-'}</td>
+            <td>${c.forward_secrecy == null ? '-' : c.forward_secrecy ? '<span class="status status-pass">yes</span>' : '<span class="status status-fail">no</span>'}</td>`;
+        }
+        if (ncscOk) {
+            html += `<td>${c.ncsc ? `<span class="badge ${ncscLevelBadge(c.ncsc.level)}">${escapeHtml(c.ncsc.label || c.ncsc.level)}</span>` : '-'}</td>`;
+        }
+        html += '</tr>';
+    }
+    el.innerHTML = html + '</tbody></table>';
+}
+
+// Whether the server picks the strongest suite the client offers.
+function cipherOrderHtml(order) {
+    if (!Object.keys(order).length) return '';
+    let orderBadge = 'badge-info';
+    let orderText = 'Not applicable';
+    if (order.applicable && order.pass === true) {
+        orderBadge = 'badge-pass';
+        orderText = 'Server prefers Good/Sufficient';
+    } else if (order.applicable && order.pass === false) {
+        orderBadge = 'badge-fail';
+        orderText = 'Server prefers weaker suites';
+    } else if (order.pass == null) {
+        orderBadge = 'badge-warn';
+        orderText = 'Could not verify';
+    }
+    let html = `<div class="ncsc-order">
+        <p><strong>Cipher suite order:</strong> <span class="badge ${orderBadge}">${escapeHtml(orderText)}</span></p>`;
+    if (order.applicable && order.pass === false) {
+        const preferred = order.server_preferred_iana || order.server_preferred || '-';
+        const expected = order.expected_preferred_iana || order.expected_preferred || '-';
+        html += `<table class="data-table"><thead><tr><th>Server preferred</th><th>Expected preferred</th></tr></thead><tbody>
+            <tr>
+                <td><code>${escapeHtml(preferred)}</code><div class="muted">${escapeHtml(order.server_preferred_level || '')}</div></td>
+                <td><code>${escapeHtml(expected)}</code><div class="muted">${escapeHtml(order.expected_preferred_level || '')}</div></td>
+            </tr>
+        </tbody></table>`;
+    } else if (order.detail) {
+        html += `<p class="login-hint">${escapeHtml(order.detail)}</p>`;
+    }
+    return html + '</div>';
 }
 
 // ===== Security Audit =====
@@ -1407,6 +1559,7 @@ function renderSecurity(data) {
             dk.forEach(k => { html += `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(disc[k])}</td></tr>`; });
             html += '</table></details>';
         }
+        html += knownVulnerabilitiesHtml(info);
         // A redirect to another domain ends on another server: what it shows
         // is that domain's, not this one's, so it stands apart.
         const to = info.redirect;
@@ -1428,6 +1581,47 @@ function renderSecurity(data) {
     } else {
         infoEl.innerHTML = `<p class="status status-warn">${escapeHtml(info.error || 'Info disclosure scan unavailable')}</p>`;
     }
+}
+
+// What the version checks said about the domain's own server: every rule
+// whose software was seen and the known-CVE comparison per product, or that
+// the comparison is off. Only the findings showed them, so a site with a
+// hidden version looked as if nothing had been checked.
+const KNOWN_VULN_STATE = {
+    vulnerable: ['status-fail', 'Vulnerable'],
+    cannot_tell: ['status-warn', 'Cannot tell from outside'],
+    fixed: ['status-pass', 'Has the fix'],
+    not_affected: ['status-pass', 'Not affected'],
+    no_known_cves: ['status-pass', 'No known CVEs'],
+    unmeasured: ['status-warn', 'CVE data not current'],
+};
+
+function knownVulnerabilitiesHtml(info) {
+    const rules = info.advisories || [];
+    const cves = Array.isArray(info.cves) ? info.cves : [];
+    if (info.cves === undefined && !rules.length) return '';   // a scan stored before the checks
+    const badge = state => {
+        const [cls, label] = KNOWN_VULN_STATE[state] || KNOWN_VULN_STATE.cannot_tell;
+        return `<span class="status ${cls}">${escapeHtml(label)}</span>`;
+    };
+    let rows = rules.map(a => `<tr><th>${escapeHtml(a.name)}</th><td>${badge(a.verdict)}</td>`
+        + `<td><span>${escapeHtml(a.reason || '')}</span></td></tr>`).join('');
+    rows += cves.map(a => {
+        const state = a.state === 'unmeasured' && !a.version ? 'cannot_tell' : a.state;
+        const ids = (a.cves || []).slice(0, 8).map(c => c.cve + (c.kev ? ' (KEV)' : '')).join(', ');
+        return `<tr><th><span>Known CVEs:</span> <span translate="no">${escapeHtml(a.product)}</span></th><td>${badge(state)}</td>`
+            + `<td><span>${escapeHtml(a.reason || '')}</span>${ids ? `<div class="ct-desc" translate="no">${escapeHtml(ids)}</div>` : ''}</td></tr>`;
+    }).join('');
+    let note = '';
+    if (info.cves === null) {
+        note = '<p class="ct-desc">Known CVEs (NVD): switched off, so not compared. An administrator switches it on under Admin → Settings → CVE data.</p>';
+    } else if (!rules.length && !cves.length) {
+        note = '<p class="ct-desc">None of the software the version checks look for was seen: PHP, nginx, Apache HTTP Server, lighttpd, OpenSSL, WordPress, Drupal and the software of the rules.</p>';
+    }
+    return '<h4 style="margin-top:0.75rem">Known vulnerabilities</h4>'
+        + (rows ? `<table class="data-table"><tr><th>Check</th><th>Result</th><th>Why</th></tr>${rows}</table>` : '')
+        + note
+        + (cves.length ? '<p class="ct-desc">This product uses data from the NVD API but is not endorsed or certified by the NVD.</p>' : '');
 }
 
 // ===== NCSC TLS Guidelines 2025-05 =====
@@ -1477,37 +1671,6 @@ function renderNcscTls(data) {
         </p>`;
     }
 
-    const order = data.cipher_order || {};
-    if (Object.keys(order).length) {
-        let orderBadge = 'badge-info';
-        let orderText = 'Not applicable';
-        if (order.applicable && order.pass === true) {
-            orderBadge = 'badge-pass';
-            orderText = 'Server prefers Good/Sufficient';
-        } else if (order.applicable && order.pass === false) {
-            orderBadge = 'badge-fail';
-            orderText = 'Server prefers weaker suites';
-        } else if (order.pass == null) {
-            orderBadge = 'badge-warn';
-            orderText = 'Could not verify';
-        }
-        html += `<div class="ncsc-order">
-            <p><strong>Cipher suite order:</strong> <span class="badge ${orderBadge}">${escapeHtml(orderText)}</span></p>`;
-        if (order.applicable && order.pass === false) {
-            const preferred = order.server_preferred_iana || order.server_preferred || '-';
-            const expected = order.expected_preferred_iana || order.expected_preferred || '-';
-            html += `<table class="data-table"><thead><tr><th>Server preferred</th><th>Expected preferred</th></tr></thead><tbody>
-                <tr>
-                    <td><code>${escapeHtml(preferred)}</code><div class="muted">${escapeHtml(order.server_preferred_level || '')}</div></td>
-                    <td><code>${escapeHtml(expected)}</code><div class="muted">${escapeHtml(order.expected_preferred_level || '')}</div></td>
-                </tr>
-            </tbody></table>`;
-        } else if (order.detail) {
-            html += `<p class="login-hint">${escapeHtml(order.detail)}</p>`;
-        }
-        html += '</div>';
-    }
-
     if (data.certificate && data.certificate.evaluated) {
         html += `<p><strong>Certificate key:</strong>
             <span class="badge ${ncscLevelBadge(data.certificate.level)}">${escapeHtml(data.certificate.label || '')}</span>
@@ -1515,52 +1678,8 @@ function renderNcscTls(data) {
         </p>`;
     }
 
-    if (data.protocols && data.protocols.length) {
-        html += '<table class="data-table"><thead><tr><th>Protocol</th><th>Status</th><th>NCSC level</th></tr></thead><tbody>';
-        for (const p of data.protocols) {
-            html += `<tr>
-                <td>${escapeHtml(p.name)}</td>
-                <td>${p.supported ? 'Enabled' : 'Disabled'}</td>
-                <td>${p.supported ? `<span class="badge ${ncscLevelBadge(p.level)}">${escapeHtml(p.label || p.level || '')}</span>` : '—'}</td>
-            </tr>`;
-        }
-        html += '</tbody></table>';
-    }
-
-    if (data.ciphers && data.ciphers.length) {
-        html += '<table class="data-table cipher-table stack-table" style="margin-top:1rem"><thead><tr><th>Cipher suite</th><th>NCSC level</th><th>KX</th><th>Auth</th><th>Bulk</th><th>Hash</th></tr></thead><tbody>';
-        for (const c of data.ciphers) {
-            const comp = c.components || {};
-            html += `<tr>
-                <td style="font-family:monospace;font-size:0.8rem">${escapeHtml(c.name)}</td>
-                <td><span class="badge ${ncscLevelBadge(c.level)}">${escapeHtml(c.label || c.level)}</span></td>
-                <td>${escapeHtml(comp.key_exchange?.name || '-')}</td>
-                <td>${escapeHtml(comp.authentication?.name || '-')}</td>
-                <td>${escapeHtml(comp.bulk_encryption?.name || '-')}</td>
-                <td>${escapeHtml(comp.hash?.name || '-')}</td>
-            </tr>`;
-        }
-        html += '</tbody></table>';
-    }
-
-    if (data.findings && data.findings.length) {
-        html += `<div class="ncsc-findings"><h4>${escapeHtml(t('results.ncsc_advice_heading'))}</h4>`;
-        for (const f of data.findings) {
-            const sev = f.severity === 'critical' || f.severity === 'high' ? 'fail' : (f.severity === 'medium' ? 'warn' : 'pass');
-            html += `<article class="rec sev-${escapeHtml(f.severity || 'info')}" style="margin-top:0.75rem">
-                <div class="rec-head">
-                    <span class="status status-${sev}"></span>
-                    <h4>${escapeHtml(f.title)}</h4>
-                </div>
-                <div class="rec-body">
-                    <p><strong>${escapeHtml(t('advies.problem'))}:</strong> ${escapeHtml(f.problem || '')}</p>
-                    ${f.fix ? `<div class="rec-advies"><p><strong>${escapeHtml(t('advies.fix'))}:</strong> ${escapeHtml(f.fix)}</p>
-                    <p><strong>${escapeHtml(t('advies.retest'))}:</strong> ${escapeHtml(f.retest || defaultRetest('NCSC TLS', f.title))}</p></div>` : ''}
-                </div>
-            </article>`;
-        }
-        html += '</div>';
-    }
+    html += '<p class="login-hint ncsc-where">The NCSC level of each cipher suite and the cipher order are under Cipher Suites, '
+        + 'the level of each protocol under Protocol Support. What to change is in Advice.</p>';
 
     el.innerHTML = html;
 }
@@ -2067,11 +2186,18 @@ function generateRecommendations(data) {
     return recs;
 }
 
+// The advice as listed, and the scan it came from: the plan above the list,
+// the cards in the tabs and the raw output all point into it.
+let adviceRecs = [];
+let adviceData = null;
+
 function renderRecommendations(data) {
     const el = $('recommendationsContent');
     const recs = Array.isArray(data.recommendations) && data.recommendations.length
         ? data.recommendations
         : generateRecommendations(data);
+    adviceRecs = recs;
+    adviceData = data;
     const badge = $('recBadge');
 
     // Accepted risks are listed but not counted: that decision is made and
@@ -2108,14 +2234,14 @@ function renderRecommendations(data) {
     // Only an admin may accept a risk; the server says so on the container.
     const canAccept = el.dataset.canAccept === '1' && data.domain;
     let html = summary;
-    recs.forEach(r => {
+    recs.forEach((r, i) => {
         const retest = r.retest || defaultRetest(r.category, r.title, data.domain);
         const accepted = r.accepted
             ? `<p class="rec-accepted"><strong>${escapeHtml(t('advies.accepted'))}</strong> ${escapeHtml(t('advies.accepted_until'))} ${escapeHtml(r.accepted.expires_on || '')} · ${escapeHtml(t('advies.accepted_by'))}: ${escapeHtml(r.accepted.owner || '')} — ${escapeHtml(r.accepted.reason || '')}</p>`
             : canAccept && r.finding_key && r.severity !== 'info'
                 ? `<p><a class="btn-ghost-sm" href="/admin/risks?domain=${encodeURIComponent(data.domain)}&finding=${encodeURIComponent(r.finding_key)}#finding">${escapeHtml(t('advies.accept'))}</a></p>`
                 : '';
-        html += `<article class="rec sev-${escapeHtml(r.severity)}${r.accepted ? ' rec-is-accepted' : ''}">
+        html += `<article class="rec sev-${escapeHtml(r.severity)}${r.accepted ? ' rec-is-accepted' : ''}" id="rec-${i}">
             <div class="rec-head">
                 <span class="rec-badge sev-${escapeHtml(r.severity)}">${escapeHtml(r.severity.toUpperCase())}</span>
                 <span class="rec-category">${escapeHtml(r.category)}</span>
@@ -2124,6 +2250,7 @@ function renderRecommendations(data) {
             <div class="rec-body">
                 ${accepted}
                 <p><strong>${escapeHtml(t('advies.problem'))}:</strong> ${escapeHtml(r.problem)}</p>
+                ${adviceEvidenceHtml(r, i)}
                 <div class="rec-advies">
                     <p><strong>${escapeHtml(t('advies.fix'))}:</strong> ${escapeHtml(r.fix)}</p>
                     <p><strong>${escapeHtml(t('advies.retest'))}:</strong> ${escapeHtml(retest)}</p>
@@ -2134,6 +2261,139 @@ function renderRecommendations(data) {
     });
 
     el.innerHTML = html;
+    el.querySelectorAll('.rec-measured-open').forEach(btn => btn.addEventListener('click', () => {
+        const detail = adviceAnchor(adviceRecs[Number(btn.dataset.rec)]);
+        if (detail) openScoreDetail(detail);
+    }));
+    el.querySelectorAll('details.rec-raw').forEach(box => box.addEventListener('toggle', () => fillRawOutput(box)));
+}
+
+// What the scan measured for one item: the lines the server picked out, a
+// way to the card that shows the whole measurement, and the check's raw
+// output. An item without picked-out lines says so instead of showing none.
+function adviceEvidenceHtml(r, i) {
+    const sources = (r.sources || []).filter(s => adviceData && adviceData[s] != null);
+    const lines = Array.isArray(r.evidence) ? r.evidence : [];
+    if (!lines.length && !sources.length) return '';
+    const detail = adviceAnchor(r);
+    let html = '<div class="rec-measured"><p class="rec-measured-head"><strong>What the scan measured</strong></p>';
+    html += lines.length
+        ? `<ul class="rec-measured-lines">${lines.map(l => `<li><code>${escapeHtml(l)}</code></li>`).join('')}</ul>`
+        : '<p class="muted">No summary for this item; the raw output of the check is below.</p>';
+    html += '<div class="rec-measured-actions">';
+    if (detail) {
+        html += `<button type="button" class="btn-ghost-sm rec-measured-open" data-rec="${i}">${escapeHtml('Open in ' + detail.label)}</button>`;
+    }
+    if (sources.length) {
+        html += `<details class="rec-raw" data-sources="${escapeHtml(sources.join(','))}"><summary>Raw output of the check</summary></details>`;
+    }
+    html += '</div></div>';
+    return html;
+}
+
+// Filled when opened: a full TLS result is long, and most are never read.
+function fillRawOutput(box) {
+    if (!box.open || box.dataset.filled) return;
+    box.dataset.filled = '1';
+    box.dataset.sources.split(',').forEach(source => {
+        const head = document.createElement('p');
+        head.className = 'rec-raw-source';
+        head.textContent = source;
+        const pre = document.createElement('pre');
+        pre.className = 'rec-raw-json';
+        pre.textContent = JSON.stringify(adviceData ? adviceData[source] : null, null, 2);
+        box.append(head, pre);
+    });
+}
+
+// The card that shows the measurement an item rests on. A TLS result fills
+// several cards, so the item's subject picks the one.
+function adviceAnchor(r) {
+    if (!r) return null;
+    const source = (r.sources || [])[0];
+    if (!source) return null;
+    const title = String(r.title || '').toLowerCase();
+    const check = String(r.check || '');
+    let id = null;
+    if (source === 'tls_deep' || source === 'ncsc_tls') {
+        if (/cipher|forward secrecy/.test(title) || check.startsWith('cipher-')) id = 'tlsCipherCard';
+        else if (/tls 1\.[0-3]/.test(title) || check.startsWith('proto-')) id = 'tlsProtocolsCard';
+        else if (/hsts|ocsp|compression/.test(title) || check === 'ocsp-stapling' || check === 'tls-compression') id = 'tlsFeaturesCard';
+        else if (r.category === 'Certificate' || check.startsWith('cert-')) id = 'tlsCertCard';
+        else if (/tls grade/.test(title)) id = 'tlsGradeCard';
+        else if (source === 'ncsc_tls') id = 'ncscTlsCard';
+    }
+    return cardDetail(id ? $(id) : document.querySelector(`.tab-content [data-source="${source}"]`));
+}
+
+// A card on the result page as a place to go: its tab, the tab group and a
+// label that names both ("SSL/TLS › Cipher Suites"). null when not shown.
+function cardDetail(el) {
+    const panel = el && el.closest('.tab-content');
+    if (!panel) return null;
+    const tab = document.querySelector(`.tab[data-tab="${panel.id.replace(/^tab-/, '')}"]`);
+    if (!tab || tab.closest('.tab-group.hidden')) return null;
+    const card = el.closest('.card') || el;
+    const group = tab.closest('.tab-group')?.querySelector('.tab-group-label');
+    const heading = card.querySelector('h3');
+    const tabName = tabLabel(tab);
+    return {
+        el: card, tab: tab.dataset.tab, group: group ? group.textContent.trim() : '',
+        label: heading ? `${tabName} › ${heading.textContent.trim()}` : tabName,
+    };
+}
+
+// The tab's own name, without the count badge some tabs carry.
+function tabLabel(tab) {
+    const named = tab.querySelector('[data-i18n]');
+    if (named) return named.textContent.trim();
+    return Array.from(tab.childNodes).filter(n => n.nodeType === Node.TEXT_NODE)
+        .map(n => n.textContent).join('').trim() || tab.dataset.tab;
+}
+
+// The other way round: under the card that measured something, the advice
+// it led to, so the tabs and the advice read as one report rather than two.
+function linkAdviceToCards() {
+    document.querySelectorAll('.card-advice').forEach(n => n.remove());
+    const byCard = new Map();
+    adviceRecs.forEach((r, i) => {
+        const detail = adviceAnchor(r);
+        if (!detail) return;
+        if (!byCard.has(detail.el)) byCard.set(detail.el, []);
+        byCard.get(detail.el).push(i);
+    });
+    byCard.forEach((items, card) => {
+        const box = document.createElement('div');
+        box.className = 'card-advice';
+        const head = document.createElement('p');
+        head.className = 'card-advice-head';
+        head.textContent = 'Advice from this measurement';
+        box.appendChild(head);
+        const list = document.createElement('div');
+        list.className = 'card-advice-items';
+        items.forEach(i => {
+            const r = adviceRecs[i];
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'card-advice-item' + (r.accepted ? ' rec-is-accepted' : '');
+            btn.title = 'Open this item in Advice';
+            const sev = document.createElement('span');
+            sev.className = `rec-badge sev-${r.severity}`;
+            sev.textContent = String(r.severity).toUpperCase();
+            const name = document.createElement('span');
+            name.textContent = r.title;
+            btn.append(sev, name);
+            btn.addEventListener('click', () => openAdvice(i));
+            list.appendChild(btn);
+        });
+        box.appendChild(list);
+        card.appendChild(box);
+    });
+}
+
+function openAdvice(i) {
+    const el = $('rec-' + i);
+    if (el) openScoreDetail({ el, tab: 'recommendations' });
 }
 
 // ===== Report =====
@@ -3172,26 +3432,26 @@ async function deleteSelectedEvents() {
 }
 
 // ===== Remediation plan =====
+// The order to work in, as links into the list below. It used to repeat each
+// item's fix and retest in full, so every urgent item was on the page twice.
 function renderRemediationPlan(data) {
     const el = $('remediationPlan');
     if (!el) return;
-    const plan = data.remediation_plan || (data.recommendations || [])
-        .filter(r => ['critical', 'high', 'medium'].includes(r.severity))
-        .slice(0, 12)
-        .map((r, idx) => ({
-            priority: idx + 1,
-            severity: r.severity,
-            title: r.title,
-            action: r.fix || r.action,
-            retest: r.retest,
-        }));
+    const plan = adviceRecs
+        .map((r, i) => ({ r, i }))
+        .filter(({ r }) => ['critical', 'high', 'medium'].includes(r.severity) && !r.accepted)
+        .slice(0, 12);
     if (!plan.length) {
         el.innerHTML = `<div class="rec-empty">${escapeHtml(t('advies.none_priority'))}</div>`;
         return;
     }
-    el.innerHTML = `<h4 style="margin:0 0 0.75rem;color:var(--accent)">${escapeHtml(t('advies.priority'))}</h4><ol class="remediation-list">` +
-        plan.map(item => `<li class="sev-${escapeHtml(item.severity)}"><strong>${escapeHtml(String(item.priority))}. ${escapeHtml(item.title)}</strong><div class="monitor-meta"><strong>${escapeHtml(t('advies.fix'))}:</strong> ${escapeHtml(item.action || '')}</div>${item.retest ? `<div class="monitor-meta"><strong>${escapeHtml(t('advies.retest'))}:</strong> ${escapeHtml(item.retest)}</div>` : ''}</li>`).join('') +
+    el.innerHTML = `<h4 class="remediation-head">${escapeHtml(t('advies.priority'))}</h4><ol class="remediation-list">` +
+        plan.map(({ r, i }) => `<li class="sev-${escapeHtml(r.severity)}"><button type="button" class="remediation-link" data-rec="${i}">`
+            + `<span class="rec-badge sev-${escapeHtml(r.severity)}">${escapeHtml(r.severity.toUpperCase())}</span> `
+            + `<span>${escapeHtml(r.title)}</span></button></li>`).join('') +
         '</ol>';
+    el.querySelectorAll('.remediation-link').forEach(btn =>
+        btn.addEventListener('click', () => openAdvice(Number(btn.dataset.rec))));
 }
 
 // ===== Weak authentication =====

@@ -23,8 +23,10 @@ class OptionalIntegrationStatusTests(unittest.TestCase):
     def test_catalogue_covers_the_optional_keys(self):
         envs = {item["env"] for item in self.app._optional_integration_status()}
         # MaxMind: location from a database on this server, not ip-api.com.
+        # NVD: the CVE sync works without it, only slower.
         self.assertEqual(envs, {"SPAMHAUS_DQS_KEY", "ABUSECH_AUTH_KEY", "OTX_API_KEY",
-                                "VIRUSTOTAL_API_KEY", "MAXMIND_ACCOUNT_ID", "MAXMIND_LICENSE_KEY"})
+                                "VIRUSTOTAL_API_KEY", "MAXMIND_ACCOUNT_ID", "MAXMIND_LICENSE_KEY",
+                                "NVD_API_KEY"})
 
     def test_every_entry_explains_itself(self):
         for item in self.app._optional_integration_status():

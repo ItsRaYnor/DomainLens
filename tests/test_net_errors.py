@@ -46,6 +46,25 @@ class DescribeTests(unittest.TestCase):
 
 
 class OsintSummaryTests(unittest.TestCase):
+    # Each feed's answer is now kept for a day, so every collect gets an empty
+    # cache of its own: a stub answer kept by one test is not the next one's.
+    def setUp(self):
+        import os
+        import tempfile
+        import db
+        self._tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self._old_db = os.environ.get("DOMAINLENS_DB")
+        os.environ["DOMAINLENS_DB"] = os.path.join(self._tempdir.name, "net-errors.db")
+        db.init_db()
+
+    def tearDown(self):
+        import os
+        if self._old_db is None:
+            os.environ.pop("DOMAINLENS_DB", None)
+        else:
+            os.environ["DOMAINLENS_DB"] = self._old_db
+        self._tempdir.cleanup()
+
     def _collect(self, failing):
         def fail(*a, **k):
             return {"success": False, "source": "x", "error": net_errors.describe(_dns_failure())}

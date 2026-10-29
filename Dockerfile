@@ -31,18 +31,20 @@ LABEL org.opencontainers.image.title="DomainLens" \
 
 WORKDIR /app
 
-# whois CLI improves python-whois reliability; curl is used by HEALTHCHECK
+# curl is used by HEALTHCHECK. No whois command: registration data comes
+# from RDAP and from the registries' port-43 servers, asked directly.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        whois \
         curl \
         ca-certificates \
         gosu \
         gnupg \
     && rm -rf /var/lib/apt/lists/*
 
+# The lock: every package, transitive ones included, at the version and
+# with the hashes recorded in requirements.txt (made from requirements.in).
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 COPY . .
 
