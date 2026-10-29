@@ -42,6 +42,6 @@ pyspf==2.0.14
 # image has no system time zone database of its own to rely on.
 tzdata==2025.3
 # Reads the MaxMind GeoLite2 database on this server (geoip.py).
-maxminddb==2.6.2
+maxminddb==3.2.0
 # Mail analysis: reads Outlook .msg files (msg_file.py).
 olefile==0.47
