@@ -24,7 +24,7 @@ defusedxml==0.7.1
 # signature verification (saml_sp.py fails closed, but SSO stops working).
 # Pinned to the latest tested-compatible release rather than Dependabot's
 # 4.0.4 suggestion, which is still broken with cryptography 50.x.
-signxml==5.1.0
+signxml==5.2.0
 lxml==6.1.1
 PyJWT==2.15.0
 # pyOpenSSL: the only way to request and observe a stapled OCSP response.
