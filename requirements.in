@@ -40,7 +40,7 @@ dkimpy==1.1.8
 pyspf==2.0.14
 # A monitor's time of day is kept in the zone it was chosen in; the slim
 # image has no system time zone database of its own to rely on.
-tzdata==2025.3
+tzdata==2026.5
 # Reads the MaxMind GeoLite2 database on this server (geoip.py).
 maxminddb==2.6.2
 # Mail analysis: reads Outlook .msg files (msg_file.py).
