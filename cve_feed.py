@@ -93,6 +93,8 @@ _PAUSE_WITH_KEY = 0.7
 _TIMEOUT = 60
 _MAX_LISTED = 25
 _PATCH_UNKNOWN_HIGH = 999999
+# How often this process stored CVEs: part of what keeps overview() current.
+_stored = [0]
 
 _lock = threading.Lock()
 
@@ -243,7 +245,7 @@ def _item(cve):
 def _store(product_key, records, full):
     """Write one product's CVEs. A full sync replaces what the product held;
     an increment replaces only the CVEs it carries, and drops rejected ones."""
-    with db._lock, db._connect() as conn:
+    with db.transaction() as conn:
         if full:
             conn.execute("DELETE FROM cve_ranges WHERE product = ?", (product_key,))
         for cve, ranges in records:
@@ -259,6 +261,7 @@ def _store(product_key, records, full):
                              "conditional) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                              [(cve_id, product_key, *r) for r in ranges])
         conn.execute("DELETE FROM cve_items WHERE cve_id NOT IN (SELECT DISTINCT cve_id FROM cve_ranges)")
+        _stored[0] += 1
         return conn.execute("SELECT COUNT(DISTINCT cve_id) AS n FROM cve_ranges WHERE product = ?",
                             (product_key,)).fetchone()["n"]
 
@@ -819,6 +822,19 @@ def _reaches(rng, release):
     return rng.start_v is None or _cmp(rng.start_v, upper) < 0
 
 
+_overview_cache = {"key": None, "rows": None}
+_overview_lock = threading.Lock()
+
+
+def _data_stamp():
+    """What identifies the stored data: each product's last sync, and how
+    often this process stored CVEs since it started."""
+    with db._connect() as conn:
+        rows = conn.execute("SELECT source, synced_at, items FROM cve_feed_state WHERE source LIKE 'nvd:%' "
+                            "ORDER BY source").fetchall()
+    return _stored[0], tuple(tuple(r) for r in rows)
+
+
 def overview(branches=4):
     """Per followed product what the CVE data holds, for Tools -> Versions:
     the CVEs kept, how many are exploited (CISA KEV), the newest CVE, and per
@@ -826,7 +842,22 @@ def overview(branches=4):
 
     That release is checked against every range, not just taken from the
     highest fix: a branch with a CVE in a later release, or one with no fix
-    yet, gets no release, so it is never offered as safe."""
+    yet, gets no release, so it is never offered as safe.
+
+    It reads every range of every product (about 30,000), which took more
+    than half a second on each visit to the page, while it changes only
+    when a sync stores new data: it is kept until then."""
+    key = (branches, _data_stamp())
+    with _overview_lock:
+        if _overview_cache["key"] == key:
+            return [dict(row) for row in _overview_cache["rows"]]
+    rows = _overview(branches)
+    with _overview_lock:
+        _overview_cache.update(key=key, rows=rows)
+    return [dict(row) for row in rows]
+
+
+def _overview(branches):
     out = []
     for product in PRODUCTS:
         by_cve = _ranges(product["key"])

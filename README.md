@@ -347,7 +347,7 @@ DomainLens/
 ├── docker-compose.dockerhub.yml # Synology / Portainer stack (pull from Docker Hub)
 ├── docker-entrypoint.sh         # Synology bind-mount ownership fix
 ├── .github/workflows/
-│   └── docker-publish.yml       # Builds + pushes image to Docker Hub on push to main
+│   └── docker-publish.yml       # Builds + pushes the image when VERSION is new on main
 ├── templates/
 │   ├── index.html
 │   ├── trends.html

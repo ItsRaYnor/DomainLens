@@ -110,6 +110,18 @@ class CheckTests(EnterpriseAppTestCase):
         self.assertEqual("listed", ip_lists.check("192.0.2.10")["state"])
         self.assertTrue(all(s["error"] for s in status))
 
+    def test_a_write_that_fails_half_way_keeps_the_good_list(self):
+        """The old ranges were deleted and committed before the new ones were
+        written; a failure in between emptied the list."""
+        self._load()
+        # A newer list in which 192.0.2.10 is no longer listed.
+        moved = {url: body.replace("192.0.2.0/25", "192.0.2.128/25") for url, body in OFFICIAL.items()}
+        with mock.patch.object(ip_lists, "_settings", return_value={"dshield": True}), \
+                mock.patch.object(ip_lists, "_now", side_effect=RuntimeError("disk full")):
+            report = ip_lists.refresh(get=_get(moved))
+        self.assertTrue(all(str(v).startswith("error") for v in report.values()))
+        self.assertEqual("listed", ip_lists.check("192.0.2.10")["state"])
+
     def test_an_empty_list_does_not_replace_a_full_one(self):
         self._load()
         empty = {url: "" for url in OFFICIAL}

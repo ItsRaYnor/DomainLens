@@ -82,6 +82,18 @@ class FeedTests(EnterpriseAppTestCase):
         with mock.patch.object(link_check, "_settings", return_value={"link_feeds": ["https://lists.example.com/feed.txt"]}):
             self.assertIn("500", link_check.feed_status()[0]["error"])
 
+    def test_a_write_that_fails_half_way_keeps_the_previous_list(self):
+        """Each statement was committed on its own: the old list was deleted
+        before the new one was written, so a failure in between left no list
+        at all -- and writing 100,000 rows that way held the app's write lock
+        for minutes."""
+        self._refresh()
+        with mock.patch.object(link_check, "_now", side_effect=RuntimeError("disk full")):
+            report = self._refresh(body="https://other.example.net/x\n")
+        self.assertIn("error", report["https://lists.example.com/feed.txt"])
+        found = link_check.check_feeds(["https://bad.example.net/login", "https://other.example.net/x"])
+        self.assertEqual(["listed", "not_listed"], list(found.values()))
+
     def test_only_https_lists_are_fetched_and_a_dropped_list_is_forgotten(self):
         report = link_check.refresh(["http://lists.example.com/feed.txt"], get=lambda u, h: self.fail("fetched"))
         self.assertIn("skipped", report["http://lists.example.com/feed.txt"])

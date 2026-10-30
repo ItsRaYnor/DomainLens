@@ -48,6 +48,31 @@ def _connect():
         conn.close()
 
 
+@contextlib.contextmanager
+def transaction():
+    """The write lock and one connection, in a single transaction.
+
+    _connect() runs in autocommit mode, so every statement in its block is
+    a transaction of its own, written to disk before the next one starts.
+    Writing a threat list (100,000 rows) or a product's CVE ranges that way
+    took minutes, and the global write lock was held all that time: every
+    other write in the app -- a tool lookup's audit entry, a cache entry --
+    waited for it. In one transaction the same rows take a fraction of a
+    second, and a write that fails half-way leaves what was there before
+    instead of a list that was deleted and never filled again.
+
+    The page cache is raised for this one connection: the threat lists are
+    indexed on hashes, which land all over the index, and with the default
+    2 MB nearly every row went to disk -- 10 seconds under the lock for a
+    100,000-row list instead of 1.5. The memory is used only as needed and
+    is freed when the connection closes.
+    """
+    with _lock, _connect() as conn:
+        conn.execute("PRAGMA cache_size = -65536")
+        conn.execute("BEGIN IMMEDIATE")
+        yield conn
+
+
 def init_db():
     """Create tables if they don't exist."""
     with _lock, _connect() as conn:

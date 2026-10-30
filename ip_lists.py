@@ -165,7 +165,7 @@ def refresh(sources=None, *, get=None):
                     raise ValueError("the list held no addresses")
                 rows = [(net.version, _hex(net.network_address), _hex(net.broadcast_address), name, detail[:100])
                         for net, detail in ranges]
-                with db._lock, db._connect() as conn:
+                with db.transaction() as conn:
                     conn.execute("DELETE FROM ip_list_ranges WHERE source = ?", (name,))
                     conn.executemany("INSERT INTO ip_list_ranges (version, first, last, source, detail) "
                                      "VALUES (?, ?, ?, ?, ?)", rows)

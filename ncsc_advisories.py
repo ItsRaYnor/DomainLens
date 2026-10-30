@@ -129,7 +129,7 @@ def parse(document):
 
 
 def _store(advisory):
-    with db._lock, db._connect() as conn:
+    with db.transaction() as conn:
         conn.execute("INSERT OR REPLACE INTO ncsc_advisories (id, title, kans, schade, products, cves, facts, "
                      "published, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                      (advisory["id"], advisory["title"], advisory["kans"], advisory["schade"],

@@ -99,7 +99,7 @@ def _remember(conn, monitor_id, product_key, version, cves):
 def _take_stock(monitor_id, scan_id, results):
     """What the data says now about the scan's versions, as already known."""
     found = [(product, shown, _applicable(product, shown)) for product, shown in _measured(results)]
-    with db._lock, db._connect() as conn:
+    with db.transaction() as conn:
         conn.execute("DELETE FROM cve_alert_known WHERE monitor_id = ?", (monitor_id,))
         for product, shown, applicable in found:
             _remember(conn, monitor_id, product["key"], shown["raw"], applicable.values())
@@ -166,7 +166,7 @@ def recheck(now=None):
     if not cve_feed.enabled():
         return None
     now = now or _now()
-    with db._lock, db._connect() as conn:
+    with db.transaction() as conn:
         # Monitors deleted since: nothing left to tell about them.
         conn.execute("DELETE FROM cve_alert_known WHERE monitor_id NOT IN (SELECT id FROM monitors)")
         conn.execute("DELETE FROM cve_alert_scans WHERE monitor_id NOT IN (SELECT id FROM monitors)")
@@ -194,7 +194,7 @@ def recheck(now=None):
                 if event:
                     _report(monitor, scan_id, event)
                     events += 1
-                with db._lock, db._connect() as conn:
+                with db.transaction() as conn:
                     _remember(conn, monitor["id"], product["key"], shown["raw"], applicable.values())
         except Exception:
             log.warning("Known CVEs of monitor %s could not be compared", monitor["id"], exc_info=True)

@@ -242,7 +242,7 @@ def refresh(sources=None, *, get=None):
                     rows.append((url_hash(listed), host_of(listed), name))
                     if len(rows) >= _FEED_MAX_ENTRIES:
                         break
-                with db._lock, db._connect() as conn:
+                with db.transaction() as conn:
                     conn.execute("DELETE FROM link_feed_urls WHERE source = ?", (name,))
                     conn.executemany("INSERT INTO link_feed_urls (hash, host, source) VALUES (?, ?, ?)", rows)
                     conn.execute("INSERT OR REPLACE INTO link_feed_meta (source, refreshed_at, entries, error) "
