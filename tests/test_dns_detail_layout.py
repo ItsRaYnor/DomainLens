@@ -5,7 +5,6 @@ rendered at a real viewport width, which is why they are pinned here.
 """
 
 import pathlib
-import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent

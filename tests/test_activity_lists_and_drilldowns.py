@@ -10,14 +10,12 @@ on Trends every chart opened the same scan list, the events chart too.
 """
 
 import json
-import os
 import pathlib
 import re
 import subprocess
 import unittest
 from datetime import datetime, timedelta, timezone
 
-import contacts
 import db
 import domain_portfolio
 import management

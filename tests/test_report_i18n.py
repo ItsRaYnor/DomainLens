@@ -5,7 +5,6 @@ import re
 import tempfile
 import unittest
 
-import i18n
 
 
 LOCALES = pathlib.Path(__file__).resolve().parent.parent / "i18n" / "locales"

@@ -12,6 +12,7 @@ Documentation addresses (192.0.2.0/24, 198.51.100.0/24) stand in for public
 ones: _public is patched to accept them, as real mail never carries them.
 """
 
+from routes import mail_tools as mail_tools_routes
 import base64
 import ipaddress
 import unittest
@@ -381,7 +382,7 @@ class RouteTests(EnterpriseAppTestCase):
     @mock.patch.object(mail_test, "_public", _public)
     def test_a_pasted_message_is_analysed_and_its_selector_remembered(self):
         self.login_as("user")
-        with mock.patch.object(self.app_module, "_MailLookups", FakeLookups):
+        with mock.patch.object(mail_tools_routes, "_MailLookups", FakeLookups):
             resp = self.client.post("/api/mailtest", json={"message": _message().decode()})
         self.assertEqual(200, resp.status_code, resp.data)
         self.assertEqual("pass", resp.get_json()["dmarc"]["result"])
@@ -391,7 +392,7 @@ class RouteTests(EnterpriseAppTestCase):
     def test_an_uploaded_file_is_analysed(self):
         import io
         self.login_as("user")
-        with mock.patch.object(self.app_module, "_MailLookups", FakeLookups):
+        with mock.patch.object(mail_tools_routes, "_MailLookups", FakeLookups):
             resp = self.client.post("/api/mailtest", data={"file": (io.BytesIO(_message()), "test.eml")},
                                     content_type="multipart/form-data")
         self.assertEqual(200, resp.status_code, resp.data)

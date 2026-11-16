@@ -86,6 +86,15 @@ def protection_state(db=None):
     dumps), not protection against filesystem compromise. Report it honestly
     instead of labelling both cases "encrypted".
     """
+    import app_secret
+    if app_secret.is_published(os.environ.get("DOMAINLENS_SECRET_KEY") or ""):
+        return {
+            "mode": "public",
+            "detail": "DOMAINLENS_SECRET_KEY is the example value from the DomainLens "
+                      "documentation, so anyone can derive the encryption key. Generate "
+                      "your own (openssl rand -hex 32), then enter these values again: "
+                      "the ones stored now cannot be read with a new key.",
+        }
     if (os.environ.get("DOMAINLENS_SECRET_KEY") or "").strip():
         return {
             "mode": "encrypted",

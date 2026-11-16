@@ -304,11 +304,9 @@ def config() -> dict:
     oauth = oauth_config()
     local = local_config()
     try:
-        from scim import scim_config, scim_status
-        scim_cfg = scim_config()
+        from scim import scim_status
         scim_st = scim_status()
     except Exception:
-        scim_cfg = {"enabled": False}
         scim_st = {"enabled": False, "configured": False}
     try:
         from saml_sp import saml_config, saml_status
@@ -357,21 +355,19 @@ def config() -> dict:
 
 
 def init_app(app: Flask) -> None:
-    secret = (os.environ.get("DOMAINLENS_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "").strip()
-    if not secret:
-        # No env secret: use a persistent, cryptographically random secret
-        # (stored in the DB). NEVER derive it from public config values — that
-        # would make session cookies forgeable by anyone reading the source.
-        try:
-            import db as _db
-            secret = _db.get_or_create_app_secret()
+    import app_secret
+    # A key copied from the documentation would make session cookies
+    # forgeable by anyone who read it; app_secret refuses those too.
+    try:
+        secret = app_secret.signing_secret()
+        if secret != app_secret.configured_key():
             log.warning(
-                "DOMAINLENS_SECRET_KEY not set; using a persisted random secret. "
-                "Set DOMAINLENS_SECRET_KEY explicitly for multi-instance deployments."
+                "No usable DOMAINLENS_SECRET_KEY; sessions are signed with a persisted "
+                "random secret. Set DOMAINLENS_SECRET_KEY for multi-instance deployments."
             )
-        except Exception as exc:
-            secret = secrets.token_hex(32)
-            log.error("Could not persist app secret (%s); using ephemeral secret", exc)
+    except Exception as exc:
+        secret = secrets.token_hex(32)
+        log.error("Could not persist app secret (%s); using ephemeral secret", exc)
     app.secret_key = secret
     oauth = oauth_config()
     app.config.update(

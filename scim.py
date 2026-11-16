@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import unquote
 
 from flask import Flask, jsonify, request

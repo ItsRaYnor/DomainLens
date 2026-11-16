@@ -32,6 +32,7 @@ class MonitorScanProgressTests(unittest.TestCase):
             name="m1", domain="example.com", target="example.com", record_type="A")
 
     def tearDown(self):
+        scan_jobs.wait_idle()
         scan_jobs.reset()
         self.tempdir.cleanup()
         for key in ("DOMAINLENS_DB", "DOMAINLENS_DISABLE_SCHEDULER"):

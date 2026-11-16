@@ -12,10 +12,8 @@ Covers four blindspot categories:
 """
 
 import concurrent.futures
-import ipaddress
 import re
 import secrets
-import socket
 import urllib.parse
 
 import security_txt
@@ -25,7 +23,8 @@ import cert_transparency
 import dns.resolver
 import dns.query
 import dns.zone
-import requests
+
+import net_guard
 
 
 # ---------------------------------------------------------------------------
@@ -37,28 +36,19 @@ _UA = (
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
-_PRIVATE_NETS = [
-    ipaddress.ip_network(n) for n in (
-        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8",
-        "169.254.0.0/16", "::1/128", "fc00::/7", "fe80::/10",
-    )
-]
 
-
-def _is_private_ip(ip_str):
-    try:
-        addr = ipaddress.ip_address(ip_str)
-        return any(addr in net for net in _PRIVATE_NETS)
-    except ValueError:
-        return True
+_is_private_ip = net_guard.is_blocked
 
 
 def _safe_host(host):
-    """Return True if host resolves to a public IP (SSRF guard)."""
-    ips = _resolve(host, "A")
-    if not ips:
-        return False
-    return not _is_private_ip(ips[0])
+    """True when every address host resolves to is public (SSRF guard).
+
+    Every address, IPv6 included: a client may connect to any of them, so
+    one internal address among public ones used to slip through when only
+    the first A record was looked at.
+    """
+    ips = list(_resolve(host, "A") or []) + list(_resolve(host, "AAAA") or [])
+    return net_guard.safe_host(host, ips)
 
 
 # Bounded resolver so a broken/blocked DNS path can never hang a scan.
@@ -117,10 +107,11 @@ def _get(url, timeout=8, allow_redirects=True, headers=None, method="GET"):
     hdrs = {"User-Agent": _UA, "Accept": "*/*"}
     if headers:
         hdrs.update(headers)
-    return requests.request(
-        method, url, timeout=timeout, allow_redirects=allow_redirects,
-        headers=hdrs, stream=False,
-    )
+    with net_guard.session() as session:
+        return session.request(
+            method, url, timeout=timeout, allow_redirects=allow_redirects,
+            headers=hdrs, stream=False,
+        )
 
 
 def _iter_set_cookie(resp):
@@ -1047,7 +1038,9 @@ def _cors_probe(base):
             "wildcard": acao == "*",
         }
     except Exception:
-        return {}
+        # Kept apart from {}: an empty answer read as "no CORS header",
+        # which is a measurement this probe never made.
+        return {"error": "The CORS probe got no answer"}
 
 
 def _methods_probe(base):
@@ -1063,7 +1056,7 @@ def _methods_probe(base):
             "dangerous": [m for m in methods if m in ("PUT", "DELETE", "TRACE", "CONNECT", "PATCH")],
         }
     except Exception:
-        return {}
+        return {"error": "The OPTIONS request got no answer"}
 
 
 def _probe_sensitive_files(base, result):
@@ -1551,7 +1544,7 @@ def audit_findings(audit):
             "medium", "CORS",
             "CORS reflects arbitrary Origin with credentials",
             "The server reflects any Origin in Access-Control-Allow-Origin while allowing credentials — any site can read authenticated responses.",
-            evidence=f"ACAO reflected, ACAC=true",
+            evidence="ACAO reflected, ACAC=true",
             fix="Never reflect arbitrary Origins with credentials. Use an explicit allowlist of trusted origins.",
         ))
     elif cors.get("wildcard") and cors.get("allow_credentials"):

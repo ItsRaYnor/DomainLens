@@ -38,7 +38,6 @@ class MetricsTests(EnterpriseAppTestCase):
         self.assertIn("domainlens_build_info{version=", body)
 
     def test_a_started_scan_is_counted(self):
-        import metrics
         self.login_as("user")
         from unittest import mock
         with mock.patch.object(self.app_module.scan_jobs, "start", return_value={"job_id": "x"}):

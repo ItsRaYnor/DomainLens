@@ -1,0 +1,4 @@
+# Shell scripts run inside the Linux image. Checked out with CRLF on Windows,
+# the shebang line ends in  and the container fails with "no such file or
+# directory" before DomainLens starts.
+*.sh text eol=lf

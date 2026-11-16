@@ -6,9 +6,12 @@ navigating away lost the scan entirely — the work carried on server-side but
 its result was thrown away, and nothing stopped the user from starting the
 same scan again on top of it.
 
-Jobs live in memory. A restart loses in-flight jobs, which is acceptable:
-a scan takes under a minute and finished results are persisted to the scan
-history anyway.
+Progress lives in memory; each job's start and outcome are also written to
+the scan_jobs table. Memory alone lost every job on a restart, and a browser
+polling one got a 404, hid its progress bar and said nothing: the scan simply
+vanished, and the user could not tell whether it had run. Now a job that was
+running when DomainLens stopped is reported as interrupted, and one that
+finished is still answered, its result read back from the scan history.
 """
 
 from __future__ import annotations
@@ -38,6 +41,96 @@ def _now():
 def _age(job, field="finished_at"):
     stamp = job.get(field)
     return (_now() - stamp).total_seconds() if stamp else 0.0
+
+
+_INTERRUPTED = ("DomainLens restarted while this scan was running, so it did not finish. "
+                "Start it again.")
+# How long a finished job's row is kept for a page that comes back to it.
+_ROW_RETENTION_SECONDS = 86400
+
+
+def init_schema(conn):
+    """Create the table; mark jobs a previous run left unfinished."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scan_jobs (
+            job_id TEXT PRIMARY KEY,
+            domain TEXT NOT NULL,
+            status TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            error TEXT,
+            scan_id INTEGER
+        )
+        """
+    )
+    now = _now()
+    with _lock:
+        live = set(_jobs)
+    for row in conn.execute("SELECT job_id FROM scan_jobs WHERE status = 'running'").fetchall():
+        if row[0] not in live:
+            conn.execute(
+                "UPDATE scan_jobs SET status = 'error', error = ?, finished_at = ? WHERE job_id = ?",
+                (_INTERRUPTED, now.isoformat(), row[0]))
+    cutoff = datetime.fromtimestamp(now.timestamp() - _ROW_RETENTION_SECONDS, timezone.utc)
+    conn.execute("DELETE FROM scan_jobs WHERE status != 'running' AND finished_at < ?",
+                 (cutoff.isoformat(),))
+
+
+def _persist(job):
+    """Write a job's state; a failure is logged, never fatal to the scan."""
+    try:
+        import db
+        with db._lock, db._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO scan_jobs "
+                "(job_id, domain, status, started_at, finished_at, error, scan_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (job["job_id"], job["domain"], job["status"],
+                 job["started_at"].isoformat(),
+                 job["finished_at"].isoformat() if job.get("finished_at") else None,
+                 job.get("error"), job.get("scan_id")))
+    except Exception:
+        log.warning("Could not record scan job %s", job.get("job_id"), exc_info=True)
+
+
+def _from_row(job_id):
+    """A job known only from the table: one from before a restart."""
+    try:
+        import db
+        with db._lock, db._connect() as conn:
+            row = conn.execute("SELECT * FROM scan_jobs WHERE job_id = ?", (job_id,)).fetchone()
+    except Exception:
+        log.warning("Could not read scan job %s", job_id, exc_info=True)
+        return None
+    if row is None:
+        return None
+    row = dict(row)
+    finished = row.get("finished_at")
+    return {
+        "job_id": row["job_id"], "domain": row["domain"],
+        # Not in memory, so not running in this process, whatever the row says.
+        "status": row["status"] if row["status"] != "running" else "error",
+        "error": row.get("error") if row["status"] != "running" else _INTERRUPTED,
+        "done": 0, "total": 0, "percent": 100 if row["status"] == "done" else 0,
+        "current": None,
+        "started_at": datetime.fromisoformat(row["started_at"]),
+        "finished_at": datetime.fromisoformat(finished) if finished else None,
+        "scan_id": row.get("scan_id"), "result": None,
+    }
+
+
+def _stored_result(scan_id):
+    if not scan_id:
+        return None
+    try:
+        import db
+        record = db.get_scan(scan_id)
+    except Exception:
+        return None
+    if not record:
+        return None
+    return {**(record.get("data") or {}), "scan_id": scan_id}
 
 
 def _prune_locked():
@@ -95,15 +188,26 @@ def find_active(domain):
 
 
 def get(job_id, include_result=False):
+    stuck = None
     with _lock:
         job = _jobs.get(job_id)
-        if not job:
-            return None
-        if _is_stuck(job):
+        if job and _is_stuck(job):
             job["status"] = "error"
             job["error"] = "Scan exceeded the maximum runtime and was abandoned"
             job["finished_at"] = _now()
-        return public_view(job, include_result=include_result)
+            stuck = dict(job)
+        if job:
+            view = public_view(job, include_result=include_result)
+    if stuck:
+        _persist(stuck)
+    if job:
+        return view
+    job = _from_row(job_id)
+    if job is None:
+        return None
+    if include_result and job["status"] == "done":
+        job["result"] = _stored_result(job["scan_id"])
+    return public_view(job, include_result=include_result)
 
 
 def start(domain, runner):
@@ -130,6 +234,7 @@ def start(domain, runner):
     with _lock:
         _prune_locked()
         _jobs[job_id] = job
+    _persist(job)
 
     def progress_cb(done, total, name):
         with _lock:
@@ -143,22 +248,33 @@ def start(domain, runner):
     def worker():
         try:
             result = runner(progress_cb)
-            with _lock:
-                job["result"] = result
-                job["scan_id"] = (result or {}).get("scan_id")
-                job["status"] = "done"
-                job["percent"] = 100
-                job["current"] = None
-                job["finished_at"] = _now()
+            outcome = {"result": result, "scan_id": (result or {}).get("scan_id"),
+                       "status": "done", "percent": 100, "current": None}
         except Exception as exc:
             log.exception("Scan job for %s failed", domain)
-            with _lock:
-                job["status"] = "error"
-                job["error"] = str(exc)[:300]
-                job["finished_at"] = _now()
+            outcome = {"status": "error", "error": str(exc)[:300]}
+        outcome["finished_at"] = _now()
+        # Recorded before it is announced: whoever sees "done" can rely on
+        # the table saying so too, also if the process stops a moment later.
+        _persist({**job, **outcome})
+        with _lock:
+            job.update(outcome)
 
     threading.Thread(target=worker, name=f"scan-{domain}", daemon=True).start()
     return public_view(job)
+
+
+def wait_idle(timeout=10.0):
+    """Wait until no job is running. For tests: a job still finishing writes
+    its outcome to the database, which must not be removed under it."""
+    import time
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with _lock:
+            if not any(job["status"] == "running" for job in _jobs.values()):
+                return True
+        time.sleep(0.01)
+    return False
 
 
 def reset():

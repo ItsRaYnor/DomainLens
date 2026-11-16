@@ -960,7 +960,7 @@ def _auth_findings(findings, spf, dkim_result, dmarc, from_domain):
             _finding(findings, "medium", "auth", "No DMARC policy for the From domain", dmarc["explanation"])
         elif dmarc["policy"] == "none":
             _finding(findings, "low", "auth", "DMARC passes, but the policy only monitors",
-                     f"p=none: messages that fail are still delivered. Move to quarantine or reject.")
+                     "p=none: messages that fail are still delivered. Move to quarantine or reject.")
 
 
 # --------------------------------------------------------------- entry point

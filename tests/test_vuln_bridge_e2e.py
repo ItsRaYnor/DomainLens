@@ -7,7 +7,6 @@ Uses mocked HTTP backends (no live credentials). Proves the wiring works.
 from __future__ import annotations
 
 import io
-import json
 import os
 import tempfile
 import unittest

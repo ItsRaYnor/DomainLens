@@ -43,7 +43,7 @@
 
             <p class="key-protection {{ 'protection-weak' if key_protection.mode != 'encrypted' else '' }}">
                 <strong>At rest:</strong>
-                {{ 'Encrypted' if key_protection.mode == 'encrypted' else 'Obfuscated only' }} —
+                {{ {'encrypted': 'Encrypted', 'public': 'Not protected'}.get(key_protection.mode, 'Obfuscated only') }} —
                 {{ key_protection.detail }}
             </p>
 
@@ -107,7 +107,7 @@
 
             <p class="key-protection {{ 'protection-weak' if key_protection.mode != 'encrypted' else '' }}">
                 <strong>At rest:</strong>
-                {{ 'Encrypted' if key_protection.mode == 'encrypted' else 'Obfuscated only' }} —
+                {{ {'encrypted': 'Encrypted', 'public': 'Not protected'}.get(key_protection.mode, 'Obfuscated only') }} —
                 {{ key_protection.detail }}
             </p>
 
@@ -154,7 +154,7 @@
                 {% endfor %}
                 <p class="muted cred-group-note">
                     Write-only: a value can be replaced or removed here, never read back.
-                    Stored {{ 'encrypted' if key_protection.mode == 'encrypted' else 'obfuscated only' }};
+                    Stored {{ {'encrypted': 'encrypted', 'public': 'with a public key'}.get(key_protection.mode, 'obfuscated only') }};
                     an environment variable wins and locks the field.
                 </p>
             </div>

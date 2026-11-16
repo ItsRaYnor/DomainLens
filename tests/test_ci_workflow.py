@@ -82,6 +82,7 @@ class PublishedVersionIsNotRebuiltTests(unittest.TestCase):
     what was released as 0.1.20, and a rollback to it would land elsewhere."""
 
     _PUBLISHING = ("Set up Docker Buildx", "Log in to Docker Hub", "Compute image tags", "Build and push",
+                   "Install cosign", "Sign the image",
                    "Update Docker Hub description", "Tag and release this version")
 
     def test_every_publishing_step_waits_for_the_check(self):
@@ -123,3 +124,59 @@ class PublishedVersionIsNotRebuiltTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SupplyChainOfThePipelineTests(unittest.TestCase):
+    """CI ran `aquasec/trivy:latest` with the Docker socket mounted: whatever
+    was pushed under that tag ran with control of the build host. And an image
+    pushed with a leaked Docker Hub token looked exactly like a real release.
+    """
+
+    def test_the_scanner_is_pinned_by_digest_where_dependabot_sees_it(self):
+        path = os.path.join(_ROOT, ".github", "scanners", "Dockerfile")
+        with open(path, encoding="utf-8") as handle:
+            image = re.search(r"^FROM (\S+)$", handle.read(), re.M).group(1)
+        self.assertRegex(image, r"^aquasec/trivy:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$")
+        with open(os.path.join(_ROOT, ".github", "dependabot.yml"), encoding="utf-8") as handle:
+            self.assertIn('directory: "/.github/scanners"', handle.read(),
+                          "Dependabot would never move the pin, so the scanner goes stale")
+
+    def test_no_workflow_runs_an_unpinned_scanner(self):
+        for name in os.listdir(_WORKFLOWS):
+            with self.subTest(workflow=name):
+                self.assertNotIn("trivy:latest", _read(name))
+        self.assertEqual(2, _read("tests.yml").count("${{ steps.scanner.outputs.trivy }}"))
+
+    def test_the_published_image_is_signed_by_digest(self):
+        publish = _read("docker-publish.yml")
+        steps = _steps(publish)
+        self.assertIn('cosign sign --yes "${IMAGE}@${DIGEST}"', steps["Sign the image"])
+        self.assertIn("steps.build.outputs.digest", steps["Sign the image"])
+        self.assertIn("id: build", steps["Build and push"])
+        self.assertIn("id-token: write", publish, "keyless signing needs the OIDC token")
+        order = list(steps)
+        self.assertLess(order.index("Build and push"), order.index("Sign the image"))
+
+
+class LintTests(unittest.TestCase):
+    """An undefined name or an exception swallowed without its cause reached
+    main because nothing but the test suite looked at the code, and a name
+    used only on an error path is exactly what the tests do not reach."""
+
+    def test_ruff_runs_pinned_with_the_repository_rules(self):
+        tests = _read("tests.yml")
+        self.assertRegex(tests, r"pip install ruff==\d+\.\d+\.\d+")
+        self.assertIn("ruff check", tests)
+        self.assertTrue(os.path.isfile(os.path.join(_ROOT, "ruff.toml")))
+
+
+class BrowserSmokeJobTests(unittest.TestCase):
+    """A page whose script threw on load passed every unit test: none of them
+    runs JavaScript. The browser job is what catches it, before publishing."""
+
+    def test_ci_opens_the_pages_in_a_browser(self):
+        tests = _read("tests.yml")
+        self.assertIn("e2e:", tests)
+        self.assertRegex(tests, r"pip install pytest playwright==\d+\.\d+\.\d+")
+        self.assertIn("DOMAINLENS_E2E_URL", tests)
+        self.assertTrue(os.path.isfile(os.path.join(_ROOT, "tests", "e2e", "test_smoke.py")))

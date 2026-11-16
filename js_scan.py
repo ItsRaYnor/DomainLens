@@ -19,26 +19,18 @@ is safe to run against any domain — unlike the active_scan / weak_auth checks.
 import base64
 import concurrent.futures
 import hashlib
-import ipaddress
 import json
 import math
 import re
-import socket
 from urllib.parse import urljoin, urlparse
 
-import requests
+
+import net_guard
 
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
-
-_PRIVATE_NETS = [
-    ipaddress.ip_network(n) for n in (
-        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8",
-        "169.254.0.0/16", "::1/128", "fc00::/7", "fe80::/10",
-    )
-]
 
 _MAX_SCRIPTS = 25
 _MAX_CHUNKS = 15            # code chunks named in those scripts, on top
@@ -48,20 +40,9 @@ _MAX_MAPS = 10
 _TIMEOUT = 8
 
 
-def _is_private_ip(ip_str):
-    try:
-        addr = ipaddress.ip_address(ip_str)
-        return any(addr in net for net in _PRIVATE_NETS)
-    except ValueError:
-        return True
-
-
-def _safe_host(host):
-    try:
-        ip = socket.gethostbyname(host)
-        return not _is_private_ip(ip)
-    except Exception:
-        return False
+# One definition of "not public" for every module (net_guard.py).
+_is_private_ip = net_guard.is_blocked
+_safe_host = net_guard.safe_host
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +376,7 @@ def _chunk_urls(script_url, body, page_url):
 def _fetch_map(url):
     """A public source map's original sources, or None."""
     try:
-        resp = requests.get(url, timeout=_TIMEOUT, headers={"User-Agent": _UA}, stream=True)
+        resp = net_guard.get(url, timeout=_TIMEOUT, headers={"User-Agent": _UA}, stream=True)
         if resp.status_code != 200:
             return None
         data, total = [], 0
@@ -463,7 +444,7 @@ def _extract_tags(base_url, html):
 
 def _fetch_script(url):
     try:
-        resp = requests.get(
+        resp = net_guard.get(
             url, timeout=_TIMEOUT, headers={"User-Agent": _UA},
             stream=True, allow_redirects=True,
         )
@@ -509,7 +490,7 @@ def scan(domain):
     base_url = None
     for scheme in ("https", "http"):
         try:
-            resp = requests.get(
+            resp = net_guard.get(
                 f"{scheme}://{domain}", timeout=_TIMEOUT,
                 headers={"User-Agent": _UA}, allow_redirects=True,
             )

@@ -6,7 +6,6 @@ A comprehensive domain lookup and security analysis tool.
 import functools
 import ipaddress
 import hashlib
-import json
 import logging
 import os
 import re
@@ -59,9 +58,6 @@ import domain_portfolio
 import ip_lists
 import link_check
 import mail_test
-import msg_file
-import sandbox
-import url_check
 import management
 import maintenance
 import metrics
@@ -84,6 +80,9 @@ import scim_oauth
 import saml_sp
 import web_security
 import cdn_hardening
+import log_setup
+import net_guard
+import csrf
 import version as app_version
 import routes as route_modules
 import dns_tools
@@ -138,7 +137,8 @@ db.init_db()
 auth.init_app(app)
 scim.register_routes(app)
 _settings_store = get_store(db_module=db)
-logging.basicConfig(level=_settings.server()["log_level"])
+log_setup.configure(_settings.server()["log_level"], _settings.server().get("log_format", "text"))
+log_setup.install_request_id(app)
 try:
     _bootstrapped = domainlens_config.bootstrap_monitors(db)
     if _bootstrapped:
@@ -179,7 +179,21 @@ def _security_headers_list():
 
 
 def _dkim_selectors_list():
-    return list(_scan_config().get("dkim_selectors") or DEFAULT_DKIM_SELECTORS)
+    """The built-in selectors, followed by any the operator configured.
+
+    Saving any scan setting stores the whole section, the selector list as it
+    was at that moment included. Taking the configured list instead of the
+    built-in one froze every such installation on an old list, so a selector
+    added in a release (OVH's, say) never reached it and a signed domain was
+    reported as having no DKIM. The configured list now only adds.
+    """
+    configured = _scan_config().get("dkim_selectors") or []
+    selectors = []
+    for name in list(DEFAULT_DKIM_SELECTORS) + list(configured):
+        name = str(name).strip()
+        if name and name not in selectors:
+            selectors.append(name)
+    return selectors
 
 
 def _monitor_import_types():
@@ -346,17 +360,6 @@ _DOMAIN_RE = re.compile(
     r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$"
 )
 
-_PRIVATE_NETS = [
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-    ipaddress.ip_network("fe80::/10"),
-]
-
 
 def _is_valid_domain(domain):
     """Validate that input looks like a public domain name."""
@@ -366,12 +369,8 @@ def _is_valid_domain(domain):
 
 
 def _is_private_ip(ip_str):
-    """Return True if the IP is in a private/reserved range."""
-    try:
-        addr = ipaddress.ip_address(ip_str)
-        return any(addr in net for net in _PRIVATE_NETS)
-    except ValueError:
-        return True
+    """True for anything but a public unicast address (net_guard.py)."""
+    return net_guard.is_blocked(ip_str)
 
 
 def _is_valid_ip(ip_str):
@@ -395,9 +394,14 @@ def _normalize_domain(domain):
 
 
 def _safe_resolve_ip(domain):
-    """Resolve domain to IP and reject private addresses."""
+    """Resolve domain to an IPv4 address; refuse if any address is private.
+
+    Every address, not the one gethostbyname happens to return first: a name
+    with one public and one internal A record would otherwise have its ports
+    scanned on whichever the resolver handed out.
+    """
     ip = socket.gethostbyname(domain)
-    if _is_private_ip(ip):
+    if not net_guard.safe_host(domain, [ip] + net_guard.addresses(domain)):
         raise ValueError("Target resolves to a private IP address")
     return ip
 
@@ -676,13 +680,18 @@ def lookup_dns(domain):
 # ---------------------------------------------------------------------------
 
 def lookup_reverse_dns(ip):
-    """Return reverse DNS for an IP address."""
+    """PTR names for an address: [] when DNS says there are none.
+
+    A lookup that fails (timeout, SERVFAIL) raises instead of returning [],
+    which read as "this address has no reverse DNS" -- a statement about the
+    address that was never measured.
+    """
+    rev_name = dns.reversename.from_address(ip)
     try:
-        rev_name = dns.reversename.from_address(ip)
         answers = dns.resolver.resolve(rev_name, "PTR")
-        return [r.to_text() for r in answers]
-    except Exception:
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
         return []
+    return [r.to_text() for r in answers]
 
 
 # ---------------------------------------------------------------------------
@@ -1635,7 +1644,9 @@ def _check_tls_compression(domain, port=443):
             s.connect((domain, port))
             return s.compression() is not None
     except Exception:
-        return False
+        # Not "disabled": the handshake did not happen, so nothing was seen.
+        # False here was shown as "Disabled (safe)".
+        return None
 
 
 def _get_cert_details(domain, port=443):
@@ -4104,6 +4115,12 @@ def _start_scheduler_once():
 # ---------------------------------------------------------------------------
 # Security headers for our own responses
 # ---------------------------------------------------------------------------
+
+
+@app.before_request
+def _refuse_cross_site_writes():
+    # Before the login check: a forged request must not even reach it.
+    return csrf.check((_current_settings().general().get("public_url") or "").strip())
 
 
 @app.before_request
@@ -6775,70 +6792,6 @@ def well_known_pgp_key():
     return Response(key + chr(10), mimetype="application/pgp-keys")
 
 
-@app.route("/api/admin/pgp/status", methods=["GET"])
-@auth.require_admin
-def api_admin_pgp_status():
-    config = _disclosure_config()
-    return jsonify({
-        "gpg_available": pgp_keys.available(),
-        "gpg_version": pgp_keys.version(),
-        "fingerprint": config.get("pgp_fingerprint") or None,
-        "uid": config.get("pgp_uid") or None,
-        "generated_at": config.get("pgp_generated_at") or None,
-        "has_public_key": bool((config.get("pgp_public_key") or "").strip()),
-        "public_key_url": security_txt.PUBLIC_KEY_PATH,
-        "security_txt_url": security_txt.SECURITY_TXT_PATH,
-    })
-
-
-@app.route("/api/admin/pgp/generate", methods=["POST"])
-@auth.require_admin
-def api_admin_pgp_generate():
-    """Generate a keypair, keep the public half, return the private half once.
-
-    The private key is in this response body and nowhere else. It is not
-    written to the database, not logged, and not recoverable afterwards --
-    which is the entire point, and why the UI has to make the operator save
-    it before they navigate away.
-    """
-    if not pgp_keys.available():
-        return jsonify({"error": "gpg is not installed on this server, so a key cannot be generated here. The Docker image ships with it; on a native install, install GnuPG (Gpg4win on Windows) and restart DomainLens."}), 503
-    payload = request.get_json(silent=True) or {}
-    try:
-        result = pgp_keys.generate(
-            payload.get("name", ""),
-            payload.get("email", ""),
-            payload.get("passphrase", "") or "",
-            payload.get("expiry", "2y"),
-        )
-    except pgp_keys.PgpInputError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except pgp_keys.PgpError as exc:
-        return jsonify({"error": str(exc)}), 502
-
-    _settings_store.update_section("disclosure", {
-        "pgp_public_key": result["public_key"],
-        "pgp_fingerprint": result["fingerprint"],
-        "pgp_uid": result["uid"],
-        "pgp_generated_at": datetime.now(timezone.utc).isoformat(),
-    }, user_id=(auth.current_user() or {}).get("id"))
-    log.info("Generated disclosure PGP key %s (private half not stored)",
-             result["fingerprint"])
-    audit_log.record("disclosure.pgp_generate", target_type="pgp_key",
-                     target_id=result["fingerprint"])
-
-    return jsonify({
-        "fingerprint": result["fingerprint"],
-        "uid": result["uid"],
-        "public_key": result["public_key"],
-        # Returned once. Nothing server-side keeps a copy.
-        "private_key": result["private_key"],
-        "protected": result["protected"],
-        "warning": "This is the only copy of the private key. Save it now; "
-                   "DomainLens does not store it and cannot show it again.",
-    }), 201
-
-
 @app.route("/favicon.ico")
 def favicon():
     """Browsers ask for this on every page whether or not it is linked.
@@ -6847,259 +6800,6 @@ def favicon():
     people to ignore the console -- where the errors that matter show up.
     """
     return redirect("/static/favicon.svg", code=301)
-
-
-@app.route("/tools/disclosure")
-def lookup_pgp_view():
-    return render_template(
-        "lookup_pgp.html", section="tools",
-        subnav=_subnav(_TOOLS_SUBNAV, "/tools/disclosure"))
-
-
-@app.route("/lookup/pgp")
-def lookup_pgp_view_legacy():
-    return redirect("/tools/disclosure", code=301)
-
-
-@app.route("/tools/mail")
-def mail_test_view():
-    return render_template(
-        "lookup_mail.html", section="tools",
-        subnav=_subnav(_TOOLS_SUBNAV, "/tools/mail"))
-
-
-class _MailLookups(mail_test.Lookups):
-    """The mail analysis's lookups, with the blocklists the scan uses."""
-
-    def blocklist(self, ip):
-        result = check_blacklist(ip)
-        return None if result.get("error") else result
-
-    def own_domains(self):
-        return link_check.own_domains()
-
-    def check_hashes(self, digests):
-        import file_reputation
-        return file_reputation.check(digests)
-
-    def check_links(self, urls):
-        # Threat lists are searched here; VirusTotal is asked by hash, and
-        # only when an admin switched it on (link_check.py).
-        state = link_check.virustotal_state()
-        return {"feeds": link_check.check_feeds(urls),
-                "virustotal": {"state": state,
-                               "results": link_check.check_virustotal(urls) if state == "on" else {}}}
-
-
-def _is_outlook_message(raw):
-    """An OLE file that holds the streams of an Outlook message, told apart
-    from an older Word or Excel file, which is OLE too. Only the directory
-    names are read here; the content is read in the sandbox."""
-    return any(marker in raw for marker in ("__substg1.0_".encode("utf-16-le"), "__properties_version1.0".encode("utf-16-le")))
-
-
-_FILE_MAGIC = (b"PK\x03\x04", b"PK\x05\x06", b"MZ", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", b"{\\rt", b"Rar!",
-               b"7z\xbc\xaf\x27\x1c", b"\x1f\x8b", b"MSCF", b"\x7fELF", b"\x4c\x00\x00\x00\x01\x14\x02\x00")
-
-
-def _looks_like_file(raw):
-    """A file rather than a message, by its first bytes alone: whether a
-    binary file's first line happens to hold a colon must not decide it."""
-    return raw.startswith(_FILE_MAGIC) or b"%PDF-" in raw[:1024] or b"\x00" in raw[:4096]
-
-
-@app.route("/api/mailtest", methods=["POST"])
-def api_mail_test():
-    """Judge one received message (.eml, Outlook .msg or pasted text), or one PDF.
-
-    The message is analysed and not kept; only the DKIM selectors it shows
-    to be in use are remembered, for later scans of that domain.
-    """
-    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
-        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
-    upload = request.files.get("file")
-    if upload is not None:
-        raw = upload.read(mail_test.MAX_BYTES + 1)
-        ip = request.form.get("ip")
-    else:
-        data = request.get_json(silent=True) or {}
-        raw = str(data.get("message") or "").encode("utf-8", "surrogateescape")
-        ip = data.get("ip")
-    if len(raw) > mail_test.MAX_BYTES:
-        return jsonify({"error": "The message is larger than 10 MB."}), 413
-    if not raw.strip():
-        return jsonify({"error": "Paste the message source or choose an .eml file."}), 400
-    # Told apart by what the file is, not by its name: an Outlook message
-    # (read in the sandbox process, like every attachment), a message as
-    # received, or any other file on its own.
-    origin = "eml"
-    if upload is not None and msg_file.is_msg(raw) and _is_outlook_message(raw):
-        try:
-            raw, msg_info = sandbox.convert_msg(raw)
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
-        origin = "msg"
-    elif upload is not None and _looks_like_file(raw):
-        return jsonify(mail_test.analyse_file(raw, upload.filename, lookups=_MailLookups()))
-    elif b":" not in raw.lstrip().split(b"\n", 1)[0]:
-        if upload is None:
-            return jsonify({"error": "This does not look like a message: it should start with header lines."}), 400
-        return jsonify(mail_test.analyse_file(raw, upload.filename, lookups=_MailLookups()))
-    try:
-        result = mail_test.analyse(raw, lookups=_MailLookups(), ip=(ip or None), origin=origin)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    if origin == "msg":
-        result["msg"] = msg_info
-    if result["learned"]:
-        mail_test.remember((x["domain"], x["selector"]) for x in result["learned"])
-    return jsonify(result)
-
-
-class _LinkLookups(url_check.Lookups):
-    """The link check's lookups, with the blocklists and IP threat lists the scan uses."""
-
-    def reputation(self, ip):
-        result = check_blacklist(ip)
-        return None if result.get("error") else result
-
-
-@app.route("/api/linkcheck", methods=["POST"])
-def api_link_check():
-    """Judge links pasted on their own, without opening them (url_check.py)."""
-    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
-        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
-    data = request.get_json(silent=True) or {}
-    text = str(data.get("text") or "")[:20000]
-    if not text.strip():
-        return jsonify({"error": "Paste one or more links."}), 400
-    result = url_check.check(text, _LinkLookups())
-    if not result["links"]:
-        return jsonify({"error": "No link was found in the text."}), 400
-    return jsonify(result)
-
-
-@app.route("/api/iplists", methods=["GET"])
-def api_ip_lists():
-    """The IP threat lists in use: when each was fetched, how many ranges."""
-    return jsonify({"lists": ip_lists.status()})
-
-
-@app.route("/api/iplists/refresh", methods=["POST"])
-@auth.require_admin
-def api_ip_lists_refresh():
-    """Download the IP threat lists now instead of waiting for the scheduler."""
-    if not ip_lists.status():
-        return jsonify({"error": "No IP threat lists are switched on (Admin -> Settings -> IP threat lists)."}), 400
-    threading.Thread(target=ip_lists.refresh, daemon=True, name="ip-lists").start()
-    audit_log.record("iplists.refresh", target_type="settings")
-    return jsonify({"started": True}), 202
-
-
-@app.route("/api/mailtest/checks", methods=["GET"])
-def api_mail_test_checks():
-    """How links are checked here: the threat lists and their age, whether
-    VirusTotal is on, how many own domains lookalikes are compared with."""
-    return jsonify({"feeds": link_check.feed_status(), "virustotal": link_check.virustotal_state(),
-                    "own_domains": len(link_check.own_domains())})
-
-
-@app.route("/api/mailtest/feeds/refresh", methods=["POST"])
-@auth.require_admin
-def api_mail_test_feeds_refresh():
-    """Download the threat lists now instead of waiting for the scheduler."""
-    if not link_check.feed_status():
-        return jsonify({"error": "No threat lists are configured (Admin -> Settings -> Mail analysis)."}), 400
-    threading.Thread(target=link_check.refresh, daemon=True, name="link-feeds").start()
-    audit_log.record("mailtest.feeds_refresh", target_type="settings")
-    return jsonify({"started": True}), 202
-
-
-@app.route("/api/pgp/inspect", methods=["GET"])
-def api_pgp_inspect():
-    """Read one domain's security.txt and check the key it points at.
-
-    Rate limited on the same bucket as DNS lookups: it makes outbound
-    requests on behalf of whoever can reach this page.
-    """
-    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
-        return jsonify({"error": "Too many lookups in a short time. Wait a moment."}), 429
-    domain = _normalize_domain(request.args.get("domain", ""))
-    if not _is_valid_domain(domain):
-        return jsonify({"error": "Enter a valid public domain name"}), 400
-    try:
-        return jsonify(security_checks.inspect_security_txt(domain))
-    except Exception as exc:
-        return jsonify({"error": _safe_error(exc)}), 502
-
-
-@app.route("/api/pgp/validate-securitytxt", methods=["POST"])
-def api_pgp_validate_securitytxt():
-    """Check a pasted security.txt against RFC 9116.
-
-    Nothing is fetched and nothing is stored: it reads the text it was given,
-    which is what makes it usable on a file you have not published yet.
-    """
-    payload = request.get_json(silent=True) or {}
-    body = payload.get("body", "")
-    if len(body) > 100_000:
-        return jsonify({"error": "That is larger than any security.txt should be"}), 400
-    return jsonify(security_txt.validate(body))
-
-
-@app.route("/api/pgp/validate-key", methods=["POST"])
-def api_pgp_validate_key():
-    """Describe a pasted armoured key: algorithm, fingerprint, uids, expiry.
-
-    A private key pasted here is reported rather than refused. Someone
-    checking "does my key work" with the wrong half needs to be told that,
-    not handed a validation error.
-    """
-    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
-        return jsonify({"error": "Too many checks in a short time. Wait a moment."}), 429
-    # No gpg check here on purpose: inspect_key can tell a signature from a
-    # key without it, and answering "gpg is not installed" to someone who
-    # pasted the wrong block sends them after the wrong problem.
-    payload = request.get_json(silent=True) or {}
-    armored = payload.get("key", "")
-    if len(armored) > 500_000:
-        return jsonify({"error": "That is larger than any armoured key should be"}), 400
-    try:
-        return jsonify(pgp_keys.inspect_key(armored))
-    except pgp_keys.PgpError as exc:
-        return jsonify({"error": str(exc)}), 502
-
-
-@app.route("/api/pgp/generate", methods=["POST"])
-def api_pgp_generate_throwaway():
-    """Generate a keypair and keep nothing at all.
-
-    The counterpart in /api/admin/pgp/generate stores the public half so this
-    installation can publish it. This one is a tool: it is for a domain that
-    is not this one, so neither half is persisted and the caller gets both.
-    """
-    if not _check_rate_limit(request.remote_addr, bucket="dns_lookup"):
-        return jsonify({"error": "Too many requests in a short time. Wait a moment."}), 429
-    if not pgp_keys.available():
-        return jsonify({"error": "gpg is not installed on this server, so a key cannot be generated here. The Docker image ships with it; on a native install, install GnuPG (Gpg4win on Windows) and restart DomainLens."}), 503
-    payload = request.get_json(silent=True) or {}
-    try:
-        result = pgp_keys.generate(
-            payload.get("name", ""),
-            payload.get("email", ""),
-            payload.get("passphrase", "") or "",
-            payload.get("expiry", "2y"),
-        )
-    except pgp_keys.PgpInputError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except pgp_keys.PgpError as exc:
-        return jsonify({"error": _safe_error(exc)}), 502
-    log.info("Generated a throwaway PGP key %s (nothing stored)", result["fingerprint"])
-    return jsonify({
-        **result,
-        "warning": "Neither half of this key is stored. Save it now; it cannot "
-                   "be shown again.",
-    }), 201
 
 
 @app.route("/api/checks", methods=["GET"])
@@ -7771,9 +7471,33 @@ def api_reverse_dns():
     if not _is_valid_ip(ip):
         return jsonify({"error": "Invalid IP address format"}), 400
 
-    results = lookup_reverse_dns(ip)
+    try:
+        results = lookup_reverse_dns(ip)
+    except Exception as exc:
+        log.info("Reverse lookup of %s failed: %s", ip, exc)
+        return jsonify({"ip": ip, "ptr_records": None,
+                        "error": "The reverse lookup could not be completed; nothing is known "
+                                 "about this address's PTR records."}), 502
     return jsonify({"ip": ip, "ptr_records": results})
 
+
+# The disclosure and mail-analysis tools, moved out of this file whole.
+from routes import mail_tools as _mail_tools_routes, pgp_tools as _pgp_tools_routes  # noqa: E402
+
+def _late(name):
+    # Looked up in this module on every call, not captured now: a test (or a
+    # later reassignment) that replaces app.<name> reaches the moved routes too.
+    return lambda *args, **kwargs: globals()[name](*args, **kwargs)
+
+
+_tool_deps = dict(
+    auth=auth, check_rate_limit=_late("_check_rate_limit"), subnav=_late("_subnav"),
+    safe_error=_late("_safe_error"), normalize_domain=_late("_normalize_domain"),
+    is_valid_domain=_late("_is_valid_domain"), disclosure_config=_late("_disclosure_config"),
+    custom_resolvers=_late("_custom_resolvers"), tools_subnav=_TOOLS_SUBNAV,
+)
+_pgp_tools_routes.register(app, settings_store=_settings_store, **_tool_deps)
+_mail_tools_routes.register(app, check_blacklist=_late("check_blacklist"), **_tool_deps)
 
 # Modular route packages (health/version/updates + report exports)
 route_modules.register_routes(

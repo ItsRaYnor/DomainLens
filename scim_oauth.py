@@ -31,17 +31,12 @@ def _signing_key() -> str:
     else the persistent random app secret from the DB. If neither is available
     token issuing/verification is refused rather than using a guessable key.
     """
-    raw = (
-        os.environ.get("SCIM_TOKEN_SIGNING_KEY")
-        or os.environ.get("DOMAINLENS_SECRET_KEY")
-        or os.environ.get("FLASK_SECRET_KEY")
-        or ""
-    ).strip()
-    if raw:
-        return raw
+    import app_secret
     try:
-        import db as _db
-        secret = _db.get_or_create_app_secret()
+        # A published example key would let anyone mint a SCIM token and
+        # provision an account of their own; app_secret skips those.
+        secret = app_secret.signing_secret(
+            override=os.environ.get("SCIM_TOKEN_SIGNING_KEY") or "")
         if secret:
             return secret
     except Exception as exc:

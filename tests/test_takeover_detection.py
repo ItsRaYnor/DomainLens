@@ -134,7 +134,7 @@ class EnumerationTruncationTests(unittest.TestCase):
         rows = [{"name_value": "\n".join(f"h{i}.example.com" for i in range(100))}]
         resp = mock.Mock(status_code=200)
         resp.json.return_value = rows
-        with mock.patch("security_checks.requests.get", return_value=resp):
+        with mock.patch("crtsh.requests.get", return_value=resp):
             subs, discovered, source_error, _meta = s.enumerate_subdomains("example.com", limit=10)
         self.assertEqual(len(subs), 10)
         self.assertEqual(discovered, 101)  # 100 hosts + the apex

@@ -60,3 +60,5 @@ Server preferred {} (expected {})	De server gaf voorkeur aan {} (verwacht: {})
 critical,	kritiek,
 answered by {}	beantwoord door {}
 flags: {}	vlaggen: {}
+Not protected — DOMAINLENS_SECRET_KEY is the example value from the DomainLens documentation, so anyone can derive the encryption key. Generate your own (openssl rand -hex 32), then enter these values again: the ones stored now cannot be read with a new key.	Niet beschermd — DOMAINLENS_SECRET_KEY is de voorbeeldwaarde uit de DomainLens-documentatie, dus iedereen kan de versleutelingssleutel afleiden. Maak een eigen sleutel (openssl rand -hex 32) en voer deze waarden daarna opnieuw in: de huidige kunnen met een nieuwe sleutel niet meer worden gelezen.
+Write-only: a value can be replaced or removed here, never read back. Stored with a public key; an environment variable wins and locks the field.	Alleen te schrijven: een waarde kan hier worden vervangen of verwijderd, maar nooit teruggelezen. Opgeslagen met een openbare sleutel; een omgevingsvariabele gaat voor en vergrendelt het veld.

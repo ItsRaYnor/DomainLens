@@ -18,6 +18,9 @@ jobs:
       # write, not read: the release step below creates the tag that the
       # in-app update check compares against.
       contents: write
+      # The OIDC token cosign exchanges for a short-lived signing certificate
+      # naming this workflow; there is no signing key to keep or leak.
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -76,6 +79,7 @@ jobs:
             type=semver,pattern={{version}}
 
       - name: Build and push
+        id: build
         if: steps.published.outputs.done != 'true'
         uses: docker/build-push-action@v7
         with:
@@ -95,6 +99,21 @@ jobs:
           # without pulling it apart.
           sbom: true
           provenance: mode=max
+
+      # A signature anyone can check proves the image came out of this
+      # workflow in this repository, not from someone holding the Docker Hub
+      # password. One signature on the digest covers every tag and both
+      # architectures. How to verify: docs/DOCKER_AND_UPDATES.md.
+      - name: Install cosign
+        if: steps.published.outputs.done != 'true'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the image
+        if: steps.published.outputs.done != 'true'
+        env:
+          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/domainlens
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
       # Registry push needs write; the repo-description API needs read/write/delete
       # on the PAT (Docker Hub treats that as admin). A write-only token pushes fine

@@ -9,6 +9,9 @@ DEFAULT_DKIM_SELECTORS = [
     # transactional-mail and email-hosting providers seen in the wild.
     "zmail", "resend", "brevo1", "brevo2", "whs1", "whs2", "whs3",
     "pm", "pmta", "smtpapi", "scph0223", "scph0224",
+    # OVHcloud's hosted mail (MX Plan, Exchange) publishes its keys under
+    # these two; a domain on OVH was reported as having no DKIM at all.
+    "ovhmo-selector-1", "ovhmo-selector-2",
 ]
 
 DEFAULT_SCAN_PORTS = {
@@ -76,6 +79,8 @@ DEFAULTS = {
         "host": "127.0.0.1",
         "port": 5000,
         "log_level": "INFO",
+        # "json": one JSON object per line, for a log collector (log_setup.py).
+        "log_format": "text",
     },
     "database": {
         "path": "domainlens.db",
@@ -353,6 +358,7 @@ ENV_OVERRIDES = {
     "DOMAINLENS_PORT": ("server", "port", "int"),
     "PORT": ("server", "port", "int"),
     "DOMAINLENS_LOG_LEVEL": ("server", "log_level", "str"),
+    "DOMAINLENS_LOG_FORMAT": ("server", "log_format", "str"),
     "DOMAINLENS_DB": ("database", "path", "str"),
     "DOMAINLENS_MONITOR_AUTORUN": ("scheduler", "enabled", "bool"),
     "DOMAINLENS_MONITOR_POLL_SECONDS": ("scheduler", "poll_seconds", "int"),

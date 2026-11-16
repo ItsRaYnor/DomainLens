@@ -18,7 +18,7 @@ class JsScanTests(unittest.TestCase):
             '<script src="https://cdn.example.com/jquery-1.12.4.min.js"></script>'
             '</head><body></body></html>'
         )
-        with mock.patch("js_scan.requests.get", return_value=self._homepage_resp(html)):
+        with mock.patch("js_scan.net_guard.get", return_value=self._homepage_resp(html)):
             result = js_scan.scan("example.com")
 
         self.assertTrue(result["success"])
@@ -35,7 +35,7 @@ class JsScanTests(unittest.TestCase):
             f'<script>var cfg = {{"apiKey": "{fake_key}"}};</script>'
             '</head><body></body></html>'
         )
-        with mock.patch("js_scan.requests.get", return_value=self._homepage_resp(html)):
+        with mock.patch("js_scan.net_guard.get", return_value=self._homepage_resp(html)):
             result = js_scan.scan("example.com")
 
         self.assertTrue(result["success"])
@@ -51,7 +51,7 @@ class JsScanTests(unittest.TestCase):
             '<script>var cfg = {"apiKey": "your_api_key_here_xxxxxxxx"};</script>'
             '</head><body></body></html>'
         )
-        with mock.patch("js_scan.requests.get", return_value=self._homepage_resp(html)):
+        with mock.patch("js_scan.net_guard.get", return_value=self._homepage_resp(html)):
             result = js_scan.scan("example.com")
         self.assertEqual(result["secrets_found"], [])
 
@@ -61,7 +61,7 @@ class JsScanTests(unittest.TestCase):
             '<script src="https://other-cdn.example.net/lib.js"></script>'
             '</head><body></body></html>'
         )
-        with mock.patch("js_scan.requests.get", return_value=self._homepage_resp(html)), \
+        with mock.patch("js_scan.net_guard.get", return_value=self._homepage_resp(html)), \
              mock.patch("js_scan._fetch_script", return_value=None):
             result = js_scan.scan("example.com")
         self.assertEqual(len(result["missing_sri"]), 1)
@@ -69,7 +69,7 @@ class JsScanTests(unittest.TestCase):
 
     def test_no_findings_on_clean_page(self):
         html = "<html><head></head><body>Hello</body></html>"
-        with mock.patch("js_scan.requests.get", return_value=self._homepage_resp(html)):
+        with mock.patch("js_scan.net_guard.get", return_value=self._homepage_resp(html)):
             result = js_scan.scan("example.com")
         self.assertTrue(result["success"])
         self.assertEqual(result["vulnerable_libraries"], [])

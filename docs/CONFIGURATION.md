@@ -43,6 +43,7 @@ volumes:
 | `host` | `0.0.0.0` | `DOMAINLENS_HOST` |
 | `port` | `5000` | `DOMAINLENS_PORT` / `PORT` |
 | `log_level` | `INFO` | `DOMAINLENS_LOG_LEVEL` |
+| `log_format` | `text` | `DOMAINLENS_LOG_FORMAT` — `json` writes one JSON object per line (time, level, logger, message, request id, traceback) for a log collector |
 
 ### `database`
 

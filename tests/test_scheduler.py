@@ -2,7 +2,6 @@ import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
-from unittest import mock
 
 
 class SchedulerTests(unittest.TestCase):
@@ -30,7 +29,7 @@ class SchedulerTests(unittest.TestCase):
             os.environ.pop(key, None)
 
     def test_process_due_monitors_success(self):
-        monitor_id = self.db.create_monitor(
+        self.db.create_monitor(
             name="t",
             domain="example.com",
             target="example.com",
@@ -38,7 +37,6 @@ class SchedulerTests(unittest.TestCase):
             schedule_minutes=60,
             checks=["dns"],
         )
-        monitor = self.db.get_monitor(monitor_id)
         lock = __import__("threading").Lock()
 
         outcome = self.scheduler.process_due_monitors(

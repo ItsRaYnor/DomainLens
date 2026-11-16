@@ -1191,7 +1191,13 @@ function renderTlsDeep(data, ncsc) {
 
     let fHtml = '<table class="data-table">';
     fHtml += `<tr><th>OCSP Stapling</th><td><span class="status ${data.ocsp_stapling ? 'status-pass' : 'status-fail'}">${data.ocsp_stapling ? 'Enabled' : 'Not enabled'}</span></td></tr>`;
-    fHtml += `<tr><th>TLS Compression</th><td><span class="status ${!data.tls_compression ? 'status-pass' : 'status-fail'}">${data.tls_compression ? 'Enabled (CRIME vulnerable!)' : 'Disabled (safe)'}</span></td></tr>`;
+    // null: the handshake did not happen, so it was not measured -- not "safe".
+    const compression = data.tls_compression === true
+        ? '<span class="status status-fail">Enabled (CRIME vulnerable!)</span>'
+        : data.tls_compression === false
+            ? '<span class="status status-pass">Disabled (safe)</span>'
+            : '<span class="status status-warn">Not measured</span>';
+    fHtml += `<tr><th>TLS Compression</th><td>${compression}</td></tr>`;
     if (data.hsts) {
         let hstsStatus = 'status-fail';
         let hstsText = 'Not set';
@@ -1468,11 +1474,17 @@ function renderSecurity(data) {
         // CORS
         const cors = web.cors || {};
         html += '<table class="data-table" style="margin-top:0.75rem">';
-        html += `<tr><th>CORS Allow-Origin</th><td>${escapeHtml(cors.allow_origin || '(none)')}${cors.reflects_origin ? ' <span class="status status-fail">reflects Origin</span>' : ''}${cors.wildcard ? ' <span class="status status-warn">wildcard</span>' : ''}</td></tr>`;
-        html += `<tr><th>CORS Credentials</th><td>${cors.allow_credentials ? 'true' : 'false'}</td></tr>`;
+        if (cors.error) {
+            html += '<tr><th>CORS Allow-Origin</th><td><span class="status status-warn">Not measured</span></td></tr>';
+        } else {
+            html += `<tr><th>CORS Allow-Origin</th><td>${escapeHtml(cors.allow_origin || '(none)')}${cors.reflects_origin ? ' <span class="status status-fail">reflects Origin</span>' : ''}${cors.wildcard ? ' <span class="status status-warn">wildcard</span>' : ''}</td></tr>`;
+            html += `<tr><th>CORS Credentials</th><td>${cors.allow_credentials ? 'true' : 'false'}</td></tr>`;
+        }
         // Methods
         const m = web.methods || {};
-        if (m.allow_header) {
+        if (m.error) {
+            html += '<tr><th>Allowed methods</th><td><span class="status status-warn">Not measured</span></td></tr>';
+        } else if (m.allow_header) {
             html += `<tr><th>Allowed methods</th><td>${escapeHtml(m.allow_header)}${m.trace_enabled ? ' <span class="status status-warn">TRACE</span>' : ''}</td></tr>`;
         }
         html += `<tr><th>security.txt</th><td><span class="status ${web.security_txt ? 'status-pass' : 'status-warn'}">${web.security_txt ? 'present' : 'missing'}</span></td></tr>`;

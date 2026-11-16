@@ -79,7 +79,7 @@ def create(user, *, name, role=None, days=DEFAULT_DAYS):
     try:
         days = int(days)
     except (TypeError, ValueError):
-        raise ValueError("Expiry must be a number of days")
+        raise ValueError("Expiry must be a number of days") from None
     if not 1 <= days <= MAX_DAYS:
         raise ValueError(f"Expiry must be between 1 and {MAX_DAYS} days")
     owner_role = roles.normalize(user.get("role"))

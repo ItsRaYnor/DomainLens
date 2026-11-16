@@ -58,7 +58,8 @@ class LockTests(unittest.TestCase):
     def test_the_image_itself_is_scanned_before_it_is_published(self):
         ci = ROOT.joinpath(".github", "workflows", "tests.yml").read_text(encoding="utf-8")
         self.assertIn("docker build -t domainlens:ci .", ci)
-        self.assertRegex(ci, r"trivy:latest image \\\n\s+--scanners vuln .*--exit-code 1 domainlens:ci")
+        # The scanner image is pinned in .github/scanners/Dockerfile.
+        self.assertRegex(ci, r"\$\{\{ steps\.scanner\.outputs\.trivy \}\} image \\\n\s+--scanners vuln .*--exit-code 1 domainlens:ci")
 
     def test_updates_arrive_for_packages_base_image_and_actions(self):
         dependabot = ROOT.joinpath(".github", "dependabot.yml").read_text(encoding="utf-8")

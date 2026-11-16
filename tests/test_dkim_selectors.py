@@ -75,5 +75,51 @@ class DkimSelectorValidationTests(unittest.TestCase):
         self.assertEqual(len(zmail_calls), 1)
 
 
+class BuiltInSelectorTests(unittest.TestCase):
+    """A domain on OVHcloud's hosted mail signs with ovhmo-selector-1/-2.
+    None of the probed names matched, so a signed domain was reported as
+    having no DKIM at all -- a defect the domain did not have.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        os.environ.setdefault("DOMAINLENS_DISABLE_SCHEDULER", "1")
+        import app
+        cls.app = app
+
+    def _signed_by_ovh(self, name, rtype):
+        if name.startswith("ovhmo-selector-1.") or name.startswith("ovhmo-selector-2."):
+            return ['"v=DKIM1; k=rsa; p=MIIBIjANBgkq"']
+        return []
+
+    def test_an_ovh_signed_domain_is_found_without_any_configuration(self):
+        with mock.patch("app._resolve", side_effect=self._signed_by_ovh), \
+             mock.patch("app._scan_config", return_value={}):
+            result = self.app.check_dkim("example.com")
+
+        self.assertTrue(result["found"])
+        self.assertEqual(sorted(s["selector"] for s in result["selectors"]),
+                         ["ovhmo-selector-1", "ovhmo-selector-2"])
+
+    def test_a_saved_scan_section_does_not_freeze_out_new_built_in_selectors(self):
+        # Saving any scan setting stores the selector list of that moment.
+        # Such an installation must still probe selectors added afterwards.
+        saved = {"dkim_selectors": ["default", "google", "selector1"]}
+        with mock.patch("app._resolve", side_effect=self._signed_by_ovh), \
+             mock.patch("app._scan_config", return_value=saved):
+            result = self.app.check_dkim("example.com")
+
+        self.assertTrue(result["found"])
+
+    def test_configured_selectors_are_still_probed_and_not_repeated(self):
+        with mock.patch("app._scan_config",
+                        return_value={"dkim_selectors": ["default", " corp2024 ", "corp2024"]}):
+            selectors = self.app._dkim_selectors_list()
+
+        self.assertIn("corp2024", selectors)
+        self.assertEqual(selectors.count("corp2024"), 1)
+        self.assertEqual(selectors.count("default"), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

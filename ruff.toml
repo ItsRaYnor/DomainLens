@@ -1,0 +1,10 @@
+# What CI refuses (.github/workflows/tests.yml). Deliberately the rules that
+# find bugs, not style: an undefined name, an import or variable that does
+# nothing, a mutable default argument shared between calls, an exception
+# re-raised without its cause. Style is not enforced, so nobody reformats
+# 100,000 lines to get a pull request through.
+target-version = "py312"
+extend-exclude = ["i18n/locales", "static"]
+
+[lint]
+select = ["F", "E9", "B006", "B008", "B904"]

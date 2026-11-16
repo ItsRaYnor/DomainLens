@@ -19,6 +19,7 @@ class ScanJobRegistryTests(unittest.TestCase):
         scan_jobs.reset()
 
     def tearDown(self):
+        scan_jobs.wait_idle()
         scan_jobs.reset()
 
     def _runner(self, steps=4, delay=0.01, result=None, raises=None):
@@ -160,6 +161,7 @@ class ScanJobEndpointTests(unittest.TestCase):
         scan_jobs.reset()
 
     def tearDown(self):
+        scan_jobs.wait_idle()
         scan_jobs.reset()
         self.tempdir.cleanup()
         for key in ("DOMAINLENS_DB", "DOMAINLENS_DISABLE_SCHEDULER"):

@@ -17,7 +17,7 @@ _lock = threading.Lock()
 FEATURE_SCHEMAS = ("audit_log", "domain_ownership", "api_tokens", "risk_acceptance",
                    "domain_watch", "domain_portfolio", "contacts", "mail_test",
                    "link_check", "ip_lists", "advisory_rules", "cve_feed", "ncsc_advisories",
-                   "cve_alerts")
+                   "cve_alerts", "scan_jobs")
 
 
 def _db_path():
@@ -388,6 +388,97 @@ def init_db():
         # top because each of them imports this module.
         for module_name in FEATURE_SCHEMAS:
             importlib.import_module(module_name).init_schema(conn)
+
+        _apply_migrations(conn)
+
+
+# ---------------------------------------------------------------------------
+# Numbered migrations
+# ---------------------------------------------------------------------------
+#
+# Everything above is the baseline: idempotent, so it brings a database of any
+# age to the shape this code expects, which is how every change was made until
+# now. That works for adding a table or a column. It does not work for a change
+# that must happen exactly once -- rewriting stored values, splitting a column
+# -- and it leaves no record of which schema a database file carries, so a
+# backup restored next to the wrong image could not be told apart.
+#
+# A change from here on is a numbered step: (number, description, function).
+# Each runs once, in order, in its own transaction; the number is kept in
+# PRAGMA user_version and each step in schema_migrations, with the version of
+# DomainLens that applied it. Never renumber or edit a published step; add one.
+
+def _migration_001_baseline(conn):
+    """The schema as created above, as of 0.1.22: nothing more to do."""
+
+
+MIGRATIONS = (
+    (1, "baseline schema as of 0.1.22", _migration_001_baseline),
+)
+
+SCHEMA_VERSION = MIGRATIONS[-1][0]
+
+
+def _app_version():
+    try:
+        import version as _version
+        return _version.get_version()
+    except Exception:
+        return os.environ.get("DOMAINLENS_VERSION") or "unknown"
+
+
+def _apply_migrations(conn, migrations=None):
+    import logging
+    log = logging.getLogger("domainlens.db")
+    migrations = MIGRATIONS if migrations is None else migrations
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT NOT NULL,
+            app_version TEXT
+        )
+        """
+    )
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    newest = migrations[-1][0] if migrations else 0
+    if current > newest:
+        # An older image on a database a newer one has migrated. Every step so
+        # far only adds, so this usually works -- which is why a rollback is
+        # not refused -- but say so, since it is the first thing to look at
+        # when something then misbehaves.
+        log.warning("Database schema is version %s; this DomainLens knows up to %s. "
+                    "It was migrated by a newer release.", current, newest)
+        return current
+    for number, name, step in migrations:
+        if number <= current:
+            continue
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            step(conn)
+            conn.execute(
+                "INSERT OR REPLACE INTO schema_migrations (version, name, applied_at, app_version) "
+                "VALUES (?, ?, ?, ?)",
+                (number, name, datetime.now(timezone.utc).isoformat(), _app_version()),
+            )
+            # PRAGMA takes no parameters; number is an int from the list above.
+            conn.execute(f"PRAGMA user_version = {int(number)}")
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            log.exception("Database migration %s (%s) failed; the database is left at version %s",
+                          number, name, current)
+            raise
+        current = number
+        log.info("Database migrated to schema version %s: %s", number, name)
+    return current
+
+
+def schema_version():
+    """The schema version recorded in the database file."""
+    with _connect() as conn:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
 
 
 def _summarize(results):

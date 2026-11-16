@@ -34,7 +34,7 @@ Watchtower is **disabled** by default (`com.centurylinklabs.watchtower.enable=fa
 
 ## Docker Hub images (no build on the NAS)
 
-`.github/workflows/docker-publish.yml` builds and pushes a multi-arch (`linux/amd64` + `linux/arm64`) image to Docker Hub on every push to `main`, tagged `latest`, the app version (from [`VERSION`](../VERSION)), and a short commit SHA.
+`.github/workflows/docker-publish.yml` builds and pushes a multi-arch (`linux/amd64` + `linux/arm64`) image to Docker Hub when a push to `main` carries a version that has not been released yet, tagged `latest` and the app version (from [`VERSION`](../VERSION)). A push that keeps the version publishes nothing. The commit is in the image's `org.opencontainers.image.revision` label.
 
 Requires two repo secrets (**Settings → Secrets and variables → Actions**):
 
@@ -49,6 +49,22 @@ Then deploy [`docker-compose.dockerhub.yml`](../docker-compose.dockerhub.yml) in
 docker pull itsraynor/domainlens:latest
 docker compose -f docker-compose.dockerhub.yml up -d
 ```
+
+### Verifying an image
+
+Every published image is signed by the workflow that built it, with
+[cosign](https://docs.sigstore.dev/) and no long-lived key: the signature names the
+repository and the workflow file, and is recorded in the public Sigstore transparency log.
+An image pushed by anyone else -- with a stolen Docker Hub token, say -- carries no such
+signature.
+
+```bash
+cosign verify itsraynor/domainlens:0.1.22 \
+  --certificate-identity-regexp '^https://github.com/ItsRaYnor/DomainLens/\.github/workflows/docker-publish\.yml@' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Versions before 0.1.22 were published unsigned.
 
 ## In-app update check
 

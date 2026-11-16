@@ -10,7 +10,7 @@ rating, two different letters for one domain.
 
 import pathlib
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import domain_portfolio
 import management

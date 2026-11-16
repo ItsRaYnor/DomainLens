@@ -83,6 +83,17 @@ services:
       # Synology bind mount — easy backup via File Station / Hyper Backup
       - /volume1/docker/domainlens:/data
     restart: unless-stopped
+    # Nothing in the container can be changed but /data and a scratch /tmp,
+    # and it keeps only the privileges the entrypoint needs to hand /data to
+    # the domainlens user and drop to it (chown, then gosu). A flaw in a
+    # parser or a check then has no image to rewrite and no root to regain.
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/health"]
       interval: 30s

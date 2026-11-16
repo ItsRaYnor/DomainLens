@@ -37,10 +37,81 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --require-hashes -r requirements.txt
-          pip install pytest
+          pip install pytest pytest-cov
 
+      # Coverage is reported, not enforced: a threshold invites tests written
+      # to move a number. The total goes in the run summary so a drop is seen.
       - name: Run tests
-        run: python -m pytest -q
+        run: |
+          python -m pytest -q --cov=. --cov-report=
+          echo "Test coverage: $(python -m coverage report --format=total)%" >> "$GITHUB_STEP_SUMMARY"
+
+  # Every page in a real browser (tests/e2e). The unit tests never run the
+  # pages' JavaScript, so a script that throws on load, a CSP rule blocking the
+  # page's own script, or a fetch() the server refuses passed them all.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install DomainLens and a browser
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.txt
+          pip install pytest playwright==1.65.2
+          python -m playwright install --with-deps chromium
+
+      - name: Start DomainLens
+        env:
+          DOMAINLENS_DB: ${{ runner.temp }}/e2e.db
+          DOMAINLENS_DATA_DIR: ${{ runner.temp }}
+          DOMAINLENS_HOST: 127.0.0.1
+          DOMAINLENS_PORT: "5055"
+          DOMAINLENS_MONITOR_AUTORUN: "0"
+          DOMAINLENS_DISABLE_SCHEDULER: "1"
+        run: |
+          export DOMAINLENS_SECRET_KEY="$(openssl rand -hex 32)"
+          nohup python app.py > "$RUNNER_TEMP/app.log" 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5055/health >/dev/null && exit 0
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/app.log"
+          exit 1
+
+      - name: Browser smoke test
+        env:
+          DOMAINLENS_E2E_URL: http://127.0.0.1:5055
+        run: python -m pytest -q tests/e2e
+
+      - name: Server log
+        if: failure()
+        run: cat "$RUNNER_TEMP/app.log"
+
+  # The bug-finding rules in ruff.toml, not style. Pinned so a new ruff
+  # release cannot fail a pull request that changed nothing.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Lint
+        run: |
+          python -m pip install ruff==0.17.5
+          ruff check --output-format=github .
 
   supply-chain:
     runs-on: ubuntu-latest
@@ -70,8 +141,8 @@ jobs:
           diff <(grep -E '^[A-Za-z0-9_.-]+==' requirements.txt) <(grep -E '^[A-Za-z0-9_.-]+==' /tmp/requirements.lock) \
             || { echo "requirements.txt is not what requirements.in compiles to; regenerate it (see requirements.in)."; exit 1; }
 
-      # The container image rather than a pinned action version: the image
-      # tag is the scanner release, with nothing in between to go stale.
+      # The container image rather than an action: the image is the scanner
+      # release itself, pinned by digest, with nothing in between.
       # tests/ is skipped because the secret-detection tests carry fake keys
       # on purpose.
       # The repository scan below sees requirements.txt, not what the image
@@ -81,13 +152,19 @@ jobs:
       - name: Build the image
         run: docker build -t domainlens:ci .
 
+      # The scanner release and digest come from .github/scanners/Dockerfile,
+      # where Dependabot keeps them current.
+      - name: Which scanner
+        id: scanner
+        run: echo "trivy=$(sed -n 's/^FROM //p' .github/scanners/Dockerfile)" >> "$GITHUB_OUTPUT"
+
       - name: Scan the image for vulnerable packages
         run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ${{ steps.scanner.outputs.trivy }} image \
             --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 domainlens:ci
 
       - name: Scan the repository for vulnerable packages and committed secrets
         run: |
-          docker run --rm -v "$PWD:/src:ro" aquasec/trivy:latest fs \
+          docker run --rm -v "$PWD:/src:ro" ${{ steps.scanner.outputs.trivy }} fs \
             --scanners vuln,secret --severity HIGH,CRITICAL \
             --ignore-unfixed --exit-code 1 --skip-dirs /src/tests /src

@@ -89,7 +89,7 @@ def _validate(name, rtype, resolver):
     try:
         dns.name.from_text(name)
     except dns.exception.DNSException:
-        raise LookupError_(f"{name!r} is not a valid DNS name")
+        raise LookupError_(f"{name!r} is not a valid DNS name") from None
 
     rtype = (rtype or "A").strip().upper()
     if rtype not in RECORD_TYPES:

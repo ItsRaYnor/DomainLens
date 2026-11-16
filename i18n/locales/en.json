@@ -199,7 +199,7 @@
       "rate_limit_requests": "Rate limit (requests per window)",
       "rate_limit_window": "Rate limit window (seconds)",
       "thread_pool_workers": "Scan thread pool size",
-      "dkim_selectors": "DKIM selectors (one per line)",
+      "dkim_selectors": "Extra DKIM selectors, checked in addition to the built-in list (one per line)",
       "ports": "Port map (JSON: port → service name)",
       "security_headers": "Security headers to check",
       "monitor_import_types": "DNS record types for monitor import",

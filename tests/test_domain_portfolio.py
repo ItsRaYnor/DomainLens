@@ -11,7 +11,7 @@ gap in the data.
 
 import pathlib
 import unittest
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 import domain_portfolio

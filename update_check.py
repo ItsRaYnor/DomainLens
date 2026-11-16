@@ -134,11 +134,11 @@ def docker_update_commands(cfg: dict[str, Any] | None = None) -> list[str]:
     image = cfg.get("docker_image") or "domainlens"
     compose = cfg.get("compose_file") or "docker-compose.yml"
     return [
-        f"# Preferred: rebuild from Git (preserves /data volume)",
-        f"git pull origin main",
+        "# Preferred: rebuild from Git (preserves /data volume)",
+        "git pull origin main",
         f"docker compose -f {compose} build --pull",
         f"docker compose -f {compose} up -d",
-        f"# Or run: ./scripts/docker-update.sh",
+        "# Or run: ./scripts/docker-update.sh",
         f"# Image label reference: {image}:latest",
     ]
 

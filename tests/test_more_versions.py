@@ -15,7 +15,7 @@ from unittest import mock
 
 import cve_feed
 import software_advisories as sa
-from test_cve_feed import NOW, PHP, _all_synced, _clear, _cve, _enabled, _load_php, _match, _page
+from test_cve_feed import NOW, _all_synced, _clear, _cve, _enabled, _load_php, _match, _page
 
 _tempdir = None
 OPENSSL = next((p for p in cve_feed.PRODUCTS if p["key"] == "openssl"), None)

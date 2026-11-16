@@ -92,7 +92,7 @@ def check_terms(reason, expires_on):
     try:
         expiry = date.fromisoformat(str(expires_on))
     except ValueError:
-        raise ValueError("Expiry must be a date (YYYY-MM-DD)")
+        raise ValueError("Expiry must be a date (YYYY-MM-DD)") from None
     if expiry < _today():
         raise ValueError("Expiry is in the past")
     if expiry > _today() + timedelta(days=MAX_DAYS):

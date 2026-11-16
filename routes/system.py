@@ -106,6 +106,9 @@ def register(app, *, db, auth, servicenow, domainlens_config, scheduler_config_f
                     "due": stats.get("due_monitors", 0),
                 },
                 "servicenow": servicenow.config()["enabled"],
+                # Which schema the database file carries, next to the version
+                # of the code: the two to compare after restoring a backup.
+                "schema": {"database": db.schema_version(), "code": db.SCHEMA_VERSION},
                 "auth": {
                     "enabled": cfg["enabled"],
                     "configured": cfg["configured"],

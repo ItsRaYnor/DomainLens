@@ -11,7 +11,6 @@ that failed half-way left the old rows deleted and the new ones missing.
 
 import os
 import tempfile
-import threading
 import time
 import unittest
 from unittest import mock

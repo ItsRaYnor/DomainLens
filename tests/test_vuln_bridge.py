@@ -1,11 +1,9 @@
-import io
 import os
 import tempfile
 import unittest
 from unittest import mock
 
 import insightvm
-import rapid7_import
 import servicenow_cmdb
 import vuln_bridge
 

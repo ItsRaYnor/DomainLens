@@ -7,7 +7,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from settings.defaults import DEFAULTS
 from settings.store import SettingsStore, get_store
 
 _ROOT = Path(__file__).resolve().parent

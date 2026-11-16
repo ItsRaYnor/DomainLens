@@ -14,7 +14,7 @@ from __future__ import annotations
 import csv
 import io
 import re
-from typing import BinaryIO, Iterable
+from typing import Iterable
 
 # Normalized field → accepted header aliases (lowercase, stripped of punctuation)
 _COLUMN_ALIASES: dict[str, tuple[str, ...]] = {

@@ -40,7 +40,7 @@ def _site(pages):
         data = (body or "").encode()
         resp.iter_content = lambda chunk_size=65536: [data]
         return resp
-    return mock.patch("js_scan.requests.get", side_effect=get)
+    return mock.patch("js_scan.net_guard.get", side_effect=get)
 
 
 def _scan(pages):

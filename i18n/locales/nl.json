@@ -199,7 +199,7 @@
       "rate_limit_requests": "Rate limit (verzoeken per venster)",
       "rate_limit_window": "Rate limit venster (seconden)",
       "thread_pool_workers": "Thread pool grootte",
-      "dkim_selectors": "DKIM-selectors (één per regel)",
+      "dkim_selectors": "Extra DKIM-selectors, gecontroleerd naast de ingebouwde lijst (één per regel)",
       "ports": "Poortkaart (JSON: poort → servicenaam)",
       "security_headers": "Te controleren security headers",
       "monitor_import_types": "DNS-recordtypes voor monitor-import",

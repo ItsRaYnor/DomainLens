@@ -16,27 +16,18 @@ Safety design (mirrors weak_auth.py):
     lowest-side-effect error-based check), no destructive payloads.
 """
 
-import concurrent.futures
-import ipaddress
 import re
 import secrets
-import socket
 import time
 from urllib.parse import urljoin, urlparse, parse_qsl, urlencode, urlunparse
 
-import requests
+
+import net_guard
 
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 DomainLens-ActiveScan"
 )
-
-_PRIVATE_NETS = [
-    ipaddress.ip_network(n) for n in (
-        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8",
-        "169.254.0.0/16", "::1/128", "fc00::/7", "fe80::/10",
-    )
-]
 
 # Parameter names commonly used for client-controlled redirects — tested even
 # if not observed on a discovered link, since they're frequently only present
@@ -65,24 +56,15 @@ _SQL_ERROR_SIGNATURES = [
 ]
 
 
-def _is_private_ip(ip_str):
-    try:
-        addr = ipaddress.ip_address(ip_str)
-        return any(addr in net for net in _PRIVATE_NETS)
-    except ValueError:
-        return True
-
-
-def _safe_host(host):
-    try:
-        ip = socket.gethostbyname(host)
-        return not _is_private_ip(ip)
-    except Exception:
-        return False
+# One definition of "not public" for every module (net_guard.py).
+_is_private_ip = net_guard.is_blocked
+_safe_host = net_guard.safe_host
 
 
 def _get(url, timeout, allow_redirects=False, params=None):
-    return requests.get(
+    # Probes follow whatever the target answers; the connection itself is
+    # refused if it lands on an internal address (net_guard).
+    return net_guard.get(
         url, timeout=timeout, allow_redirects=allow_redirects,
         params=params, headers={"User-Agent": _UA, "Accept": "*/*"},
     )

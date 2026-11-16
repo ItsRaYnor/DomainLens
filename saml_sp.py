@@ -20,7 +20,7 @@ import time
 import zlib
 from datetime import datetime, timezone
 from typing import Optional
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 # defusedxml hardens XML parsing against XXE / billion-laughs. Fall back to the
 # stdlib parser only if defusedxml is unavailable (parsing still works, but the
@@ -298,7 +298,7 @@ def parse_saml_response(saml_response_b64: str, cfg: Optional[dict] = None) -> d
                 x509_cert=_normalize_cert(idp_cert),
             )
         except Exception as exc:
-            raise SamlValidationError(f"SAML signature verification failed: {exc}")
+            raise SamlValidationError(f"SAML signature verification failed: {exc}") from exc
         # Identity is taken only from the verified (signed) element.
         signed = verified.signed_xml
         root = ET.fromstring(ET.tostring(signed)) if signed is not None else _xml_fromstring(xml)

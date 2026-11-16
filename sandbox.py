@@ -43,7 +43,7 @@ def _run(op, files, timeout=TIMEOUT):
                               capture_output=True, timeout=timeout, env=_env(),
                               cwd=os.path.dirname(_WORKER))
     except subprocess.TimeoutExpired:
-        raise SandboxError(f"The scan was stopped after {timeout} seconds.")
+        raise SandboxError(f"The scan was stopped after {timeout} seconds.") from None
     if done.returncode != 0:
         said = done.stderr.decode("utf-8", "replace")
         if "MemoryError" in said:
@@ -54,7 +54,7 @@ def _run(op, files, timeout=TIMEOUT):
     try:
         return json.loads(done.stdout)
     except ValueError:
-        raise SandboxError("The scan gave no readable answer.")
+        raise SandboxError("The scan gave no readable answer.") from None
 
 
 def scan_files(files, timeout=TIMEOUT):
@@ -76,7 +76,7 @@ def convert_msg(data, timeout=TIMEOUT):
     try:
         answer = _run("msg", [("message.msg", data)], timeout)
     except SandboxError as exc:
-        raise ValueError(str(exc))
+        raise ValueError(str(exc)) from exc
     if not answer.get("ok"):
         raise ValueError(answer.get("error") or "This is not a readable Outlook message file")
     return base64.b64decode(answer["message"]), answer["info"]

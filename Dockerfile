@@ -50,6 +50,7 @@ COPY . .
 
 RUN mkdir -p /data \
     && useradd --create-home --uid 1000 --shell /usr/sbin/nologin domainlens \
+    && sed -i 's/\r$//' /app/docker-entrypoint.sh /app/scripts/docker-update.sh \
     && chown -R domainlens:domainlens /app /data \
     && chmod +x /app/docker-entrypoint.sh /app/scripts/docker-update.sh
 

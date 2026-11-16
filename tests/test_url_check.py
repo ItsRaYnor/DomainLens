@@ -8,6 +8,7 @@ hash, the age of their domain and the reputation of their address. Nothing
 fetches the link: one request can tell a phisher the link was seen.
 """
 
+from routes import mail_tools as mail_tools_routes
 import pathlib
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -144,7 +145,7 @@ class PageTests(EnterpriseAppTestCase):
         html = self.client.get("/tools/mail").get_data(as_text=True)
         self.assertIn('data-mt-tab="links"', html)
         self.assertIn('id="linkCheckInput"', html)
-        with mock.patch.object(self.app_module, "_LinkLookups", return_value=FakeLookups()):
+        with mock.patch.object(mail_tools_routes, "_LinkLookups", return_value=FakeLookups()):
             data = self.client.post("/api/linkcheck", json={"text": "https://examp1e.com/"}).get_json()
         self.assertEqual("examp1e.com", data["links"][0]["host"])
 

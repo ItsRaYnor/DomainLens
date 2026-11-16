@@ -864,9 +864,9 @@ def _headers(results):
         out.append(_r(
             SEVERITY_LOW, "Web",
             f"Permissions-Policy grants {listed} to any embedded site",
-            f"These features are set to `*`, so any third-party iframe on the page can use "
-            f"them. That is more permissive than the browser default, which limits them to "
-            f"your own origin.",
+            "These features are set to `*`, so any third-party iframe on the page can use "
+            "them. That is more permissive than the browser default, which limits them to "
+            "your own origin.",
             "Replace `*` with `(self)` for features your own pages use, and `()` for the "
             "rest. `*` is only appropriate when you deliberately delegate a capability to an "
             "embedded partner.",

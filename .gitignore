@@ -59,3 +59,7 @@ config/domainlens.json
 
 # Local Claude Code settings (preview launch config)
 .claude/
+
+# Test coverage data (pytest --cov)
+.coverage
+coverage.xml
