@@ -504,6 +504,8 @@ function jobScanId(job) {
     return payload.scan_id || (payload.results && payload.results.scan_id) || null;
 }
 
+const SCAN_GONE_MESSAGE = 'This scan is no longer available. Start it again.';
+
 async function followJob(jobId, options) {
     const opts = options || {};
     return new Promise(resolve => {
@@ -512,9 +514,13 @@ async function followJob(jobId, options) {
             try {
                 const resp = await fetch('/api/scan/status/' + encodeURIComponent(jobId));
                 if (resp.status === 404) {
+                    // The server no longer knows this scan (finished more than
+                    // a day ago, or lost). Say so: the spinner used to vanish
+                    // without a word, as if the scan had quietly succeeded.
                     forgetJob();
                     hideScanning();
                     if (opts.onProgress) opts.onProgress(null);
+                    if ($('errorToast')) showError(SCAN_GONE_MESSAGE);
                     return resolve();
                 }
                 job = await resp.json();
@@ -831,7 +837,7 @@ function renderScoreOverview(data) {
         // and a green tile above an orange finding contradicted it.
         { label: 'Fwd Secrecy', src: 'tls_deep', at: 'tlsCipherCard',
           pass: fsShare(data.tls_deep) === 'all', warn: fsShare(data.tls_deep) === 'some' },
-        { label: 'Headers', src: 'http_headers', pass: data.http_headers?.score >= 50, warn: data.http_headers?.blocked || (data.http_headers?.score >= 25 && data.http_headers?.score < 50) },
+        { label: 'Headers', src: 'http_headers', pass: data.http_headers?.score >= 50, warn: (data.http_headers && !data.http_headers.success) || data.http_headers?.blocked || (data.http_headers?.score >= 25 && data.http_headers?.score < 50) },
         { label: 'IPv6 Web', src: 'ipv6', pass: data.ipv6?.web_pass },
         fromOverview('IPv6 Mail', 'ipv6_mail', { pass: data.ipv6?.mail_pass }),
         fromOverview('Blacklist', 'blacklist', { pass: data.blacklist && !data.blacklist?.is_listed }),
@@ -1842,7 +1848,8 @@ function renderHttpsRedirect(data) {
 function renderHeaders(data) {
     const el = $('headersContent');
     if (!data || !data.success) {
-        el.innerHTML = `<p class="status status-fail">${escapeHtml(data?.error || 'Headers check failed')}</p>`;
+        // Not measured, not a defect of the site: amber, not red.
+        el.innerHTML = `<p class="status status-warn">${escapeHtml(data?.error || 'Headers check failed')}</p>`;
         return;
     }
 
@@ -2130,7 +2137,8 @@ function generateRecommendations(data) {
         }
     }
 
-    if (data.https_redirect && !data.https_redirect.pass) {
+    // Only a measured "no": an unverified redirect (pass null) is not a defect.
+    if (data.https_redirect && data.https_redirect.pass === false) {
         add('high', 'Web', 'HTTP does not redirect to HTTPS',
             'Plain HTTP exposes users to MITM.',
             'Force a 301 redirect from HTTP to HTTPS.');

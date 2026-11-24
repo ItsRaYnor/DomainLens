@@ -22,6 +22,7 @@ TLS = "tls"
 CONNECT = "connect"
 HTTP = "http"
 RATE_LIMIT = "rate_limit"
+NOT_PUBLIC = "not_public"
 OTHER = "other"
 
 # Every message for a failure that may pass by itself ends with this, so a
@@ -49,6 +50,11 @@ def classify(exc, host=None):
     """(kind, message) for a failed outbound request or lookup."""
     text = str(exc).lower()
     name = _host(exc, host) or "the source"
+    if "which is not a public address" in text:
+        # net_guard refused it. Not a fault of the host, and not one that
+        # passes by trying again: said as such, not as "could not connect".
+        return NOT_PUBLIC, (f"{name} points to an address on this server's own network, which "
+                            "DomainLens does not fetch. Not measured.")
     if isinstance(exc, socket.gaierror) or any(k in text for k in _RESOLUTION):
         if any(k in text for k in _TEMPORARY):
             return DNS, f"This server could not look up {name}: its DNS did not answer. {AGAIN}"

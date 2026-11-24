@@ -13,6 +13,8 @@ from pathlib import Path
 
 import requests
 
+import net_guard
+
 _BROWSER_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -86,7 +88,7 @@ def _uses_basic_auth(response) -> bool:
 
 def _probe_url(url: str, timeout: int) -> dict | None:
     try:
-        resp = requests.get(
+        resp = net_guard.get(
             url,
             headers={"User-Agent": _BROWSER_UA, "Accept": "*/*"},
             timeout=timeout,
@@ -128,7 +130,7 @@ def _redact_finding(hit: dict) -> dict:
 
 def _try_basic(url: str, username: str, password: str, timeout: int) -> dict | None:
     try:
-        resp = requests.get(
+        resp = net_guard.get(
             url,
             auth=(username, password),
             headers={"User-Agent": _BROWSER_UA, "Accept": "*/*"},
@@ -161,7 +163,7 @@ def _detect_form_login(html: str) -> bool:
 
 def _try_form_login(url: str, username: str, password: str, timeout: int) -> dict | None:
     try:
-        session = requests.Session()
+        session = net_guard.session()
         session.headers.update({"User-Agent": _BROWSER_UA})
         resp = session.get(url, timeout=timeout, allow_redirects=True)
     except requests.RequestException:

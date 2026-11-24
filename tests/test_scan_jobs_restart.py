@@ -86,5 +86,18 @@ class ScanJobsSurviveRestartTests(unittest.TestCase):
         self.assertIsNone(scan_jobs.get("0" * 32))
 
 
+class GoneJobMessageTests(unittest.TestCase):
+    """A scan the server no longer knew made the progress bar vanish without
+    a word, which reads as a scan that quietly finished."""
+
+    def test_the_page_says_the_scan_is_gone(self):
+        import pathlib
+        js = (pathlib.Path(__file__).resolve().parent.parent / "static" / "js" / "app.js").read_text(encoding="utf-8")
+        follow = js[js.index("async function followJob"):]
+        gone = follow[follow.index("resp.status === 404"):follow.index("job = await resp.json()")]
+        self.assertIn("showError(SCAN_GONE_MESSAGE)", gone)
+        self.assertIn("This scan is no longer available", js)
+
+
 if __name__ == "__main__":
     unittest.main()

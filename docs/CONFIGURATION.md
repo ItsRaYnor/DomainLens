@@ -81,6 +81,7 @@ After repeated scan failures, a monitor is **backed off** for `failure_backoff_m
 | `rate_limit.requests` | `10` | `DOMAINLENS_RATE_LIMIT` |
 | `rate_limit.window_seconds` | `60` | `DOMAINLENS_RATE_WINDOW` |
 | `thread_pool_workers` | `14` | — |
+| — | `false` | `DOMAINLENS_ALLOW_PRIVATE_TARGETS` — `true` lets scans fetch from and probe addresses on the server's own network (10/8, 192.168/16, 127/8, …). Off, a host that resolves there is reported as not measured |
 
 ### `reporting`
 

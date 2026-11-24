@@ -108,6 +108,73 @@ class ConnectTimeTests(unittest.TestCase):
             active_scan._get(f"http://127.0.0.1:{self.port}/?q=<script>", timeout=5)
         self.assertEqual(_Handler.hits, [])
 
+    def test_the_http_checks_in_app_do_not_fetch_an_internal_address(self):
+        # The header, redirect and MTA-STS checks and the infrastructure
+        # check still used plain requests after 0.1.22.
+        os.environ["DOMAINLENS_DISABLE_SCHEDULER"] = "1"
+        import app
+        with self._refused():
+            app._http_request(f"http://127.0.0.1:{self.port}/", allow_redirects=True)
+        result = app.check_http_deep(f"127.0.0.1:{self.port}")
+        self.assertFalse(result.get("success"))
+        self.assertEqual(_Handler.hits, [])
+
+    def test_the_default_credentials_test_does_not_probe_an_internal_address(self):
+        import weak_auth
+        self.assertIsNone(weak_auth._probe_url(f"http://127.0.0.1:{self.port}/", 5))
+        self.assertIsNone(weak_auth._try_basic(f"http://127.0.0.1:{self.port}/", "admin", "admin", 5))
+        self.assertEqual(_Handler.hits, [])
+
+    def test_the_version_check_does_not_fetch_an_internal_address(self):
+        import software_advisories
+        with self._refused():
+            software_advisories._fetch(f"http://127.0.0.1:{self.port}/", lambda host: True)
+        self.assertEqual(_Handler.hits, [])
+
+    def test_an_operator_who_scans_internal_hosts_can_allow_it(self):
+        with mock.patch.dict(os.environ, {"DOMAINLENS_ALLOW_PRIVATE_TARGETS": "true"}):
+            resp = net_guard.get(f"http://127.0.0.1:{self.port}/", timeout=5)
+            self.assertTrue(net_guard.safe_host("intranet.example.com", ["10.0.0.5"]))
+            self.assertTrue(net_guard.safe_host("127.0.0.1"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(net_guard.safe_host("intranet.example.com", ["10.0.0.5"]))
+
+
+class RefusalReportingTests(unittest.TestCase):
+    """A refused fetch read "Could not connect ... try again later" -- as if
+    the host were down, and as if trying again could help."""
+
+    def test_a_refusal_is_not_measured_and_says_why(self):
+        import net_errors
+        exc = requests.exceptions.ConnectionError(
+            net_guard.BlockedAddress("intranet.example.com connected to 10.0.0.5, which is not a "
+                                     "public address; the request was not sent"))
+        kind, message = net_errors.classify(exc, "intranet.example.com")
+        self.assertEqual(kind, net_errors.NOT_PUBLIC)
+        self.assertIn("own network", message)
+        self.assertIn("Not measured", message)
+        self.assertNotIn("try again", message.lower())
+
+    def test_a_refused_redirect_check_is_not_reported_as_a_missing_redirect(self):
+        os.environ["DOMAINLENS_DISABLE_SCHEDULER"] = "1"
+        import app
+        import recommendations
+        refused = requests.exceptions.ConnectionError(
+            "x connected to 10.0.0.5, which is not a public address; the request was not sent")
+        with mock.patch.object(app, "_http_request", side_effect=refused):
+            result = app.check_https_redirect("intranet.example.com")
+        self.assertIsNone(result["pass"])
+        self.assertEqual(result["state"], "not_measured")
+        titles = [r["title"] for r in recommendations._https_redirect({"https_redirect": result})]
+        self.assertNotIn("HTTP does not redirect to HTTPS", titles)
+
+    def test_the_page_does_not_raise_a_high_finding_for_an_unverified_redirect(self):
+        js = (os.path.dirname(__file__) + "/../static/js/app.js")
+        with open(js, encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("data.https_redirect.pass === false", text)
+        self.assertNotIn("data.https_redirect && !data.https_redirect.pass", text)
+
 
 if __name__ == "__main__":
     unittest.main()

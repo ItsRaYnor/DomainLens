@@ -21,11 +21,17 @@ Two layers, because each alone has a hole:
 
 Through a configured HTTP(S) proxy the peer is the proxy, so only the first
 layer applies there.
+
+An installation that scans its own internal names on purpose sets
+DOMAINLENS_ALLOW_PRIVATE_TARGETS=true: both layers then let internal
+addresses through. `is_public` itself never changes -- it also tells a report
+whether a host is public at all.
 """
 
 from __future__ import annotations
 
 import ipaddress
+import os
 import socket
 
 import requests
@@ -62,6 +68,12 @@ def is_blocked(ip) -> bool:
     return not is_public(ip)
 
 
+def private_targets_allowed() -> bool:
+    """True when the operator chose to let scans reach internal addresses."""
+    raw = os.environ.get("DOMAINLENS_ALLOW_PRIVATE_TARGETS", "")
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def addresses(host: str) -> list[str]:
     """Every address the system resolver gives for host, IPv4 and IPv6."""
     try:
@@ -83,12 +95,24 @@ def safe_host(host: str, ips=None) -> bool:
     address among public ones is a way in. `ips` lets a caller pass what its
     own resolver found instead of asking the system resolver.
     """
+    if private_targets_allowed():
+        if ips is None:
+            ips = [host] if _is_literal(host) else addresses(host)
+        return bool(list(ips or []))
     if ips is None:
         if is_public(host):
             return True
         ips = addresses(host)
     ips = list(ips or [])
     return bool(ips) and all(is_public(ip) for ip in ips)
+
+
+def _is_literal(host) -> bool:
+    try:
+        ipaddress.ip_address(str(host).split("%", 1)[0])
+        return True
+    except ValueError:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +124,7 @@ def _check_peer(sock, host):
         peer = sock.getpeername()[0]
     except OSError:
         peer = None
-    if peer is None or not is_public(peer):
+    if peer is None or (not is_public(peer) and not private_targets_allowed()):
         sock.close()
         raise BlockedAddress(f"{host} connected to {peer or 'an unknown address'}, "
                              "which is not a public address; the request was not sent")

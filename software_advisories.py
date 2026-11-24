@@ -680,11 +680,11 @@ def _fetch(url, safe, max_hops=5):
     `safe` (a public address), so a redirect cannot aim this server at its
     own network."""
     import urllib.parse
-    import requests
+    import net_guard
     history = []
     here = url
     for _ in range(max_hops + 1):
-        resp = requests.get(url, timeout=8, allow_redirects=False,
+        resp = net_guard.get(url, timeout=8, allow_redirects=False,
                             headers={"User-Agent": "Mozilla/5.0 (compatible; DomainLens version check)"})
         location = resp.headers.get("location")
         if resp.status_code not in (301, 302, 303, 307, 308) or not location:
@@ -701,10 +701,13 @@ def address_of(host):
     """What DNS says about a host before anything is asked of it: "public",
     "private" (an address inside a network, never asked), "none" (DNS
     answers, without an address) or "failed" (DNS gave no answer)."""
+    import net_guard
     from security_checks import _is_private_ip, _resolve
     ips = _resolve(host, "A")
     if ips:
-        return "private" if _is_private_ip(ips[0]) else "public"
+        if _is_private_ip(ips[0]) and not net_guard.private_targets_allowed():
+            return "private"
+        return "public"
     return "none" if getattr(ips, "state", "measured") == "measured" else "failed"
 
 

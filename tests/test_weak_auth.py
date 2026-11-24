@@ -35,7 +35,7 @@ class WeakAuthTests(unittest.TestCase):
                     return success
             return challenge
 
-        with mock.patch("weak_auth.requests.get", side_effect=fake_get):
+        with mock.patch("weak_auth.net_guard.get", side_effect=fake_get):
             result = weak_auth.scan(
                 "example.com",
                 {
@@ -57,7 +57,7 @@ class WeakAuthTests(unittest.TestCase):
         ok = mock.Mock()
         ok.status_code = 200
         ok.headers = {}
-        with mock.patch("weak_auth.requests.get", return_value=ok):
+        with mock.patch("weak_auth.net_guard.get", return_value=ok):
             result = weak_auth.scan(
                 "example.com",
                 {

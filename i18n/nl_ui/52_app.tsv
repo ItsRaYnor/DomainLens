@@ -180,3 +180,7 @@ pending delete	wordt verwijderd
 redemption period	herstelperiode
 client hold	geblokkeerd door de registrar
 server hold	geblokkeerd door de registry
+This scan is no longer available. Start it again.	Deze scan is niet meer beschikbaar. Start hem opnieuw.
+Too many sign-in attempts from this address. Try again in a few minutes.	Te veel aanmeldpogingen vanaf dit adres. Probeer het over een paar minuten opnieuw.
+The upload is larger than {n} MB.	Het bestand is groter dan {n} MB.
+{} points to an address on this server's own network, which DomainLens does not fetch. Not measured.	{} wijst naar een adres in het eigen netwerk van deze server; DomainLens haalt dat niet op. Niet gemeten.

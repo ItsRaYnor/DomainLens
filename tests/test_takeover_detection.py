@@ -13,10 +13,12 @@ import security_checks as s
 # have stored for example.com, and the mocked response is never consulted --
 # which is how a passing suite started reporting 2 subdomains instead of 10.
 _tempdir = None
+_previous_db = None
 
 
 def setUpModule():
-    global _tempdir
+    global _tempdir, _previous_db
+    _previous_db = os.environ.get("DOMAINLENS_DB")
     _tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     os.environ["DOMAINLENS_DB"] = os.path.join(_tempdir.name, "takeover.db")
     import db
@@ -24,8 +26,29 @@ def setUpModule():
 
 
 def tearDownModule():
-    os.environ.pop("DOMAINLENS_DB", None)
+    # Put back what was there. Popping it sent every later module that relied
+    # on a DOMAINLENS_DB set for the whole run to the default path, which is
+    # not writable outside the container -- failures that depended on order.
+    if _previous_db is None:
+        os.environ.pop("DOMAINLENS_DB", None)
+    else:
+        os.environ["DOMAINLENS_DB"] = _previous_db
     _tempdir.cleanup()
+
+
+class ModuleIsolationTests(unittest.TestCase):
+    def test_the_database_setting_of_the_run_survives_this_module(self):
+        global _tempdir, _previous_db
+        saved = (_tempdir, _previous_db, os.environ.get("DOMAINLENS_DB"))
+        try:
+            os.environ["DOMAINLENS_DB"] = os.path.join(saved[0].name, "whole-run.db")
+            setUpModule()
+            tearDownModule()
+            self.assertEqual(os.environ.get("DOMAINLENS_DB"),
+                             os.path.join(saved[0].name, "whole-run.db"))
+        finally:
+            _tempdir, _previous_db = saved[0], saved[1]
+            os.environ["DOMAINLENS_DB"] = saved[2]
 
 
 class NxdomainDistinctionTests(unittest.TestCase):

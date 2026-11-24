@@ -83,19 +83,19 @@ class FleetTests(unittest.TestCase):
         """The server asks on someone's behalf; a redirect to 127.0.0.1 or
         a private address would aim it at its own network."""
         first = mock.Mock(status_code=302, headers={"location": "http://127.0.0.1/admin", "X-Powered-By": "PHP/8.2.7"})
-        with mock.patch("requests.get", return_value=first) as get:
+        with mock.patch("net_guard.get", return_value=first) as get:
             result = sa.check_host("example.org", safe=lambda host: host not in ("127.0.0.1",), rules=ONLY_BUILTIN)
         self.assertEqual(1, get.call_count)
         self.assertEqual("vulnerable", result["advisories"][0]["verdict"])
 
     def test_no_answer_is_unmeasured(self):
-        with mock.patch("requests.get", side_effect=OSError("down")):
+        with mock.patch("net_guard.get", side_effect=OSError("down")):
             result = sa.check_host("example.org", safe=lambda host: True, rules=ONLY_BUILTIN)
         self.assertEqual("unmeasured", result["state"])
 
     def test_only_www_with_an_address_is_still_checked(self):
         answer = mock.Mock(status_code=200, headers={"X-Powered-By": "PHP/8.2.7"})
-        with mock.patch("requests.get", return_value=answer) as get:
+        with mock.patch("net_guard.get", return_value=answer) as get:
             result = sa.check_host("example.org", rules=ONLY_BUILTIN,
                                    address=lambda host: "public" if host.startswith("www.") else "none")
         self.assertEqual(["https://www.example.org/"], [c[0][0] for c in get.call_args_list])
@@ -104,7 +104,7 @@ class FleetTests(unittest.TestCase):
     def test_a_failed_dns_lookup_is_unmeasured_not_no_website(self):
         """DNS that gives no answer says nothing about the site; reading it
         as "no website" would present a failed lookup as a fact."""
-        with mock.patch("requests.get") as get:
+        with mock.patch("net_guard.get") as get:
             result = sa.check_host("example.org", rules=ONLY_BUILTIN, address=lambda host: "failed")
         get.assert_not_called()
         self.assertEqual("unmeasured", result["state"])
@@ -114,7 +114,7 @@ class FleetTests(unittest.TestCase):
         """A result without the way to it could not be checked by hand: was
         https tried, did www. have an address, which hop said what."""
         answer = mock.Mock(status_code=200, headers={"Server": "nginx"})
-        with mock.patch("requests.get", side_effect=[OSError("refused"), answer]):
+        with mock.patch("net_guard.get", side_effect=[OSError("refused"), answer]):
             result = sa.check_host("example.org", rules=ONLY_BUILTIN, address=lambda host: "public")
         self.assertEqual([{"url": "https://example.org/", "error": "OSError"},
                           {"url": "http://example.org/", "error": None}], result["attempts"])
@@ -127,7 +127,7 @@ class FleetTests(unittest.TestCase):
 
     def test_only_the_home_page_is_asked_for(self):
         resp = mock.Mock(status_code=200, headers={"X-Powered-By": "PHP/8.5.12"})
-        with mock.patch("requests.get", return_value=resp) as get:
+        with mock.patch("net_guard.get", return_value=resp) as get:
             sa.check_host("example.org", safe=lambda host: True, rules=ONLY_BUILTIN)
         self.assertEqual("https://example.org/", get.call_args[0][0])
         self.assertFalse(get.call_args[1]["allow_redirects"])
@@ -158,7 +158,7 @@ class RedirectTests(unittest.TestCase):
     on another server says nothing about this one, in either direction."""
 
     def _check(self, answers):
-        with mock.patch("requests.get", side_effect=answers) as get:
+        with mock.patch("net_guard.get", side_effect=answers) as get:
             result = sa.check_host("example.org", safe=lambda host: True, rules=ONLY_BUILTIN)
         return result, [c[0][0] for c in get.call_args_list]
 
@@ -286,7 +286,7 @@ class ExportPageTests(EnterpriseAppTestCase):
     def test_a_domain_that_points_inside_is_not_asked_and_says_so(self):
         self.login_as("user")
         with mock.patch.object(security_checks, "_resolve", return_value=["10.0.0.5"]), \
-             mock.patch("requests.get") as get:
+             mock.patch("net_guard.get") as get:
             data = self.client.post("/api/advisories/check", json={"domains": ["intranet.example.org"]}).get_json()
         get.assert_not_called()
         self.assertEqual(["not_checked"], [r["state"] for r in data["results"]])
@@ -297,7 +297,7 @@ class ExportPageTests(EnterpriseAppTestCase):
         while the answer -- there is no website -- was known."""
         self.login_as("user")
         with mock.patch.object(security_checks, "_resolve", return_value=security_checks._DnsRecords()), \
-             mock.patch("requests.get") as get:
+             mock.patch("net_guard.get") as get:
             data = self.client.post("/api/advisories/check", json={"domains": ["gone.example.org"]}).get_json()
         get.assert_not_called()
         self.assertEqual([("gone.example.org", "no_address")], [(r["domain"], r["state"]) for r in data["results"]])

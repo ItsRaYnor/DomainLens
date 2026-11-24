@@ -102,6 +102,20 @@ http_tls.install()
 
 app = Flask(__name__)
 
+# The largest upload any form takes is a 50 MB InsightVM export. Without a cap
+# a request body of any size was accepted and spooled to /tmp -- a tmpfs, so
+# memory -- before a handler could look at it.
+MAX_UPLOAD_BYTES = 60 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
+
+
+@app.errorhandler(413)
+def _request_too_large(_exc):
+    message = f"The upload is larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB."
+    if request.path.startswith("/api/"):
+        return jsonify({"error": message}), 413
+    return message, 413
+
 
 def _configure_trusted_proxies(flask_app):
     """Honour X-Forwarded-* only when explicitly told a proxy sits in front.
@@ -1751,13 +1765,16 @@ def _http_request(url, *, allow_redirects=False, method="GET", timeout=10):
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9,nl;q=0.8",
     }
-    return requests.request(
-        method,
-        url,
-        headers=headers,
-        timeout=timeout,
-        allow_redirects=allow_redirects,
-    )
+    # Through net_guard: a scanned site's redirect, or its own name, must
+    # not aim this server at the network it runs in.
+    with net_guard.session() as s:
+        return s.request(
+            method,
+            url,
+            headers=headers,
+            timeout=timeout,
+            allow_redirects=allow_redirects,
+        )
 
 
 # Common Benelux / edge allowlists for geo-restricted sites (configurable).
@@ -2299,6 +2316,7 @@ def check_http_headers(domain):
     }
     try:
         resp = None
+        failure = None
         for method in ("GET", "HEAD"):
             try:
                 resp = _http_request(
@@ -2307,10 +2325,13 @@ def check_http_headers(domain):
                     method=method,
                 )
                 break
-            except Exception:
+            except Exception as exc:
+                failure = exc
                 continue
         if resp is None:
-            raise RuntimeError("HTTPS request failed")
+            # The reason, not a bare "failed": a host on an internal address
+            # is refused on purpose and must read as not measured.
+            raise failure or RuntimeError("HTTPS request failed")
 
         blocked, reason, country = _response_access_blocked(resp)
         results["status_code"] = resp.status_code
@@ -2685,7 +2706,7 @@ def check_http_deep(domain):
     for scheme in ("https", "http"):
         url = f"{scheme}://{domain}"
         try:
-            resp = requests.get(
+            resp = net_guard.get(
                 url,
                 timeout=10,
                 allow_redirects=True,
@@ -2817,6 +2838,12 @@ def check_https_redirect(domain):
             "blocked": False,
         }
     except Exception as exc:
+        import net_errors
+        if net_errors.classify(exc)[0] == net_errors.NOT_PUBLIC:
+            # Refused before asking: nothing is known about the redirect.
+            reason = _safe_error(exc)
+            return {"redirects": None, "pass": None, "state": "not_measured",
+                    "error": reason, "note": reason}
         return {"redirects": False, "pass": False, "error": _safe_error(exc)}
 
 
@@ -4161,14 +4188,39 @@ def _set_security_headers(response):
 # ---------------------------------------------------------------------------
 
 _rate_store = {}
+_rate_windows = {}
+_rate_lock = threading.Lock()
+_rate_pruned_at = [0.0]
+_RATE_PRUNE_EVERY = 60
+
+# Sign-in attempts per client address. The account lockout alone let one
+# address try a common password against every account (each stays under its
+# own lockout), and lock any account out by failing on purpose without limit.
+_LOGIN_RATE = {"requests": 20, "window_seconds": 300}
+_LOGIN_RATE_MESSAGE = "Too many sign-in attempts from this address. Try again in a few minutes."
 
 
 def _rate_limit_settings(bucket="scan"):
+    if bucket == "login":
+        return _LOGIN_RATE
     scan_settings = domainlens_config.load_settings().scan()
     if bucket == "dns_lookup":
         return scan_settings.get("dns_lookup_rate_limit") or {
             "requests": 60, "window_seconds": 60}
     return scan_settings["rate_limit"]
+
+
+def _prune_rate_store(now):
+    """Forget clients whose every request has left its window.
+
+    Keys were never removed, so each address that ever made a request stayed
+    in memory for the life of the process.
+    """
+    for key in list(_rate_store):
+        window = _rate_windows.get(key[0], 3600)
+        if not any(now - t < window for t in _rate_store[key]):
+            del _rate_store[key]
+    _rate_pruned_at[0] = now
 
 
 def _check_rate_limit(ip, bucket="scan"):
@@ -4185,13 +4237,17 @@ def _check_rate_limit(ip, bucket="scan"):
     maximum = int(limits.get("requests", 10))
     now = datetime.now(timezone.utc).timestamp()
     key = (bucket, ip)
-    if key not in _rate_store:
-        _rate_store[key] = []
-    _rate_store[key] = [t for t in _rate_store[key] if now - t < window]
-    if len(_rate_store[key]) >= maximum:
-        return False
-    _rate_store[key].append(now)
-    return True
+    with _rate_lock:
+        _rate_windows[bucket] = window
+        if now - _rate_pruned_at[0] >= _RATE_PRUNE_EVERY:
+            _prune_rate_store(now)
+        recent = [t for t in _rate_store.get(key, ()) if now - t < window]
+        if len(recent) >= maximum:
+            _rate_store[key] = recent
+            return False
+        recent.append(now)
+        _rate_store[key] = recent
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -5261,7 +5317,7 @@ def remediate_index():
 @app.route("/login")
 def login_page():
     cfg = auth.config()
-    next_url = request.args.get("next") or "/"
+    next_url = auth.safe_next(request.args.get("next"))
     if auth.current_user():
         return redirect(next_url)
     if auth.mfa_pending_user_id():
@@ -5291,7 +5347,7 @@ def auth_login_start():
 
     state = __import__("secrets").token_urlsafe(24)
     session["oauth_state"] = state
-    session["oauth_next"] = request.args.get("next") or "/"
+    session["oauth_next"] = auth.safe_next(request.args.get("next"))
     redirect_uri = cfg["redirect_uri"] or url_for("auth_callback", _external=True)
     session["oauth_redirect_uri"] = redirect_uri
     return redirect(auth.build_authorize_url(state, redirect_uri))
@@ -5343,8 +5399,7 @@ def auth_callback():
             db.update_user(profile["id"], last_login_at=datetime.now(timezone.utc).isoformat())
         except Exception:
             pass
-    if not isinstance(next_url, str) or not next_url.startswith("/"):
-        next_url = "/"
+    next_url = auth.safe_next(next_url)
     return redirect(next_url)
 
 
@@ -5384,7 +5439,7 @@ def auth_saml_login():
         return redirect(url_for("login_page", error="saml_not_configured"))
     entity_id = cfg.get("entity_id") or url_for("auth_saml_metadata", _external=True)
     acs_url = cfg.get("acs_url") or url_for("auth_saml_acs", _external=True)
-    session["oauth_next"] = request.args.get("next") or "/"
+    session["oauth_next"] = auth.safe_next(request.args.get("next"))
     target = saml_sp.build_authn_request(
         entity_id=entity_id,
         acs_url=acs_url,
@@ -5428,18 +5483,21 @@ def auth_saml_acs():
             db.update_user(profile["id"], last_login_at=datetime.now(timezone.utc).isoformat())
         except Exception:
             pass
-    if not isinstance(next_url, str) or not next_url.startswith("/"):
-        next_url = "/"
+    next_url = auth.safe_next(next_url)
     return redirect(next_url)
 
 
 @app.route("/auth/local/login", methods=["POST"])
 def auth_local_login():
     next_url = request.form.get("next") or request.args.get("next") or "/"
-    if not isinstance(next_url, str) or not next_url.startswith("/"):
-        next_url = "/"
+    next_url = auth.safe_next(next_url)
     email = request.form.get("email") or ""
     password = request.form.get("password") or ""
+    if not _check_rate_limit(request.remote_addr, "login"):
+        audit_log.record("auth.login", outcome="failure",
+                         actor={"email": (email or "").strip().lower() or None},
+                         details={"method": "local", "reason": "rate_limited"})
+        return redirect(url_for("login_page", error=_LOGIN_RATE_MESSAGE, next=next_url))
     user, error, needs_mfa = auth.attempt_local_login(email, password)
     if error:
         audit_log.record("auth.login", outcome="failure",
@@ -5462,7 +5520,7 @@ def auth_local_login():
 def auth_mfa_page():
     if not auth.mfa_pending_user_id():
         return redirect(url_for("login_page"))
-    next_url = request.args.get("next") or "/"
+    next_url = auth.safe_next(request.args.get("next"))
     return render_template(
         "mfa.html",
         next_url=next_url,
@@ -5476,8 +5534,9 @@ def auth_mfa_verify():
     if not uid:
         return redirect(url_for("login_page", error="mfa_session_expired"))
     next_url = request.form.get("next") or "/"
-    if not isinstance(next_url, str) or not next_url.startswith("/"):
-        next_url = "/"
+    next_url = auth.safe_next(next_url)
+    if not _check_rate_limit(request.remote_addr, "login"):
+        return redirect(url_for("auth_mfa_page", error=_LOGIN_RATE_MESSAGE, next=next_url))
     code = (request.form.get("code") or "").strip()
     user = db.get_user(uid, include_secrets=True)
     if not user or not user.get("enabled"):
@@ -5869,133 +5928,6 @@ def api_set_locale():
     return jsonify({"locale": loc})
 
 
-@app.route("/admin/users")
-@auth.require_admin
-def admin_users_page():
-    return render_template(
-        "admin_users.html",
-        section="admin",
-        subnav=admin_nav.subnav("/admin/users"),
-        users=db.list_users(),
-        all_tokens=api_tokens.list_all(),
-        password_policy=auth.password_policy(),
-        message=request.args.get("message"),
-        error=request.args.get("error"),
-    )
-
-
-@app.route("/admin/users", methods=["POST"])
-@auth.require_admin
-def admin_users_create():
-    email = (request.form.get("email") or "").strip().lower()
-    name = (request.form.get("name") or "").strip()
-    role = roles.normalize(request.form.get("role"))
-    password = request.form.get("password") or ""
-    if not email:
-        return redirect(url_for("admin_users_page", error="Email is required."))
-    if db.get_user_by_email(email):
-        return redirect(url_for("admin_users_page", error="A user with that email already exists."))
-    errors = auth.validate_password(password, email)
-    if errors:
-        return redirect(url_for("admin_users_page", error="; ".join(errors)))
-    db.create_user(
-        email=email,
-        password_hash=auth.hash_password(password),
-        name=name or email.split("@")[0],
-        role=role,
-        enabled=True,
-    )
-    audit_log.record("user.create", target_type="user", target_id=email, details={"role": role})
-    return redirect(url_for("admin_users_page", message="user_created"))
-
-
-@app.route("/admin/users/<int:user_id>/toggle", methods=["POST"])
-@auth.require_admin
-def admin_users_toggle(user_id):
-    me = auth.current_user()
-    if me and int(me.get("id") or 0) == user_id:
-        return redirect(url_for("admin_users_page", error="You cannot disable your own account."))
-    row = db.get_user(user_id)
-    if not row:
-        return redirect(url_for("admin_users_page", error="User not found."))
-    db.update_user(user_id, enabled=not row.get("enabled"))
-    audit_log.record("user.disable" if row.get("enabled") else "user.enable",
-                     target_type="user", target_id=row.get("email"))
-    return redirect(url_for("admin_users_page", message="user_updated"))
-
-
-@app.route("/admin/users/<int:user_id>/role", methods=["POST"])
-@auth.require_admin
-def admin_users_set_role(user_id):
-    role = roles.normalize(request.form.get("role"), default=None)
-    if role is None:
-        return redirect(url_for("admin_users_page", error="Unknown role."))
-    me = auth.current_user()
-    if me and str(me.get("id")) == str(user_id) and role != roles.ADMIN:
-        # The last step before nobody can reach this page to undo it.
-        return redirect(url_for("admin_users_page", error="You cannot remove your own admin role."))
-    row = db.get_user(user_id)
-    if not row:
-        return redirect(url_for("admin_users_page", error="User not found."))
-    db.update_user(user_id, role=role)
-    audit_log.record("user.role_change", target_type="user", target_id=row.get("email"),
-                     details={"from": row.get("role"), "to": role})
-    return redirect(url_for("admin_users_page", message="user_updated"))
-
-
-@app.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
-@auth.require_admin
-def admin_users_reset_password(user_id):
-    password = request.form.get("password") or ""
-    row = db.get_user(user_id)
-    if not row:
-        return redirect(url_for("admin_users_page", error="User not found."))
-    errors = auth.validate_password(password, row.get("email") or "")
-    if errors:
-        return redirect(url_for("admin_users_page", error="; ".join(errors)))
-    db.update_user(
-        user_id,
-        password_hash=auth.hash_password(password),
-        password_changed_at=datetime.now(timezone.utc).isoformat(),
-        failed_logins=0,
-        locked_until=None,
-    )
-    audit_log.record("user.password_reset", target_type="user", target_id=row.get("email"))
-    return redirect(url_for("admin_users_page", message="password_reset"))
-
-
-@app.route("/admin/users/<int:user_id>/reset-mfa", methods=["POST"])
-@auth.require_admin
-def admin_users_reset_mfa(user_id):
-    """Take MFA off an account whose owner lost the authenticator and the
-    backup codes, or whose secret is compromised. The account is signed out
-    everywhere; where MFA is required, it enrols again at the next sign-in."""
-    me = auth.current_user() or {}
-    row = db.get_user(user_id)
-    if not row:
-        return redirect(url_for("admin_users_page", error="User not found."))
-    if str(me.get("id")) == str(user_id):
-        return redirect(url_for("admin_users_page",
-                                error="Replace your own authenticator under Account; it asks for a code, this does not."))
-    db.update_user(user_id, mfa_enabled=False, mfa_secret=None, mfa_backup_codes=[])
-    auth.revoke_all_sessions(user_id)
-    audit_log.record("user.mfa_reset", target_type="user", target_id=row.get("email"))
-    return redirect(url_for("admin_users_page", message="mfa_reset"))
-
-
-@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
-@auth.require_admin
-def admin_users_delete(user_id):
-    me = auth.current_user()
-    if me and int(me.get("id") or 0) == user_id:
-        return redirect(url_for("admin_users_page", error="You cannot delete your own account."))
-    row = db.get_user(user_id)
-    db.delete_user(user_id)
-    if row:
-        audit_log.record("user.delete", target_type="user", target_id=row.get("email"))
-    return redirect(url_for("admin_users_page", message="user_deleted"))
-
-
 @app.route("/api/auth/me")
 def api_auth_me():
     return jsonify(auth.status_payload())
@@ -6045,12 +5977,6 @@ def api_preferences_appearance():
             secure=request.is_secure,
         )
     return response
-
-
-@app.route("/api/admin/users")
-@auth.require_admin
-def api_admin_users():
-    return jsonify({"users": db.list_users()})
 
 
 @app.route("/trends")
@@ -6298,7 +6224,7 @@ def api_vuln_imports_create():
     if not upload or not upload.filename:
         return jsonify({"error": "Missing file field (file or export)"}), 400
 
-    data = upload.read()
+    data = upload.read(50 * 1024 * 1024 + 1)
     if not data:
         return jsonify({"error": "Empty file"}), 400
     if len(data) > 50 * 1024 * 1024:

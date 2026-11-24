@@ -18,7 +18,8 @@ from typing import Optional
 from urllib.parse import quote, urlencode
 
 import requests
-from flask import Flask, jsonify, redirect, request, session, url_for
+from flask import Flask, has_request_context, jsonify, redirect, request, session, url_for
+from flask.sessions import SecureCookieSessionInterface
 
 import db
 import roles
@@ -354,8 +355,47 @@ def config() -> dict:
     }
 
 
+def safe_next(value, default: str = "/") -> str:
+    """A path on this site to go to after signing in, or `default`.
+
+    `next` arrives in a link anyone can craft. Only a local path is kept:
+    "https://evil.example/" and "//evil.example/" (which a browser reads as
+    another host) are refused, as are a backslash ("/\\evil.example" is the
+    same thing to most browsers) and control characters (a browser drops a
+    tab or newline, turning "/\\t/evil.example" into "//evil.example").
+    """
+    if not isinstance(value, str) or not value.startswith("/"):
+        return default
+    if value.startswith("//") or "\\" in value:
+        return default
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+        return default
+    return value
+
+
+class _SessionInterface(SecureCookieSessionInterface):
+    """Mark the session cookie Secure whenever the request came over HTTPS.
+
+    SESSION_COOKIE_SECURE defaulted to off, so an installation served over
+    HTTPS still sent a cookie a browser would hand to a plain http:// link to
+    the same host -- the session readable to anyone on the network path.
+    Behind a proxy, request.is_secure follows X-Forwarded-Proto only when
+    DOMAINLENS_TRUSTED_PROXY_HOPS is set. Plain-HTTP installations keep
+    working: their cookie is not marked, as before.
+    """
+
+    def get_cookie_secure(self, app):
+        if super().get_cookie_secure(app):
+            return True
+        try:
+            return bool(has_request_context() and request.is_secure)
+        except RuntimeError:
+            return False
+
+
 def init_app(app: Flask) -> None:
     import app_secret
+    app.session_interface = _SessionInterface()
     # A key copied from the documentation would make session cookies
     # forgeable by anyone who read it; app_secret refuses those too.
     try:
