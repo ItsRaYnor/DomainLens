@@ -33,7 +33,11 @@ WORKDIR /app
 
 # curl is used by HEALTHCHECK. No whois command: registration data comes
 # from RDAP and from the registries' port-43 servers, asked directly.
+# upgrade first: the python base image is rebuilt only now and then, so its
+# Debian packages lag the security fixes Debian has already shipped (PAM and
+# zstd held a release back that way), and the image scan rightly refuses it.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \

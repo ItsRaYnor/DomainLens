@@ -61,6 +61,12 @@ class LockTests(unittest.TestCase):
         # The scanner image is pinned in .github/scanners/Dockerfile.
         self.assertRegex(ci, r"\$\{\{ steps\.scanner\.outputs\.trivy \}\} image \\\n\s+--scanners vuln .*--exit-code 1 domainlens:ci")
 
+    def test_the_base_images_debian_packages_are_brought_up_to_date(self):
+        # The python base image lagged Debian's fixes for PAM and zstd; the
+        # image scan failed and 0.2.0 was not published until this was added.
+        docker = ROOT.joinpath("Dockerfile").read_text(encoding="utf-8")
+        self.assertRegex(docker, r"apt-get update \\\s+&& apt-get upgrade -y")
+
     def test_updates_arrive_for_packages_base_image_and_actions(self):
         dependabot = ROOT.joinpath(".github", "dependabot.yml").read_text(encoding="utf-8")
         for ecosystem in ("pip", "docker", "github-actions"):
